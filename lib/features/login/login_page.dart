@@ -10,8 +10,8 @@ class LoginPage extends ConsumerStatefulWidget {
 }
 
 class _LoginPageState extends ConsumerState<LoginPage> {
-  final _userCtrl = TextEditingController(text: 'admin');
-  final _passCtrl = TextEditingController(text: 'Cambio.2019');
+  final _userCtrl = TextEditingController();
+  final _passCtrl = TextEditingController();
   bool _loading = false;
 
   @override
@@ -31,7 +31,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error login: $e')),
+          SnackBar(content: Text(_errorMessage(e))),
         );
       }
     } finally {
@@ -53,12 +53,21 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               child: Column(mainAxisSize: MainAxisSize.min, children: [
                 const Text('IOE', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 16),
-                TextField(controller: _userCtrl, decoration: const InputDecoration(labelText: 'Usuario')),
+                TextField(
+                  controller: _userCtrl,
+                  decoration: const InputDecoration(labelText: 'Usuario'),
+                  textInputAction: TextInputAction.next,
+                ),
                 const SizedBox(height: 8),
                 TextField(
                   controller: _passCtrl,
                   obscureText: true,
                   decoration: const InputDecoration(labelText: 'Contraseña'),
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: (_) {
+                    if (_loading) return;
+                    _submit();
+                  },
                 ),
                 const SizedBox(height: 16),
                 SizedBox(
@@ -74,5 +83,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         ),
       ),
     );
+  }
+
+  String _errorMessage(Object error) {
+    final text = error.toString();
+    if (text.startsWith('Exception: ')) {
+      return text.replaceFirst('Exception: ', '');
+    }
+    return text;
   }
 }

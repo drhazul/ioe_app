@@ -11,8 +11,16 @@ class MasterDataPage extends StatelessWidget {
       body: ListView(
         children: [
           ListTile(
+            title: const Text('Accesos'),
+            onTap: () => context.go('/masterdata/access'),
+          ),
+          ListTile(
             title: const Text('Roles'),
             onTap: () => context.go('/masterdata/roles'),
+          ),
+          ListTile(
+            title: const Text('Módulos'),
+            onTap: () => context.go('/masterdata/datmodulos'),
           ),
           ListTile(
             title: const Text('Departamentos'),
@@ -21,6 +29,14 @@ class MasterDataPage extends StatelessWidget {
           ListTile(
             title: const Text('Usuarios'),
             onTap: () => context.go('/masterdata/users'),
+          ),
+          ListTile(
+            title: const Text('Sucursales'),
+            onTap: () => context.go('/masterdata/sucursales'),
+          ),
+          ListTile(
+            title: const Text('Puestos'),
+            onTap: () => context.go('/masterdata/puestos'),
           ),
         ],
       ),
