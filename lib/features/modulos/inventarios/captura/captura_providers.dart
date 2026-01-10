@@ -11,6 +11,9 @@ final conteosDisponiblesProvider = FutureProvider.autoDispose<List<ConteoDisponi
   return api.fetchConteosDisponibles();
 });
 
+final capturaCorrectionUpcProvider = StateProvider<String?>((ref) => null);
+final capturaSelectedContProvider = StateProvider<String?>((ref) => null);
+
 class CapturaListQuery {
   final String cont;
   final String almacen;

@@ -19,6 +19,7 @@ class DetalleCapturaPage extends ConsumerStatefulWidget {
 class _DetalleCapturaPageState extends ConsumerState<DetalleCapturaPage> {
   String? _selectedCont;
   String _almacenFilter = 'TODOS';
+  String _appliedUpc = '';
   int _page = 1;
   final int _limit = 50;
   bool _scannerOpen = false;
@@ -62,96 +63,104 @@ class _DetalleCapturaPageState extends ConsumerState<DetalleCapturaPage> {
         ],
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('/inventarios/captura'),
+          onPressed: () {
+            ref.read(capturaSelectedContProvider.notifier).state = _selectedCont;
+            context.go('/inventarios/captura');
+          },
         ),
       ),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          ref.invalidate(conteosDisponiblesProvider);
+      body: conteosAsync.when(
+        data: (conteos) {
+          _syncSelection(conteos);
+
           final query = _buildQuery();
-          if (query != null) {
-            ref.invalidate(capturasListProvider(query));
-            await ref.read(capturasListProvider(query).future);
-          }
-        },
-        child: conteosAsync.when(
-          data: (conteos) {
-            _syncSelection(conteos);
 
-            final query = _buildQuery();
-            final capturesSection = query == null
-                ? const Padding(
-                    padding: EdgeInsets.only(top: 32),
-                    child: Text('Selecciona un conteo para ver sus capturas.'),
-                  )
-                : _CapturasList(
-                    query: query,
-                    onPageChange: _handlePageChange,
-                  );
-
-            return ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(16),
-              children: [
-                _buildConteoDropdown(conteos),
-                const SizedBox(height: 12),
-                _buildAlmacenChips(),
-                const SizedBox(height: 12),
-                _buildFiltersRow(),
-                const SizedBox(height: 16),
-                capturesSection,
-                const SizedBox(height: 24),
-              ],
-            );
-          },
-          loading: () => ListView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            children: const [
-              SizedBox(height: 180),
-              Center(child: CircularProgressIndicator()),
-            ],
-          ),
-          error: (e, _) => ListView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(16),
+          return Column(
             children: [
-              Text('Error al cargar conteos: $e'),
-              const SizedBox(height: 12),
-              ElevatedButton.icon(
-                onPressed: () => ref.invalidate(conteosDisponiblesProvider),
-                icon: const Icon(Icons.refresh),
-                label: const Text('Reintentar'),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildConteoDropdown(conteos),
+                    const SizedBox(height: 12),
+                    _buildAlmacenChips(),
+                    const SizedBox(height: 12),
+                    _buildFiltersRow(),
+                    if (query != null) ...[
+                      const SizedBox(height: 12),
+                      _CapturasSummaryHeader(query: query),
+                    ],
+                  ],
+                ),
+              ),
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: () async {
+                    ref.invalidate(conteosDisponiblesProvider);
+                    final currentQuery = _buildQuery();
+                    if (currentQuery != null) {
+                      ref.invalidate(capturasListProvider(currentQuery));
+                      await ref.read(capturasListProvider(currentQuery).future);
+                    }
+                  },
+                  child: query == null
+                      ? ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
+                          children: const [Text('Selecciona un conteo para ver sus capturas.')],
+                        )
+                      : _CapturasList(
+                          query: query,
+                          onPageChange: _handlePageChange,
+                        ),
+                ),
               ),
             ],
-          ),
+          );
+        },
+        loading: () => ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: const [
+            SizedBox(height: 180),
+            Center(child: CircularProgressIndicator()),
+          ],
+        ),
+        error: (e, _) => ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16),
+          children: [
+            Text('Error al cargar conteos: $e'),
+            const SizedBox(height: 12),
+            ElevatedButton.icon(
+              onPressed: () => ref.invalidate(conteosDisponiblesProvider),
+              icon: const Icon(Icons.refresh),
+              label: const Text('Reintentar'),
+            ),
+          ],
         ),
       ),
     );
   }
 
   Widget _buildConteoDropdown(List<ConteoDisponible> conteos) {
-    final items = conteos
-        .map(
-          (c) => DropdownMenuItem<String>(
-            value: c.cont ?? c.tokenreg,
-            child: Text('${c.cont ?? c.tokenreg} · ${c.suc ?? '-'} · ${c.estado ?? ''}'),
-          ),
-        )
-        .toList();
+    String label = _selectedCont ?? '';
+    if (conteos.isNotEmpty) {
+      final selected = conteos.firstWhere(
+        (c) => (c.cont ?? c.tokenreg) == _selectedCont,
+        orElse: () => conteos.first,
+      );
+      label = '${selected.cont ?? selected.tokenreg} · ${selected.suc ?? '-'} · ${selected.estado ?? ''}';
+    }
 
-    return DropdownButtonFormField<String>(
-      initialValue: _selectedCont,
+    return TextFormField(
+      key: ValueKey(label),
+      initialValue: label,
+      enabled: false,
       decoration: const InputDecoration(
         labelText: 'Conteo',
         border: OutlineInputBorder(),
       ),
-      items: items,
-      onChanged: (v) {
-        setState(() {
-          _selectedCont = v;
-          _page = 1;
-        });
-      },
     );
   }
 
@@ -213,6 +222,14 @@ class _DetalleCapturaPageState extends ConsumerState<DetalleCapturaPage> {
               icon: const Icon(Icons.clear),
               label: const Text('Limpiar'),
             ),
+            if (_appliedUpc.isNotEmpty) ...[
+              const SizedBox(width: 12),
+              FilledButton.icon(
+                onPressed: _applyCorrection,
+                icon: const Icon(Icons.check_circle_outline),
+                label: const Text('Corregir'),
+              ),
+            ],
           ],
         ),
       ],
@@ -223,6 +240,7 @@ class _DetalleCapturaPageState extends ConsumerState<DetalleCapturaPage> {
     setState(() {
       _almacenFilter = almacen ?? _almacenFilter;
       _page = resetPage ? 1 : _page;
+      _appliedUpc = _upcCtrl.text.trim();
     });
   }
 
@@ -231,6 +249,7 @@ class _DetalleCapturaPageState extends ConsumerState<DetalleCapturaPage> {
       _almacenFilter = 'TODOS';
       _page = 1;
       _upcCtrl.clear();
+      _appliedUpc = '';
     });
   }
 
@@ -322,13 +341,32 @@ class _DetalleCapturaPageState extends ConsumerState<DetalleCapturaPage> {
 
     if (!mounted || scanned == null) return;
 
+    final normalized = _stripCheckDigit(scanned);
     setState(() {
-      _upcCtrl.text = scanned!;
+      _upcCtrl.text = normalized;
       _page = 1;
+      _appliedUpc = normalized;
     });
     await Future<void>.delayed(const Duration(milliseconds: 50));
     _applyFilter(resetPage: true);
     _upcFocus.requestFocus();
+  }
+
+  void _applyCorrection() {
+    final upc = _appliedUpc.trim();
+    if (upc.isEmpty) return;
+    ref.read(capturaSelectedContProvider.notifier).state = _selectedCont;
+    ref.read(capturaCorrectionUpcProvider.notifier).state = upc;
+    if (!mounted) return;
+    context.go('/inventarios/captura');
+  }
+
+  String _stripCheckDigit(String value) {
+    final digits = value.replaceAll(RegExp(r'\D'), '');
+    if (digits.length == 12 || digits.length == 13) {
+      return digits.substring(0, digits.length - 1);
+    }
+    return digits;
   }
 }
 
@@ -345,58 +383,86 @@ class _CapturasList extends ConsumerWidget {
     return dataAsync.when(
       data: (res) {
         if (res.data.isEmpty) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 24),
-            child: Text('No hay capturas para este conteo con los filtros actuales.'),
+          return ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
+            children: const [Text('No hay capturas para este conteo con los filtros actuales.')],
           );
         }
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Total registros: ${res.total} (página ${res.page}/${res.totalPages})'),
-            const SizedBox(height: 12),
-            const _CapturasHeader(),
-            const SizedBox(height: 8),
-            ...res.data.map((item) => _CapturaTile(item: item)),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                OutlinedButton.icon(
-                  onPressed: res.page > 1 ? () => onPageChange(res.page - 1) : null,
-                  icon: const Icon(Icons.chevron_left),
-                  label: const Text('Anterior'),
-                ),
-                const SizedBox(width: 12),
-                OutlinedButton.icon(
-                  onPressed: res.page < res.totalPages ? () => onPageChange(res.page + 1) : null,
-                  icon: const Icon(Icons.chevron_right),
-                  label: const Text('Siguiente'),
-                ),
-              ],
-            ),
-          ],
+        return SelectionArea(
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            children: [
+              ...res.data.map((item) => _CapturaTile(item: item)),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: res.page > 1 ? () => onPageChange(res.page - 1) : null,
+                    icon: const Icon(Icons.chevron_left),
+                    label: const Text('Anterior'),
+                  ),
+                  const SizedBox(width: 12),
+                  OutlinedButton.icon(
+                    onPressed: res.page < res.totalPages ? () => onPageChange(res.page + 1) : null,
+                    icon: const Icon(Icons.chevron_right),
+                    label: const Text('Siguiente'),
+                  ),
+                ],
+              ),
+            ],
+          ),
         );
       },
-      loading: () => const Padding(
-        padding: EdgeInsets.symmetric(vertical: 24),
-        child: Center(child: CircularProgressIndicator()),
-      ),
-      error: (e, _) => Padding(
+      loading: () => ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(vertical: 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Error al cargar capturas: $e'),
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              onPressed: () => ref.invalidate(capturasListProvider(query)),
-              icon: const Icon(Icons.refresh),
-              label: const Text('Reintentar'),
-            ),
-          ],
-        ),
+        children: const [Center(child: CircularProgressIndicator())],
       ),
+      error: (e, _) => ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
+        children: [
+          Text('Error al cargar capturas: $e'),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: () => ref.invalidate(capturasListProvider(query)),
+            icon: const Icon(Icons.refresh),
+            label: const Text('Reintentar'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CapturasSummaryHeader extends ConsumerWidget {
+  const _CapturasSummaryHeader({required this.query});
+
+  final CapturaListQuery query;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final dataAsync = ref.watch(capturasListProvider(query));
+
+    final summary = dataAsync.when<Widget>(
+      data: (res) => Text(
+        'Total registros: ${res.total} (página ${res.page}/${res.totalPages}) · Suma cant: ${_fmtNumber(res.sumCant)}',
+      ),
+      loading: () => const Text('Cargando capturas...'),
+      error: (e, _) => Text('Error al cargar capturas: $e'),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        summary,
+        const SizedBox(height: 12),
+        const _CapturasHeader(),
+        const SizedBox(height: 8),
+      ],
     );
   }
 }
@@ -485,4 +551,11 @@ class _CaptureCell extends StatelessWidget {
       child: child,
     );
   }
+}
+
+String _fmtNumber(num? value) {
+  if (value == null) return '-';
+  final doubleVal = value.toDouble();
+  if (doubleVal == doubleVal.roundToDouble()) return doubleVal.toStringAsFixed(0);
+  return doubleVal.toStringAsFixed(2);
 }

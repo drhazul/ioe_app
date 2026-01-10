@@ -130,6 +130,7 @@ class CapturaListResponse {
   final int totalPages;
   final String cont;
   final String suc;
+  final double sumCant;
 
   const CapturaListResponse({
     required this.data,
@@ -139,6 +140,7 @@ class CapturaListResponse {
     required this.totalPages,
     required this.cont,
     required this.suc,
+    required this.sumCant,
   });
 
   factory CapturaListResponse.fromJson(Map<String, dynamic> json) {
@@ -154,6 +156,7 @@ class CapturaListResponse {
       totalPages: _parseInt(json['totalPages']) ?? 1,
       cont: json['cont'] as String? ?? '',
       suc: json['suc'] as String? ?? '',
+      sumCant: _parseDouble(json['sumCant']) ?? 0,
     );
   }
 }

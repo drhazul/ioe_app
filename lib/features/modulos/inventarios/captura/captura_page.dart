@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:uuid/uuid.dart';
 
+import 'package:ioe_app/core/api_error.dart';
+
 import 'captura_models.dart';
 import 'captura_providers.dart';
 
@@ -20,6 +22,8 @@ class _CapturaInventarioPageState extends ConsumerState<CapturaInventarioPage> {
   final _cantidadCtrl = TextEditingController();
   final _upcFocus = FocusNode();
   final _cantidadFocus = FocusNode();
+  ProviderSubscription<String?>? _correctionUpcSub;
+  ProviderSubscription<String?>? _selectedContSub;
 
   String? _selectedCont;
   String _selectedAlmacen = '001';
@@ -33,10 +37,26 @@ class _CapturaInventarioPageState extends ConsumerState<CapturaInventarioPage> {
     super.initState();
     _upcCtrl.addListener(_onFieldsChange);
     _cantidadCtrl.addListener(_onFieldsChange);
+    final savedCont = ref.read(capturaSelectedContProvider);
+    if (savedCont != null && savedCont.trim().isNotEmpty) {
+      _selectedCont = savedCont.trim();
+    }
+    _correctionUpcSub = ref.listenManual<String?>(capturaCorrectionUpcProvider, (prev, next) {
+      _applyCorrectionUpc(next);
+    });
+    _applyCorrectionUpc(ref.read(capturaCorrectionUpcProvider));
+    _selectedContSub = ref.listenManual<String?>(capturaSelectedContProvider, (prev, next) {
+      final value = next?.trim() ?? '';
+      if (value.isEmpty || value == _selectedCont) return;
+      if (!mounted) return;
+      setState(() => _selectedCont = value);
+    });
   }
 
   @override
   void dispose() {
+    _correctionUpcSub?.close();
+    _selectedContSub?.close();
     _upcCtrl.removeListener(_onFieldsChange);
     _cantidadCtrl.removeListener(_onFieldsChange);
     _upcCtrl.dispose();
@@ -48,6 +68,18 @@ class _CapturaInventarioPageState extends ConsumerState<CapturaInventarioPage> {
 
   void _onFieldsChange() {
     if (mounted) setState(() {});
+  }
+
+  void _applyCorrectionUpc(String? next) {
+    final value = next?.trim() ?? '';
+    if (value.isEmpty) return;
+    _upcCtrl.text = value;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _cantidadFocus.requestFocus();
+      // Clear after build to avoid provider mutation during lifecycle.
+      ref.read(capturaCorrectionUpcProvider.notifier).state = null;
+    });
   }
 
   @override
@@ -162,6 +194,7 @@ class _CapturaInventarioPageState extends ConsumerState<CapturaInventarioPage> {
               setState(() {
                 _selectedCont = v;
               });
+              ref.read(capturaSelectedContProvider.notifier).state = v;
             },
     );
   }
@@ -306,7 +339,7 @@ class _CapturaInventarioPageState extends ConsumerState<CapturaInventarioPage> {
       // Listo para la siguiente captura
       _upcFocus.requestFocus();
     } catch (e) {
-      if (mounted) _showMessage('Error al capturar: $e');
+      if (mounted) _showMessage('Error al capturar: ${apiErrorMessage(e)}');
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -378,9 +411,8 @@ class _CapturaInventarioPageState extends ConsumerState<CapturaInventarioPage> {
 
     if (!mounted || scanned == null) return;
 
-    setState(() {
-      _upcCtrl.text = scanned!;
-    });
+    final normalized = _stripCheckDigit(scanned);
+    setState(() => _upcCtrl.text = normalized);
     await Future<void>.delayed(const Duration(milliseconds: 50));
     _cantidadFocus.requestFocus();
   }
@@ -390,6 +422,7 @@ class _CapturaInventarioPageState extends ConsumerState<CapturaInventarioPage> {
       if (_selectedCont != null) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) setState(() => _selectedCont = null);
+          ref.read(capturaSelectedContProvider.notifier).state = null;
         });
       }
       return;
@@ -401,7 +434,9 @@ class _CapturaInventarioPageState extends ConsumerState<CapturaInventarioPage> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         final first = conteos.first;
-        setState(() => _selectedCont = first.cont ?? first.tokenreg);
+        final next = first.cont ?? first.tokenreg;
+        setState(() => _selectedCont = next);
+        ref.read(capturaSelectedContProvider.notifier).state = next;
       });
     }
   }
@@ -409,5 +444,13 @@ class _CapturaInventarioPageState extends ConsumerState<CapturaInventarioPage> {
   void _showMessage(String text) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  }
+
+  String _stripCheckDigit(String value) {
+    final digits = value.replaceAll(RegExp(r'\D'), '');
+    if (digits.length == 12 || digits.length == 13) {
+      return digits.substring(0, digits.length - 1);
+    }
+    return digits;
   }
 }

@@ -45,10 +45,21 @@ class AuthController extends StateNotifier<AuthState> {
     final storage = ref.read(storageProvider);
 
     try {
-      final res = await dio.post('/auth/login', data: {
-        'username': username,
-        'password': password,
-      });
+      final res = await dio.post(
+        '/auth/login',
+        data: {
+          'username': username,
+          'password': password,
+        },
+        options: Options(
+          validateStatus: (status) => status != null && status >= 200 && status < 300,
+        ),
+      );
+
+      final status = res.statusCode;
+      if (status != 200 && status != 201) {
+        throw Exception('Respuesta inesperada del servidor');
+      }
 
       final access = res.data['accessToken'] as String;
       final refresh = res.data['refreshToken'] as String;

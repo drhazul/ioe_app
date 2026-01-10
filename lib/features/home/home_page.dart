@@ -116,19 +116,9 @@ class _ModulesListStatefulState extends State<_ModulesListStateful> {
       grouped[key]!.sort((a, b) => a.nombre.toUpperCase().compareTo(b.nombre.toUpperCase()));
     }
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
+    final list = ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       children: [
-        _SearchBar(
-          searchController: _searchCtrl,
-          onApplySearch: () => setState(() => _searchApplied = _searchCtrl.text),
-          onClearSearch: () => setState(() {
-            _searchCtrl.clear();
-            _searchApplied = '';
-          }),
-        ),
-        const SizedBox(height: 12),
         for (final key in keys) ...[
           _DeptoHeader(title: key),
           const SizedBox(height: 8),
@@ -136,6 +126,24 @@ class _ModulesListStatefulState extends State<_ModulesListStateful> {
           const SizedBox(height: 12),
         ],
       ],
+    );
+
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          _SearchBar(
+            searchController: _searchCtrl,
+            onApplySearch: () => setState(() => _searchApplied = _searchCtrl.text),
+            onClearSearch: () => setState(() {
+              _searchCtrl.clear();
+              _searchApplied = '';
+            }),
+          ),
+          const SizedBox(height: 12),
+          Expanded(child: list),
+        ],
+      ),
     );
   }
 }
