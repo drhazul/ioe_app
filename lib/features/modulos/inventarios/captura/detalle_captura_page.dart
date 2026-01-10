@@ -65,6 +65,8 @@ class _DetalleCapturaPageState extends ConsumerState<DetalleCapturaPage> {
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
             ref.read(capturaSelectedContProvider.notifier).state = _selectedCont;
+            ref.read(capturaSelectedAlmacenProvider.notifier).state =
+                _almacenFilter == 'TODOS' ? null : _almacenFilter;
             context.go('/inventarios/captura');
           },
         ),
@@ -356,6 +358,8 @@ class _DetalleCapturaPageState extends ConsumerState<DetalleCapturaPage> {
     final upc = _appliedUpc.trim();
     if (upc.isEmpty) return;
     ref.read(capturaSelectedContProvider.notifier).state = _selectedCont;
+    ref.read(capturaSelectedAlmacenProvider.notifier).state =
+        _almacenFilter == 'TODOS' ? null : _almacenFilter;
     ref.read(capturaCorrectionUpcProvider.notifier).state = upc;
     if (!mounted) return;
     context.go('/inventarios/captura');

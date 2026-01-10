@@ -24,6 +24,7 @@ class _CapturaInventarioPageState extends ConsumerState<CapturaInventarioPage> {
   final _cantidadFocus = FocusNode();
   ProviderSubscription<String?>? _correctionUpcSub;
   ProviderSubscription<String?>? _selectedContSub;
+  ProviderSubscription<String?>? _selectedAlmacenSub;
 
   String? _selectedCont;
   String _selectedAlmacen = '001';
@@ -41,6 +42,7 @@ class _CapturaInventarioPageState extends ConsumerState<CapturaInventarioPage> {
     if (savedCont != null && savedCont.trim().isNotEmpty) {
       _selectedCont = savedCont.trim();
     }
+    _applySelectedAlmacen(ref.read(capturaSelectedAlmacenProvider));
     _correctionUpcSub = ref.listenManual<String?>(capturaCorrectionUpcProvider, (prev, next) {
       _applyCorrectionUpc(next);
     });
@@ -51,12 +53,16 @@ class _CapturaInventarioPageState extends ConsumerState<CapturaInventarioPage> {
       if (!mounted) return;
       setState(() => _selectedCont = value);
     });
+    _selectedAlmacenSub = ref.listenManual<String?>(capturaSelectedAlmacenProvider, (prev, next) {
+      _applySelectedAlmacen(next);
+    });
   }
 
   @override
   void dispose() {
     _correctionUpcSub?.close();
     _selectedContSub?.close();
+    _selectedAlmacenSub?.close();
     _upcCtrl.removeListener(_onFieldsChange);
     _cantidadCtrl.removeListener(_onFieldsChange);
     _upcCtrl.dispose();
@@ -68,6 +74,18 @@ class _CapturaInventarioPageState extends ConsumerState<CapturaInventarioPage> {
 
   void _onFieldsChange() {
     if (mounted) setState(() {});
+  }
+
+  void _applySelectedAlmacen(String? next) {
+    final value = next?.trim() ?? '';
+    if (value.isEmpty) return;
+    if (!const ['001', '002', 'M001', 'T001'].contains(value)) return;
+    if (!mounted) {
+      _selectedAlmacen = value;
+      return;
+    }
+    if (_selectedAlmacen == value) return;
+    setState(() => _selectedAlmacen = value);
   }
 
   void _applyCorrectionUpc(String? next) {
@@ -214,7 +232,13 @@ class _CapturaInventarioPageState extends ConsumerState<CapturaInventarioPage> {
                 (alm) => ChoiceChip(
                   label: Text(alm),
                   selected: _selectedAlmacen == alm,
-                  onSelected: _sending ? null : (v) => v ? setState(() => _selectedAlmacen = alm) : null,
+                  onSelected: _sending
+                      ? null
+                      : (v) {
+                          if (!v) return;
+                          setState(() => _selectedAlmacen = alm);
+                          ref.read(capturaSelectedAlmacenProvider.notifier).state = alm;
+                        },
                 ),
               )
               .toList(),

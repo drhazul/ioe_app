@@ -13,6 +13,7 @@ final conteosDisponiblesProvider = FutureProvider.autoDispose<List<ConteoDisponi
 
 final capturaCorrectionUpcProvider = StateProvider<String?>((ref) => null);
 final capturaSelectedContProvider = StateProvider<String?>((ref) => null);
+final capturaSelectedAlmacenProvider = StateProvider<String?>((ref) => null);
 
 class CapturaListQuery {
   final String cont;
