@@ -224,7 +224,9 @@ class _InventarioTileState extends ConsumerState<_InventarioTile> {
       ref.invalidate(inventariosListProvider);
       if (!mounted) return;
       final items = res.totalItems ?? 0;
-      _showMessage('Archivo ${file.name} subido (${items > 0 ? '$items items' : 'sin conteos'})');
+      final detail = items > 0 ? '$items items' : 'sin conteos';
+      final detLabel = res.totalDet == null ? detail : '$detail · det: ${res.totalDet}';
+      _showMessage('Archivo ${file.name} subido ($detLabel)');
     } on DioException catch (e) {
       if (mounted) _showMessage('Error al subir: ${apiErrorMessage(e)}');
     } catch (e) {

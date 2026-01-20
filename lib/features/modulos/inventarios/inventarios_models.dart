@@ -91,6 +91,7 @@ class ConteoUploadResult {
   final String suc;
   final String tipocont;
   final int? totalItems;
+  final int? totalDet;
   final String? fileName;
   final String? status;
 
@@ -99,6 +100,7 @@ class ConteoUploadResult {
     required this.suc,
     required this.tipocont,
     this.totalItems,
+    this.totalDet,
     this.fileName,
     this.status,
   });
@@ -109,6 +111,7 @@ class ConteoUploadResult {
       suc: json['suc'] as String? ?? json['SUC'] as String? ?? '',
       tipocont: json['tipocont'] as String? ?? json['TIPOCONT'] as String? ?? '',
       totalItems: DatContCtrlModel._parseInt(json['totalItems'] ?? json['TOTAL_ITEMS']),
+      totalDet: DatContCtrlModel._parseInt(json['totalDet'] ?? json['TOTAL_DET']),
       fileName: json['fileName'] as String? ?? json['FILE_NAME'] as String?,
       status: json['status'] as String? ?? json['ESTA'] as String?,
     );

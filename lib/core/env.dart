@@ -1,8 +1,14 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, kReleaseMode;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class Env {
+  static const String _devBaseUrl = 'http://localhost:3001';
+
   static String get apiBaseUrl {
+    if (!kReleaseMode) {
+      return _devBaseUrl;
+    }
+
     if (kIsWeb) {
       final fromDefine = const String.fromEnvironment('API_BASE_URL_WEB');
       if (fromDefine.isNotEmpty) {
@@ -14,7 +20,7 @@ class Env {
         return fromEnv;
       }
 
-      // Flutter Web → usar proxy de Nginx
+      // Flutter Web -> usar proxy de Nginx
       return '/api';
     }
 
@@ -30,6 +36,6 @@ class Env {
     }
 
     // 2) Mobile emulator (Android)
-    return 'http://10.0.2.2:3001';
+    return 'http://192.168.10.234:3001';
   }
 }

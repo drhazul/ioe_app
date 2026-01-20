@@ -8,6 +8,30 @@ import 'package:printing/printing.dart';
 import 'inventarios_models.dart';
 import 'inventarios_providers.dart';
 
+const double _pagePadding = 12;
+const double _tableHeaderHeight = 48;
+const double _tableRowHorizontalPadding = 8;
+const double _tableRowVerticalPadding = 8;
+const double _colArticuloWidth = 120;
+const double _colUpcWidth = 130;
+const double _colDescripcionWidth = 320;
+const double _colConteoWidth = 130;
+const double _colExistenciaWidth = 130;
+const double _colDifWidth = 130;
+const double _colCtopWidth = 130;
+const double _colDifCtopWidth = 110;
+const double _colExtWidth = 90;
+const double _tableWidth = _colArticuloWidth +
+    _colUpcWidth +
+    _colDescripcionWidth +
+    _colConteoWidth +
+    _colExistenciaWidth +
+    _colDifWidth +
+    _colCtopWidth +
+    _colDifCtopWidth +
+    _colExtWidth;
+const double _tableContentWidth = _tableWidth + _tableRowHorizontalPadding * 2;
+
 class InventarioDetallePage extends ConsumerStatefulWidget {
   const InventarioDetallePage({super.key, required this.cont});
 
@@ -21,10 +45,12 @@ class _InventarioDetallePageState extends ConsumerState<InventarioDetallePage> {
   static const int _limit = 50;
   int _page = 1;
   final _pageController = ScrollController();
+  final _horizontalController = ScrollController();
 
   @override
   void dispose() {
     _pageController.dispose();
+    _horizontalController.dispose();
     super.dispose();
   }
 
@@ -54,54 +80,107 @@ class _InventarioDetallePageState extends ConsumerState<InventarioDetallePage> {
         ],
       ),
       body: detalleAsync.when(
-        data: (resp) => RefreshIndicator(
-          onRefresh: () async {
-            ref.invalidate(inventarioDetalleProvider(query));
-            ref.invalidate(inventarioDetalleSummaryProvider(widget.cont));
-            await Future.wait([
-              ref.read(inventarioDetalleProvider(query).future),
-              ref.read(inventarioDetalleSummaryProvider(widget.cont).future),
-            ]);
-          },
-          child: Scrollbar(
-            controller: _pageController,
-            thumbVisibility: true,
-            trackVisibility: true,
-            child: ListView(
-              controller: _pageController,
-              padding: const EdgeInsets.all(12),
-              children: [
-                _SummaryCard(summaryAsync: summaryAsync),
-                const SizedBox(height: 12),
-                if (resp.data.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 48),
-                    child: Center(child: Text('Sin resultados')),
-                  )
-                else
-                  _TableListado(
-                    data: resp.data,
-                    contStatus: summaryAsync.asData?.value.esta,
-                    onRefresh: () async {
-                      ref.invalidate(inventarioDetalleProvider(query));
-                      ref.invalidate(inventarioDetalleSummaryProvider(widget.cont));
-                      await ref.read(inventarioDetalleProvider(query).future);
-                      await ref.read(inventarioDetalleSummaryProvider(widget.cont).future);
-                    },
+        data: (resp) {
+          final hasData = resp.data.isNotEmpty;
+          return RefreshIndicator(
+            notificationPredicate: (notification) => notification.metrics.axis == Axis.vertical,
+            onRefresh: () async {
+              ref.invalidate(inventarioDetalleProvider(query));
+              ref.invalidate(inventarioDetalleSummaryProvider(widget.cont));
+              await Future.wait([
+                ref.read(inventarioDetalleProvider(query).future),
+                ref.read(inventarioDetalleSummaryProvider(widget.cont).future),
+              ]);
+            },
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final minWidth = hasData ? _tableContentWidth + _pagePadding * 2 : constraints.maxWidth;
+                final contentWidth = constraints.maxWidth > minWidth ? constraints.maxWidth : minWidth;
+
+                return Scrollbar(
+                  controller: _pageController,
+                  thumbVisibility: true,
+                  trackVisibility: true,
+                  notificationPredicate: (notification) => notification.metrics.axis == Axis.vertical,
+                  child: Scrollbar(
+                    controller: _horizontalController,
+                    thumbVisibility: true,
+                    trackVisibility: true,
+                    notificationPredicate: (notification) => notification.metrics.axis == Axis.horizontal,
+                    child: SingleChildScrollView(
+                      controller: _horizontalController,
+                      scrollDirection: Axis.horizontal,
+                      child: SizedBox(
+                        width: contentWidth,
+                        child: SelectionArea(
+                          child: CustomScrollView(
+                            controller: _pageController,
+                            slivers: [
+                              const SliverToBoxAdapter(child: SizedBox(height: _pagePadding)),
+                              SliverPadding(
+                                padding: const EdgeInsets.symmetric(horizontal: _pagePadding),
+                                sliver: SliverToBoxAdapter(
+                                  child: _SummaryCard(summaryAsync: summaryAsync),
+                                ),
+                              ),
+                              const SliverToBoxAdapter(child: SizedBox(height: _pagePadding)),
+                              if (hasData) ...[
+                                SliverPadding(
+                                  padding: const EdgeInsets.symmetric(horizontal: _pagePadding),
+                                  sliver: SliverPersistentHeader(
+                                    pinned: true,
+                                    delegate: const _TableHeaderDelegate(),
+                                  ),
+                                ),
+                                SliverPadding(
+                                  padding: const EdgeInsets.symmetric(horizontal: _pagePadding),
+                                  sliver: _TableRowsSliver(
+                                    data: resp.data,
+                                    contStatus: summaryAsync.asData?.value.esta,
+                                    onRefresh: () async {
+                                      ref.invalidate(inventarioDetalleProvider(query));
+                                      ref.invalidate(inventarioDetalleSummaryProvider(widget.cont));
+                                      await ref.read(inventarioDetalleProvider(query).future);
+                                      await ref.read(inventarioDetalleSummaryProvider(widget.cont).future);
+                                    },
+                                  ),
+                                ),
+                              ] else
+                                SliverPadding(
+                                  padding: const EdgeInsets.symmetric(horizontal: _pagePadding),
+                                  sliver: const SliverToBoxAdapter(
+                                    child: Padding(
+                                      padding: EdgeInsets.symmetric(vertical: 48),
+                                      child: Center(child: Text('Sin resultados')),
+                                    ),
+                                  ),
+                                ),
+                              const SliverToBoxAdapter(child: SizedBox(height: _pagePadding)),
+                              SliverPadding(
+                                padding: const EdgeInsets.symmetric(horizontal: _pagePadding),
+                                sliver: SliverToBoxAdapter(
+                                  child: _PaginationBar(
+                                    page: resp.page,
+                                    totalPages: resp.totalPages,
+                                    onPrev: resp.page > 1 ? () => _setPage(resp.page - 1) : null,
+                                    onNext: resp.page < resp.totalPages ? () => _setPage(resp.page + 1) : null,
+                                    totalRecords: resp.total,
+                                    limit: resp.limit,
+                                  ),
+                                ),
+                              ),
+                              const SliverToBoxAdapter(child: SizedBox(height: _pagePadding)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
-                const SizedBox(height: 12),
-                _PaginationBar(
-                  page: resp.page,
-                  totalPages: resp.totalPages,
-                  onPrev: resp.page > 1 ? () => _setPage(resp.page - 1) : null,
-                  onNext: resp.page < resp.totalPages ? () => _setPage(resp.page + 1) : null,
-                  totalRecords: resp.total,
-                  limit: resp.limit,
-                ),
-              ],
+                );
+              },
             ),
-          ),
-        ),
+          );
+        },
         error: (e, _) => Center(child: Text('Error: $e')),
         loading: () => const Center(child: CircularProgressIndicator()),
       ),
@@ -117,119 +196,162 @@ class _InventarioDetallePageState extends ConsumerState<InventarioDetallePage> {
     AsyncValue<ConteoDetResponse> detalleAsync,
     AsyncValue<ConteoSummaryModel> summaryAsync,
   ) async {
-    final resp = detalleAsync.asData?.value;
-    final summary = summaryAsync.asData?.value;
-
-    if (resp == null || summary == null) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Primero carga el detalle y el resumen.')),
+    bool dialogShown = false;
+    if (mounted) {
+      dialogShown = true;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const Center(child: CircularProgressIndicator()),
       );
-      return;
     }
 
-    final doc = pw.Document();
-    final displayTotal = resp.totalPages < 1 ? 1 : resp.totalPages;
-    final headers = [
-      'Articulo',
-      'UPC',
-      'Descripcion',
-      'CONTEO',
-      'EXISTENCIA',
-      'Dif',
-      'CTOP',
-      'Dif CTOP',
-      'EXT',
-    ];
+    try {
+      final api = ref.read(inventariosApiProvider);
+      final summary = summaryAsync.asData?.value ?? await api.fetchDetalleSummary(widget.cont);
+      final baseResp = detalleAsync.asData?.value ?? await api.fetchDetalles(widget.cont, page: 1, limit: _limit);
+      final totalPages = baseResp.totalPages < 1 ? 1 : baseResp.totalPages;
+      final limit = baseResp.limit < 1 ? _limit : baseResp.limit;
 
-    final rows = resp.data
-        .map((m) => [
-              m.art ?? '-',
-              m.upc ?? '-',
-              m.descripcion ?? '-',
-              _fmtNumber(m.total),
-              _fmtNumber(m.mb52T),
-              _fmtNumber(m.difT),
-              _fmtNumber(m.ctop),
-              _fmtNumber(m.difCtop),
-              (m.ext ?? 0) == 0 ? 'NO' : 'SI',
-            ])
-        .toList();
+      final pagesData = <int, List<DatDetSvrModel>>{baseResp.page: baseResp.data};
+      for (var page = 1; page <= totalPages; page++) {
+        if (page == baseResp.page) continue;
+        final pageResp = await api.fetchDetalles(widget.cont, page: page, limit: limit);
+        pagesData[page] = pageResp.data;
+      }
 
-    doc.addPage(
-      pw.MultiPage(
-        pageFormat: PdfPageFormat.a4.landscape,
-        margin: const pw.EdgeInsets.all(24),
-        build: (context) => [
-          pw.Text(
-            'Detalle ${widget.cont}',
-            style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
-          ),
-          pw.SizedBox(height: 12),
-          pw.Container(
-            padding: const pw.EdgeInsets.all(12),
-            decoration: pw.BoxDecoration(
-              border: pw.Border.all(color: PdfColors.grey300),
-              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+      final sortedPages = pagesData.keys.toList()..sort();
+      final allData = <DatDetSvrModel>[];
+      for (final page in sortedPages) {
+        allData.addAll(pagesData[page]!);
+      }
+
+      if (allData.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Sin resultados para exportar.')),
+        );
+        return;
+      }
+
+      final doc = pw.Document();
+      final headers = [
+        'Articulo',
+        'UPC',
+        'Descripcion',
+        'CONTEO',
+        'EXISTENCIA',
+        'Dif',
+        'CTOP',
+        'Dif CTOP',
+        'EXT',
+      ];
+
+      final rows = allData
+          .map((m) => [
+                m.art ?? '-',
+                m.upc ?? '-',
+                m.descripcion ?? '-',
+                _fmtNumber(m.total),
+                _fmtNumber(m.mb52T),
+                _fmtNumber(m.difT),
+                _fmtNumber(m.ctop),
+                _fmtNumber(m.difCtop),
+                (m.ext ?? 0) == 0 ? 'NO' : 'SI',
+              ])
+          .toList();
+
+      doc.addPage(
+        pw.MultiPage(
+          pageFormat: PdfPageFormat.a4.landscape,
+          margin: const pw.EdgeInsets.all(24),
+          build: (context) => [
+            pw.Text(
+              'Detalle ${widget.cont}',
+              style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
             ),
-            child: pw.Row(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Expanded(
-                  child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+            pw.SizedBox(height: 12),
+            pw.Container(
+              padding: const pw.EdgeInsets.all(12),
+              decoration: pw.BoxDecoration(
+                border: pw.Border.all(color: PdfColors.grey300),
+                borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+              ),
+              child: pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Expanded(
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text('Resumen del conteo',
+                            style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+                        pw.SizedBox(height: 4),
+                        pw.Text('SUC: ${summary.suc} · CONT: ${summary.cont}'),
+                      ],
+                    ),
+                  ),
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.end,
                     children: [
-                      pw.Text('Resumen del conteo',
-                          style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
-                      pw.SizedBox(height: 4),
-                      pw.Text('SUC: ${summary.suc} · CONT: ${summary.cont}'),
+                      pw.Text(
+                        'Dif total \$ ${summary.sumDifCtop.toStringAsFixed(2)}',
+                        style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold),
+                      ),
+                      pw.Text('Dif piezas: ${_fmtNumber(summary.sumDifT)}'),
                     ],
                   ),
-                ),
-                pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.end,
-                  children: [
-                    pw.Text(
-                      'Dif total \$ ${summary.sumDifCtop.toStringAsFixed(2)}',
-                      style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold),
-                    ),
-                    pw.Text('Dif piezas: ${_fmtNumber(summary.sumDifT)}'),
-                  ],
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          pw.SizedBox(height: 12),
-          pw.TableHelper.fromTextArray(
-            headers: headers,
-            data: rows,
-            headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9),
-            cellStyle: const pw.TextStyle(fontSize: 9),
-            headerDecoration: const pw.BoxDecoration(color: PdfColors.grey300),
-            cellAlignment: pw.Alignment.centerLeft,
-            columnWidths: const {
-              0: pw.FixedColumnWidth(60),
-              1: pw.FixedColumnWidth(90),
-              2: pw.FlexColumnWidth(2),
-              3: pw.FixedColumnWidth(60),
-              4: pw.FixedColumnWidth(70),
-              5: pw.FixedColumnWidth(50),
-              6: pw.FixedColumnWidth(60),
-              7: pw.FixedColumnWidth(70),
-              8: pw.FixedColumnWidth(40),
-            },
-          ),
-          pw.SizedBox(height: 8),
-          pw.Text('Total: ${resp.total} · Página ${resp.page} de $displayTotal · Límite ${resp.limit}',
-              style: const pw.TextStyle(fontSize: 9)),
-        ],
-      ),
-    );
+            pw.SizedBox(height: 12),
+            pw.TableHelper.fromTextArray(
+              headers: headers,
+              data: rows,
+              headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9),
+              cellStyle: const pw.TextStyle(fontSize: 9),
+              headerDecoration: const pw.BoxDecoration(color: PdfColors.grey300),
+              cellAlignment: pw.Alignment.centerLeft,
+              columnWidths: const {
+                0: pw.FixedColumnWidth(60),
+                1: pw.FixedColumnWidth(90),
+                2: pw.FlexColumnWidth(2),
+                3: pw.FixedColumnWidth(60),
+                4: pw.FixedColumnWidth(70),
+                5: pw.FixedColumnWidth(50),
+                6: pw.FixedColumnWidth(60),
+                7: pw.FixedColumnWidth(70),
+                8: pw.FixedColumnWidth(40),
+              },
+            ),
+            pw.SizedBox(height: 8),
+            pw.Text(
+              'Total: ${baseResp.total} · Registros exportados: ${allData.length}',
+              style: const pw.TextStyle(fontSize: 9),
+            ),
+          ],
+        ),
+      );
 
-    await Printing.layoutPdf(
-      name: 'detalle_${widget.cont}.pdf',
-      onLayout: (format) async => doc.save(),
-    );
+      if (mounted && dialogShown) {
+        Navigator.of(context, rootNavigator: true).pop();
+        dialogShown = false;
+      }
+
+      await Printing.layoutPdf(
+        name: 'detalle_${widget.cont}.pdf',
+        onLayout: (format) async => doc.save(),
+      );
+    } catch (err) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo exportar: ${apiErrorMessage(err)}')),
+      );
+    } finally {
+      if (mounted && dialogShown) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+    }
   }
 }
 
@@ -282,27 +404,58 @@ class _SummaryCard extends StatelessWidget {
   }
 }
 
-class _TableListado extends ConsumerStatefulWidget {
-  const _TableListado({required this.data, this.contStatus, this.onRefresh});
+class _TableHeaderDelegate extends SliverPersistentHeaderDelegate {
+  const _TableHeaderDelegate();
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Container(
+      height: _tableHeaderHeight,
+      padding: const EdgeInsets.symmetric(
+        vertical: _tableRowVerticalPadding,
+        horizontal: _tableRowHorizontalPadding,
+      ),
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      child: Row(
+        children: const [
+          _TableCell(width: _colArticuloWidth, child: Text('Articulo')),
+          _TableCell(width: _colUpcWidth, child: Text('UPC')),
+          _TableCell(width: _colDescripcionWidth, child: Text('Descripción')),
+          _TableCell(width: _colConteoWidth, child: Text('CONTEO')),
+          _TableCell(width: _colExistenciaWidth, child: Text('EXISTENCIA')),
+          _TableCell(width: _colDifWidth, child: Text('Dif')),
+          _TableCell(width: _colCtopWidth, child: Text('CTOP')),
+          _TableCell(width: _colDifCtopWidth, child: Text('Dif CTOP')),
+          _TableCell(width: _colExtWidth, child: Text('EXT')),
+        ],
+      ),
+    );
+  }
+
+  @override
+  double get maxExtent => _tableHeaderHeight;
+
+  @override
+  double get minExtent => _tableHeaderHeight;
+
+  @override
+  bool shouldRebuild(covariant _TableHeaderDelegate oldDelegate) => false;
+}
+
+class _TableRowsSliver extends ConsumerStatefulWidget {
+  const _TableRowsSliver({required this.data, this.contStatus, this.onRefresh});
 
   final List<DatDetSvrModel> data;
   final String? contStatus;
   final Future<void> Function()? onRefresh;
 
   @override
-  ConsumerState<_TableListado> createState() => _TableListadoState();
+  ConsumerState<_TableRowsSliver> createState() => _TableRowsSliverState();
 }
 
-class _TableListadoState extends ConsumerState<_TableListado> {
+class _TableRowsSliverState extends ConsumerState<_TableRowsSliver> {
   final Set<int> _updating = {};
   final Map<int, bool> _overrides = {};
-  final ScrollController _horizontalController = ScrollController();
-
-  @override
-  void dispose() {
-    _horizontalController.dispose();
-    super.dispose();
-  }
 
   bool _extValue(DatDetSvrModel model) {
     final id = model.id;
@@ -345,74 +498,51 @@ class _TableListadoState extends ConsumerState<_TableListado> {
     final status = (widget.contStatus ?? '').trim().toUpperCase();
     final isAdjusted = status == 'AJUSTADO' || status == 'CERRADO_AJUSTADO';
 
-    return SelectionArea(
-      child: Scrollbar(
-        controller: _horizontalController,
-        thumbVisibility: true,
-        trackVisibility: true,
-        child: SingleChildScrollView(
-          controller: _horizontalController,
-          scrollDirection: Axis.horizontal,
-          child: Column(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-                color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                child: Row(
-                  children: const [
-                    _TableCell(width: 120, child: Text('Articulo')),
-                    _TableCell(width: 130, child: Text('UPC')),
-                    _TableCell(width: 320, child: Text('Descripción')),
-                    _TableCell(width: 130, child: Text('CONTEO')),
-                    _TableCell(width: 130, child: Text('EXISTENCIA')),
-                    _TableCell(width: 130, child: Text('Dif')),
-                    _TableCell(width: 130, child: Text('CTOP')),
-                    _TableCell(width: 110, child: Text('Dif CTOP')),
-                    _TableCell(width: 90, child: Text('EXT')),
-                  ],
-                ),
+    return SliverList(
+      delegate: SliverChildBuilderDelegate(
+        (context, index) {
+          final m = widget.data[index];
+          return Container(
+            padding: const EdgeInsets.symmetric(
+              vertical: _tableRowVerticalPadding,
+              horizontal: _tableRowHorizontalPadding,
+            ),
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: Theme.of(context).dividerColor.withValues(alpha: 0.4)),
               ),
-              ...widget.data.map(
-                (m) => Container(
-                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-                  decoration: BoxDecoration(
-                    border: Border(
-                      bottom: BorderSide(color: Theme.of(context).dividerColor.withValues(alpha: 0.4)),
+            ),
+            child: Row(
+              children: [
+                _TableCell(width: _colArticuloWidth, child: Text(m.art ?? '-', style: headerStyle)),
+                _TableCell(width: _colUpcWidth, child: Text(m.upc ?? '-')),
+                _TableCell(
+                  width: _colDescripcionWidth,
+                  child: Text(m.descripcion ?? '-', maxLines: 2, overflow: TextOverflow.ellipsis),
+                ),
+                _TableCell(width: _colConteoWidth, child: Text(_fmtNumber(m.total))),
+                _TableCell(width: _colExistenciaWidth, child: Text(_fmtNumber(m.mb52T))),
+                _TableCell(width: _colDifWidth, child: Text(_fmtNumber(m.difT))),
+                _TableCell(width: _colCtopWidth, child: Text(_fmtNumber(m.ctop))),
+                _TableCell(width: _colDifCtopWidth, child: Text(_fmtNumber(m.difCtop))),
+                _TableCell(
+                  width: _colExtWidth,
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Switch.adaptive(
+                      value: _extValue(m),
+                      onChanged: (m.id == null || _updating.contains(m.id) || isAdjusted)
+                          ? null
+                          : (v) => _toggleExt(m, v),
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
                   ),
-                  child: Row(
-                    children: [
-                      _TableCell(width: 120, child: Text(m.art ?? '-', style: headerStyle)),
-                      _TableCell(width: 130, child: Text(m.upc ?? '-')),
-                      _TableCell(
-                        width: 320,
-                        child: Text(m.descripcion ?? '-', maxLines: 2, overflow: TextOverflow.ellipsis),
-                      ),
-                      _TableCell(width: 130, child: Text(_fmtNumber(m.total))),
-                      _TableCell(width: 130, child: Text(_fmtNumber(m.mb52T))),
-                      _TableCell(width: 130, child: Text(_fmtNumber(m.difT))),
-                      _TableCell(width: 130, child: Text(_fmtNumber(m.ctop))),
-                      _TableCell(width: 110, child: Text(_fmtNumber(m.difCtop))),
-                      _TableCell(
-                        width: 90,
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: Switch.adaptive(
-                            value: _extValue(m),
-                            onChanged: (m.id == null || _updating.contains(m.id) || isAdjusted)
-                                ? null
-                                : (v) => _toggleExt(m, v),
-                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
                 ),
-              ),
-            ],
-          ),
-        ),
+              ],
+            ),
+          );
+        },
+        childCount: widget.data.length,
       ),
     );
   }
