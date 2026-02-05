@@ -303,6 +303,9 @@ class _ModuleRow extends StatelessWidget {
     if (moduloCode == 'SYS_DAT_MAE') {
       return '/masterdata';
     }
+    if (moduloCode == 'PV_CAJAS') {
+      return '/punto-venta';
+    }
 
     final name = _normalize('${module.codigo} ${module.nombre}');
     if (name.contains('captura') && name.contains('inventario')) {

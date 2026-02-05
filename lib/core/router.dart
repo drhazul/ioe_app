@@ -31,11 +31,32 @@ import '../features/modulos/inventarios/inventario_form_page.dart';
 import '../features/modulos/inventarios/inventario_det_page.dart';
 import '../features/modulos/inventarios/captura/captura_page.dart';
 import '../features/modulos/inventarios/captura/detalle_captura_page.dart';
+import '../features/modulos/punto_venta/punto_venta_home_page.dart';
+import '../features/modulos/punto_venta/clientes/clientes_page.dart';
+import '../features/modulos/punto_venta/clientes/cliente_form_page.dart';
+import '../features/modulos/punto_venta/cotizaciones/cotizaciones_page.dart';
+import '../features/modulos/punto_venta/cotizaciones/cotizacion_form_page.dart';
+import '../features/modulos/punto_venta/cotizaciones/detalle_cot/detalle_cot_page.dart';
 
 import 'auth/auth_controller.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final auth = ref.watch(authControllerProvider);
+
+  List<GoRoute> accessRoutes() => [
+        GoRoute(path: 'modulos-back', builder: (c, s) => const ModulosBackendPage()),
+        GoRoute(path: 'grupos-back', builder: (c, s) => const GruposBackendPage()),
+        GoRoute(
+          path: 'permisos-rol-back',
+          builder: (c, s) => const PermisosRolBackendPage(),
+        ),
+        GoRoute(path: 'mod-front', builder: (c, s) => const ModFrontPage()),
+        GoRoute(path: 'grupos-front', builder: (c, s) => const GruposFrontPage()),
+        GoRoute(
+          path: 'enrolamiento-front',
+          builder: (c, s) => const EnrolamientoFrontPage(),
+        ),
+      ];
 
   return GoRouter(
     initialLocation: '/login',
@@ -60,20 +81,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             GoRoute(
               path: 'access',
               builder: (c, s) => const AccessPage(),
-              routes: [
-                GoRoute(path: 'modulos-back', builder: (c, s) => const ModulosBackendPage()),
-                GoRoute(path: 'grupos-back', builder: (c, s) => const GruposBackendPage()),
-                GoRoute(
-                  path: 'permisos-rol-back',
-                  builder: (c, s) => const PermisosRolBackendPage(),
-                ),
-                GoRoute(path: 'mod-front', builder: (c, s) => const ModFrontPage()),
-                GoRoute(path: 'grupos-front', builder: (c, s) => const GruposFrontPage()),
-                GoRoute(
-                  path: 'enrolamiento-front',
-                  builder: (c, s) => const EnrolamientoFrontPage(),
-                ),
-              ],
+              routes: accessRoutes(),
             ),
             GoRoute(
               path: 'roles',
@@ -160,6 +168,30 @@ final routerProvider = Provider<GoRouter>((ref) {
                 path: ':cont/det',
                 builder: (c, s) => InventarioDetallePage(cont: s.pathParameters['cont'] ?? ''),
               ),
+            ],
+          ),
+          GoRoute(
+            path: 'punto-venta',
+            builder: (c, s) => const PuntoVentaHomePage(),
+            routes: [
+              GoRoute(path: 'clientes', builder: (c, s) => const ClientesPage(), routes: [
+                GoRoute(path: 'new', builder: (c, s) => const ClienteFormPage()),
+                GoRoute(
+                  path: ':id',
+                  builder: (c, s) => ClienteFormPage(id: s.pathParameters['id']),
+                ),
+              ]),
+              GoRoute(path: 'cotizaciones', builder: (c, s) => const CotizacionesPage(), routes: [
+                GoRoute(path: 'new', builder: (c, s) => const CotizacionFormPage()),
+                GoRoute(
+                  path: ':idfol/detalle',
+                  builder: (c, s) => DetalleCotPage(idfol: s.pathParameters['idfol'] ?? ''),
+                ),
+                GoRoute(
+                  path: ':idfol',
+                  builder: (c, s) => CotizacionFormPage(idfol: s.pathParameters['idfol']),
+                ),
+              ]),
             ],
           ),
         ],

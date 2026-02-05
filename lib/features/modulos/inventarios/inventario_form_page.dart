@@ -181,12 +181,18 @@ class _InventarioFormPageState extends ConsumerState<InventarioFormPage> {
                     controller: _contCtrl,
                     decoration: const InputDecoration(labelText: 'CONT'),
                     textCapitalization: TextCapitalization.characters,
-                    inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r'\s'))],
+                    maxLength: 30,
+                    maxLengthEnforcement: MaxLengthEnforcement.enforced,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.deny(RegExp(r'\s')),
+                      LengthLimitingTextInputFormatter(30),
+                    ],
                     onChanged: _applyContFormatting,
                     enabled: !_saving && _isNew,
                     validator: (v) {
                       final value = _sanitizeCont(v ?? '');
                       if (value.isEmpty) return 'Requerido';
+                      if (value.length > 30) return 'Máximo 30 caracteres';
                       return null;
                     },
                   ),
