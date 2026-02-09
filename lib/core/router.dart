@@ -26,11 +26,20 @@ import '../features/masterdata/puestos/puestos_page.dart';
 import '../features/masterdata/puestos/puesto_form_page.dart';
 import '../features/masterdata/datmodulos/datmodulos_page.dart';
 import '../features/masterdata/datmodulos/datmodulo_form_page.dart';
+import '../features/masterdata/access_reg_suc/access_reg_suc_page.dart';
+import '../features/masterdata/access_reg_suc/access_reg_suc_form_page.dart';
 import '../features/modulos/inventarios/inventarios_page.dart';
 import '../features/modulos/inventarios/inventario_form_page.dart';
 import '../features/modulos/inventarios/inventario_det_page.dart';
 import '../features/modulos/inventarios/captura/captura_page.dart';
 import '../features/modulos/inventarios/captura/detalle_captura_page.dart';
+import '../features/modulos/catalogo/datart_page.dart';
+import '../features/modulos/mb51/mb51_consultas_page.dart';
+import '../features/modulos/mb51/mb51_resultados_page.dart';
+import '../features/modulos/mb51/mb51_models.dart';
+import '../features/modulos/mb52/mb52_consultas_page.dart';
+import '../features/modulos/mb52/mb52_resultados_page.dart';
+import '../features/modulos/mb52/mb52_models.dart';
 import '../features/modulos/punto_venta/punto_venta_home_page.dart';
 import '../features/modulos/punto_venta/clientes/clientes_page.dart';
 import '../features/modulos/punto_venta/clientes/cliente_form_page.dart';
@@ -128,6 +137,26 @@ final routerProvider = Provider<GoRouter>((ref) {
               ],
             ),
             GoRoute(
+              path: 'access-reg-suc',
+              builder: (c, s) => const AccessRegSucPage(),
+              routes: [
+                GoRoute(path: 'new', builder: (c, s) => const AccessRegSucFormPage()),
+                GoRoute(
+                  path: ':modulo/:usuario/:suc',
+                  builder: (c, s) {
+                    final rawModulo = s.pathParameters['modulo'];
+                    final rawUsuario = s.pathParameters['usuario'];
+                    final rawSuc = s.pathParameters['suc'];
+                    return AccessRegSucFormPage(
+                      modulo: rawModulo == null ? null : Uri.decodeComponent(rawModulo),
+                      usuario: rawUsuario == null ? null : Uri.decodeComponent(rawUsuario),
+                      suc: rawSuc == null ? null : Uri.decodeComponent(rawSuc),
+                    );
+                  },
+                ),
+              ],
+            ),
+            GoRoute(
               path: 'sucursales',
               builder: (c, s) => const SucursalesPage(),
               routes: [
@@ -167,6 +196,48 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: ':cont/det',
                 builder: (c, s) => InventarioDetallePage(cont: s.pathParameters['cont'] ?? ''),
+              ),
+            ],
+          ),
+          GoRoute(
+            path: 'catalogo',
+            builder: (c, s) => const DatArtPage(),
+          ),
+          GoRoute(
+            path: 'mb51',
+            builder: (c, s) => const Mb51ConsultasPage(),
+            routes: [
+              GoRoute(
+                path: 'resultados',
+                builder: (c, s) {
+                  final extra = s.extra;
+                  Mb51Filtros? filtros;
+                  if (extra is Mb51Filtros) {
+                    filtros = extra;
+                  } else if (extra is Map) {
+                    filtros = Mb51Filtros.fromJson(Map<String, dynamic>.from(extra));
+                  }
+                  return Mb51ResultadosPage(filtros: filtros);
+                },
+              ),
+            ],
+          ),
+          GoRoute(
+            path: 'mb52',
+            builder: (c, s) => const Mb52ConsultasPage(),
+            routes: [
+              GoRoute(
+                path: 'resultados',
+                builder: (c, s) {
+                  final extra = s.extra;
+                  Mb52Filtros? filtros;
+                  if (extra is Mb52Filtros) {
+                    filtros = extra;
+                  } else if (extra is Map) {
+                    filtros = Mb52Filtros.fromJson(Map<String, dynamic>.from(extra));
+                  }
+                  return Mb52ResultadosPage(filtros: filtros);
+                },
               ),
             ],
           ),

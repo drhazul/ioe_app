@@ -8,13 +8,15 @@ import 'package:printing/printing.dart';
 import 'inventarios_models.dart';
 import 'inventarios_providers.dart';
 
-const double _pagePadding = 12;
+const double _pagePadding = 10;
 const double _tableHeaderHeight = 48;
-const double _tableRowHorizontalPadding = 8;
-const double _tableRowVerticalPadding = 8;
-const double _colArticuloWidth = 120;
-const double _colUpcWidth = 130;
-const double _colDescripcionWidth = 320;
+const double _tableRowHorizontalPadding = 6;
+const double _tableRowVerticalPadding = 0;
+const double _tableFontSize = 11;
+// Nota: Ajustar anchos/estilos de la tabla para afinar la visualizacion de la consulta.
+const double _colArticuloWidth = 60;
+const double _colUpcWidth = 100;
+const double _colDescripcionWidth = 250;
 const double _colConteoWidth = 130;
 const double _colExistenciaWidth = 130;
 const double _colDifWidth = 130;
@@ -46,11 +48,16 @@ class _InventarioDetallePageState extends ConsumerState<InventarioDetallePage> {
   int _page = 1;
   final _pageController = ScrollController();
   final _horizontalController = ScrollController();
+  final _searchController = TextEditingController();
+  String _searchBy = 'ART';
+  String _appliedSearchBy = 'ART';
+  String _searchTerm = '';
 
   @override
   void dispose() {
     _pageController.dispose();
     _horizontalController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -81,7 +88,8 @@ class _InventarioDetallePageState extends ConsumerState<InventarioDetallePage> {
       ),
       body: detalleAsync.when(
         data: (resp) {
-          final hasData = resp.data.isNotEmpty;
+          final filteredData = _filterData(resp.data);
+          final hasData = filteredData.isNotEmpty;
           return RefreshIndicator(
             notificationPredicate: (notification) => notification.metrics.axis == Axis.vertical,
             onRefresh: () async {
@@ -124,6 +132,19 @@ class _InventarioDetallePageState extends ConsumerState<InventarioDetallePage> {
                                 ),
                               ),
                               const SliverToBoxAdapter(child: SizedBox(height: _pagePadding)),
+                              SliverPadding(
+                                padding: const EdgeInsets.symmetric(horizontal: _pagePadding),
+                                sliver: SliverToBoxAdapter(
+                                  child: _SearchBar(
+                                    controller: _searchController,
+                                    searchBy: _searchBy,
+                                    onSearchByChanged: (value) => setState(() => _searchBy = value ?? 'ART'),
+                                    onSearch: _applySearch,
+                                    onClear: _clearSearch,
+                                  ),
+                                ),
+                              ),
+                              const SliverToBoxAdapter(child: SizedBox(height: _pagePadding)),
                               if (hasData) ...[
                                 SliverPadding(
                                   padding: const EdgeInsets.symmetric(horizontal: _pagePadding),
@@ -135,7 +156,7 @@ class _InventarioDetallePageState extends ConsumerState<InventarioDetallePage> {
                                 SliverPadding(
                                   padding: const EdgeInsets.symmetric(horizontal: _pagePadding),
                                   sliver: _TableRowsSliver(
-                                    data: resp.data,
+                                    data: filteredData,
                                     contStatus: summaryAsync.asData?.value.esta,
                                     onRefresh: () async {
                                       ref.invalidate(inventarioDetalleProvider(query));
@@ -190,6 +211,39 @@ class _InventarioDetallePageState extends ConsumerState<InventarioDetallePage> {
   void _setPage(int page) {
     if (page < 1 || page == _page) return;
     setState(() => _page = page);
+  }
+
+  void _applySearch() {
+    setState(() {
+      _searchTerm = _searchController.text.trim();
+      _appliedSearchBy = _searchBy;
+      _page = 1;
+    });
+  }
+
+  void _clearSearch() {
+    _searchController.clear();
+    setState(() {
+      _searchBy = 'ART';
+      _appliedSearchBy = 'ART';
+      _searchTerm = '';
+      _page = 1;
+    });
+  }
+
+  List<DatDetSvrModel> _filterData(List<DatDetSvrModel> data) {
+    final term = _searchTerm.trim().toLowerCase();
+    if (term.isEmpty) return data;
+    bool matches(String? value) => (value ?? '').toLowerCase().contains(term);
+    switch (_appliedSearchBy) {
+      case 'UPC':
+        return data.where((m) => matches(m.upc)).toList();
+      case 'DES':
+        return data.where((m) => matches(m.descripcion)).toList();
+      case 'ART':
+      default:
+        return data.where((m) => matches(m.art)).toList();
+    }
   }
 
   Future<void> _exportPdf(
@@ -404,11 +458,78 @@ class _SummaryCard extends StatelessWidget {
   }
 }
 
+class _SearchBar extends StatelessWidget {
+  const _SearchBar({
+    required this.controller,
+    required this.searchBy,
+    required this.onSearchByChanged,
+    required this.onClear,
+    required this.onSearch,
+  });
+
+  final TextEditingController controller;
+  final String searchBy;
+  final ValueChanged<String?> onSearchByChanged;
+  final VoidCallback onClear;
+  final VoidCallback onSearch;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 0,
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Row(
+          children: [
+            const Text('Buscar por:'),
+            const SizedBox(width: 8),
+            DropdownButton<String>(
+              value: searchBy,
+              items: const [
+                DropdownMenuItem(value: 'ART', child: Text('ART')),
+                DropdownMenuItem(value: 'UPC', child: Text('UPC')),
+                DropdownMenuItem(value: 'DES', child: Text('DES')),
+              ],
+              onChanged: onSearchByChanged,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: TextField(
+                controller: controller,
+                decoration: const InputDecoration(
+                  hintText: 'Digite busqueda',
+                  isDense: true,
+                  border: OutlineInputBorder(),
+                ),
+                textInputAction: TextInputAction.search,
+                onSubmitted: (_) => onSearch(),
+              ),
+            ),
+            const SizedBox(width: 8),
+            IconButton(
+              tooltip: 'Buscar',
+              onPressed: onSearch,
+              icon: const Icon(Icons.search),
+            ),
+            IconButton(
+              tooltip: 'Limpiar',
+              onPressed: onClear,
+              icon: const Icon(Icons.clear),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _TableHeaderDelegate extends SliverPersistentHeaderDelegate {
   const _TableHeaderDelegate();
 
   @override
   Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    final headerStyle =
+        Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: _tableFontSize, fontWeight: FontWeight.bold);
     return Container(
       height: _tableHeaderHeight,
       padding: const EdgeInsets.symmetric(
@@ -417,16 +538,16 @@ class _TableHeaderDelegate extends SliverPersistentHeaderDelegate {
       ),
       color: Theme.of(context).colorScheme.surfaceContainerHighest,
       child: Row(
-        children: const [
-          _TableCell(width: _colArticuloWidth, child: Text('Articulo')),
-          _TableCell(width: _colUpcWidth, child: Text('UPC')),
-          _TableCell(width: _colDescripcionWidth, child: Text('Descripción')),
-          _TableCell(width: _colConteoWidth, child: Text('CONTEO')),
-          _TableCell(width: _colExistenciaWidth, child: Text('EXISTENCIA')),
-          _TableCell(width: _colDifWidth, child: Text('Dif')),
-          _TableCell(width: _colCtopWidth, child: Text('CTOP')),
-          _TableCell(width: _colDifCtopWidth, child: Text('Dif CTOP')),
-          _TableCell(width: _colExtWidth, child: Text('EXT')),
+        children: [
+          _TableCell(width: _colArticuloWidth, child: Text('Articulo', style: headerStyle)),
+          _TableCell(width: _colUpcWidth, child: Text('UPC', style: headerStyle)),
+          _TableCell(width: _colDescripcionWidth, child: Text('Descripción', style: headerStyle)),
+          _TableCell(width: _colConteoWidth, child: Text('CONTEO', style: headerStyle)),
+          _TableCell(width: _colExistenciaWidth, child: Text('EXISTENCIA', style: headerStyle)),
+          _TableCell(width: _colDifWidth, child: Text('Dif', style: headerStyle)),
+          _TableCell(width: _colCtopWidth, child: Text('CTOP', style: headerStyle)),
+          _TableCell(width: _colDifCtopWidth, child: Text('Dif CTOP', style: headerStyle)),
+          _TableCell(width: _colExtWidth, child: Text('EXT', style: headerStyle)),
         ],
       ),
     );
@@ -494,7 +615,8 @@ class _TableRowsSliverState extends ConsumerState<_TableRowsSliver> {
 
   @override
   Widget build(BuildContext context) {
-    final headerStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold);
+    final baseStyle = Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: _tableFontSize);
+    final headerStyle = baseStyle?.copyWith(fontWeight: FontWeight.bold);
     final status = (widget.contStatus ?? '').trim().toUpperCase();
     final isAdjusted = status == 'AJUSTADO' || status == 'CERRADO_AJUSTADO';
 
@@ -515,16 +637,17 @@ class _TableRowsSliverState extends ConsumerState<_TableRowsSliver> {
             child: Row(
               children: [
                 _TableCell(width: _colArticuloWidth, child: Text(m.art ?? '-', style: headerStyle)),
-                _TableCell(width: _colUpcWidth, child: Text(m.upc ?? '-')),
+                _TableCell(width: _colUpcWidth, child: Text(m.upc ?? '-', style: baseStyle)),
                 _TableCell(
                   width: _colDescripcionWidth,
-                  child: Text(m.descripcion ?? '-', maxLines: 2, overflow: TextOverflow.ellipsis),
+                  child:
+                      Text(m.descripcion ?? '-', maxLines: 2, overflow: TextOverflow.ellipsis, style: baseStyle),
                 ),
-                _TableCell(width: _colConteoWidth, child: Text(_fmtNumber(m.total))),
-                _TableCell(width: _colExistenciaWidth, child: Text(_fmtNumber(m.mb52T))),
-                _TableCell(width: _colDifWidth, child: Text(_fmtNumber(m.difT))),
-                _TableCell(width: _colCtopWidth, child: Text(_fmtNumber(m.ctop))),
-                _TableCell(width: _colDifCtopWidth, child: Text(_fmtNumber(m.difCtop))),
+                _TableCell(width: _colConteoWidth, child: Text(_fmtNumber(m.total), style: baseStyle)),
+                _TableCell(width: _colExistenciaWidth, child: Text(_fmtNumber(m.mb52T), style: baseStyle)),
+                _TableCell(width: _colDifWidth, child: Text(_fmtNumber(m.difT), style: baseStyle)),
+                _TableCell(width: _colCtopWidth, child: Text(_fmtNumber(m.ctop), style: baseStyle)),
+                _TableCell(width: _colDifCtopWidth, child: Text(_fmtNumber(m.difCtop), style: baseStyle)),
                 _TableCell(
                   width: _colExtWidth,
                   child: Align(

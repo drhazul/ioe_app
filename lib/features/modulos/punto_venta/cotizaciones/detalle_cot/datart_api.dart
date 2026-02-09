@@ -13,6 +13,7 @@ class DatArtApi {
     String? upc,
     String? des,
     String? modelo,
+    String? view,
     double? depa,
     double? subd,
     double? clas,
@@ -21,6 +22,8 @@ class DatArtApi {
     double? sph,
     double? cyl,
     double? adic,
+    int? page,
+    int? limit,
   }) async {
     final query = <String, dynamic>{'suc': suc};
     final artTrim = (art ?? '').trim();
@@ -39,6 +42,9 @@ class DatArtApi {
     if (sph != null) query['sph'] = sph;
     if (cyl != null) query['cyl'] = cyl;
     if (adic != null) query['adic'] = adic;
+    if (page != null) query['page'] = page;
+    if (limit != null) query['limit'] = limit;
+    if (view != null && view.trim().isNotEmpty) query['view'] = view.trim();
     final res = await dio.get('/datart', queryParameters: query);
     final list = (res.data as List<dynamic>)
         .map((e) => DatArtModel.fromJson(Map<String, dynamic>.from(e as Map)))

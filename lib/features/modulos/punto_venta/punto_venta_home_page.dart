@@ -168,7 +168,7 @@ class _HeaderCard extends StatelessWidget {
                   'Centro de operaciones',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 18,
+                    fontSize: 11,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -199,7 +199,7 @@ class _SectionTitle extends StatelessWidget {
       children: [
         Text(
           title,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 4),
         Text(
@@ -282,14 +282,14 @@ class _OptionCard extends StatelessWidget {
                   children: [
                     Text(
                       option.title,
-                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 2),
                     Text(
                       option.subtitle,
-                      style: TextStyle(color: Colors.grey.shade700, height: 1.2, fontSize: 14),
+                      style: TextStyle(color: Colors.grey.shade700, height: 1.2, fontSize: 11),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),

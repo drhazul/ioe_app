@@ -64,6 +64,7 @@ class DatArtQuery {
 }
 
 final datArtApiProvider = Provider<DatArtApi>((ref) => DatArtApi(ref.read(dioProvider)));
+const int _datArtLimit = 200;
 
 final datArtListProvider = FutureProvider.autoDispose.family<List<DatArtModel>, DatArtQuery>((ref, query) async {
   final suc = query.suc.trim();
@@ -93,6 +94,8 @@ final datArtListProvider = FutureProvider.autoDispose.family<List<DatArtModel>, 
         sph: query.sph,
         cyl: query.cyl,
         adic: query.adic,
+        limit: _datArtLimit,
+        view: 'lite',
       );
     case 'MODELO':
       return api.fetchArticulos(
@@ -106,6 +109,8 @@ final datArtListProvider = FutureProvider.autoDispose.family<List<DatArtModel>, 
         sph: query.sph,
         cyl: query.cyl,
         adic: query.adic,
+        limit: _datArtLimit,
+        view: 'lite',
       );
     case 'DES':
       return api.fetchArticulos(
@@ -119,6 +124,8 @@ final datArtListProvider = FutureProvider.autoDispose.family<List<DatArtModel>, 
         sph: query.sph,
         cyl: query.cyl,
         adic: query.adic,
+        limit: _datArtLimit,
+        view: 'lite',
       );
     default:
       return api.fetchArticulos(
@@ -132,6 +139,8 @@ final datArtListProvider = FutureProvider.autoDispose.family<List<DatArtModel>, 
         sph: query.sph,
         cyl: query.cyl,
         adic: query.adic,
+        limit: _datArtLimit,
+        view: 'lite',
       );
   }
 });

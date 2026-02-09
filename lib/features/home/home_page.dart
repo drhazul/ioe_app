@@ -247,7 +247,7 @@ class _ModuleRow extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     module.nombre,
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
@@ -300,6 +300,15 @@ class _ModuleRow extends StatelessWidget {
     if (moduloCode == 'DAT_JAA_ALM') {
       return '/inventarios';
     }
+    if (moduloCode == 'DAT_JAA_CAT') {
+      return '/catalogo';
+    }
+    if (moduloCode == 'DAT_JAA_MB51') {
+      return '/mb51';
+    }
+    if (moduloCode == 'DAT_JAA_MB52') {
+      return '/mb52';
+    }
     if (moduloCode == 'SYS_DAT_MAE') {
       return '/masterdata';
     }
@@ -313,6 +322,12 @@ class _ModuleRow extends StatelessWidget {
     }
     if (name.contains('inventario') && name.contains('almacen')) {
       return '/inventarios';
+    }
+    if (name.contains('mb51')) {
+      return '/mb51';
+    }
+    if (name.contains('mb52')) {
+      return '/mb52';
     }
 
     return null;

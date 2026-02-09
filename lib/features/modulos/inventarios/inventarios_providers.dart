@@ -1,14 +1,39 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ioe_app/core/dio_provider.dart';
+import 'package:ioe_app/core/auth/auth_controller.dart';
+import 'package:ioe_app/features/masterdata/access_reg_suc/access_reg_suc_providers.dart';
 
 import 'inventarios_api.dart';
 import 'inventarios_models.dart';
 
 final inventariosApiProvider = Provider<InventariosApi>((ref) => InventariosApi(ref.read(dioProvider)));
 
+const _inventariosModuloCodigo = 'DAT_JAA_ALM';
+
+final inventariosSelectedSucProvider = StateProvider<String?>((ref) => null);
+
+final inventariosAllowedSucProvider = FutureProvider.autoDispose<List<String>>((ref) async {
+  final username = ref.watch(authControllerProvider).username ?? '';
+  if (username.trim().isEmpty) return const <String>[];
+  final api = ref.read(accessRegSucApiProvider);
+  final rows = await api.fetchAll(modulo: _inventariosModuloCodigo, usuario: username, activo: true);
+  final unique = <String>{};
+  for (final row in rows) {
+    final suc = row.suc.trim();
+    if (suc.isNotEmpty) unique.add(suc);
+  }
+  final list = unique.toList()..sort();
+  return list;
+});
+
 final inventariosListProvider = FutureProvider.autoDispose<List<DatContCtrlModel>>((ref) async {
   final api = ref.read(inventariosApiProvider);
-  return api.fetchAll();
+  final selected = ref.watch(inventariosSelectedSucProvider);
+  final allowed = await ref.watch(inventariosAllowedSucProvider.future);
+  final suc = allowed.isNotEmpty
+      ? (selected != null && allowed.contains(selected) ? selected : allowed.first)
+      : null;
+  return api.fetchAll(suc: suc);
 });
 
 final inventarioProvider = FutureProvider.autoDispose.family<DatContCtrlModel, String>((ref, tokenreg) async {
@@ -43,10 +68,20 @@ class ConteoDetQuery {
 
 final inventarioDetalleProvider = FutureProvider.autoDispose.family<ConteoDetResponse, ConteoDetQuery>((ref, query) async {
   final api = ref.read(inventariosApiProvider);
-  return api.fetchDetalles(query.cont, page: query.page, limit: query.limit);
+  final selected = ref.watch(inventariosSelectedSucProvider);
+  final allowed = await ref.watch(inventariosAllowedSucProvider.future);
+  final suc = allowed.isNotEmpty
+      ? (selected != null && allowed.contains(selected) ? selected : allowed.first)
+      : null;
+  return api.fetchDetalles(query.cont, page: query.page, limit: query.limit, suc: suc);
 });
 
 final inventarioDetalleSummaryProvider = FutureProvider.autoDispose.family<ConteoSummaryModel, String>((ref, cont) async {
   final api = ref.read(inventariosApiProvider);
-  return api.fetchDetalleSummary(cont);
+  final selected = ref.watch(inventariosSelectedSucProvider);
+  final allowed = await ref.watch(inventariosAllowedSucProvider.future);
+  final suc = allowed.isNotEmpty
+      ? (selected != null && allowed.contains(selected) ? selected : allowed.first)
+      : null;
+  return api.fetchDetalleSummary(cont, suc: suc);
 });

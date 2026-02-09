@@ -127,7 +127,7 @@ class _EnrollmentCard extends ConsumerWidget {
           children: [
             Text(
               enrollment.grupoNombre,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
             ),
             const SizedBox(height: 6),
             Text(mods),

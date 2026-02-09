@@ -124,7 +124,7 @@ class _ClienteFormBodyState extends ConsumerState<ClienteFormBody> {
         width: double.infinity,
         color: bg,
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        child: Text(label, style: const TextStyle(fontSize: 12)),
+        child: Text(label, style: const TextStyle(fontSize: 11)),
       ),
     );
   }
@@ -226,7 +226,7 @@ class _ClienteFormBodyState extends ConsumerState<ClienteFormBody> {
               children: [
                 Text(
                   widget.id == null ? 'Alta cliente nuevo' : 'Editar cliente',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 12),
                 Wrap(
@@ -251,7 +251,7 @@ class _ClienteFormBodyState extends ConsumerState<ClienteFormBody> {
                               initialValue: value,
                               isExpanded: true,
                               items: items,
-                              style: const TextStyle(fontSize: 12),
+                              style: const TextStyle(fontSize: 11),
                               onChanged: _saving
                                   ? null
                                   : (v) => setState(() {
@@ -356,7 +356,7 @@ class _ClienteFormBodyState extends ConsumerState<ClienteFormBody> {
                             initialValue: value,
                             isExpanded: true,
                             items: items,
-                            style: const TextStyle(fontSize: 12),
+                            style: const TextStyle(fontSize: 11),
                             onChanged: _saving
                                 ? null
                                 : (v) => setState(() {
@@ -394,7 +394,7 @@ class _ClienteFormBodyState extends ConsumerState<ClienteFormBody> {
                             initialValue: value,
                             isExpanded: true,
                             items: items,
-                            style: const TextStyle(fontSize: 12),
+                            style: const TextStyle(fontSize: 11),
                             onChanged: _saving
                                 ? null
                                 : (v) => setState(() {
@@ -422,7 +422,7 @@ class _ClienteFormBodyState extends ConsumerState<ClienteFormBody> {
                             initialValue: value,
                             isExpanded: true,
                             items: items,
-                            style: const TextStyle(fontSize: 12),
+                            style: const TextStyle(fontSize: 11),
                             onChanged: _saving
                                 ? null
                                 : (v) => setState(() {

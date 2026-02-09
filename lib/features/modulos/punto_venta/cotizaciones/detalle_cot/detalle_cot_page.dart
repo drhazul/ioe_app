@@ -695,7 +695,7 @@ class _InfoTile extends StatelessWidget {
           Text(
             label,
             style: const TextStyle(
-              fontSize: 12,
+              fontSize: 11,
               fontWeight: FontWeight.w600,
               color: Colors.white,
             ),
@@ -710,7 +710,7 @@ class _InfoTile extends StatelessWidget {
             child: SelectableText(
               value,
               maxLines: 1,
-              style: const TextStyle(fontSize: 12, color: Colors.black),
+              style: const TextStyle(fontSize: 11, color: Colors.black),
             ),
           ),
         ],
@@ -1045,7 +1045,7 @@ class _SearchFilters extends StatelessWidget {
   final VoidCallback onSearchApply;
   final VoidCallback onClearSearch;
   static const double _filterHeight = 28;
-  static const double _filterFontSize = 12;
+  static const double _filterFontSize = 11;
   static const EdgeInsets _filterPadding = EdgeInsets.symmetric(horizontal: 8, vertical: 6);
   static const double _filterMenuWidth = 260;
 

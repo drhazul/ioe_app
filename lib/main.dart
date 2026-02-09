@@ -54,12 +54,64 @@ class MyApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
+    const appFontSize = 11.0;
+    final baseTheme = ThemeData(useMaterial3: true);
+    final textTheme = _fixedFontSizeTextTheme(baseTheme.textTheme, appFontSize);
+    const appBarColor = Color(0xFF148D8D);
+    final appBarTitleStyle = textTheme.titleLarge?.copyWith(color: Colors.white);
+    final appBarToolbarStyle = textTheme.bodyMedium?.copyWith(color: Colors.white);
+    final theme = baseTheme.copyWith(
+      textTheme: textTheme,
+      appBarTheme: baseTheme.appBarTheme.copyWith(
+        backgroundColor: appBarColor,
+        foregroundColor: Colors.white,
+        iconTheme: const IconThemeData(color: Colors.white),
+        actionsIconTheme: const IconThemeData(color: Colors.white),
+        surfaceTintColor: appBarColor,
+        toolbarHeight: 64,
+        titleTextStyle: appBarTitleStyle,
+        toolbarTextStyle: appBarToolbarStyle,
+      ),
+      tabBarTheme: baseTheme.tabBarTheme.copyWith(
+        labelStyle: textTheme.labelLarge,
+        unselectedLabelStyle: textTheme.labelLarge,
+      ),
+      inputDecorationTheme: baseTheme.inputDecorationTheme.copyWith(
+        labelStyle: textTheme.bodySmall,
+        hintStyle: textTheme.bodySmall,
+      ),
+      dataTableTheme: DataTableThemeData(
+        dataTextStyle: textTheme.bodySmall,
+        headingTextStyle: textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+      ),
+    );
 
     return MaterialApp.router(
       title: 'IOE',
       debugShowCheckedModeBanner: false,
       routerConfig: router,
-      theme: ThemeData(useMaterial3: true),
+      theme: theme,
     );
   }
+}
+
+TextTheme _fixedFontSizeTextTheme(TextTheme base, double size) {
+  TextStyle? withSize(TextStyle? style) => style?.copyWith(fontSize: size);
+  return base.copyWith(
+    displayLarge: withSize(base.displayLarge),
+    displayMedium: withSize(base.displayMedium),
+    displaySmall: withSize(base.displaySmall),
+    headlineLarge: withSize(base.headlineLarge),
+    headlineMedium: withSize(base.headlineMedium),
+    headlineSmall: withSize(base.headlineSmall),
+    titleLarge: withSize(base.titleLarge),
+    titleMedium: withSize(base.titleMedium),
+    titleSmall: withSize(base.titleSmall),
+    bodyLarge: withSize(base.bodyLarge),
+    bodyMedium: withSize(base.bodyMedium),
+    bodySmall: withSize(base.bodySmall),
+    labelLarge: withSize(base.labelLarge),
+    labelMedium: withSize(base.labelMedium),
+    labelSmall: withSize(base.labelSmall),
+  );
 }

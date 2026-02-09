@@ -189,7 +189,7 @@ class _CotizacionFormBodyState extends ConsumerState<CotizacionFormBody> {
               children: [
                 Text(
                   widget.idfol == null ? 'Alta de cotización' : 'Editar cotización',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 12),
                 Wrap(

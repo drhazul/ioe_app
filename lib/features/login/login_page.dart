@@ -13,6 +13,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final _userCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
   bool _loading = false;
+  bool _obscurePass = true;
 
   @override
   void dispose() {
@@ -51,7 +52,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(mainAxisSize: MainAxisSize.min, children: [
-                const Text('IOE', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                const Text('IOE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 16),
                 TextField(
                   controller: _userCtrl,
@@ -61,8 +62,15 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 const SizedBox(height: 8),
                 TextField(
                   controller: _passCtrl,
-                  obscureText: true,
-                  decoration: const InputDecoration(labelText: 'Contraseña'),
+                  obscureText: _obscurePass,
+                  decoration: InputDecoration(
+                    labelText: 'Contraseña',
+                    suffixIcon: IconButton(
+                      tooltip: _obscurePass ? 'Mostrar contraseña' : 'Ocultar contraseña',
+                      icon: Icon(_obscurePass ? Icons.visibility : Icons.visibility_off),
+                      onPressed: () => setState(() => _obscurePass = !_obscurePass),
+                    ),
+                  ),
                   textInputAction: TextInputAction.done,
                   onSubmitted: (_) {
                     if (_loading) return;

@@ -14,6 +14,8 @@ class InventariosPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final dataAsync = ref.watch(inventariosListProvider);
+    final allowedAsync = ref.watch(inventariosAllowedSucProvider);
+    final selectedSuc = ref.watch(inventariosSelectedSucProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -31,19 +33,56 @@ class InventariosPage extends ConsumerWidget {
         child: const Icon(Icons.add),
       ),
       body: dataAsync.when(
-        data: (rows) => RefreshIndicator(
-          onRefresh: () async {
-            ref.invalidate(inventariosListProvider);
-            await ref.read(inventariosListProvider.future);
-          },
-          child: ListView.separated(
-            padding: const EdgeInsets.all(12),
-            physics: const AlwaysScrollableScrollPhysics(),
-            itemCount: rows.length,
-            itemBuilder: (_, index) => _InventarioTile(model: rows[index]),
-            separatorBuilder: (context, _) => const SizedBox(height: 8),
-          ),
-        ),
+        data: (rows) {
+          final allowed = allowedAsync.asData?.value ?? const <String>[];
+          final effectiveSuc = allowed.isNotEmpty
+              ? (selectedSuc != null && allowed.contains(selectedSuc) ? selectedSuc : allowed.first)
+              : null;
+
+          final list = RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(inventariosListProvider);
+              await ref.read(inventariosListProvider.future);
+            },
+            child: ListView.separated(
+              padding: const EdgeInsets.all(12),
+              physics: const AlwaysScrollableScrollPhysics(),
+              itemCount: rows.length,
+              itemBuilder: (_, index) => _InventarioTile(model: rows[index]),
+              separatorBuilder: (context, _) => const SizedBox(height: 8),
+            ),
+          );
+
+          if (allowed.isEmpty) return list;
+
+          return Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                child: DropdownButtonFormField<String>(
+                  initialValue: effectiveSuc,
+                  decoration: const InputDecoration(
+                    labelText: 'Sucursal',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  items: [
+                    for (final suc in allowed)
+                      DropdownMenuItem<String>(
+                        value: suc,
+                        child: Text(suc),
+                      ),
+                  ],
+                  onChanged: (value) {
+                    ref.read(inventariosSelectedSucProvider.notifier).state = value;
+                  },
+                ),
+              ),
+              const SizedBox(height: 8),
+              Expanded(child: list),
+            ],
+          );
+        },
         error: (e, _) => Center(child: Text('Error: $e')),
         loading: () => const Center(child: CircularProgressIndicator()),
       ),
@@ -218,9 +257,10 @@ class _InventarioTileState extends ConsumerState<_InventarioTile> {
 
     setState(() => _uploading = true);
     try {
+      final suc = widget.model.suc?.trim();
       final res = await ref
           .read(inventariosApiProvider)
-          .uploadItems(cont: cont, bytes: bytes, filename: file.name);
+          .uploadItems(cont: cont, bytes: bytes, filename: file.name, suc: suc);
       ref.invalidate(inventariosListProvider);
       if (!mounted) return;
       final items = res.totalItems ?? 0;
