@@ -38,6 +38,7 @@ class _Mb51ResultadosPageState extends ConsumerState<Mb51ResultadosPage> {
     _Mb51Column(key: 'fcnd', label: 'Fecha Doc', minWidth: 90, maxWidth: 110),
     _Mb51Column(key: 'fcnc', label: 'Fecha Cont', minWidth: 90, maxWidth: 110),
     _Mb51Column(key: 'art', label: 'ART', minWidth: 70, maxWidth: 120),
+    _Mb51Column(key: 'des', label: 'DES', minWidth: 160, maxWidth: 320),
     _Mb51Column(key: 'docp', label: 'DOCP', minWidth: 120, maxWidth: 240),
     _Mb51Column(key: 'clsm', label: 'CLSM', minWidth: 70, maxWidth: 90, align: TextAlign.right, numeric: true),
     _Mb51Column(key: 'almacen', label: 'ALMACEN', minWidth: 70, maxWidth: 100),
@@ -87,6 +88,7 @@ class _Mb51ResultadosPageState extends ConsumerState<Mb51ResultadosPage> {
         'Fecha Doc',
         'Fecha Cont',
         'ART',
+        'DES',
         'DOCP',
         'CLSM',
         'ALMACEN',
@@ -105,6 +107,7 @@ class _Mb51ResultadosPageState extends ConsumerState<Mb51ResultadosPage> {
           _fmtDateCsv(row.fcnd),
           _fmtDateCsv(row.fcnc),
           row.art ?? '',
+          row.des ?? '',
           row.docp ?? '',
           _fmtNumberCsv(row.clsm, decimals: 2),
           row.almacen ?? '',
@@ -178,7 +181,7 @@ class _Mb51ResultadosPageState extends ConsumerState<Mb51ResultadosPage> {
                         controller: _searchCtrl,
                         onChanged: _onSearchChanged,
                         decoration: InputDecoration(
-                          labelText: 'Búsqueda rápida (ART / DOCP / TXT)',
+                          labelText: 'Búsqueda rápida (ART / DES / DOCP / TXT)',
                           border: const OutlineInputBorder(),
                           isDense: true,
                           prefixIcon: const Icon(Icons.search),
@@ -430,6 +433,7 @@ class _Mb51ResultadosPageState extends ConsumerState<Mb51ResultadosPage> {
       'fcnd' => _fmtDate(row.fcnd),
       'fcnc' => _fmtDate(row.fcnc),
       'art' => row.art ?? '-',
+      'des' => row.des ?? '-',
       'docp' => row.docp ?? '-',
       'clsm' => _fmtNumber(row.clsm, decimals: 0),
       'almacen' => row.almacen ?? '-',
@@ -447,9 +451,10 @@ class _Mb51ResultadosPageState extends ConsumerState<Mb51ResultadosPage> {
     if (q.isEmpty) return rows;
     return rows.where((row) {
       final art = (row.art ?? '').toLowerCase();
+      final des = (row.des ?? '').toLowerCase();
       final docp = (row.docp ?? '').toLowerCase();
       final txt = (row.txt ?? '').toLowerCase();
-      return art.contains(q) || docp.contains(q) || txt.contains(q);
+      return art.contains(q) || des.contains(q) || docp.contains(q) || txt.contains(q);
     }).toList();
   }
 
@@ -468,27 +473,30 @@ class _Mb51ResultadosPageState extends ConsumerState<Mb51ResultadosPage> {
           result = _compareString(a.art, b.art);
           break;
         case 3:
-          result = _compareString(a.docp, b.docp);
+          result = _compareString(a.des, b.des);
           break;
         case 4:
-          result = _compareNum(a.clsm, b.clsm);
+          result = _compareString(a.docp, b.docp);
           break;
         case 5:
-          result = _compareString(a.almacen, b.almacen);
+          result = _compareNum(a.clsm, b.clsm);
           break;
         case 6:
-          result = _compareNum(a.ctda, b.ctda);
+          result = _compareString(a.almacen, b.almacen);
           break;
         case 7:
-          result = _compareNum(a.ctot, b.ctot);
+          result = _compareNum(a.ctda, b.ctda);
           break;
         case 8:
-          result = _compareString(a.txt, b.txt);
+          result = _compareNum(a.ctot, b.ctot);
           break;
         case 9:
-          result = _compareString(a.user, b.user);
+          result = _compareString(a.txt, b.txt);
           break;
         case 10:
+          result = _compareString(a.user, b.user);
+          break;
+        case 11:
           result = _compareString(a.suc, b.suc);
           break;
         default:

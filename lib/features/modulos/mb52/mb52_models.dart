@@ -57,6 +57,7 @@ class Mb52Filtros {
 class DatMb52ResumenModel {
   final String? suc;
   final String? art;
+  final String? des;
   final String? almacen;
   final double? ctdaSum;
   final double? stockTotalCtda;
@@ -65,6 +66,7 @@ class DatMb52ResumenModel {
   DatMb52ResumenModel({
     this.suc,
     this.art,
+    this.des,
     this.almacen,
     this.ctdaSum,
     this.stockTotalCtda,
@@ -75,6 +77,7 @@ class DatMb52ResumenModel {
     return DatMb52ResumenModel(
       suc: _asString(json['SUC'] ?? json['suc']),
       art: _asString(json['ART'] ?? json['art']),
+      des: _asString(json['DES'] ?? json['des']),
       almacen: _asString(json['ALMACEN'] ?? json['almacen']),
       ctdaSum: _asDouble(json['CTDA_SUM'] ?? json['ctda_sum']),
       stockTotalCtda: _asDouble(json['STOCK_TOTAL_CTDA'] ?? json['stock_total_ctda']),

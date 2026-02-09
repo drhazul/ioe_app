@@ -230,6 +230,7 @@ class DatMb51Model {
   final double? clsm;
   final String? docp;
   final String? art;
+  final String? des;
   final double? ctda;
   final double? ctot;
   final DateTime? fcnd;
@@ -245,6 +246,7 @@ class DatMb51Model {
     this.clsm,
     this.docp,
     this.art,
+    this.des,
     this.ctda,
     this.ctot,
     this.fcnd,
@@ -262,6 +264,7 @@ class DatMb51Model {
       clsm: _asDouble(json['CLSM']),
       docp: _asString(json['DOCP']),
       art: _asString(json['ART']),
+      des: _asString(json['DES'] ?? json['des']),
       ctda: _asDouble(json['CTDA']),
       ctot: _asDouble(json['CTOT']),
       fcnd: _asDate(json['FCND']),

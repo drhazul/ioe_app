@@ -37,6 +37,7 @@ class _Mb52ResultadosPageState extends ConsumerState<Mb52ResultadosPage> {
   static const List<_Mb52Column> _columns = [
     _Mb52Column(key: 'suc', label: 'SUC', minWidth: 80, maxWidth: 120),
     _Mb52Column(key: 'art', label: 'ART', minWidth: 80, maxWidth: 140),
+    _Mb52Column(key: 'des', label: 'DES', minWidth: 160, maxWidth: 280),
     _Mb52Column(key: 'almacen', label: 'ALMACEN', minWidth: 90, maxWidth: 140),
     _Mb52Column(key: 'stock_total_ctda', label: 'STOCK_TOTAL', minWidth: 120, maxWidth: 160, align: TextAlign.right),
     _Mb52Column(key: 'costo_total_ctot', label: 'COSTO_TOTAL', minWidth: 120, maxWidth: 160, align: TextAlign.right),
@@ -80,6 +81,7 @@ class _Mb52ResultadosPageState extends ConsumerState<Mb52ResultadosPage> {
       final headers = [
         'SUC',
         'ART',
+        'DES',
         'ALMACEN',
         'STOCK_TOTAL_CTDA',
         'COSTO_TOTAL_CTOT',
@@ -92,6 +94,7 @@ class _Mb52ResultadosPageState extends ConsumerState<Mb52ResultadosPage> {
         final values = [
           row.suc ?? '',
           row.art ?? '',
+          row.des ?? '',
           row.almacen ?? '',
           _fmtNumberCsv(row.stockTotalCtda, decimals: 2),
           _fmtNumberCsv(row.costoTotalCtot, decimals: 2),
@@ -157,7 +160,7 @@ class _Mb52ResultadosPageState extends ConsumerState<Mb52ResultadosPage> {
                         controller: _searchCtrl,
                         onChanged: _onSearchChanged,
                         decoration: InputDecoration(
-                          labelText: 'Búsqueda rápida (SUC / ART / ALMACEN)',
+                          labelText: 'Búsqueda rápida (SUC / ART / DES / ALMACEN)',
                           border: const OutlineInputBorder(),
                           isDense: true,
                           prefixIcon: const Icon(Icons.search),
@@ -419,6 +422,7 @@ class _Mb52ResultadosPageState extends ConsumerState<Mb52ResultadosPage> {
     return switch (key) {
       'suc' => row.suc ?? '-',
       'art' => row.art ?? '-',
+      'des' => row.des ?? '-',
       'almacen' => row.almacen ?? '-',
       'stock_total_ctda' => _fmtNumber(row.stockTotalCtda, decimals: 2),
       'costo_total_ctot' => _fmtNumber(row.costoTotalCtot, decimals: 2),
@@ -432,8 +436,9 @@ class _Mb52ResultadosPageState extends ConsumerState<Mb52ResultadosPage> {
     return rows.where((row) {
       final suc = (row.suc ?? '').toLowerCase();
       final art = (row.art ?? '').toLowerCase();
+      final des = (row.des ?? '').toLowerCase();
       final almacen = (row.almacen ?? '').toLowerCase();
-      return suc.contains(q) || art.contains(q) || almacen.contains(q);
+      return suc.contains(q) || art.contains(q) || des.contains(q) || almacen.contains(q);
     }).toList();
   }
 
@@ -449,12 +454,15 @@ class _Mb52ResultadosPageState extends ConsumerState<Mb52ResultadosPage> {
           result = _compareString(a.art, b.art);
           break;
         case 2:
-          result = _compareString(a.almacen, b.almacen);
+          result = _compareString(a.des, b.des);
           break;
         case 3:
-          result = _compareNum(a.stockTotalCtda, b.stockTotalCtda);
+          result = _compareString(a.almacen, b.almacen);
           break;
         case 4:
+          result = _compareNum(a.stockTotalCtda, b.stockTotalCtda);
+          break;
+        case 5:
           result = _compareNum(a.costoTotalCtot, b.costoTotalCtot);
           break;
         default:

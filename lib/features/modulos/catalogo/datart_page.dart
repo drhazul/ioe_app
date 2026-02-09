@@ -260,6 +260,147 @@ class _DatArtPageState extends ConsumerState<DatArtPage> {
     return {'art': art, 'upc': upc, 'des': des};
   }
 
+  _ModMasivaValidationResult _validateModificacionMasiva(
+    List<int> bytes,
+    String filename,
+  ) {
+    final lowerName = filename.toLowerCase();
+    if (lowerName.endsWith('.xls')) {
+      return const _ModMasivaValidationResult(
+        available: false,
+        totalRows: 0,
+        validRows: 0,
+        errorRows: 0,
+        issues: [],
+        message: 'Validación no disponible para .xls. Se validará al procesar.',
+      );
+    }
+
+    try {
+      final excel = xls.Excel.decodeBytes(bytes);
+      if (excel.tables.isEmpty) {
+        return const _ModMasivaValidationResult(
+          available: true,
+          totalRows: 0,
+          validRows: 0,
+          errorRows: 1,
+          issues: [
+            _ModMasivaValidationIssue(
+              rowNum: 1,
+              message: 'El archivo no contiene hojas.',
+            ),
+          ],
+        );
+      }
+      final sheet = excel.tables.values.first;
+      if (sheet.rows.isEmpty) {
+        return const _ModMasivaValidationResult(
+          available: true,
+          totalRows: 0,
+          validRows: 0,
+          errorRows: 1,
+          issues: [
+            _ModMasivaValidationIssue(
+              rowNum: 1,
+              message: 'El archivo no contiene datos.',
+            ),
+          ],
+        );
+      }
+
+      final headerRow = sheet.rows.first;
+      final headerValues =
+          headerRow.map((cell) => _excelCellText(cell).toUpperCase()).toList();
+      final headerIndex = <String, int>{};
+      for (var i = 0; i < headerValues.length; i += 1) {
+        final key = headerValues[i].replaceAll(RegExp(r'\\s+'), '');
+        if (key.isNotEmpty && !headerIndex.containsKey(key)) {
+          headerIndex[key] = i;
+        }
+      }
+
+      const requiredHeaders = ['SUC', 'ART', 'UPC'];
+      final missingHeaders = requiredHeaders
+          .where((h) => !headerIndex.containsKey(h))
+          .toList();
+      if (missingHeaders.isNotEmpty) {
+        return _ModMasivaValidationResult(
+          available: true,
+          totalRows: 0,
+          validRows: 0,
+          errorRows: missingHeaders.length,
+          issues: missingHeaders
+              .map(
+                (h) => _ModMasivaValidationIssue(
+                  rowNum: 1,
+                  message: 'Falta la columna $h.',
+                ),
+              )
+              .toList(),
+        );
+      }
+
+      final issues = <_ModMasivaValidationIssue>[];
+      var totalRows = 0;
+      for (var i = 1; i < sheet.rows.length; i += 1) {
+        final row = sheet.rows[i];
+        final cells = row.map(_excelCellText).toList();
+        final hasAnyValue = cells.any((c) => c.trim().isNotEmpty);
+        if (!hasAnyValue) continue;
+        totalRows += 1;
+
+        final suc = _cellByHeader(cells, headerIndex, 'SUC');
+        final art = _cellByHeader(cells, headerIndex, 'ART');
+        final upc = _cellByHeader(cells, headerIndex, 'UPC');
+        final errors = <String>[];
+        if (suc.trim().isEmpty) errors.add('SUC vacío');
+        if (art.trim().isEmpty) errors.add('ART vacío');
+        if (upc.trim().isEmpty) errors.add('UPC vacío');
+
+        if (errors.isNotEmpty) {
+          issues.add(
+            _ModMasivaValidationIssue(
+              rowNum: i + 1,
+              suc: suc,
+              art: art,
+              upc: upc,
+              message: errors.join(', '),
+            ),
+          );
+        }
+      }
+
+      final errorRows = issues.length;
+      final validRows = totalRows - errorRows;
+      return _ModMasivaValidationResult(
+        available: true,
+        totalRows: totalRows,
+        validRows: validRows < 0 ? 0 : validRows,
+        errorRows: errorRows,
+        issues: issues,
+      );
+    } catch (_) {
+      return const _ModMasivaValidationResult(
+        available: false,
+        totalRows: 0,
+        validRows: 0,
+        errorRows: 0,
+        issues: [],
+        message: 'No se pudo validar el archivo. Se validará al procesar.',
+      );
+    }
+  }
+
+  String _cellByHeader(
+    List<String> row,
+    Map<String, int> headerIndex,
+    String header,
+  ) {
+    final idx = headerIndex[header];
+    if (idx == null || idx < 0 || idx >= row.length) return '';
+    return row[idx];
+  }
+
   Future<void> _search({bool resetPage = false, String? forceLoteId}) async {
     final loteId = (forceLoteId ?? _massiveLoteId ?? '').trim();
     final useLoteFilter = loteId.isNotEmpty;
@@ -585,59 +726,383 @@ class _DatArtPageState extends ConsumerState<DatArtPage> {
     );
   }
 
-  Future<void> _pickAndUploadMassiveExcel() async {
+  Future<void> _applyMassiveUploadResult(
+    DatArtMassiveUploadResult response,
+  ) async {
+    final resumen =
+        'Procesados ${response.procesados}/${response.totalCargados} · '
+        'UK inválidos ${response.invalidosUk} · '
+        'No existen ${response.noExistenCatalogo} · '
+        'Duplicados ${response.duplicados}';
+    _showSnack('Modificacion masiva finalizada. $resumen');
+
+    setState(() {
+      _massiveLoteId = response.loteId;
+      _searchCtrl.clear();
+      _selectedDepa = null;
+      _selectedSubd = null;
+      _selectedClas = null;
+      _selectedScla = null;
+      _selectedScla2 = null;
+      _sphCtrl.clear();
+      _cylCtrl.clear();
+      _adicCtrl.clear();
+      _items = [];
+      _totalCount = 0;
+      _hasMore = false;
+      _hasSearched = false;
+      _page = 1;
+      _selectedKey = null;
+      _detailItem = null;
+      _detailError = null;
+    });
+
+    await _search(resetPage: true, forceLoteId: response.loteId);
+  }
+
+  Future<void> _openModificacionMasivaDialog() async {
     if (_uploadingMassive) return;
-
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: const ['xlsx', 'xls'],
-      withData: true,
-    );
-    if (!mounted || result == null || result.files.isEmpty) return;
-
-    final file = result.files.single;
-    final bytes = file.bytes;
-    if (bytes == null || bytes.isEmpty) {
-      _showSnack('No se pudo leer el archivo seleccionado.');
-      return;
-    }
-
     setState(() => _uploadingMassive = true);
-    try {
-      final response = await ref
-          .read(datArtApiProvider)
-          .uploadModificacionMasiva(bytes: bytes, filename: file.name);
 
-      final resumen =
-          'Procesados ${response.procesados}/${response.totalCargados} · '
-          'UK inválidos ${response.invalidosUk} · '
-          'No existen ${response.noExistenCatalogo} · '
-          'Duplicados ${response.duplicados}';
-      _showSnack('Modificacion masiva finalizada. $resumen');
+    final response = await showDialog<DatArtMassiveUploadResult?>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        String? fileName;
+        List<int>? fileBytes;
+        _AltaMasivaPreview preview = const _AltaMasivaPreview(
+          headers: [],
+          rows: [],
+        );
+        _ModMasivaValidationResult? validationResult;
+        DatArtMassiveUploadResult? uploadResult;
+        String? errorMsg;
+        bool previewLoading = false;
+        bool validating = false;
+        bool processing = false;
 
-      setState(() {
-        _massiveLoteId = response.loteId;
-        _searchCtrl.clear();
-        _selectedDepa = null;
-        _selectedSubd = null;
-        _selectedClas = null;
-        _selectedScla = null;
-        _selectedScla2 = null;
-        _sphCtrl.clear();
-        _cylCtrl.clear();
-        _adicCtrl.clear();
-      });
+        Future<void> pickFile(StateSetter setDialogState) async {
+          final result = await FilePicker.platform.pickFiles(
+            type: FileType.custom,
+            allowedExtensions: const ['xlsx', 'xls'],
+            withData: true,
+          );
+          if (result == null || result.files.isEmpty) return;
+          final file = result.files.single;
+          final bytes = file.bytes;
+          if (bytes == null || bytes.isEmpty) {
+            setDialogState(() => errorMsg = 'No se pudo leer el archivo.');
+            return;
+          }
 
-      if (response.invalidosUk > 0 || response.noExistenCatalogo > 0) {
-        _showMassiveResultDialog(response);
-      }
-      await _search(resetPage: true, forceLoteId: response.loteId);
-    } on DioException catch (e) {
-      _showSnack('Error al subir: ${apiErrorMessage(e)}');
-    } catch (e) {
-      _showSnack('Error al subir: $e');
-    } finally {
-      if (mounted) setState(() => _uploadingMassive = false);
+          setDialogState(() {
+            fileName = file.name;
+            fileBytes = bytes;
+            preview = _buildAltaPreview(bytes);
+            previewLoading = true;
+            validationResult = null;
+            uploadResult = null;
+            errorMsg = null;
+          });
+
+          final lowerName = file.name.toLowerCase();
+          final needServerPreview =
+              preview.headers.isEmpty ||
+              preview.rows.isEmpty ||
+              lowerName.endsWith('.xls');
+          if (needServerPreview) {
+            try {
+              final serverPreview = await ref
+                  .read(datArtApiProvider)
+                  .previewAltaMasiva(bytes: bytes, filename: file.name);
+              setDialogState(() {
+                preview = _AltaMasivaPreview(
+                  headers: serverPreview.headers,
+                  rows: serverPreview.rows,
+                );
+              });
+            } catch (_) {
+              setDialogState(() {
+                if (preview.headers.isEmpty || preview.rows.isEmpty) {
+                  errorMsg = 'No se pudo generar la vista previa.';
+                }
+              });
+            }
+          }
+
+          setDialogState(() => previewLoading = false);
+        }
+
+        Future<void> validateFile(StateSetter setDialogState) async {
+          if (fileBytes == null || fileName == null) {
+            setDialogState(() => errorMsg = 'Selecciona un archivo primero.');
+            return;
+          }
+          setDialogState(() {
+            validating = true;
+            errorMsg = null;
+            validationResult = null;
+            uploadResult = null;
+          });
+          final result = _validateModificacionMasiva(fileBytes!, fileName!);
+          setDialogState(() {
+            validationResult = result;
+            validating = false;
+          });
+        }
+
+        Future<void> processFile(StateSetter setDialogState) async {
+          if (fileBytes == null || fileName == null) {
+            setDialogState(() => errorMsg = 'Selecciona un archivo primero.');
+            return;
+          }
+          setDialogState(() {
+            processing = true;
+            errorMsg = null;
+            uploadResult = null;
+          });
+          try {
+            final result = await ref
+                .read(datArtApiProvider)
+                .uploadModificacionMasiva(
+                  bytes: fileBytes!,
+                  filename: fileName!,
+                );
+            setDialogState(() => uploadResult = result);
+            _showSnack(
+              'Modificación masiva completada. Procesados: ${result.procesados}.',
+            );
+          } on DioException catch (e) {
+            setDialogState(
+              () => errorMsg = 'Error al procesar: ${apiErrorMessage(e)}',
+            );
+          } catch (e) {
+            setDialogState(() => errorMsg = 'Error al procesar: $e');
+          } finally {
+            setDialogState(() => processing = false);
+          }
+        }
+
+        Widget buildPreviewTable() {
+          if (previewLoading) {
+            return const SizedBox(
+              height: 120,
+              child: Center(child: CircularProgressIndicator()),
+            );
+          }
+          if (preview.headers.isEmpty || preview.rows.isEmpty) {
+            return const Text('Sin vista previa disponible.');
+          }
+          final columns =
+              preview.headers.map((h) => DataColumn(label: Text(h))).toList();
+          final rows = preview.rows
+              .map(
+                (r) => DataRow(
+                  cells: r.map((v) => DataCell(Text(v))).toList(),
+                ),
+              )
+              .toList();
+          return SizedBox(
+            height: 220,
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: SingleChildScrollView(
+                child: DataTable(
+                  columns: columns,
+                  rows: rows,
+                  headingRowHeight: 28,
+                  dataRowMinHeight: 24,
+                  dataRowMaxHeight: 28,
+                ),
+              ),
+            ),
+          );
+        }
+
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final processed = uploadResult != null;
+            final canSelect = !processed && !validating && !processing;
+            final canValidate =
+                !processed && !validating && !processing && fileBytes != null;
+            final hasErrors = (validationResult?.errorRows ?? 0) > 0 &&
+                (validationResult?.available ?? true);
+            final canProcess = !processed &&
+                !processing &&
+                !validating &&
+                validationResult != null &&
+                !hasErrors;
+
+            return AlertDialog(
+              title: const Text('Modificación Masiva de Artículos'),
+              content: SizedBox(
+                width: 900,
+                child: SelectionArea(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                fileName == null
+                                    ? 'Archivo: sin seleccionar'
+                                    : 'Archivo: $fileName',
+                              ),
+                            ),
+                            TextButton.icon(
+                              onPressed:
+                                  canSelect ? () => pickFile(setDialogState) : null,
+                              icon: const Icon(Icons.attach_file),
+                              label: const Text('Seleccionar Excel'),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            TextButton(
+                              onPressed: () =>
+                                  Navigator.of(context).pop(uploadResult),
+                              child: const Text('Cerrar'),
+                            ),
+                            const SizedBox(width: 8),
+                            TextButton.icon(
+                              onPressed: canValidate
+                                  ? () => validateFile(setDialogState)
+                                  : null,
+                              icon: validating
+                                  ? const SizedBox(
+                                      height: 16,
+                                      width: 16,
+                                      child:
+                                          CircularProgressIndicator(strokeWidth: 2),
+                                    )
+                                  : const Icon(Icons.check_circle_outline),
+                              label: const Text('Validar'),
+                            ),
+                            const SizedBox(width: 8),
+                            TextButton.icon(
+                              onPressed: canProcess
+                                  ? () => processFile(setDialogState)
+                                  : null,
+                              icon: processing
+                                  ? const SizedBox(
+                                      height: 16,
+                                      width: 16,
+                                      child:
+                                          CircularProgressIndicator(strokeWidth: 2),
+                                    )
+                                  : const Icon(Icons.play_circle_outline),
+                              label: const Text('Procesar'),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        if (errorMsg != null) ...[
+                          Text(
+                            errorMsg!,
+                            style: const TextStyle(color: Colors.redAccent),
+                          ),
+                          const SizedBox(height: 8),
+                        ],
+                        const Text(
+                          'Vista previa (primeros renglones)',
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 6),
+                        buildPreviewTable(),
+                        const SizedBox(height: 12),
+                        if (validationResult != null) ...[
+                          if (validationResult!.message != null) ...[
+                            Text(validationResult!.message!),
+                            const SizedBox(height: 6),
+                          ],
+                          Text(
+                            'Validación -> Total: ${validationResult!.totalRows} · '
+                            'Válidos: ${validationResult!.validRows} · '
+                            'Errores: ${validationResult!.errorRows}',
+                          ),
+                          if (validationResult!.issues.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            const Text(
+                              'Errores (top 200):',
+                              style: TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                            const SizedBox(height: 4),
+                            SizedBox(
+                              height: 160,
+                              child: SingleChildScrollView(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: validationResult!.issues
+                                      .take(200)
+                                      .map(
+                                        (issue) => Text(
+                                          'Renglon ${issue.rowNum}: '
+                                          'SUC=${issue.suc ?? '-'} '
+                                          'ART=${issue.art ?? '-'} '
+                                          'UPC=${issue.upc ?? '-'} '
+                                          '-> ${issue.message}',
+                                        ),
+                                      )
+                                      .toList(),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                        if (uploadResult != null) ...[
+                          const SizedBox(height: 10),
+                          Text('Lote: ${uploadResult!.loteId}'),
+                          Text(
+                            'Procesados: ${uploadResult!.procesados} · '
+                            'Total cargados: ${uploadResult!.totalCargados}',
+                          ),
+                          Text(
+                            'UK inválidos: ${uploadResult!.invalidosUk} · '
+                            'No existen: ${uploadResult!.noExistenCatalogo} · '
+                            'Duplicados: ${uploadResult!.duplicados}',
+                          ),
+                          if (uploadResult!.invalidos.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            const Text(
+                              'Artículos con UK inválido',
+                              style: TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                            const SizedBox(height: 4),
+                            ...uploadResult!.invalidos.take(80).map(
+                                  (issue) => Text(_issueLine(issue)),
+                                ),
+                          ],
+                          if (uploadResult!.noExistentes.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            const Text(
+                              'Artículos no dados de alta en sucursal',
+                              style: TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                            const SizedBox(height: 4),
+                            ...uploadResult!.noExistentes.take(80).map(
+                                  (issue) => Text(_issueLine(issue)),
+                                ),
+                          ],
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (mounted) setState(() => _uploadingMassive = false);
+    if (response != null) {
+      await _applyMassiveUploadResult(response);
     }
   }
 
@@ -1068,65 +1533,6 @@ class _DatArtPageState extends ConsumerState<DatArtPage> {
     });
   }
 
-  void _showMassiveResultDialog(DatArtMassiveUploadResult result) {
-    showDialog<void>(
-      context: context,
-      builder: (context) {
-        final invalidos = result.invalidos;
-        final noExistentes = result.noExistentes;
-        return AlertDialog(
-          title: const Text('Resultado Modificacion Masiva'),
-          content: SizedBox(
-            width: 760,
-            child: SelectionArea(
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text('Lote: ${result.loteId}'),
-                    const SizedBox(height: 8),
-                    Text('Total cargados: ${result.totalCargados}'),
-                    Text('Procesados: ${result.procesados}'),
-                    Text('UK invalido (SUC/ART/UPC): ${result.invalidosUk}'),
-                    Text(
-                      'No existentes en catalogo sucursal: ${result.noExistenCatalogo}',
-                    ),
-                    Text('Duplicados en archivo: ${result.duplicados}'),
-                    if (invalidos.isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      const Text(
-                        'Articulos con UK invalido',
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      const SizedBox(height: 4),
-                      ...invalidos.map((issue) => Text(_issueLine(issue))),
-                    ],
-                    if (noExistentes.isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      const Text(
-                        'Articulos no dados de alta en sucursal',
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      const SizedBox(height: 4),
-                      ...noExistentes.map((issue) => Text(_issueLine(issue))),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cerrar'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   String _issueLine(DatArtMassiveIssue issue) {
     final suc = (issue.suc ?? '').trim().isEmpty ? '-' : issue.suc!.trim();
     final art = (issue.art ?? '').trim().isEmpty ? '-' : issue.art!.trim();
@@ -1298,7 +1704,7 @@ class _DatArtPageState extends ConsumerState<DatArtPage> {
               child: TextButton.icon(
                 onPressed: _uploadingMassive
                     ? null
-                    : _pickAndUploadMassiveExcel,
+                    : _openModificacionMasivaDialog,
                 style: TextButton.styleFrom(
                   backgroundColor: const Color(0xFFC1E1A7),
                   foregroundColor: Colors.black87,
@@ -2870,6 +3276,40 @@ class _AltaMasivaPreview {
 
   final List<String> headers;
   final List<List<String>> rows;
+}
+
+class _ModMasivaValidationIssue {
+  const _ModMasivaValidationIssue({
+    required this.rowNum,
+    this.suc,
+    this.art,
+    this.upc,
+    required this.message,
+  });
+
+  final int rowNum;
+  final String? suc;
+  final String? art;
+  final String? upc;
+  final String message;
+}
+
+class _ModMasivaValidationResult {
+  const _ModMasivaValidationResult({
+    required this.available,
+    required this.totalRows,
+    required this.validRows,
+    required this.errorRows,
+    required this.issues,
+    this.message,
+  });
+
+  final bool available;
+  final int totalRows;
+  final int validRows;
+  final int errorRows;
+  final List<_ModMasivaValidationIssue> issues;
+  final String? message;
 }
 
 class _FilterField extends StatelessWidget {

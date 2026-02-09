@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ioe_app/core/api_error.dart';
@@ -6,6 +7,8 @@ import 'package:ioe_app/features/masterdata/sucursales/sucursales_models.dart';
 import 'package:ioe_app/features/masterdata/sucursales/sucursales_providers.dart';
 import 'package:ioe_app/features/modulos/catalogo/datart_models.dart';
 import 'package:ioe_app/features/modulos/catalogo/datart_providers.dart';
+import 'package:ioe_app/features/modulos/punto_venta/cotizaciones/detalle_cot/jrq_models.dart';
+import 'package:ioe_app/features/modulos/punto_venta/cotizaciones/detalle_cot/jrq_providers.dart';
 
 import 'mb51_models.dart';
 import 'mb51_providers.dart';
@@ -136,6 +139,11 @@ class _Mb51ConsultasPageState extends ConsumerState<Mb51ConsultasPage> {
   void _showSnack(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Color _multiIconColor(BuildContext context, int count, {bool enabled = true}) {
+    if (!enabled) return Theme.of(context).disabledColor;
+    return count > 1 ? Colors.orange : Theme.of(context).colorScheme.primary;
   }
 
   String _sucLabel(SucursalModel s) {
@@ -275,24 +283,153 @@ class _Mb51ConsultasPageState extends ConsumerState<Mb51ConsultasPage> {
     required ValueChanged<List<String>> onApply,
   }) async {
     final api = ref.read(datArtApiProvider);
+    final searchCtrl = TextEditingController();
+    final sphCtrl = TextEditingController();
+    final cylCtrl = TextEditingController();
+    final adicCtrl = TextEditingController();
+    double? selectedDepa;
+    double? selectedSubd;
+    double? selectedClas;
+    double? selectedScla;
+    double? selectedScla2;
+
+    double? parseDouble(String text) {
+      final trimmed = text.trim();
+      if (trimmed.isEmpty) return null;
+      final normalized = trimmed.replaceAll(',', '.');
+      return double.tryParse(normalized);
+    }
+
+    bool invalidNumber(String raw, double? parsed) =>
+        raw.trim().isNotEmpty && parsed == null;
+
+    String formatNumber(double value) {
+      final intValue = value.toInt();
+      if (value == intValue) return intValue.toString();
+      return value.toString();
+    }
+
+    String formatOption(double value, String? description) {
+      final id = formatNumber(value);
+      final desc = (description ?? '').trim();
+      if (desc.isEmpty) return id;
+      return '$id - $desc';
+    }
+
+    void clearFilters(StateSetter setDialogState) {
+      setDialogState(() {
+        searchCtrl.clear();
+        selectedDepa = null;
+        selectedSubd = null;
+        selectedClas = null;
+        selectedScla = null;
+        selectedScla2 = null;
+        sphCtrl.clear();
+        cylCtrl.clear();
+        adicCtrl.clear();
+      });
+    }
+
     final result = await showDialog<List<String>>(
       context: context,
       builder: (context) {
         final selectedSet = <String>{...selected};
-        final searchCtrl = TextEditingController();
         var loading = false;
         var items = <DatArtModel>[];
 
         Future<void> runSearch(StateSetter setDialogState) async {
           final query = searchCtrl.text.trim();
-          if (query.isEmpty) return;
+          final hasFilters =
+              selectedDepa != null ||
+              selectedSubd != null ||
+              selectedClas != null ||
+              selectedScla != null ||
+              selectedScla2 != null ||
+              sphCtrl.text.trim().isNotEmpty ||
+              cylCtrl.text.trim().isNotEmpty ||
+              adicCtrl.text.trim().isNotEmpty;
+          if (query.isEmpty && !hasFilters) return;
+          final sph = parseDouble(sphCtrl.text);
+          final cyl = parseDouble(cylCtrl.text);
+          final adic = parseDouble(adicCtrl.text);
+          if (invalidNumber(sphCtrl.text, sph) ||
+              invalidNumber(cylCtrl.text, cyl) ||
+              invalidNumber(adicCtrl.text, adic)) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Revisa los campos numéricos.')),
+            );
+            return;
+          }
           setDialogState(() => loading = true);
           try {
-            final results = await Future.wait([
-              api.fetchArticulos(art: query, page: 1, limit: 50),
-              api.fetchArticulos(upc: query, page: 1, limit: 50),
-              api.fetchArticulos(des: query, page: 1, limit: 50),
-            ]);
+            final futures = <Future<List<DatArtModel>>>[];
+            if (query.isNotEmpty) {
+              futures.add(
+                api.fetchArticulos(
+                  art: query,
+                  depa: selectedDepa,
+                  subd: selectedSubd,
+                  clas: selectedClas,
+                  scla: selectedScla,
+                  scla2: selectedScla2,
+                  sph: sph,
+                  cyl: cyl,
+                  adic: adic,
+                  page: 1,
+                  limit: 50,
+                  view: 'lite',
+                ),
+              );
+              futures.add(
+                api.fetchArticulos(
+                  upc: query,
+                  depa: selectedDepa,
+                  subd: selectedSubd,
+                  clas: selectedClas,
+                  scla: selectedScla,
+                  scla2: selectedScla2,
+                  sph: sph,
+                  cyl: cyl,
+                  adic: adic,
+                  page: 1,
+                  limit: 50,
+                  view: 'lite',
+                ),
+              );
+              futures.add(
+                api.fetchArticulos(
+                  des: query,
+                  depa: selectedDepa,
+                  subd: selectedSubd,
+                  clas: selectedClas,
+                  scla: selectedScla,
+                  scla2: selectedScla2,
+                  sph: sph,
+                  cyl: cyl,
+                  adic: adic,
+                  page: 1,
+                  limit: 50,
+                  view: 'lite',
+                ),
+              );
+            } else {
+              futures.add(
+                api.fetchArticulos(
+                  depa: selectedDepa,
+                  subd: selectedSubd,
+                  clas: selectedClas,
+                  scla: selectedScla,
+                  scla2: selectedScla2,
+                  sph: sph,
+                  cyl: cyl,
+                  adic: adic,
+                  page: 1,
+                  limit: 50,
+                  view: 'lite',
+                ),
+              );
+            }
+            final results = await Future.wait(futures);
             final merged = <String, DatArtModel>{};
             for (final list in results) {
               for (final item in list) {
@@ -328,118 +465,282 @@ class _Mb51ConsultasPageState extends ConsumerState<Mb51ConsultasPage> {
           builder: (context, setDialogState) {
             return AlertDialog(
               title: const Text('Seleccionar artículos'),
-              content: SizedBox(
-                width: 560,
-                height: 460,
-                child: Column(
-                  children: [
-                    Row(
+              content: Consumer(
+                builder: (context, ref, _) {
+                  final depaAsync = ref.watch(jrqDepaListProvider);
+                  final subdAsync = ref.watch(jrqSubdListProvider(selectedDepa));
+                  final clasAsync = ref.watch(jrqClasListProvider(selectedSubd));
+                  final sclaAsync = ref.watch(jrqSclaListProvider(selectedClas));
+                  final scla2Async = ref.watch(jrqScla2ListProvider(selectedScla));
+
+                  Widget buildDropdown<T>({
+                    required String label,
+                    required double? value,
+                    required bool enabled,
+                    required AsyncValue<List<T>> asyncItems,
+                    required double Function(T) itemValue,
+                    required String Function(T) itemLabel,
+                    required ValueChanged<double?> onChanged,
+                  }) {
+                    final items = asyncItems.asData?.value ?? <T>[];
+                    final hasValue =
+                        value != null && items.any((e) => itemValue(e) == value);
+                    final effectiveValue = hasValue ? value : null;
+                    return SizedBox(
+                      width: 90,
+                      child: DropdownButtonFormField<double>(
+                        key: ValueKey<double?>(effectiveValue),
+                        initialValue: effectiveValue,
+                        isExpanded: true,
+                        iconSize: 16,
+                        onChanged: enabled && !asyncItems.isLoading ? onChanged : null,
+                        decoration: const InputDecoration(
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                          contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                        ).copyWith(labelText: label),
+                        items: items
+                            .map(
+                              (item) => DropdownMenuItem<double>(
+                                value: itemValue(item),
+                                child: Text(
+                                  itemLabel(item),
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontSize: 11),
+                                ),
+                              ),
+                            )
+                            .toList(),
+                      ),
+                    );
+                  }
+
+                  Widget buildNumberField(
+                    String label,
+                    TextEditingController controller,
+                  ) {
+                    return SizedBox(
+                      width: 90,
+                      child: TextField(
+                        controller: controller,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(RegExp(r'[0-9,.-]')),
+                        ],
+                        decoration: const InputDecoration(
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                          contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                        ).copyWith(labelText: label),
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                    );
+                  }
+
+                  return SizedBox(
+                    width: 560,
+                    height: 520,
+                    child: Column(
                       children: [
-                        Expanded(
-                          child: TextField(
-                            controller: searchCtrl,
-                            decoration: const InputDecoration(
-                              labelText: 'Buscar ART / UPC / DES',
-                              border: OutlineInputBorder(),
-                              isDense: true,
-                              prefixIcon: Icon(Icons.search),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: searchCtrl,
+                                decoration: const InputDecoration(
+                                  labelText: 'Buscar ART / UPC / DES',
+                                  border: OutlineInputBorder(),
+                                  isDense: true,
+                                  prefixIcon: Icon(Icons.search),
+                                ),
+                                onSubmitted: (_) => runSearch(setDialogState),
+                              ),
                             ),
-                            onSubmitted: (_) => runSearch(setDialogState),
+                            const SizedBox(width: 8),
+                            FilledButton(
+                              onPressed: loading ? null : () => runSearch(setDialogState),
+                              child: const Text('Buscar'),
+                            ),
+                            const SizedBox(width: 8),
+                            OutlinedButton(
+                              onPressed: () {
+                                final value = searchCtrl.text.trim();
+                                if (value.isEmpty) return;
+                                setDialogState(() => selectedSet.add(value));
+                              },
+                              child: const Text('Agregar'),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            buildDropdown<JrqDepaModel>(
+                              label: 'DEPA',
+                              value: selectedDepa,
+                              enabled: true,
+                              asyncItems: depaAsync,
+                              itemValue: (item) => item.depa,
+                              itemLabel: (item) => formatOption(item.depa, item.ddepa),
+                              onChanged: (value) => setDialogState(() {
+                                selectedDepa = value;
+                                selectedSubd = null;
+                                selectedClas = null;
+                                selectedScla = null;
+                                selectedScla2 = null;
+                              }),
+                            ),
+                            buildDropdown<JrqSubdModel>(
+                              label: 'SUBD',
+                              value: selectedSubd,
+                              enabled: selectedDepa != null,
+                              asyncItems: subdAsync,
+                              itemValue: (item) => item.subd,
+                              itemLabel: (item) => formatOption(item.subd, item.dsubd),
+                              onChanged: (value) => setDialogState(() {
+                                selectedSubd = value;
+                                selectedClas = null;
+                                selectedScla = null;
+                                selectedScla2 = null;
+                              }),
+                            ),
+                            buildDropdown<JrqClasModel>(
+                              label: 'CLAS',
+                              value: selectedClas,
+                              enabled: selectedSubd != null,
+                              asyncItems: clasAsync,
+                              itemValue: (item) => item.clas,
+                              itemLabel: (item) => formatOption(item.clas, item.dclas),
+                              onChanged: (value) => setDialogState(() {
+                                selectedClas = value;
+                                selectedScla = null;
+                                selectedScla2 = null;
+                              }),
+                            ),
+                            buildDropdown<JrqSclaModel>(
+                              label: 'SCLA',
+                              value: selectedScla,
+                              enabled: selectedClas != null,
+                              asyncItems: sclaAsync,
+                              itemValue: (item) => item.scla,
+                              itemLabel: (item) => formatOption(item.scla, item.dscla),
+                              onChanged: (value) => setDialogState(() {
+                                selectedScla = value;
+                                selectedScla2 = null;
+                              }),
+                            ),
+                            buildDropdown<JrqScla2Model>(
+                              label: 'SCLA2',
+                              value: selectedScla2,
+                              enabled: selectedScla != null,
+                              asyncItems: scla2Async,
+                              itemValue: (item) => item.scla2,
+                              itemLabel: (item) => formatOption(item.scla2, item.dscla2),
+                              onChanged: (value) => setDialogState(() {
+                                selectedScla2 = value;
+                              }),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            buildNumberField('SPH', sphCtrl),
+                            buildNumberField('CYL', cylCtrl),
+                            buildNumberField('ADIC', adicCtrl),
+                            TextButton.icon(
+                              onPressed: () => clearFilters(setDialogState),
+                              icon: const Icon(Icons.refresh, size: 16),
+                              label: const Text('Limpiar filtros'),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        if (loading) const LinearProgressIndicator(),
+                        const SizedBox(height: 8),
+                        Expanded(
+                          child: items.isEmpty
+                              ? const Center(child: Text('Sin resultados'))
+                              : ListView.builder(
+                                  itemCount: items.length,
+                                  itemBuilder: (context, index) {
+                                    final item = items[index];
+                                    final art = item.art.trim();
+                                    if (art.isEmpty) return const SizedBox.shrink();
+                                    final upc = item.upc.trim();
+                                    final des = (item.des ?? '').trim();
+                                    final parts = <String>[art];
+                                    if (upc.isNotEmpty) parts.add(upc);
+                                    if (des.isNotEmpty) parts.add(des);
+                                    final label = parts.join(' - ');
+                                    final checked = selectedSet.contains(art);
+                                    return CheckboxListTile(
+                                      value: checked,
+                                      controlAffinity: ListTileControlAffinity.leading,
+                                      title: Text(label),
+                                      secondary: IconButton(
+                                        tooltip: 'Agregar ART',
+                                        onPressed: () =>
+                                            setDialogState(() => selectedSet.add(art)),
+                                        icon: Icon(
+                                          Icons.add_circle,
+                                          color: checked ? Colors.green : null,
+                                        ),
+                                      ),
+                                      onChanged: (value) {
+                                        setDialogState(() {
+                                          if (value == true) {
+                                            selectedSet.add(art);
+                                          } else {
+                                            selectedSet.remove(art);
+                                          }
+                                        });
+                                      },
+                                    );
+                                  },
+                                ),
+                        ),
+                        const SizedBox(height: 8),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'ART seleccionados (${selectedSet.length})',
+                            style: const TextStyle(fontWeight: FontWeight.w600),
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        FilledButton(
-                          onPressed: loading ? null : () => runSearch(setDialogState),
-                          child: const Text('Buscar'),
-                        ),
-                        const SizedBox(width: 8),
-                        OutlinedButton(
-                          onPressed: () {
-                            final value = searchCtrl.text.trim();
-                            if (value.isEmpty) return;
-                            setDialogState(() => selectedSet.add(value));
-                          },
-                          child: const Text('Agregar'),
+                        const SizedBox(height: 6),
+                        SizedBox(
+                          height: 64,
+                          child: selectedSet.isEmpty
+                              ? const Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Text('Sin artículos seleccionados'),
+                                )
+                              : SingleChildScrollView(
+                                  child: Wrap(
+                                    spacing: 6,
+                                    runSpacing: 6,
+                                    children: (selectedSet.toList()..sort())
+                                        .map(
+                                          (art) => InputChip(
+                                            label: Text(art),
+                                            onDeleted: () => setDialogState(
+                                              () => selectedSet.remove(art),
+                                            ),
+                                          ),
+                                        )
+                                        .toList(),
+                                  ),
+                                ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
-                    if (loading) const LinearProgressIndicator(),
-                    const SizedBox(height: 8),
-                    Expanded(
-                      child: items.isEmpty
-                          ? const Center(child: Text('Sin resultados'))
-                          : ListView.builder(
-                              itemCount: items.length,
-                              itemBuilder: (context, index) {
-                                final item = items[index];
-                                final art = item.art.trim();
-                                if (art.isEmpty) return const SizedBox.shrink();
-                                final upc = item.upc.trim();
-                                final des = (item.des ?? '').trim();
-                                final parts = <String>[art];
-                                if (upc.isNotEmpty) parts.add(upc);
-                                if (des.isNotEmpty) parts.add(des);
-                                final label = parts.join(' - ');
-                                final checked = selectedSet.contains(art);
-                                return CheckboxListTile(
-                                  value: checked,
-                                  controlAffinity: ListTileControlAffinity.leading,
-                                  title: Text(label),
-                                  secondary: IconButton(
-                                    tooltip: 'Agregar ART',
-                                    onPressed: () => setDialogState(() => selectedSet.add(art)),
-                                    icon: Icon(
-                                      Icons.add_circle,
-                                      color: checked ? Colors.green : null,
-                                    ),
-                                  ),
-                                  onChanged: (value) {
-                                    setDialogState(() {
-                                      if (value == true) {
-                                        selectedSet.add(art);
-                                      } else {
-                                        selectedSet.remove(art);
-                                      }
-                                    });
-                                  },
-                                );
-                              },
-                            ),
-                    ),
-                    const SizedBox(height: 8),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'ART seleccionados (${selectedSet.length})',
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    SizedBox(
-                      height: 64,
-                      child: selectedSet.isEmpty
-                          ? const Align(
-                              alignment: Alignment.centerLeft,
-                              child: Text('Sin artículos seleccionados'),
-                            )
-                          : SingleChildScrollView(
-                              child: Wrap(
-                                spacing: 6,
-                                runSpacing: 6,
-                                children: (selectedSet.toList()..sort())
-                                    .map(
-                                      (art) => InputChip(
-                                        label: Text(art),
-                                        onDeleted: () => setDialogState(() => selectedSet.remove(art)),
-                                      ),
-                                    )
-                                    .toList(),
-                              ),
-                            ),
-                    ),
-                  ],
-                ),
+                  );
+                },
               ),
               actions: [
                 TextButton(
@@ -460,6 +761,10 @@ class _Mb51ConsultasPageState extends ConsumerState<Mb51ConsultasPage> {
         );
       },
     );
+    searchCtrl.dispose();
+    sphCtrl.dispose();
+    cylCtrl.dispose();
+    adicCtrl.dispose();
     if (!mounted) return;
     if (result != null) {
       onApply(result);
@@ -595,7 +900,11 @@ class _Mb51ConsultasPageState extends ConsumerState<Mb51ConsultasPage> {
                                       },
                                 icon: Icon(
                                   Icons.playlist_add,
-                                  color: selectedSucs.length > 1 ? Colors.orange : null,
+                                  color: _multiIconColor(
+                                    context,
+                                    selectedSucs.length,
+                                    enabled: sucursales.isNotEmpty,
+                                  ),
                                 ),
                               ),
                             ),
@@ -641,7 +950,7 @@ class _Mb51ConsultasPageState extends ConsumerState<Mb51ConsultasPage> {
                                 },
                                 icon: Icon(
                                   Icons.playlist_add,
-                                  color: selectedArts.length > 1 ? Colors.orange : null,
+                                  color: _multiIconColor(context, selectedArts.length),
                                 ),
                               ),
                             ),
@@ -677,7 +986,11 @@ class _Mb51ConsultasPageState extends ConsumerState<Mb51ConsultasPage> {
                                       },
                                 icon: Icon(
                                   Icons.playlist_add,
-                                  color: selectedAlmacenes.length > 1 ? Colors.orange : null,
+                                  color: _multiIconColor(
+                                    context,
+                                    selectedAlmacenes.length,
+                                    enabled: almacenes.isNotEmpty,
+                                  ),
                                 ),
                               ),
                             ),
@@ -728,7 +1041,11 @@ class _Mb51ConsultasPageState extends ConsumerState<Mb51ConsultasPage> {
                                       },
                                 icon: Icon(
                                   Icons.playlist_add,
-                                  color: selectedClsms.length > 1 ? Colors.orange : null,
+                                  color: _multiIconColor(
+                                    context,
+                                    selectedClsms.length,
+                                    enabled: cmov.isNotEmpty,
+                                  ),
                                 ),
                               ),
                             ),
