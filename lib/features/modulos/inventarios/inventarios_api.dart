@@ -12,7 +12,10 @@ class InventariosApi {
     if (normalizedSuc != null && normalizedSuc.isNotEmpty) {
       query['suc'] = normalizedSuc;
     }
-    final res = await dio.get('/conteos', queryParameters: query.isEmpty ? null : query);
+    final res = await dio.get(
+      '/conteos',
+      queryParameters: query.isEmpty ? null : query,
+    );
     return (res.data as List<dynamic>)
         .map((e) => DatContCtrlModel.fromJson(Map<String, dynamic>.from(e)))
         .toList();
@@ -20,17 +23,32 @@ class InventariosApi {
 
   Future<DatContCtrlModel> fetchOne(String tokenreg) async {
     final res = await dio.get('/datcontctrl/${Uri.encodeComponent(tokenreg)}');
-    return DatContCtrlModel.fromJson(Map<String, dynamic>.from(res.data as Map));
+    return DatContCtrlModel.fromJson(
+      Map<String, dynamic>.from(res.data as Map),
+    );
   }
 
   Future<DatContCtrlModel> create(Map<String, dynamic> payload) async {
-    final res = await dio.post('/datcontctrl', data: Map<String, dynamic>.from(payload));
-    return DatContCtrlModel.fromJson(Map<String, dynamic>.from(res.data as Map));
+    final res = await dio.post(
+      '/datcontctrl',
+      data: Map<String, dynamic>.from(payload),
+    );
+    return DatContCtrlModel.fromJson(
+      Map<String, dynamic>.from(res.data as Map),
+    );
   }
 
-  Future<DatContCtrlModel> update(String tokenreg, Map<String, dynamic> payload) async {
-    final res = await dio.patch('/datcontctrl/${Uri.encodeComponent(tokenreg)}', data: Map<String, dynamic>.from(payload));
-    return DatContCtrlModel.fromJson(Map<String, dynamic>.from(res.data as Map));
+  Future<DatContCtrlModel> update(
+    String tokenreg,
+    Map<String, dynamic> payload,
+  ) async {
+    final res = await dio.patch(
+      '/datcontctrl/${Uri.encodeComponent(tokenreg)}',
+      data: Map<String, dynamic>.from(payload),
+    );
+    return DatContCtrlModel.fromJson(
+      Map<String, dynamic>.from(res.data as Map),
+    );
   }
 
   Future<void> delete(String tokenreg) async {
@@ -60,7 +78,9 @@ class InventariosApi {
       options: Options(contentType: 'multipart/form-data'),
     );
 
-    return ConteoUploadResult.fromJson(Map<String, dynamic>.from(res.data as Map));
+    return ConteoUploadResult.fromJson(
+      Map<String, dynamic>.from(res.data as Map),
+    );
   }
 
   Future<ConteoProcessResult> processConteo(String cont, {String? suc}) async {
@@ -73,10 +93,15 @@ class InventariosApi {
       '/conteos/${Uri.encodeComponent(cont)}/process',
       queryParameters: query.isEmpty ? null : query,
     );
-    return ConteoProcessResult.fromJson(Map<String, dynamic>.from(res.data as Map));
+    return ConteoProcessResult.fromJson(
+      Map<String, dynamic>.from(res.data as Map),
+    );
   }
 
-  Future<ConteoApplyAdjustmentResult> applyAdjustment(String cont, {String? suc}) async {
+  Future<ConteoApplyAdjustmentResult> applyAdjustment(
+    String cont, {
+    String? suc,
+  }) async {
     final query = <String, dynamic>{};
     final normalizedSuc = suc?.trim();
     if (normalizedSuc != null && normalizedSuc.isNotEmpty) {
@@ -86,26 +111,66 @@ class InventariosApi {
     final res = await dio.post(
       '/conteos/${Uri.encodeComponent(cont)}/apply-adjustment',
       queryParameters: query.isEmpty ? null : query,
+      options: Options(receiveTimeout: const Duration(minutes: 4)),
     );
-    return ConteoApplyAdjustmentResult.fromJson(Map<String, dynamic>.from(res.data as Map));
+    return ConteoApplyAdjustmentResult.fromJson(
+      Map<String, dynamic>.from(res.data as Map),
+    );
   }
 
-  Future<ConteoDetResponse> fetchDetalles(String cont, {int page = 1, int limit = 50, String? suc}) async {
+  Future<ConteoSyncCapturasResult> syncCapturasFromDetalle(
+    String cont, {
+    String? suc,
+  }) async {
+    final query = <String, dynamic>{};
+    final normalizedSuc = suc?.trim();
+    if (normalizedSuc != null && normalizedSuc.isNotEmpty) {
+      query['suc'] = normalizedSuc;
+    }
+
+    final res = await dio.post(
+      '/conteos/${Uri.encodeComponent(cont)}/sync-capturas',
+      queryParameters: query.isEmpty ? null : query,
+      options: Options(receiveTimeout: const Duration(minutes: 4)),
+    );
+
+    return ConteoSyncCapturasResult.fromJson(
+      Map<String, dynamic>.from(res.data as Map),
+    );
+  }
+
+  Future<ConteoDetResponse> fetchDetalles(
+    String cont, {
+    int page = 1,
+    int limit = 50,
+    String? suc,
+  }) async {
     final query = <String, dynamic>{'page': page, 'limit': limit};
     final normalizedSuc = suc?.trim();
     if (normalizedSuc != null && normalizedSuc.isNotEmpty) {
       query['suc'] = normalizedSuc;
     }
-    final res = await dio.get('/conteos/${Uri.encodeComponent(cont)}/det', queryParameters: query);
-    return ConteoDetResponse.fromJson(Map<String, dynamic>.from(res.data as Map));
+    final res = await dio.get(
+      '/conteos/${Uri.encodeComponent(cont)}/det',
+      queryParameters: query,
+    );
+    return ConteoDetResponse.fromJson(
+      Map<String, dynamic>.from(res.data as Map),
+    );
   }
 
-  Future<DatDetSvrModel> updateDetalleExt({required int id, required bool value}) async {
+  Future<DatDetSvrModel> updateDetalleExt({
+    required int id,
+    required bool value,
+  }) async {
     final res = await dio.patch('/datdetsvr/$id', data: {'EXT': value ? 1 : 0});
     return DatDetSvrModel.fromJson(Map<String, dynamic>.from(res.data as Map));
   }
 
-  Future<ConteoSummaryModel> fetchDetalleSummary(String cont, {String? suc}) async {
+  Future<ConteoSummaryModel> fetchDetalleSummary(
+    String cont, {
+    String? suc,
+  }) async {
     final query = <String, dynamic>{};
     final normalizedSuc = suc?.trim();
     if (normalizedSuc != null && normalizedSuc.isNotEmpty) {
@@ -115,6 +180,8 @@ class InventariosApi {
       '/conteos/${Uri.encodeComponent(cont)}/summary',
       queryParameters: query.isEmpty ? null : query,
     );
-    return ConteoSummaryModel.fromJson(Map<String, dynamic>.from(res.data as Map));
+    return ConteoSummaryModel.fromJson(
+      Map<String, dynamic>.from(res.data as Map),
+    );
   }
 }

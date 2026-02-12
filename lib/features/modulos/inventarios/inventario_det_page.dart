@@ -23,7 +23,8 @@ const double _colDifWidth = 130;
 const double _colCtopWidth = 130;
 const double _colDifCtopWidth = 110;
 const double _colExtWidth = 90;
-const double _tableWidth = _colArticuloWidth +
+const double _tableWidth =
+    _colArticuloWidth +
     _colUpcWidth +
     _colDescripcionWidth +
     _colConteoWidth +
@@ -40,12 +41,14 @@ class InventarioDetallePage extends ConsumerStatefulWidget {
   final String cont;
 
   @override
-  ConsumerState<InventarioDetallePage> createState() => _InventarioDetallePageState();
+  ConsumerState<InventarioDetallePage> createState() =>
+      _InventarioDetallePageState();
 }
 
 class _InventarioDetallePageState extends ConsumerState<InventarioDetallePage> {
   static const int _limit = 50;
   int _page = 1;
+  bool _syncingCapturas = false;
   final _pageController = ScrollController();
   final _horizontalController = ScrollController();
   final _searchController = TextEditingController();
@@ -65,7 +68,9 @@ class _InventarioDetallePageState extends ConsumerState<InventarioDetallePage> {
   Widget build(BuildContext context) {
     final query = ConteoDetQuery(cont: widget.cont, page: _page, limit: _limit);
     final detalleAsync = ref.watch(inventarioDetalleProvider(query));
-    final summaryAsync = ref.watch(inventarioDetalleSummaryProvider(widget.cont));
+    final summaryAsync = ref.watch(
+      inventarioDetalleSummaryProvider(widget.cont),
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -80,6 +85,21 @@ class _InventarioDetallePageState extends ConsumerState<InventarioDetallePage> {
             },
           ),
           IconButton(
+            icon: _syncingCapturas
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.sync_alt),
+            tooltip: _syncingCapturas
+                ? 'Sincronizando capturas...'
+                : 'Resincronizar desde capturas',
+            onPressed: _syncingCapturas
+                ? null
+                : () => _syncCapturasFromDetalle(query),
+          ),
+          IconButton(
             icon: const Icon(Icons.picture_as_pdf),
             tooltip: 'Exportar PDF',
             onPressed: () => _exportPdf(detalleAsync, summaryAsync),
@@ -91,7 +111,8 @@ class _InventarioDetallePageState extends ConsumerState<InventarioDetallePage> {
           final filteredData = _filterData(resp.data);
           final hasData = filteredData.isNotEmpty;
           return RefreshIndicator(
-            notificationPredicate: (notification) => notification.metrics.axis == Axis.vertical,
+            notificationPredicate: (notification) =>
+                notification.metrics.axis == Axis.vertical,
             onRefresh: () async {
               ref.invalidate(inventarioDetalleProvider(query));
               ref.invalidate(inventarioDetalleSummaryProvider(widget.cont));
@@ -102,19 +123,25 @@ class _InventarioDetallePageState extends ConsumerState<InventarioDetallePage> {
             },
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final minWidth = hasData ? _tableContentWidth + _pagePadding * 2 : constraints.maxWidth;
-                final contentWidth = constraints.maxWidth > minWidth ? constraints.maxWidth : minWidth;
+                final minWidth = hasData
+                    ? _tableContentWidth + _pagePadding * 2
+                    : constraints.maxWidth;
+                final contentWidth = constraints.maxWidth > minWidth
+                    ? constraints.maxWidth
+                    : minWidth;
 
                 return Scrollbar(
                   controller: _pageController,
                   thumbVisibility: true,
                   trackVisibility: true,
-                  notificationPredicate: (notification) => notification.metrics.axis == Axis.vertical,
+                  notificationPredicate: (notification) =>
+                      notification.metrics.axis == Axis.vertical,
                   child: Scrollbar(
                     controller: _horizontalController,
                     thumbVisibility: true,
                     trackVisibility: true,
-                    notificationPredicate: (notification) => notification.metrics.axis == Axis.horizontal,
+                    notificationPredicate: (notification) =>
+                        notification.metrics.axis == Axis.horizontal,
                     child: SingleChildScrollView(
                       controller: _horizontalController,
                       scrollDirection: Axis.horizontal,
@@ -124,73 +151,119 @@ class _InventarioDetallePageState extends ConsumerState<InventarioDetallePage> {
                           child: CustomScrollView(
                             controller: _pageController,
                             slivers: [
-                              const SliverToBoxAdapter(child: SizedBox(height: _pagePadding)),
+                              const SliverToBoxAdapter(
+                                child: SizedBox(height: _pagePadding),
+                              ),
                               SliverPadding(
-                                padding: const EdgeInsets.symmetric(horizontal: _pagePadding),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: _pagePadding,
+                                ),
                                 sliver: SliverToBoxAdapter(
-                                  child: _SummaryCard(summaryAsync: summaryAsync),
+                                  child: _SummaryCard(
+                                    summaryAsync: summaryAsync,
+                                  ),
                                 ),
                               ),
-                              const SliverToBoxAdapter(child: SizedBox(height: _pagePadding)),
+                              const SliverToBoxAdapter(
+                                child: SizedBox(height: _pagePadding),
+                              ),
                               SliverPadding(
-                                padding: const EdgeInsets.symmetric(horizontal: _pagePadding),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: _pagePadding,
+                                ),
                                 sliver: SliverToBoxAdapter(
                                   child: _SearchBar(
                                     controller: _searchController,
                                     searchBy: _searchBy,
-                                    onSearchByChanged: (value) => setState(() => _searchBy = value ?? 'ART'),
+                                    onSearchByChanged: (value) => setState(
+                                      () => _searchBy = value ?? 'ART',
+                                    ),
                                     onSearch: _applySearch,
                                     onClear: _clearSearch,
                                   ),
                                 ),
                               ),
-                              const SliverToBoxAdapter(child: SizedBox(height: _pagePadding)),
+                              const SliverToBoxAdapter(
+                                child: SizedBox(height: _pagePadding),
+                              ),
                               if (hasData) ...[
                                 SliverPadding(
-                                  padding: const EdgeInsets.symmetric(horizontal: _pagePadding),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: _pagePadding,
+                                  ),
                                   sliver: SliverPersistentHeader(
                                     pinned: true,
                                     delegate: const _TableHeaderDelegate(),
                                   ),
                                 ),
                                 SliverPadding(
-                                  padding: const EdgeInsets.symmetric(horizontal: _pagePadding),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: _pagePadding,
+                                  ),
                                   sliver: _TableRowsSliver(
                                     data: filteredData,
                                     contStatus: summaryAsync.asData?.value.esta,
                                     onRefresh: () async {
-                                      ref.invalidate(inventarioDetalleProvider(query));
-                                      ref.invalidate(inventarioDetalleSummaryProvider(widget.cont));
-                                      await ref.read(inventarioDetalleProvider(query).future);
-                                      await ref.read(inventarioDetalleSummaryProvider(widget.cont).future);
+                                      ref.invalidate(
+                                        inventarioDetalleProvider(query),
+                                      );
+                                      ref.invalidate(
+                                        inventarioDetalleSummaryProvider(
+                                          widget.cont,
+                                        ),
+                                      );
+                                      await ref.read(
+                                        inventarioDetalleProvider(query).future,
+                                      );
+                                      await ref.read(
+                                        inventarioDetalleSummaryProvider(
+                                          widget.cont,
+                                        ).future,
+                                      );
                                     },
                                   ),
                                 ),
                               ] else
                                 SliverPadding(
-                                  padding: const EdgeInsets.symmetric(horizontal: _pagePadding),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: _pagePadding,
+                                  ),
                                   sliver: const SliverToBoxAdapter(
                                     child: Padding(
-                                      padding: EdgeInsets.symmetric(vertical: 48),
-                                      child: Center(child: Text('Sin resultados')),
+                                      padding: EdgeInsets.symmetric(
+                                        vertical: 48,
+                                      ),
+                                      child: Center(
+                                        child: Text('Sin resultados'),
+                                      ),
                                     ),
                                   ),
                                 ),
-                              const SliverToBoxAdapter(child: SizedBox(height: _pagePadding)),
+                              const SliverToBoxAdapter(
+                                child: SizedBox(height: _pagePadding),
+                              ),
                               SliverPadding(
-                                padding: const EdgeInsets.symmetric(horizontal: _pagePadding),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: _pagePadding,
+                                ),
                                 sliver: SliverToBoxAdapter(
                                   child: _PaginationBar(
                                     page: resp.page,
                                     totalPages: resp.totalPages,
-                                    onPrev: resp.page > 1 ? () => _setPage(resp.page - 1) : null,
-                                    onNext: resp.page < resp.totalPages ? () => _setPage(resp.page + 1) : null,
+                                    onPrev: resp.page > 1
+                                        ? () => _setPage(resp.page - 1)
+                                        : null,
+                                    onNext: resp.page < resp.totalPages
+                                        ? () => _setPage(resp.page + 1)
+                                        : null,
                                     totalRecords: resp.total,
                                     limit: resp.limit,
                                   ),
                                 ),
                               ),
-                              const SliverToBoxAdapter(child: SizedBox(height: _pagePadding)),
+                              const SliverToBoxAdapter(
+                                child: SizedBox(height: _pagePadding),
+                              ),
                             ],
                           ),
                         ),
@@ -231,6 +304,74 @@ class _InventarioDetallePageState extends ConsumerState<InventarioDetallePage> {
     });
   }
 
+  Future<void> _syncCapturasFromDetalle(ConteoDetQuery query) async {
+    if (_syncingCapturas) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Resincronizar capturas'),
+        content: const Text(
+          'Se recalcularán cantidades y diferencias en DAT_DET_SVR '
+          'usando DAT_CONT_CAPTURA para este conteo. ¿Deseas continuar?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Recalcular'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _syncingCapturas = true);
+    try {
+      final api = ref.read(inventariosApiProvider);
+      final selectedSuc = ref.read(inventariosSelectedSucProvider)?.trim();
+      final suc = (selectedSuc != null && selectedSuc.isNotEmpty)
+          ? selectedSuc
+          : null;
+
+      final result = await api.syncCapturasFromDetalle(widget.cont, suc: suc);
+
+      ref.invalidate(inventarioDetalleProvider(query));
+      ref.invalidate(inventarioDetalleSummaryProvider(widget.cont));
+      await Future.wait([
+        ref.read(inventarioDetalleProvider(query).future),
+        ref.read(inventarioDetalleSummaryProvider(widget.cont).future),
+      ]);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Resync OK. Capturas: ${result.capturesTotal}, '
+            'artículos: ${result.articulosCapturados}, '
+            'actualizados: ${result.updatedRows}, '
+            'insertados: ${result.insertedRows}.',
+          ),
+        ),
+      );
+    } catch (err) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'No se pudo resincronizar capturas: ${apiErrorMessage(err)}',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _syncingCapturas = false);
+    }
+  }
+
   List<DatDetSvrModel> _filterData(List<DatDetSvrModel> data) {
     final term = _searchTerm.trim().toLowerCase();
     if (term.isEmpty) return data;
@@ -262,15 +403,40 @@ class _InventarioDetallePageState extends ConsumerState<InventarioDetallePage> {
 
     try {
       final api = ref.read(inventariosApiProvider);
-      final summary = summaryAsync.asData?.value ?? await api.fetchDetalleSummary(widget.cont);
-      final baseResp = detalleAsync.asData?.value ?? await api.fetchDetalles(widget.cont, page: 1, limit: _limit);
+      final selectedSucRaw = ref.read(inventariosSelectedSucProvider);
+      final selectedSuc = selectedSucRaw?.trim();
+      final preferredSuc = (selectedSuc != null && selectedSuc.isNotEmpty)
+          ? selectedSuc
+          : null;
+
+      final summary =
+          summaryAsync.asData?.value ??
+          await api.fetchDetalleSummary(widget.cont, suc: preferredSuc);
+      final summarySuc = summary.suc.trim();
+      final exportSuc = summarySuc.isNotEmpty ? summarySuc : preferredSuc;
+
+      final baseResp =
+          detalleAsync.asData?.value ??
+          await api.fetchDetalles(
+            widget.cont,
+            page: 1,
+            limit: _limit,
+            suc: exportSuc,
+          );
       final totalPages = baseResp.totalPages < 1 ? 1 : baseResp.totalPages;
       final limit = baseResp.limit < 1 ? _limit : baseResp.limit;
 
-      final pagesData = <int, List<DatDetSvrModel>>{baseResp.page: baseResp.data};
+      final pagesData = <int, List<DatDetSvrModel>>{
+        baseResp.page: baseResp.data,
+      };
       for (var page = 1; page <= totalPages; page++) {
         if (page == baseResp.page) continue;
-        final pageResp = await api.fetchDetalles(widget.cont, page: page, limit: limit);
+        final pageResp = await api.fetchDetalles(
+          widget.cont,
+          page: page,
+          limit: limit,
+          suc: exportSuc,
+        );
         pagesData[page] = pageResp.data;
       }
 
@@ -288,7 +454,11 @@ class _InventarioDetallePageState extends ConsumerState<InventarioDetallePage> {
         return;
       }
 
-      final doc = pw.Document();
+      final baseFont = await PdfGoogleFonts.notoSansRegular();
+      final boldFont = await PdfGoogleFonts.notoSansBold();
+      final doc = pw.Document(
+        theme: pw.ThemeData.withFont(base: baseFont, bold: boldFont),
+      );
       final headers = [
         'Articulo',
         'UPC',
@@ -302,22 +472,26 @@ class _InventarioDetallePageState extends ConsumerState<InventarioDetallePage> {
       ];
 
       final rows = allData
-          .map((m) => [
-                m.art ?? '-',
-                m.upc ?? '-',
-                m.descripcion ?? '-',
-                _fmtNumber(m.total),
-                _fmtNumber(m.mb52T),
-                _fmtNumber(m.difT),
-                _fmtNumber(m.ctop),
-                _fmtNumber(m.difCtop),
-                (m.ext ?? 0) == 0 ? 'NO' : 'SI',
-              ])
+          .map(
+            (m) => [
+              m.art ?? '-',
+              m.upc ?? '-',
+              m.descripcion ?? '-',
+              _fmtNumber(m.total),
+              _fmtNumber(m.mb52T),
+              _fmtNumber(m.difT),
+              _fmtNumber(m.ctop),
+              _fmtNumber(m.difCtop),
+              (m.ext ?? 0) == 0 ? 'NO' : 'SI',
+            ],
+          )
           .toList();
 
       doc.addPage(
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4.landscape,
+          // Evita TooManyPagesException en conteos grandes (default = 20).
+          maxPages: 1000,
           margin: const pw.EdgeInsets.all(24),
           build: (context) => [
             pw.Text(
@@ -338,8 +512,13 @@ class _InventarioDetallePageState extends ConsumerState<InventarioDetallePage> {
                     child: pw.Column(
                       crossAxisAlignment: pw.CrossAxisAlignment.start,
                       children: [
-                        pw.Text('Resumen del conteo',
-                            style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+                        pw.Text(
+                          'Resumen del conteo',
+                          style: pw.TextStyle(
+                            fontSize: 12,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
+                        ),
                         pw.SizedBox(height: 4),
                         pw.Text('SUC: ${summary.suc} · CONT: ${summary.cont}'),
                       ],
@@ -350,7 +529,10 @@ class _InventarioDetallePageState extends ConsumerState<InventarioDetallePage> {
                     children: [
                       pw.Text(
                         'Dif total \$ ${summary.sumDifCtop.toStringAsFixed(2)}',
-                        style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold),
+                        style: pw.TextStyle(
+                          fontSize: 12,
+                          fontWeight: pw.FontWeight.bold,
+                        ),
                       ),
                       pw.Text('Dif piezas: ${_fmtNumber(summary.sumDifT)}'),
                     ],
@@ -362,9 +544,14 @@ class _InventarioDetallePageState extends ConsumerState<InventarioDetallePage> {
             pw.TableHelper.fromTextArray(
               headers: headers,
               data: rows,
-              headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9),
+              headerStyle: pw.TextStyle(
+                fontWeight: pw.FontWeight.bold,
+                fontSize: 9,
+              ),
               cellStyle: const pw.TextStyle(fontSize: 9),
-              headerDecoration: const pw.BoxDecoration(color: PdfColors.grey300),
+              headerDecoration: const pw.BoxDecoration(
+                color: PdfColors.grey300,
+              ),
               cellAlignment: pw.Alignment.centerLeft,
               columnWidths: const {
                 0: pw.FixedColumnWidth(60),
@@ -427,7 +614,10 @@ class _SummaryCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Resumen del conteo', style: Theme.of(context).textTheme.titleMedium),
+                      Text(
+                        'Resumen del conteo',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
                       const SizedBox(height: 4),
                       Text('SUC: ${data.suc} · CONT: ${data.cont}'),
                     ],
@@ -436,9 +626,14 @@ class _SummaryCard extends StatelessWidget {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text('Dif total \$ ${data.sumDifCtop.toStringAsFixed(2)}',
-                        style: Theme.of(context).textTheme.titleMedium),
-                    Text('Dif piezas: ${_fmtNumber(data.sumDifT)}', style: Theme.of(context).textTheme.bodyMedium),
+                    Text(
+                      'Dif total \$ ${data.sumDifCtop.toStringAsFixed(2)}',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    Text(
+                      'Dif piezas: ${_fmtNumber(data.sumDifT)}',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
                   ],
                 ),
               ],
@@ -527,9 +722,15 @@ class _TableHeaderDelegate extends SliverPersistentHeaderDelegate {
   const _TableHeaderDelegate();
 
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
-    final headerStyle =
-        Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: _tableFontSize, fontWeight: FontWeight.bold);
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    final headerStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
+      fontSize: _tableFontSize,
+      fontWeight: FontWeight.bold,
+    );
     return Container(
       height: _tableHeaderHeight,
       padding: const EdgeInsets.symmetric(
@@ -539,15 +740,42 @@ class _TableHeaderDelegate extends SliverPersistentHeaderDelegate {
       color: Theme.of(context).colorScheme.surfaceContainerHighest,
       child: Row(
         children: [
-          _TableCell(width: _colArticuloWidth, child: Text('Articulo', style: headerStyle)),
-          _TableCell(width: _colUpcWidth, child: Text('UPC', style: headerStyle)),
-          _TableCell(width: _colDescripcionWidth, child: Text('Descripción', style: headerStyle)),
-          _TableCell(width: _colConteoWidth, child: Text('CONTEO', style: headerStyle)),
-          _TableCell(width: _colExistenciaWidth, child: Text('EXISTENCIA', style: headerStyle)),
-          _TableCell(width: _colDifWidth, child: Text('Dif', style: headerStyle)),
-          _TableCell(width: _colCtopWidth, child: Text('CTOP', style: headerStyle)),
-          _TableCell(width: _colDifCtopWidth, child: Text('Dif CTOP', style: headerStyle)),
-          _TableCell(width: _colExtWidth, child: Text('EXT', style: headerStyle)),
+          _TableCell(
+            width: _colArticuloWidth,
+            child: Text('Articulo', style: headerStyle),
+          ),
+          _TableCell(
+            width: _colUpcWidth,
+            child: Text('UPC', style: headerStyle),
+          ),
+          _TableCell(
+            width: _colDescripcionWidth,
+            child: Text('Descripción', style: headerStyle),
+          ),
+          _TableCell(
+            width: _colConteoWidth,
+            child: Text('CONTEO', style: headerStyle),
+          ),
+          _TableCell(
+            width: _colExistenciaWidth,
+            child: Text('EXISTENCIA', style: headerStyle),
+          ),
+          _TableCell(
+            width: _colDifWidth,
+            child: Text('Dif', style: headerStyle),
+          ),
+          _TableCell(
+            width: _colCtopWidth,
+            child: Text('CTOP', style: headerStyle),
+          ),
+          _TableCell(
+            width: _colDifCtopWidth,
+            child: Text('Dif CTOP', style: headerStyle),
+          ),
+          _TableCell(
+            width: _colExtWidth,
+            child: Text('EXT', style: headerStyle),
+          ),
         ],
       ),
     );
@@ -594,7 +822,9 @@ class _TableRowsSliverState extends ConsumerState<_TableRowsSliver> {
     });
 
     try {
-      await ref.read(inventariosApiProvider).updateDetalleExt(id: id, value: value);
+      await ref
+          .read(inventariosApiProvider)
+          .updateDetalleExt(id: id, value: value);
       if (!mounted) return;
       if (widget.onRefresh != null) {
         await widget.onRefresh!();
@@ -604,8 +834,11 @@ class _TableRowsSliverState extends ConsumerState<_TableRowsSliver> {
     } catch (err) {
       if (!mounted) return;
       setState(() => _overrides.remove(id));
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Error al actualizar EXT: ${apiErrorMessage(err)}')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al actualizar EXT: ${apiErrorMessage(err)}'),
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() => _updating.remove(id));
@@ -615,58 +848,85 @@ class _TableRowsSliverState extends ConsumerState<_TableRowsSliver> {
 
   @override
   Widget build(BuildContext context) {
-    final baseStyle = Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: _tableFontSize);
+    final baseStyle = Theme.of(
+      context,
+    ).textTheme.bodySmall?.copyWith(fontSize: _tableFontSize);
     final headerStyle = baseStyle?.copyWith(fontWeight: FontWeight.bold);
     final status = (widget.contStatus ?? '').trim().toUpperCase();
     final isAdjusted = status == 'AJUSTADO' || status == 'CERRADO_AJUSTADO';
 
     return SliverList(
-      delegate: SliverChildBuilderDelegate(
-        (context, index) {
-          final m = widget.data[index];
-          return Container(
-            padding: const EdgeInsets.symmetric(
-              vertical: _tableRowVerticalPadding,
-              horizontal: _tableRowHorizontalPadding,
-            ),
-            decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: Theme.of(context).dividerColor.withValues(alpha: 0.4)),
+      delegate: SliverChildBuilderDelegate((context, index) {
+        final m = widget.data[index];
+        return Container(
+          padding: const EdgeInsets.symmetric(
+            vertical: _tableRowVerticalPadding,
+            horizontal: _tableRowHorizontalPadding,
+          ),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(
+                color: Theme.of(context).dividerColor.withValues(alpha: 0.4),
               ),
             ),
-            child: Row(
-              children: [
-                _TableCell(width: _colArticuloWidth, child: Text(m.art ?? '-', style: headerStyle)),
-                _TableCell(width: _colUpcWidth, child: Text(m.upc ?? '-', style: baseStyle)),
-                _TableCell(
-                  width: _colDescripcionWidth,
-                  child:
-                      Text(m.descripcion ?? '-', maxLines: 2, overflow: TextOverflow.ellipsis, style: baseStyle),
+          ),
+          child: Row(
+            children: [
+              _TableCell(
+                width: _colArticuloWidth,
+                child: Text(m.art ?? '-', style: headerStyle),
+              ),
+              _TableCell(
+                width: _colUpcWidth,
+                child: Text(m.upc ?? '-', style: baseStyle),
+              ),
+              _TableCell(
+                width: _colDescripcionWidth,
+                child: Text(
+                  m.descripcion ?? '-',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: baseStyle,
                 ),
-                _TableCell(width: _colConteoWidth, child: Text(_fmtNumber(m.total), style: baseStyle)),
-                _TableCell(width: _colExistenciaWidth, child: Text(_fmtNumber(m.mb52T), style: baseStyle)),
-                _TableCell(width: _colDifWidth, child: Text(_fmtNumber(m.difT), style: baseStyle)),
-                _TableCell(width: _colCtopWidth, child: Text(_fmtNumber(m.ctop), style: baseStyle)),
-                _TableCell(width: _colDifCtopWidth, child: Text(_fmtNumber(m.difCtop), style: baseStyle)),
-                _TableCell(
-                  width: _colExtWidth,
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Switch.adaptive(
-                      value: _extValue(m),
-                      onChanged: (m.id == null || _updating.contains(m.id) || isAdjusted)
-                          ? null
-                          : (v) => _toggleExt(m, v),
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
+              ),
+              _TableCell(
+                width: _colConteoWidth,
+                child: Text(_fmtNumber(m.total), style: baseStyle),
+              ),
+              _TableCell(
+                width: _colExistenciaWidth,
+                child: Text(_fmtNumber(m.mb52T), style: baseStyle),
+              ),
+              _TableCell(
+                width: _colDifWidth,
+                child: Text(_fmtNumber(m.difT), style: baseStyle),
+              ),
+              _TableCell(
+                width: _colCtopWidth,
+                child: Text(_fmtNumber(m.ctop), style: baseStyle),
+              ),
+              _TableCell(
+                width: _colDifCtopWidth,
+                child: Text(_fmtNumber(m.difCtop), style: baseStyle),
+              ),
+              _TableCell(
+                width: _colExtWidth,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Switch.adaptive(
+                    value: _extValue(m),
+                    onChanged:
+                        (m.id == null || _updating.contains(m.id) || isAdjusted)
+                        ? null
+                        : (v) => _toggleExt(m, v),
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
                 ),
-              ],
-            ),
-          );
-        },
-        childCount: widget.data.length,
-      ),
+              ),
+            ],
+          ),
+        );
+      }, childCount: widget.data.length),
     );
   }
 }
@@ -679,10 +939,7 @@ class _TableCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: width,
-      child: child,
-    );
+    return SizedBox(width: width, child: child);
   }
 }
 
@@ -715,11 +972,23 @@ class _PaginationBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Expanded(child: Text('Total: $totalRecords · Página $page de $displayTotal · Límite $limit')),
+          Expanded(
+            child: Text(
+              'Total: $totalRecords · Página $page de $displayTotal · Límite $limit',
+            ),
+          ),
           Row(
             children: [
-              IconButton(onPressed: onPrev, tooltip: 'Anterior', icon: const Icon(Icons.chevron_left)),
-              IconButton(onPressed: onNext, tooltip: 'Siguiente', icon: const Icon(Icons.chevron_right)),
+              IconButton(
+                onPressed: onPrev,
+                tooltip: 'Anterior',
+                icon: const Icon(Icons.chevron_left),
+              ),
+              IconButton(
+                onPressed: onNext,
+                tooltip: 'Siguiente',
+                icon: const Icon(Icons.chevron_right),
+              ),
             ],
           ),
         ],
@@ -731,6 +1000,8 @@ class _PaginationBar extends StatelessWidget {
 String _fmtNumber(num? value) {
   if (value == null) return '-';
   final doubleVal = value.toDouble();
-  if (doubleVal == doubleVal.roundToDouble()) return doubleVal.toStringAsFixed(0);
+  if (doubleVal == doubleVal.roundToDouble()) {
+    return doubleVal.toStringAsFixed(0);
+  }
   return doubleVal.toStringAsFixed(2);
 }

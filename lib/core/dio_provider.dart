@@ -1,69 +1,110 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'auth/auth_controller.dart';
 import 'env.dart';
-import 'storage.dart';
 
-final storageProvider = Provider<Storage>((ref) => Storage());
+export 'storage.dart' show storageProvider;
+
+String _compactErrorBody(dynamic value, {int max = 800}) {
+  if (value == null) return '-';
+  final text = value is String ? value : value.toString();
+  if (text.length <= max) return text;
+  return '${text.substring(0, max)}...';
+}
 
 final dioProvider = Provider<Dio>((ref) {
-  final storage = ref.read(storageProvider);
+  final authController = ref.read(authControllerProvider.notifier);
 
-  final dio = Dio(BaseOptions(
-    baseUrl: Env.apiBaseUrl,
-    connectTimeout: const Duration(seconds: 15),
-    receiveTimeout: const Duration(seconds: 15),
-    headers: {'Content-Type': 'application/json'},
-  ));
+  final dio = Dio(
+    BaseOptions(
+      baseUrl: Env.apiBaseUrl,
+      // En Web, dio_web_adapter usa este timeout para la request completa.
+      // Algunos procesos (ej. apply-adjustment) pueden tardar >30s aunque se completen correctamente.
+      connectTimeout: kIsWeb
+          ? const Duration(minutes: 5)
+          : const Duration(seconds: 30),
+      receiveTimeout: const Duration(seconds: 15),
+      headers: {'Content-Type': 'application/json'},
+    ),
+  );
 
-  dio.interceptors.add(InterceptorsWrapper(
-    onRequest: (options, handler) async {
-      final token = await storage.getAccessToken();
-      if (token != null && token.isNotEmpty) {
-        options.headers['Authorization'] = 'Bearer $token';
-      }
-      handler.next(options);
-    },
-    onError: (err, handler) async {
-      // Log network/connection errors to help debugging (prints visible in console)
-      // err is a DioException on modern dio versions
-      try {
-        // ignore: avoid_print
-        print('Dio onError: type=${err.type} uri=${err.requestOptions.uri} error=${err.error}');
-      } catch (_) {}
+  dio.interceptors.add(
+    InterceptorsWrapper(
+      onRequest: (options, handler) async {
+        if (_isAuthCall(options.path)) {
+          return handler.next(options);
+        }
 
-      // Intento de refresh token en 401 (excepto si ya se intentó o es /auth/refresh)
-      final status = err.response?.statusCode;
-      final isRefreshCall = err.requestOptions.path.contains('/auth/refresh');
-      final alreadyRetried = err.requestOptions.extra['__retried'] == true;
-      if (status == 401 && !isRefreshCall && !alreadyRetried) {
-        final refresh = await storage.getRefreshToken();
-        if (refresh != null && refresh.isNotEmpty) {
-          try {
-            final refreshClient = Dio(BaseOptions(
-              baseUrl: Env.apiBaseUrl,
-              headers: {'Content-Type': 'application/json'},
-            ));
-            final res = await refreshClient.post('/auth/refresh', data: {'refreshToken': refresh});
-            final newAccess = res.data['accessToken'] as String;
-            final newRefresh = res.data['refreshToken'] as String;
-            await storage.saveTokens(access: newAccess, refresh: newRefresh);
+        authController.protectedRequestStarted();
+        options.extra['__tracked_protected_request'] = true;
 
+        final token = await authController.ensureValidAccessToken();
+        if (token == null || token.isEmpty) {
+          options.headers.remove('Authorization');
+        } else {
+          options.headers['Authorization'] = 'Bearer $token';
+        }
+        handler.next(options);
+      },
+      onResponse: (response, handler) {
+        _finishTrackedProtectedRequest(response.requestOptions, authController);
+        handler.next(response);
+      },
+      onError: (err, handler) async {
+        _finishTrackedProtectedRequest(err.requestOptions, authController);
+
+        // Log network/connection errors to help debugging (prints visible in console)
+        // err is a DioException on modern dio versions
+        try {
+          final method = err.requestOptions.method;
+          final status = err.response?.statusCode;
+          final body = _compactErrorBody(err.response?.data);
+          // ignore: avoid_print
+          print(
+            'Dio onError: type=${err.type} method=$method status=$status '
+            'uri=${err.requestOptions.uri} error=${err.error} body=$body',
+          );
+        } catch (_) {}
+
+        // Intento de refresh token en 401 (excepto si ya se intentó o es /auth/refresh)
+        final status = err.response?.statusCode;
+        final isAuthCall = _isAuthCall(err.requestOptions.path);
+        final alreadyRetried = err.requestOptions.extra['__retried'] == true;
+        if (status == 401 && !isAuthCall && !alreadyRetried) {
+          final newAccess = await authController.ensureValidAccessToken(
+            forceRefresh: true,
+          );
+          if (newAccess != null && newAccess.isNotEmpty) {
             // Reintenta la llamada original con el nuevo token
             final opts = err.requestOptions;
             opts.headers['Authorization'] = 'Bearer $newAccess';
             opts.extra['__retried'] = true;
             final clone = await dio.fetch(opts);
             return handler.resolve(clone);
-          } catch (_) {
-            await storage.clear();
           }
-        } else {
-          await storage.clear();
         }
-      }
-      handler.next(err);
-    },
-  ));
+        handler.next(err);
+      },
+    ),
+  );
 
   return dio;
 });
+
+bool _isAuthCall(String path) {
+  final normalized = path.toLowerCase();
+  return normalized.contains('/auth/login') ||
+      normalized.contains('/auth/refresh');
+}
+
+void _finishTrackedProtectedRequest(
+  RequestOptions options,
+  AuthController authController,
+) {
+  final tracked = options.extra['__tracked_protected_request'] == true;
+  if (!tracked) return;
+
+  options.extra['__tracked_protected_request'] = false;
+  authController.protectedRequestFinished();
+}

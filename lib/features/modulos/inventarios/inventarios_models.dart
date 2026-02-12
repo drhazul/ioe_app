@@ -175,6 +175,60 @@ class ConteoApplyAdjustmentResult {
   }
 }
 
+class ConteoSyncCapturasResult {
+  final String cont;
+  final String suc;
+  final int capturesTotal;
+  final int articulosCapturados;
+  final int updatedRows;
+  final int insertedRows;
+  final int zeroedRows;
+  final double cap001;
+  final double cap002;
+  final double capM1;
+  final double capT1;
+  final double capTotal;
+
+  const ConteoSyncCapturasResult({
+    required this.cont,
+    required this.suc,
+    required this.capturesTotal,
+    required this.articulosCapturados,
+    required this.updatedRows,
+    required this.insertedRows,
+    required this.zeroedRows,
+    required this.cap001,
+    required this.cap002,
+    required this.capM1,
+    required this.capT1,
+    required this.capTotal,
+  });
+
+  factory ConteoSyncCapturasResult.fromJson(Map<String, dynamic> json) {
+    int parseInt(dynamic v) => v == null ? 0 : int.tryParse(v.toString()) ?? 0;
+    double parseDouble(dynamic v) {
+      if (v == null) return 0;
+      if (v is num) return v.toDouble();
+      return double.tryParse(v.toString()) ?? 0;
+    }
+
+    return ConteoSyncCapturasResult(
+      cont: json['cont'] as String? ?? json['CONT'] as String? ?? '',
+      suc: json['suc'] as String? ?? json['SUC'] as String? ?? '',
+      capturesTotal: parseInt(json['capturesTotal']),
+      articulosCapturados: parseInt(json['articulosCapturados']),
+      updatedRows: parseInt(json['updatedRows']),
+      insertedRows: parseInt(json['insertedRows']),
+      zeroedRows: parseInt(json['zeroedRows']),
+      cap001: parseDouble(json['cap001']),
+      cap002: parseDouble(json['cap002']),
+      capM1: parseDouble(json['capM1']),
+      capT1: parseDouble(json['capT1']),
+      capTotal: parseDouble(json['capTotal']),
+    );
+  }
+}
+
 class DatDetSvrModel {
   final int? id;
   final String? art;

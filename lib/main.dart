@@ -2,14 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, kReleaseMode;
 
+import 'core/auth/auth_controller.dart';
 import 'core/router.dart';
 import 'core/env.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load(fileName: 'assets/.env');
+  // En debug no usamos .env para apiBaseUrl (Env devuelve localhost), y en web
+  // evita warnings de AssetManifest.json cuando el manifest no está disponible.
+  if (kReleaseMode) {
+    await dotenv.load(fileName: 'assets/.env');
+  }
 
   // Health check to validate backend connectivity early and provide
   // actionable console messages for common failures (CORS, wrong host, etc.).
@@ -19,11 +24,18 @@ Future<void> main() async {
 }
 
 Future<void> _checkBackendHealth() async {
-  final dio = Dio(BaseOptions(baseUrl: Env.apiBaseUrl, connectTimeout: const Duration(seconds: 5)));
+  final dio = Dio(
+    BaseOptions(
+      baseUrl: Env.apiBaseUrl,
+      connectTimeout: const Duration(seconds: 5),
+    ),
+  );
   try {
     final res = await dio.get('/health');
     // ignore: avoid_print
-    print('Backend health OK (${Env.apiBaseUrl}/health) -> status: ${res.statusCode}');
+    print(
+      'Backend health OK (${Env.apiBaseUrl}/health) -> status: ${res.statusCode}',
+    );
   } on DioException catch (e) {
     // Provide helpful hint messages for debugging common issues.
     // ignore: avoid_print
@@ -40,7 +52,9 @@ Future<void> _checkBackendHealth() async {
     } else {
       // On mobile emulators, localhost is different.
       // ignore: avoid_print
-      print('If running on Android emulator, ensure backend uses 10.0.2.2 as host or use device IP.');
+      print(
+        'If running on Android emulator, ensure backend uses 10.0.2.2 as host or use device IP.',
+      );
     }
   } catch (e) {
     // ignore: avoid_print
@@ -54,12 +68,17 @@ class MyApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
+    final authController = ref.read(authControllerProvider.notifier);
     const appFontSize = 11.0;
     final baseTheme = ThemeData(useMaterial3: true);
     final textTheme = _fixedFontSizeTextTheme(baseTheme.textTheme, appFontSize);
     const appBarColor = Color(0xFF148D8D);
-    final appBarTitleStyle = textTheme.titleLarge?.copyWith(color: Colors.white);
-    final appBarToolbarStyle = textTheme.bodyMedium?.copyWith(color: Colors.white);
+    final appBarTitleStyle = textTheme.titleLarge?.copyWith(
+      color: Colors.white,
+    );
+    final appBarToolbarStyle = textTheme.bodyMedium?.copyWith(
+      color: Colors.white,
+    );
     final theme = baseTheme.copyWith(
       textTheme: textTheme,
       appBarTheme: baseTheme.appBarTheme.copyWith(
@@ -82,15 +101,22 @@ class MyApp extends ConsumerWidget {
       ),
       dataTableTheme: DataTableThemeData(
         dataTextStyle: textTheme.bodySmall,
-        headingTextStyle: textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+        headingTextStyle: textTheme.bodySmall?.copyWith(
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
 
-    return MaterialApp.router(
-      title: 'IOE',
-      debugShowCheckedModeBanner: false,
-      routerConfig: router,
-      theme: theme,
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (_) => authController.registerUserActivity(),
+      onPointerSignal: (_) => authController.registerUserActivity(),
+      child: MaterialApp.router(
+        title: 'IOE',
+        debugShowCheckedModeBanner: false,
+        routerConfig: router,
+        theme: theme,
+      ),
     );
   }
 }

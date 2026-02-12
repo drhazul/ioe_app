@@ -32,3 +32,9 @@
 ## Logica critica
 - AuthController, token refresh, storage y router guard son criticos.
 - Consultar antes de modificar interceptores Dio o reglas de redireccion.
+
+## Inventarios: autorizacion por sucursal
+- El filtro de sucursal en Inventarios se basa en `USR_MOD_SUC` para el modulo `DAT_JAA_ALM`.
+- Los componentes de filtro (sucursal, nombre, fecha, filtrar/limpiar) deben mostrarse para todos los usuarios, incluido admin.
+- La seleccion/cambio de sucursal en UI solo debe habilitarse cuando el usuario este autorizado por rol/listado (`USR_MOD_SUC`).
+- Las acciones sensibles (ej. aplicar ajuste) deben usar la sucursal seleccionada y confiar en validacion backend de autorizacion.

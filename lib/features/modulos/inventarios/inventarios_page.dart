@@ -5,17 +5,105 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:ioe_app/core/api_error.dart';
+import 'package:ioe_app/core/auth/auth_controller.dart';
 import 'inventarios_models.dart';
 import 'inventarios_providers.dart';
 
-class InventariosPage extends ConsumerWidget {
+String _compactLogValue(dynamic value, {int max = 800}) {
+  if (value == null) return '-';
+  final text = value is String ? value : value.toString();
+  if (text.length <= max) return text;
+  return '${text.substring(0, max)}...';
+}
+
+class InventariosPage extends ConsumerStatefulWidget {
   const InventariosPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<InventariosPage> createState() => _InventariosPageState();
+}
+
+class _InventariosPageState extends ConsumerState<InventariosPage> {
+  final TextEditingController _conteoSearchController = TextEditingController();
+  final TextEditingController _fechaConteoController = TextEditingController();
+  String _appliedConteoSearch = '';
+  DateTime? _draftFechaConteo;
+  DateTime? _appliedFechaConteo;
+
+  @override
+  void dispose() {
+    _conteoSearchController.dispose();
+    _fechaConteoController.dispose();
+    super.dispose();
+  }
+
+  void _setDraftFechaConteo(DateTime? value) {
+    _draftFechaConteo = value;
+    _fechaConteoController.text = value == null ? '' : _fmtDateOnly(value);
+  }
+
+  Future<void> _pickFechaConteo() async {
+    final now = DateTime.now();
+    final initialDate = _draftFechaConteo ?? _appliedFechaConteo ?? now;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: DateTime(now.year - 20),
+      lastDate: DateTime(now.year + 20),
+      helpText: 'Seleccionar fecha de conteo',
+    );
+    if (!mounted || picked == null) return;
+    setState(() => _setDraftFechaConteo(picked));
+  }
+
+  void _applyFilters() {
+    setState(() {
+      _appliedConteoSearch = _conteoSearchController.text.trim();
+      _appliedFechaConteo = _draftFechaConteo;
+    });
+  }
+
+  void _clearFilters() {
+    setState(() {
+      _conteoSearchController.clear();
+      _appliedConteoSearch = '';
+      _appliedFechaConteo = null;
+      _setDraftFechaConteo(null);
+    });
+  }
+
+  bool _matchesFechaConteo(DateTime? value) {
+    final appliedDate = _appliedFechaConteo;
+    if (appliedDate == null) return true;
+    if (value == null) return false;
+    return DateUtils.isSameDay(value.toLocal(), appliedDate);
+  }
+
+  List<DatContCtrlModel> _applyRowsFilters(List<DatContCtrlModel> rows) {
+    final search = _appliedConteoSearch.trim().toLowerCase();
+    return rows.where((row) {
+      final cont = (row.cont ?? '').trim().toLowerCase();
+      final matchesName = search.isEmpty || cont.contains(search);
+      final matchesDate = _matchesFechaConteo(row.fcnc);
+      return matchesName && matchesDate;
+    }).toList();
+  }
+
+  String _fmtDateOnly(DateTime value) {
+    final local = value.toLocal();
+    final day = local.day.toString().padLeft(2, '0');
+    final month = local.month.toString().padLeft(2, '0');
+    final year = local.year.toString().padLeft(4, '0');
+    return '$day/$month/$year';
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final dataAsync = ref.watch(inventariosListProvider);
     final allowedAsync = ref.watch(inventariosAllowedSucProvider);
     final selectedSuc = ref.watch(inventariosSelectedSucProvider);
+    final auth = ref.watch(authControllerProvider);
+    final isAdmin = (auth.roleId ?? 0) == 1;
 
     return Scaffold(
       appBar: AppBar(
@@ -35,47 +123,147 @@ class InventariosPage extends ConsumerWidget {
       body: dataAsync.when(
         data: (rows) {
           final allowed = allowedAsync.asData?.value ?? const <String>[];
-          final effectiveSuc = allowed.isNotEmpty
-              ? (selectedSuc != null && allowed.contains(selectedSuc) ? selectedSuc : allowed.first)
-              : null;
+          final rowSucs = <String>{};
+          for (final row in rows) {
+            final suc = (row.suc ?? '').trim();
+            if (suc.isNotEmpty) rowSucs.add(suc);
+          }
+
+          final sucOptionsSet = <String>{...allowed, if (isAdmin) ...rowSucs};
+          final sucOptions = sucOptionsSet.toList()..sort();
+          final effectiveSuc =
+              selectedSuc != null && sucOptions.contains(selectedSuc)
+              ? selectedSuc
+              : (!isAdmin && sucOptions.isNotEmpty ? sucOptions.first : null);
+          final canChangeSucursal =
+              sucOptions.isNotEmpty &&
+              (isAdmin ||
+                  (effectiveSuc != null && allowed.contains(effectiveSuc)));
+          final filteredRows = _applyRowsFilters(rows);
 
           final list = RefreshIndicator(
             onRefresh: () async {
               ref.invalidate(inventariosListProvider);
               await ref.read(inventariosListProvider.future);
             },
-            child: ListView.separated(
-              padding: const EdgeInsets.all(12),
-              physics: const AlwaysScrollableScrollPhysics(),
-              itemCount: rows.length,
-              itemBuilder: (_, index) => _InventarioTile(model: rows[index]),
-              separatorBuilder: (context, _) => const SizedBox(height: 8),
-            ),
+            child: filteredRows.isEmpty
+                ? ListView(
+                    padding: const EdgeInsets.all(24),
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: const [
+                      SizedBox(height: 80),
+                      Center(
+                        child: Text(
+                          'No hay conteos que coincidan con los filtros',
+                        ),
+                      ),
+                    ],
+                  )
+                : ListView.separated(
+                    padding: const EdgeInsets.all(12),
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    itemCount: filteredRows.length,
+                    itemBuilder: (_, index) =>
+                        _InventarioTile(model: filteredRows[index]),
+                    separatorBuilder: (context, _) => const SizedBox(height: 8),
+                  ),
           );
-
-          if (allowed.isEmpty) return list;
 
           return Column(
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-                child: DropdownButtonFormField<String>(
-                  initialValue: effectiveSuc,
-                  decoration: const InputDecoration(
-                    labelText: 'Sucursal',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                  items: [
-                    for (final suc in allowed)
-                      DropdownMenuItem<String>(
-                        value: suc,
-                        child: Text(suc),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 160,
+                        child: DropdownButtonFormField<String>(
+                          initialValue: effectiveSuc,
+                          hint: const Text('Todas'),
+                          decoration: const InputDecoration(
+                            labelText: 'Sucursal',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                          items: [
+                            for (final suc in sucOptions)
+                              DropdownMenuItem<String>(
+                                value: suc,
+                                child: Text(suc),
+                              ),
+                          ],
+                          onChanged: canChangeSucursal
+                              ? (value) {
+                                  ref
+                                          .read(
+                                            inventariosSelectedSucProvider
+                                                .notifier,
+                                          )
+                                          .state =
+                                      value;
+                                }
+                              : null,
+                        ),
                       ),
-                  ],
-                  onChanged: (value) {
-                    ref.read(inventariosSelectedSucProvider.notifier).state = value;
-                  },
+                      const SizedBox(width: 8),
+                      SizedBox(
+                        width: 360,
+                        child: TextField(
+                          controller: _conteoSearchController,
+                          textInputAction: TextInputAction.search,
+                          decoration: const InputDecoration(
+                            labelText: 'Coincidencia de nombre de conteo',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                          onSubmitted: (_) => _applyFilters(),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      SizedBox(
+                        width: 170,
+                        child: TextField(
+                          controller: _fechaConteoController,
+                          readOnly: true,
+                          onTap: _pickFechaConteo,
+                          decoration: InputDecoration(
+                            labelText: 'Fecha de conteo',
+                            border: const OutlineInputBorder(),
+                            isDense: true,
+                            suffixIcon: IconButton(
+                              tooltip: _draftFechaConteo == null
+                                  ? 'Seleccionar fecha'
+                                  : 'Quitar fecha',
+                              icon: Icon(
+                                _draftFechaConteo == null
+                                    ? Icons.calendar_today
+                                    : Icons.clear,
+                              ),
+                              onPressed: _draftFechaConteo == null
+                                  ? _pickFechaConteo
+                                  : () => setState(
+                                      () => _setDraftFechaConteo(null),
+                                    ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton.icon(
+                        onPressed: _applyFilters,
+                        icon: const Icon(Icons.filter_list),
+                        label: const Text('Filtrar'),
+                      ),
+                      const SizedBox(width: 8),
+                      OutlinedButton.icon(
+                        onPressed: _clearFilters,
+                        icon: const Icon(Icons.clear),
+                        label: const Text('Limpiar'),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 8),
@@ -107,28 +295,28 @@ class _InventarioTileState extends ConsumerState<_InventarioTile> {
   Widget build(BuildContext context) {
     final model = widget.model;
     final hasCont = (model.cont ?? '').trim().isNotEmpty;
-
-    final subtitle = [
-      if (model.esta != null && model.esta!.isNotEmpty) 'Estado: ${model.esta}',
-      if (model.suc != null && model.suc!.isNotEmpty) 'Suc: ${model.suc}',
-      if (model.tipocont != null && model.tipocont!.isNotEmpty) 'Tipo: ${model.tipocont}',
-      if (model.fcnc != null) 'FCNC: ${_fmtDate(model.fcnc)}',
-    ].join(' · ');
-
     final artaj = _fmtNumber(model.artaj);
     final artcont = _fmtNumber(model.artcont);
-    final status = (model.esta ?? '').trim().toUpperCase();
-    final isAdjusted = status == 'AJUSTADO' || status == 'CERRADO_AJUSTADO';
 
-    final secondary = [
+    final summary = [
+      if (model.esta != null && model.esta!.isNotEmpty) 'Estado: ${model.esta}',
+      if (model.suc != null && model.suc!.isNotEmpty) 'Suc: ${model.suc}',
+      if (model.tipocont != null && model.tipocont!.isNotEmpty)
+        'Tipo: ${model.tipocont}',
+      if (model.fcnc != null) 'FCNC: ${_fmtDate(model.fcnc)}',
       if (model.totalItems != null) 'Items: ${model.totalItems}',
-      if (model.fileName != null && model.fileName!.isNotEmpty) 'Archivo: ${model.fileName}',
+      if (model.fileName != null && model.fileName!.isNotEmpty)
+        'Archivo: ${model.fileName}',
       if (model.fcnaj != null) 'FCNAJ: ${_fmtDate(model.fcnaj)}',
       if (artaj != null) 'ARTAJ: $artaj',
       if (artcont != null) 'ARTCONT: $artcont',
     ].join(' · ');
+    final status = (model.esta ?? '').trim().toUpperCase();
+    final isAdjusted = status == 'AJUSTADO' || status == 'CERRADO_AJUSTADO';
 
-    final title = (model.cont != null && model.cont!.isNotEmpty) ? 'CONT: ${model.cont}' : 'TOKEN: ${model.tokenreg}';
+    final title = (model.cont != null && model.cont!.isNotEmpty)
+        ? 'CONT: ${model.cont}'
+        : 'TOKEN: ${model.tokenreg}';
 
     final busy = _uploading || _applying;
 
@@ -146,22 +334,17 @@ class _InventarioTileState extends ConsumerState<_InventarioTile> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(title, style: Theme.of(context).textTheme.titleMedium),
-                        if (subtitle.isNotEmpty) ...[
+                        Text(
+                          title,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        if (summary.isNotEmpty) ...[
                           const SizedBox(height: 4),
-                          Text(subtitle),
-                        ],
-                        if (secondary.isNotEmpty) ...[
-                          const SizedBox(height: 4),
-                          // Slightly muted secondary line using alpha without deprecated withOpacity.
-                          Builder(builder: (context) {
-                            final color = Theme.of(context).textTheme.bodySmall?.color;
-                            final adjusted = color?.withValues(alpha: 0.8);
-                            return Text(
-                              secondary,
-                              style: TextStyle(color: adjusted),
-                            );
-                          }),
+                          Text(
+                            summary,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ],
                       ],
                     ),
@@ -170,7 +353,9 @@ class _InventarioTileState extends ConsumerState<_InventarioTile> {
                 IconButton(
                   icon: const Icon(Icons.delete),
                   tooltip: 'Eliminar',
-                  onPressed: (busy || isAdjusted) ? null : () => _confirmDelete(context),
+                  onPressed: (busy || isAdjusted)
+                      ? null
+                      : () => _confirmDelete(context),
                 ),
               ],
             ),
@@ -180,16 +365,28 @@ class _InventarioTileState extends ConsumerState<_InventarioTile> {
               runSpacing: 8,
               children: [
                 OutlinedButton.icon(
-                  onPressed: (!hasCont || busy || isAdjusted) ? null : _pickAndUploadExcel,
+                  onPressed: (!hasCont || busy || isAdjusted)
+                      ? null
+                      : _pickAndUploadExcel,
                   icon: _uploading
-                      ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                      ? const SizedBox(
+                          height: 16,
+                          width: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
                       : const Icon(Icons.upload_file),
                   label: Text(_uploading ? 'Subiendo...' : 'Subir Excel'),
                 ),
                 OutlinedButton.icon(
-                  onPressed: (!hasCont || busy || isAdjusted) ? null : _applyAdjustment,
+                  onPressed: (!hasCont || busy || isAdjusted)
+                      ? null
+                      : _applyAdjustment,
                   icon: _applying
-                      ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                      ? const SizedBox(
+                          height: 16,
+                          width: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
                       : const Icon(Icons.check_circle_outline),
                   label: Text(_applying ? 'Aplicando...' : 'Aplicar ajuste'),
                 ),
@@ -215,8 +412,14 @@ class _InventarioTileState extends ConsumerState<_InventarioTile> {
         title: const Text('Eliminar registro'),
         content: Text('¿Eliminar TOKEN ${widget.model.tokenreg}?'),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancelar')),
-          FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Eliminar')),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Eliminar'),
+          ),
         ],
       ),
     );
@@ -226,7 +429,9 @@ class _InventarioTileState extends ConsumerState<_InventarioTile> {
       await ref.read(inventariosApiProvider).delete(widget.model.tokenreg);
       ref.invalidate(inventariosListProvider);
       if (!mounted) return;
-      messenger.showSnackBar(const SnackBar(content: Text('Registro eliminado')));
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Registro eliminado')),
+      );
     } catch (e) {
       if (!mounted) return;
       messenger.showSnackBar(SnackBar(content: Text('Error al eliminar: $e')));
@@ -265,7 +470,9 @@ class _InventarioTileState extends ConsumerState<_InventarioTile> {
       if (!mounted) return;
       final items = res.totalItems ?? 0;
       final detail = items > 0 ? '$items items' : 'sin conteos';
-      final detLabel = res.totalDet == null ? detail : '$detail · det: ${res.totalDet}';
+      final detLabel = res.totalDet == null
+          ? detail
+          : '$detail · det: ${res.totalDet}';
       _showMessage('Archivo ${file.name} subido ($detLabel)');
     } on DioException catch (e) {
       if (mounted) _showMessage('Error al subir: ${apiErrorMessage(e)}');
@@ -294,8 +501,14 @@ class _InventarioTileState extends ConsumerState<_InventarioTile> {
           'Esta acción NO se puede repetir.',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancelar')),
-          FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Aplicar ajuste')),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Aplicar ajuste'),
+          ),
         ],
       ),
     );
@@ -305,25 +518,91 @@ class _InventarioTileState extends ConsumerState<_InventarioTile> {
     setState(() => _applying = true);
     try {
       final suc = widget.model.suc?.trim();
-      final res = await ref.read(inventariosApiProvider).applyAdjustment(cont, suc: suc);
+      final res = await ref
+          .read(inventariosApiProvider)
+          .applyAdjustment(cont, suc: suc);
       ref.invalidate(inventariosListProvider);
       if (!mounted) return;
       final doc701 = res.docp701 ?? '-';
       final doc702 = res.docp702 ?? '-';
       final movs = res.movimientosInsertados?.toString() ?? '-';
-      _showMessage('Ajuste aplicado. 701: $doc701 · 702: $doc702 · Movs: $movs');
+      _showMessage(
+        'Ajuste aplicado. 701: $doc701 · 702: $doc702 · Movs: $movs',
+      );
     } on DioException catch (e) {
       if (!mounted) return;
+      debugPrint(
+        '[inventarios.applyAdjustment] cont=$cont suc=${widget.model.suc?.trim()} '
+        'type=${e.type} status=${e.response?.statusCode} '
+        'body=${_compactLogValue(e.response?.data)}',
+      );
       if (e.response?.statusCode == 409) {
         _showMessage('Ya fue ajustado anteriormente');
+      } else if (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.receiveTimeout) {
+        final suc = widget.model.suc?.trim();
+        final confirmed = await _confirmAdjustmentAfterTimeout(
+          cont: cont,
+          suc: suc,
+        );
+        if (!mounted) return;
+        if (confirmed) {
+          ref.invalidate(inventariosListProvider);
+          _showMessage(
+            'El ajuste se confirmó correctamente después del tiempo de espera.',
+          );
+        } else {
+          _showMessage(
+            'Tiempo de espera agotado al aplicar ajuste. '
+            'Verifica conexión/servidor e intenta nuevamente.',
+          );
+        }
       } else {
         _showMessage('Error al aplicar ajuste: ${apiErrorMessage(e)}');
       }
     } catch (e) {
-      if (mounted) _showMessage('Error al aplicar ajuste: ${apiErrorMessage(e)}');
+      if (mounted) {
+        _showMessage('Error al aplicar ajuste: ${apiErrorMessage(e)}');
+      }
     } finally {
       if (mounted) setState(() => _applying = false);
     }
+  }
+
+  Future<bool> _confirmAdjustmentAfterTimeout({
+    required String cont,
+    String? suc,
+  }) async {
+    final contKey = cont.trim().toUpperCase();
+    final sucKey = suc?.trim();
+
+    for (var i = 0; i < 6; i++) {
+      if (i > 0) {
+        await Future<void>.delayed(const Duration(seconds: 2));
+      }
+      try {
+        final rows = await ref
+            .read(inventariosApiProvider)
+            .fetchAll(suc: sucKey);
+        final match = rows.where((row) {
+          final rowCont = (row.cont ?? '').trim().toUpperCase();
+          return rowCont == contKey;
+        });
+        if (match.isEmpty) continue;
+
+        final status = (match.first.esta ?? '').trim().toUpperCase();
+        debugPrint(
+          '[inventarios.applyAdjustment] timeout-check attempt=${i + 1} '
+          'cont=$contKey suc=${sucKey ?? '-'} status=$status',
+        );
+        if (status == 'AJUSTADO' || status == 'CERRADO_AJUSTADO') {
+          return true;
+        }
+      } catch (_) {
+        // sigue intentando hasta agotar reintentos
+      }
+    }
+    return false;
   }
 
   void _goToDetalle(BuildContext context) {
@@ -340,7 +619,14 @@ class _InventarioTileState extends ConsumerState<_InventarioTile> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   }
 
-  String _fmtDate(DateTime? value) => value?.toIso8601String() ?? '';
+  String _fmtDate(DateTime? value) {
+    if (value == null) return '';
+    final local = value.toLocal();
+    final day = local.day.toString().padLeft(2, '0');
+    final month = local.month.toString().padLeft(2, '0');
+    final year = local.year.toString().padLeft(4, '0');
+    return '$day/$month/$year';
+  }
 
   String? _fmtNumber(double? value) {
     if (value == null) return null;
