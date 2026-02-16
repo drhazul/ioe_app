@@ -3,9 +3,13 @@ import 'dart:math';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:ioe_app/core/api_error.dart';
 
 import '../../clientes/clientes_models.dart';
 import '../../clientes/clientes_providers.dart';
+import '../new_ord/new_ord_dialog.dart';
+import '../new_ord/new_ord_models.dart';
+import '../new_ord/new_ord_providers.dart';
 import '../cotizaciones_models.dart';
 import '../cotizaciones_providers.dart';
 import 'cotizacion_local_state.dart';
@@ -188,6 +192,7 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
           localState: localState,
           onRemove: _removeLocalItem,
           onEditQty: _editQuantity,
+          onCreateOrd: (item) => _createOrdFromRow(item, cot, razonSocial),
         );
         final rightPanel = _RightPanel(
           datArtAsync: datArtAsync,
@@ -433,14 +438,244 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
     }
   }
 
+  Future<void> _createOrdFromRow(
+    CotizacionLocalItem item,
+    PvCtrFolAsvrModel cot,
+    String razonSocial,
+  ) async {
+    final art = (item.art ?? '').trim();
+    if (art.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('El artículo seleccionado no es válido para crear ORD')),
+        );
+      }
+      return;
+    }
+
+    if (!_isAllowedOrdQty(item.ctd)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('La cantidad registrada para el articulo no permite crear ORD'),
+          ),
+        );
+      }
+      return;
+    }
+
+    final clien = cot.clien ?? 0;
+    final ordExistente = (item.ord ?? '').trim();
+    Map<String, dynamic>? existingHeader;
+    if (ordExistente.isNotEmpty) {
+      try {
+        existingHeader = await ref.read(newOrdApiProvider).fetchOrd(ordExistente);
+      } catch (_) {
+        existingHeader = null;
+      }
+    }
+
+    final initialTipo = _extractOrdTipo(existingHeader) ?? kOrdTipoTallado;
+    final initialFechaEntrega = _extractDateField(existingHeader, 'FCNM');
+    final initialComad = _extractStringField(existingHeader, 'COMAD');
+    final initialDescArt = _extractStringField(existingHeader, 'DESCART') ?? item.des ?? '';
+
+    if (!mounted) return;
+
+    final dialogResult = await showNewOrdDialog(
+      context,
+      payload: NewOrdDialogPayload(
+        idfol: widget.idfol,
+        art: art,
+        descArt: initialDescArt,
+        ctd: item.ctd,
+        clien: clien,
+        ncliente: razonSocial,
+        estado: cot.esta ?? '',
+        suc: cot.suc ?? '',
+        opv: cot.opv ?? '',
+        ordExistente: ordExistente.isEmpty ? null : ordExistente,
+        tipoInicial: initialTipo,
+        fechaEntregaInicial: initialFechaEntrega,
+        comadInicial: initialComad,
+      ),
+    );
+    if (dialogResult == null) return;
+
+    if (dialogResult.action == NewOrdDialogAction.delete) {
+      if (ordExistente.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No existe una ORD para eliminar en este renglón')),
+          );
+        }
+        return;
+      }
+      try {
+        final response = await ref.read(newOrdApiProvider).deleteFromQuoteLine(
+              DeleteOrdFromQuoteLineRequest(
+                iord: ordExistente,
+                idfol: widget.idfol,
+                art: art,
+              ),
+            );
+        await _clearOrdFromItem(item);
+        final message = response.message.trim().isNotEmpty
+            ? response.message.trim()
+            : 'ORD eliminada correctamente';
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+        }
+      } catch (error) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(_ordErrorMessage(error))),
+          );
+        }
+      }
+      return;
+    }
+
+    final request = CreateOrdFromQuoteLineRequest(
+      idfol: widget.idfol,
+      art: art,
+      descArt: dialogResult.descArt,
+      ctd: item.ctd,
+      clien: clien,
+      estado: cot.esta ?? '',
+      tipo: dialogResult.tipo,
+      suc: cot.suc ?? '',
+      opv: cot.opv ?? '',
+      fechaEntrega: dialogResult.fechaEntrega,
+      comad: dialogResult.comad,
+      ordExistente: ordExistente.isEmpty ? null : ordExistente,
+    );
+
+    try {
+      final response = await ref.read(newOrdApiProvider).createFromQuoteLine(request);
+      final iord = (response.iord ?? '').trim();
+      if (iord.isNotEmpty) {
+        await _applyOrdToItem(item, iord);
+      }
+
+      final message = response.message.trim().isNotEmpty
+          ? response.message.trim()
+          : (response.created ? 'ORD creada correctamente' : 'El artículo ya tiene una ORD');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_ordErrorMessage(error))),
+        );
+      }
+    }
+  }
+
+  Future<void> _applyOrdToItem(CotizacionLocalItem item, String iord) async {
+    await ref.read(cotizacionLocalProvider(widget.idfol).notifier).updateOrd(item.id, iord);
+    final updated = ref
+        .read(cotizacionLocalProvider(widget.idfol))
+        .items
+        .firstWhere((e) => e.id == item.id, orElse: () => item.copyWith(ord: iord));
+    await ref.read(cotizacionLocalProvider(widget.idfol).notifier).setSyncStatus(
+          item.id,
+          SyncStatus.pending,
+          error: null,
+        );
+    try {
+      await _upsertTicketLog(updated);
+      await ref.read(cotizacionLocalProvider(widget.idfol).notifier).setSyncStatus(
+            item.id,
+            SyncStatus.synced,
+            error: null,
+          );
+    } catch (error) {
+      await ref.read(cotizacionLocalProvider(widget.idfol).notifier).setSyncStatus(
+            item.id,
+            SyncStatus.error,
+            error: error.toString(),
+          );
+      rethrow;
+    }
+  }
+
+  Future<void> _clearOrdFromItem(CotizacionLocalItem item) async {
+    await ref.read(cotizacionLocalProvider(widget.idfol).notifier).updateOrd(item.id, null);
+    final updated = ref
+        .read(cotizacionLocalProvider(widget.idfol))
+        .items
+        .firstWhere((e) => e.id == item.id, orElse: () => item.copyWith(ord: null));
+    await ref.read(cotizacionLocalProvider(widget.idfol).notifier).setSyncStatus(
+          item.id,
+          SyncStatus.pending,
+          error: null,
+        );
+    try {
+      await _upsertTicketLog(updated);
+      await ref.read(cotizacionLocalProvider(widget.idfol).notifier).setSyncStatus(
+            item.id,
+            SyncStatus.synced,
+            error: null,
+          );
+    } catch (error) {
+      await ref.read(cotizacionLocalProvider(widget.idfol).notifier).setSyncStatus(
+            item.id,
+            SyncStatus.error,
+            error: error.toString(),
+          );
+      rethrow;
+    }
+  }
+
+  bool _isAllowedOrdQty(double qty) {
+    final epsilon = 0.0001;
+    return (qty - 1).abs() < epsilon || (qty - 0.5).abs() < epsilon;
+  }
+
+  String _ordErrorMessage(Object error) {
+    if (error is DioException) {
+      final data = error.response?.data;
+      if (data is Map) {
+        final code = data['code']?.toString().trim();
+        if (code == 'CLIENT_REQUIRED') {
+          return 'No se permite crear ORD para el cliente seleccionado.';
+        }
+        if (code == 'INVALID_STATUS') {
+          return 'El documento no está en estado EDITANDO.';
+        }
+        if (code == 'INVALID_QTY') {
+          return 'La cantidad registrada para el articulo no permite crear ORD';
+        }
+        if (code == 'FCNM_REQUIRED') {
+          return 'La fecha de entrega es obligatoria.';
+        }
+        if (code == 'COMAD_REQUIRED') {
+          return 'El campo COMAD es obligatorio.';
+        }
+        if (code == 'ORD_EXISTS') {
+          return 'El artículo ya tiene una ORD';
+        }
+        if (code == 'ORD_NOT_FOUND') {
+          return 'La ORD seleccionada no existe.';
+        }
+      }
+    }
+    return apiErrorMessage(error, fallback: 'No se pudo crear la ORD');
+  }
+
   Future<void> _upsertTicketLog(CotizacionLocalItem item) async {
     final api = ref.read(pvTicketLogApiProvider);
     final nextPvtat = item.pvta == null ? item.pvtat : item.ctd * item.pvta!;
+    final normalizedOrd = (item.ord ?? '').trim();
+    final payload = <String, dynamic>{
+      'CTD': item.ctd,
+      'PVTAT': nextPvtat,
+      'ORD': normalizedOrd.isEmpty ? null : normalizedOrd,
+    };
     try {
-      await api.update(item.id, {
-        'CTD': item.ctd,
-        'PVTAT': nextPvtat,
-      });
+      await api.update(item.id, payload);
     } catch (e) {
       if (e is DioException && e.response?.statusCode == 404) {
         await api.create(_toTicketLog(item));
@@ -451,6 +686,28 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
       }
       rethrow;
     }
+  }
+
+  String? _extractStringField(Map<String, dynamic>? row, String key) {
+    if (row == null) return null;
+    final raw = row[key];
+    if (raw == null) return null;
+    final text = raw.toString().trim();
+    if (text.isEmpty || text.toLowerCase() == 'null') return null;
+    return text;
+  }
+
+  DateTime? _extractDateField(Map<String, dynamic>? row, String key) {
+    final raw = _extractStringField(row, key);
+    if (raw == null) return null;
+    return DateTime.tryParse(raw);
+  }
+
+  String? _extractOrdTipo(Map<String, dynamic>? row) {
+    final tipo = _extractStringField(row, 'TIPO')?.toUpperCase();
+    if (tipo == null) return null;
+    if (!kOrdTipos.contains(tipo)) return null;
+    return tipo;
   }
 
   Future<double?> _showQuantityDialog(double current) async {
@@ -586,7 +843,7 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
       ctd: qty,
       pvta: item.pvta,
       pvtat: item.pvtat ?? (qty * price),
-      ord: int.tryParse(item.ord ?? ''),
+      ord: item.ord?.trim().isEmpty ?? true ? null : item.ord!.trim(),
       iddev: item.iddev,
       ctdd: item.ctdd,
       ctddf: item.ctddf,
@@ -606,7 +863,7 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
       ctd: item.ctd,
       pvta: item.pvta,
       pvtat: item.pvtat,
-      ord: item.ord?.toString(),
+      ord: item.ord,
       iddev: item.iddev,
       ctdd: item.ctdd,
       ctddf: item.ctddf,
@@ -724,11 +981,13 @@ class _LeftPanel extends StatelessWidget {
     required this.localState,
     required this.onRemove,
     required this.onEditQty,
+    required this.onCreateOrd,
   });
 
   final CotizacionLocalState localState;
   final Future<void> Function(CotizacionLocalItem item) onRemove;
   final Future<void> Function(CotizacionLocalItem item) onEditQty;
+  final Future<void> Function(CotizacionLocalItem item) onCreateOrd;
 
   @override
   Widget build(BuildContext context) {
@@ -754,7 +1013,7 @@ class _LeftPanel extends StatelessWidget {
             const SizedBox(height: 12),
             _TableHeader(
               columns: const ['DES', 'CTD', 'PVTA', 'PVTAT', 'ORD'],
-              widths: const [240, 60, 80, 90, 60],
+              widths: const [220, 60, 80, 90, 130],
             ),
             const Divider(height: 1),
             if (localState.loading)
@@ -781,7 +1040,7 @@ class _LeftPanel extends StatelessWidget {
                       height: rowHeight,
                       child: _TableRow(
                         children: [
-                          _TableCell(width: 240, child: Text(item.des ?? '-', overflow: TextOverflow.ellipsis)),
+                          _TableCell(width: 220, child: Text(item.des ?? '-', overflow: TextOverflow.ellipsis)),
                           _TableCell(
                             width: 60,
                             child: MouseRegion(
@@ -794,7 +1053,22 @@ class _LeftPanel extends StatelessWidget {
                           ),
                           _TableCell(width: 80, child: Text(pvtaText)),
                           _TableCell(width: 90, child: Text(pvtatText)),
-                          _TableCell(width: 60, child: Text(item.ord?.toString() ?? '-')),
+                          _TableCell(
+                            width: 130,
+                            child: MouseRegion(
+                              cursor: SystemMouseCursors.click,
+                              child: GestureDetector(
+                                onDoubleTap: () => onCreateOrd(item),
+                                child: Tooltip(
+                                  message: 'Doble clic para crear ORD',
+                                  child: Text(
+                                    item.ord ?? '-',
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
                           IconButton(
                             tooltip: 'Quitar',
                             icon: const Icon(Icons.close, size: 18),

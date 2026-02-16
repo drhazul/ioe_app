@@ -309,6 +309,13 @@ class _ModuleRow extends StatelessWidget {
     if (moduloCode == 'DAT_JAA_MB52') {
       return '/mb52';
     }
+    if (
+      moduloCode == 'DAT_CTRL_CTAS' ||
+      moduloCode == 'DAT_CTRL_CUENTAS' ||
+      moduloCode == 'DAT_CONS_CTAS'
+    ) {
+      return '/ctrl-ctas';
+    }
     if (moduloCode == 'SYS_DAT_MAE') {
       return '/masterdata';
     }
@@ -328,6 +335,13 @@ class _ModuleRow extends StatelessWidget {
     }
     if (name.contains('mb52')) {
       return '/mb52';
+    }
+    if (
+      (name.contains('control') && name.contains('cuentas')) ||
+      (name.contains('consulta') && name.contains('credit')) ||
+      (name.contains('saldo') && name.contains('cuentas'))
+    ) {
+      return '/ctrl-ctas';
     }
 
     return null;

@@ -38,3 +38,10 @@
 - Los componentes de filtro (sucursal, nombre, fecha, filtrar/limpiar) deben mostrarse para todos los usuarios, incluido admin.
 - La seleccion/cambio de sucursal en UI solo debe habilitarse cuando el usuario este autorizado por rol/listado (`USR_MOD_SUC`).
 - Las acciones sensibles (ej. aplicar ajuste) deben usar la sucursal seleccionada y confiar en validacion backend de autorizacion.
+
+## Control de Cuentas: autorizacion por sucursal
+- El modulo de Home que navega a `/ctrl-ctas` puede llegar como `DAT_CONS_CTAS`, `DAT_CTRL_CTAS` o `DAT_CTRL_CUENTAS`.
+- En `CtrlCtasConsultaPage`, la sucursal no debe quedar bloqueada por defecto para no-admin; debe depender de `ctrl-ctas/config` (`allowedSucs`, `canSelectSucs`, `forcedSuc`).
+- Para no-admin, mostrar y permitir elegir solo sucursales autorizadas por backend (`allowedSucs`); para admin, mantener lista completa.
+- Si `canSelectSucs` es `false`, la UI puede mostrar la sucursal forzada; si es `true`, habilitar dropdown/multiseleccion.
+- No usar la sucursal del perfil/JWT como unica fuente en frontend; la autorizacion efectiva debe venir de `USR_MOD_SUC` via API.

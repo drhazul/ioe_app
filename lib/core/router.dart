@@ -28,6 +28,8 @@ import '../features/masterdata/datmodulos/datmodulos_page.dart';
 import '../features/masterdata/datmodulos/datmodulo_form_page.dart';
 import '../features/masterdata/access_reg_suc/access_reg_suc_page.dart';
 import '../features/masterdata/access_reg_suc/access_reg_suc_form_page.dart';
+import '../features/masterdata/cat_ctas/presentation/cat_ctas_list_page.dart';
+import '../features/masterdata/cat_ctas/presentation/cat_ctas_form_page.dart';
 import '../features/modulos/inventarios/inventarios_page.dart';
 import '../features/modulos/inventarios/inventario_form_page.dart';
 import '../features/modulos/inventarios/inventario_det_page.dart';
@@ -40,6 +42,9 @@ import '../features/modulos/mb51/mb51_models.dart';
 import '../features/modulos/mb52/mb52_consultas_page.dart';
 import '../features/modulos/mb52/mb52_resultados_page.dart';
 import '../features/modulos/mb52/mb52_models.dart';
+import '../features/modulos/ctrl_ctas/ctrl_ctas_models.dart';
+import '../features/modulos/ctrl_ctas/ctrl_ctas_consulta_page.dart';
+import '../features/modulos/ctrl_ctas/ctrl_ctas_resumen_cliente_page.dart';
 import '../features/modulos/punto_venta/punto_venta_home_page.dart';
 import '../features/modulos/punto_venta/clientes/clientes_page.dart';
 import '../features/modulos/punto_venta/clientes/cliente_form_page.dart';
@@ -178,6 +183,21 @@ final routerProvider = Provider<GoRouter>((ref) {
                 ),
               ],
             ),
+            GoRoute(
+              path: 'cat-ctas',
+              builder: (c, s) => const CatCtasListPage(),
+              routes: [
+                GoRoute(path: 'new', builder: (c, s) => const CatCtasFormPage()),
+                GoRoute(
+                  path: ':cta',
+                  builder: (c, s) => CatCtasFormPage(
+                    cta: s.pathParameters['cta'] == null
+                        ? null
+                        : Uri.decodeComponent(s.pathParameters['cta']!),
+                  ),
+                ),
+              ],
+            ),
           ]),
           GoRoute(
             path: 'inventarios',
@@ -237,6 +257,25 @@ final routerProvider = Provider<GoRouter>((ref) {
                     filtros = Mb52Filtros.fromJson(Map<String, dynamic>.from(extra));
                   }
                   return Mb52ResultadosPage(filtros: filtros);
+                },
+              ),
+            ],
+          ),
+          GoRoute(
+            path: 'ctrl-ctas',
+            builder: (c, s) => const CtrlCtasConsultaPage(),
+            routes: [
+              GoRoute(
+                path: 'resumen-cliente',
+                builder: (c, s) {
+                  final extra = s.extra;
+                  CtrlCtasFiltros filtros = const CtrlCtasFiltros();
+                  if (extra is CtrlCtasFiltros) {
+                    filtros = extra;
+                  } else if (extra is Map) {
+                    filtros = CtrlCtasFiltros.fromJson(Map<String, dynamic>.from(extra));
+                  }
+                  return CtrlCtasResumenClientePage(filtros: filtros);
                 },
               ),
             ],

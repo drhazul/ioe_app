@@ -5,6 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 enum SyncStatus { pending, synced, error }
 
+const Object _copyWithUnset = Object();
+
 class CotizacionLocalItem {
   CotizacionLocalItem({
     required this.id,
@@ -32,7 +34,7 @@ class CotizacionLocalItem {
   final double ctd;
   final double? pvta;
   final double pvtat;
-  final int? ord;
+  final String? ord;
   final String? iddev;
   final double? ctdd;
   final double? ctddf;
@@ -49,7 +51,7 @@ class CotizacionLocalItem {
     double? ctd,
     double? pvta,
     double? pvtat,
-    int? ord,
+    Object? ord = _copyWithUnset,
     String? iddev,
     double? ctdd,
     double? ctddf,
@@ -66,7 +68,7 @@ class CotizacionLocalItem {
       ctd: ctd ?? this.ctd,
       pvta: pvta ?? this.pvta,
       pvtat: pvtat ?? this.pvtat,
-      ord: ord ?? this.ord,
+      ord: identical(ord, _copyWithUnset) ? this.ord : ord as String?,
       iddev: iddev ?? this.iddev,
       ctdd: ctdd ?? this.ctdd,
       ctddf: ctddf ?? this.ctddf,
@@ -104,7 +106,7 @@ class CotizacionLocalItem {
       ctd: (json['ctd'] as num?)?.toDouble() ?? 0,
       pvta: (json['pvta'] as num?)?.toDouble(),
       pvtat: (json['pvtat'] as num?)?.toDouble() ?? 0,
-      ord: (json['ord'] as num?)?.toInt(),
+      ord: _asOrd(json['ord']),
       iddev: json['iddev']?.toString(),
       ctdd: (json['ctdd'] as num?)?.toDouble(),
       ctddf: (json['ctddf'] as num?)?.toDouble(),
@@ -135,6 +137,13 @@ class CotizacionLocalItem {
       default:
         return SyncStatus.pending;
     }
+  }
+
+  static String? _asOrd(dynamic value) {
+    if (value == null) return null;
+    final text = value.toString().trim();
+    if (text.isEmpty || text.toLowerCase() == 'null') return null;
+    return text;
   }
 }
 
@@ -233,7 +242,7 @@ class CotizacionLocalController extends StateNotifier<CotizacionLocalState> {
     await _store.save(_idfol, next);
   }
 
-  Future<void> updateItem(String id, {double? ctd, double? pvta, String? des}) async {
+  Future<void> updateItem(String id, {double? ctd, double? pvta, String? des, String? ord}) async {
     final next = state.items.map((item) {
       if (item.id != id) return item;
       final nextCtd = ctd ?? item.ctd;
@@ -244,6 +253,21 @@ class CotizacionLocalController extends StateNotifier<CotizacionLocalState> {
         pvta: nextPvta,
         pvtat: nextTotal,
         des: des ?? item.des,
+        ord: ord ?? item.ord,
+        updatedAt: DateTime.now(),
+      );
+    }).toList();
+    state = state.copyWith(items: next, error: null);
+    await _store.save(_idfol, next);
+  }
+
+  Future<void> updateOrd(String id, String? ord) async {
+    final normalized = (ord ?? '').trim();
+    final nextOrd = normalized.isEmpty ? null : normalized;
+    final next = state.items.map((item) {
+      if (item.id != id) return item;
+      return item.copyWith(
+        ord: nextOrd,
         updatedAt: DateTime.now(),
       );
     }).toList();
