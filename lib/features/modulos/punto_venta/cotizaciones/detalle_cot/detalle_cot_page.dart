@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:ioe_app/core/api_error.dart';
 
 import '../../clientes/clientes_models.dart';
@@ -12,6 +13,7 @@ import '../new_ord/new_ord_models.dart';
 import '../new_ord/new_ord_providers.dart';
 import '../cotizaciones_models.dart';
 import '../cotizaciones_providers.dart';
+import '../pago_cotizacion_providers.dart';
 import 'cotizacion_local_state.dart';
 import 'datart_models.dart';
 import 'datart_providers.dart';
@@ -53,6 +55,7 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
   double? _appliedAdic;
   bool _didMergeRemote = false;
   bool _syncingPending = false;
+  bool _openingCierre = false;
 
   @override
   void initState() {
@@ -138,6 +141,13 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
           ),
         ),
         actions: [
+          IconButton(
+            tooltip: 'Pago y cierre',
+            onPressed: localState.loading || ticketLogAsync.isLoading || _openingCierre
+                ? null
+                : () => _openPagoYCierre(cot),
+            icon: const Icon(Icons.point_of_sale_outlined),
+          ),
           IconButton(
             tooltip: 'Limpiar local',
             onPressed: localState.loading || ticketLogAsync.isLoading
@@ -789,6 +799,76 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
       }
     }
     _syncingPending = false;
+  }
+
+  Future<void> _openPagoYCierre(PvCtrFolAsvrModel cot) async {
+    if (_openingCierre) return;
+    setState(() => _openingCierre = true);
+    try {
+      await _syncPendingItems();
+
+      final cierreContext =
+          await ref.read(pagoCotizacionApiProvider).fetchContext(widget.idfol);
+      if (!mounted) return;
+
+      final selectedTipo = await _showTipoCierreDialog(context);
+      if (selectedTipo == null || !mounted) return;
+
+      final rqfacDefault = (cot.reqf ?? 0) == 1 || cierreContext.rqfacDefault;
+      final uri = Uri(
+        path: '/punto-venta/cotizaciones/${Uri.encodeComponent(widget.idfol)}/pago',
+        queryParameters: {
+          'tipotran': selectedTipo,
+          'rqfac': rqfacDefault ? '1' : '0',
+        },
+      );
+      context.push(uri.toString());
+    } catch (e) {
+      if (!mounted) return;
+      final msg = apiErrorMessage(
+        e,
+        fallback: 'No se pudo abrir la pantalla de pago',
+      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    } finally {
+      if (mounted) {
+        setState(() => _openingCierre = false);
+      } else {
+        _openingCierre = false;
+      }
+    }
+  }
+
+  Future<String?> _showTipoCierreDialog(BuildContext context) {
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Selecciona tipo de cierre'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.note_alt_outlined),
+                title: const Text('CA - Cotizacion Abierta'),
+                onTap: () => Navigator.of(ctx).pop('CA'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.sell_outlined),
+                title: const Text('VF - Venta Finalizada'),
+                onTap: () => Navigator.of(ctx).pop('VF'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Cancelar'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _addFromDatArt(DatArtModel match) async {

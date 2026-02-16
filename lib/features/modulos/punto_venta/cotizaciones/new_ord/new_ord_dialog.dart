@@ -32,12 +32,9 @@ Future<NewOrdDialogResult?> showNewOrdDialog(
                       _ReadonlyField(label: 'Folio', value: payload.idfol),
                       _ReadonlyField(label: 'Articulo', value: payload.art),
                       _ReadonlyField(label: 'Cantidad', value: _formatQty(payload.ctd)),
-                      _ReadonlyField(label: 'Cliente', value: '${payload.clien} - ${payload.ncliente}'),
-                      _ReadonlyField(label: 'Sucursal', value: payload.suc),
-                      _ReadonlyField(label: 'OPV', value: payload.opv),
                       _ReadonlyField(
-                        label: 'ORD actual',
-                        value: canDelete ? payload.ordExistente!.trim() : '-',
+                        label: 'Descripcion del articulo',
+                        value: payload.descArt,
                       ),
                       const SizedBox(height: 8),
                       DropdownButtonFormField<String>(
@@ -79,11 +76,6 @@ Future<NewOrdDialogResult?> showNewOrdDialog(
                         onClear: fechaEntrega == null
                             ? null
                             : () => setState(() => fechaEntrega = null),
-                      ),
-                      const SizedBox(height: 8),
-                      _ReadonlyField(
-                        label: 'Descripcion del articulo',
-                        value: payload.descArt,
                       ),
                       const SizedBox(height: 8),
                       TextFormField(

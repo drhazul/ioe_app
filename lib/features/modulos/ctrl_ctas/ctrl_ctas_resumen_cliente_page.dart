@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:excel/excel.dart' as xls;
@@ -14,18 +15,29 @@ enum _SortDir { asc, desc }
 
 enum _DetalleSortField { total, fecha }
 
+class _ExportProgressState {
+  const _ExportProgressState({required this.message, required this.progress});
+
+  final String message;
+  final double progress;
+}
+
 class CtrlCtasResumenClientePage extends ConsumerStatefulWidget {
   const CtrlCtasResumenClientePage({super.key, required this.filtros});
 
   final CtrlCtasFiltros filtros;
 
   @override
-  ConsumerState<CtrlCtasResumenClientePage> createState() => _CtrlCtasResumenClientePageState();
+  ConsumerState<CtrlCtasResumenClientePage> createState() =>
+      _CtrlCtasResumenClientePageState();
 }
 
-class _CtrlCtasResumenClientePageState extends ConsumerState<CtrlCtasResumenClientePage> {
-  static const String _kPrefLeftPanelWidth = 'ctrl_ctas_resumen_left_panel_width';
-  static const String _kPrefRightPanelWidth = 'ctrl_ctas_resumen_right_panel_width';
+class _CtrlCtasResumenClientePageState
+    extends ConsumerState<CtrlCtasResumenClientePage> {
+  static const String _kPrefLeftPanelWidth =
+      'ctrl_ctas_resumen_left_panel_width';
+  static const String _kPrefRightPanelWidth =
+      'ctrl_ctas_resumen_right_panel_width';
   static const double _defaultLeftPanelWidth = 520.0;
   static const double _defaultRightPanelWidth = 940.0;
   static const double _minLeftPanelWidth = 320.0;
@@ -42,10 +54,17 @@ class _CtrlCtasResumenClientePageState extends ConsumerState<CtrlCtasResumenClie
   bool _hasStoredRightWidth = false;
   bool _didAutoFitPanelWidths = false;
   _SortDir _clienteTotalSort = _SortDir.desc;
-  bool _clienteOnlyNonZero = false;
+  bool _clienteOnlyNonZero = true;
   _SortDir _transTotalSort = _SortDir.desc;
-  bool _transOnlyNonZero = false;
+  bool _transOnlyNonZero = true;
   bool _exporting = false;
+  final ValueNotifier<_ExportProgressState> _exportProgressState =
+      ValueNotifier(
+        const _ExportProgressState(message: 'Preparando...', progress: 0),
+      );
+  bool _exportDialogVisible = false;
+  BuildContext? _exportDialogContext;
+  Completer<void>? _exportDialogReady;
 
   @override
   void initState() {
@@ -59,6 +78,12 @@ class _CtrlCtasResumenClientePageState extends ConsumerState<CtrlCtasResumenClie
     _loadPanelWidths();
   }
 
+  @override
+  void dispose() {
+    _exportProgressState.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadPanelWidths() async {
     final sp = await SharedPreferences.getInstance();
     final leftStored = sp.getDouble(_kPrefLeftPanelWidth);
@@ -69,10 +94,14 @@ class _CtrlCtasResumenClientePageState extends ConsumerState<CtrlCtasResumenClie
       _hasStoredLeftWidth = leftStored != null;
       _hasStoredRightWidth = rightStored != null;
       if (leftStored != null) {
-        _leftPanelWidth = leftStored.clamp(_minLeftPanelWidth, 1400.0).toDouble();
+        _leftPanelWidth = leftStored
+            .clamp(_minLeftPanelWidth, 1400.0)
+            .toDouble();
       }
       if (rightStored != null) {
-        _rightPanelWidth = rightStored.clamp(_minRightPanelWidth, 3200.0).toDouble();
+        _rightPanelWidth = rightStored
+            .clamp(_minRightPanelWidth, 3200.0)
+            .toDouble();
       }
     });
   }
@@ -121,14 +150,22 @@ class _CtrlCtasResumenClientePageState extends ConsumerState<CtrlCtasResumenClie
     return direction == _SortDir.asc ? cmp : -cmp;
   }
 
-  List<CtrlCtasResumenClienteItem> _applyResumenClienteView(List<CtrlCtasResumenClienteItem> items) {
-    final filtered = _clienteOnlyNonZero ? items.where((row) => row.total.abs() > 0.0000001).toList() : [...items];
+  List<CtrlCtasResumenClienteItem> _applyResumenClienteView(
+    List<CtrlCtasResumenClienteItem> items,
+  ) {
+    final filtered = _clienteOnlyNonZero
+        ? items.where((row) => row.total.abs() > 0.0000001).toList()
+        : [...items];
     filtered.sort((a, b) => _compareAbs(a.total, b.total, _clienteTotalSort));
     return filtered;
   }
 
-  List<CtrlCtasResumenTransItem> _applyResumenTransView(List<CtrlCtasResumenTransItem> items) {
-    final filtered = _transOnlyNonZero ? items.where((row) => row.total.abs() > 0.0000001).toList() : [...items];
+  List<CtrlCtasResumenTransItem> _applyResumenTransView(
+    List<CtrlCtasResumenTransItem> items,
+  ) {
+    final filtered = _transOnlyNonZero
+        ? items.where((row) => row.total.abs() > 0.0000001).toList()
+        : [...items];
     filtered.sort((a, b) => _compareAbs(a.total, b.total, _transTotalSort));
     return filtered;
   }
@@ -139,7 +176,9 @@ class _CtrlCtasResumenClientePageState extends ConsumerState<CtrlCtasResumenClie
     required _DetalleSortField sortField,
     required _SortDir sortDirection,
   }) {
-    final filtered = onlyNonZero ? items.where((row) => row.impt.abs() > 0.0000001).toList() : [...items];
+    final filtered = onlyNonZero
+        ? items.where((row) => row.impt.abs() > 0.0000001).toList()
+        : [...items];
     filtered.sort((a, b) {
       if (sortField == _DetalleSortField.fecha) {
         final byDate = _compareDate(a.fcnd, b.fcnd, sortDirection);
@@ -152,7 +191,84 @@ class _CtrlCtasResumenClientePageState extends ConsumerState<CtrlCtasResumenClie
 
   void _showSnack(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _setExportProgress({required String message, required double progress}) {
+    final normalized = progress.clamp(0.0, 1.0).toDouble();
+    _exportProgressState.value = _ExportProgressState(
+      message: message,
+      progress: normalized,
+    );
+  }
+
+  void _showExportProgressDialog() {
+    if (!mounted || _exportDialogVisible) return;
+    _exportDialogVisible = true;
+    _exportDialogReady = Completer<void>();
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        _exportDialogContext = dialogContext;
+        final ready = _exportDialogReady;
+        if (ready != null && !ready.isCompleted) {
+          ready.complete();
+        }
+        return PopScope(
+          canPop: false,
+          child: AlertDialog(
+            title: const Text('Exportando informacion'),
+            content: SizedBox(
+              width: 360,
+              child: ValueListenableBuilder<_ExportProgressState>(
+                valueListenable: _exportProgressState,
+                builder: (context, state, _) {
+                  final percent = (state.progress * 100).toStringAsFixed(0);
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      LinearProgressIndicator(value: state.progress),
+                      const SizedBox(height: 10),
+                      Text('$percent%'),
+                      const SizedBox(height: 8),
+                      Text(state.message, style: const TextStyle(fontSize: 13)),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Espera a que termine la construccion del archivo.',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+      },
+    ).whenComplete(() {
+      _exportDialogVisible = false;
+      _exportDialogContext = null;
+      _exportDialogReady = null;
+    });
+  }
+
+  Future<void> _closeExportProgressDialog() async {
+    if (!_exportDialogVisible) return;
+    final ready = _exportDialogReady;
+    if (ready != null && !ready.isCompleted) {
+      await ready.future.timeout(
+        const Duration(milliseconds: 500),
+        onTimeout: () {},
+      );
+    }
+    final dialogContext = _exportDialogContext;
+    if (dialogContext == null) return;
+    if (!dialogContext.mounted) return;
+    Navigator.of(dialogContext, rootNavigator: true).pop();
   }
 
   xls.CellValue _excelValue(dynamic value) {
@@ -255,43 +371,93 @@ class _CtrlCtasResumenClientePageState extends ConsumerState<CtrlCtasResumenClie
 
   Future<void> _exportToExcel() async {
     if (_exporting) return;
+    final selectedClient = (_selectedClient ?? '').trim();
+    final hasSelectedClient = selectedClient.isNotEmpty;
+    final hasSingleCta = _hasSingleCtaSelection;
+    if (!hasSingleCta && !hasSelectedClient) {
+      _showSnack(
+        'Para exportar debes seleccionar un CLIENT cuando CTA es Todas o multiple.',
+      );
+      return;
+    }
+
     setState(() {
       _exporting = true;
     });
+    _setExportProgress(message: 'Preparando exportacion...', progress: 0.02);
+    _showExportProgressDialog();
 
     try {
-      final selectedClient = (_selectedClient ?? '').trim();
-      if (selectedClient.isEmpty) {
-        _showSnack('Selecciona un cliente para exportar.');
-        return;
-      }
-
-      final resumenClienteRaw = await ref.read(ctrlCtasResumenClienteProvider(widget.filtros).future);
-      final resumenCliente = resumenClienteRaw
-          .where((row) => row.client.trim() == selectedClient)
-          .toList()
-        ..sort((a, b) => _compareAbs(a.total, b.total, _clienteTotalSort));
+      final api = ref.read(ctrlCtasApiProvider);
+      _setExportProgress(
+        message: 'Consultando resumen por cliente...',
+        progress: 0.10,
+      );
+      final resumenClienteRaw = await api.resumenCliente(widget.filtros);
+      final resumenClienteBase = hasSelectedClient
+          ? resumenClienteRaw
+                .where((row) => row.client.trim() == selectedClient)
+                .toList()
+          : resumenClienteRaw;
+      final resumenCliente = _applyResumenClienteView(resumenClienteBase);
 
       List<CtrlCtasResumenTransItem> resumenTrans = const [];
-      final filtrosTrans = widget.filtros.copyWith(clients: [selectedClient], idfols: const []);
-      final resumenTransRaw = await ref.read(ctrlCtasResumenTransProvider(filtrosTrans).future);
+      final filtrosTrans = hasSelectedClient
+          ? widget.filtros.copyWith(clients: [selectedClient], idfols: const [])
+          : widget.filtros;
+      _setExportProgress(
+        message: 'Consultando resumen por transaccion...',
+        progress: 0.22,
+      );
+      final resumenTransRaw = await api.resumenTransaccion(filtrosTrans);
       resumenTrans = _applyResumenTransView(resumenTransRaw);
 
       List<CtrlCtasDetalleItem> detalle = const [];
-      final idfols = resumenTransRaw
-          .map((row) => _clean(row.idfol))
-          .where((idfol) => idfol.isNotEmpty)
-          .toSet()
-          .toList();
+      final clientToIdfols = <String, Set<String>>{};
+      for (final row in resumenTransRaw) {
+        final clientKey = row.client.trim();
+        final idfol = _clean(row.idfol);
+        if (clientKey.isEmpty || idfol.isEmpty) continue;
+        clientToIdfols.putIfAbsent(clientKey, () => <String>{}).add(idfol);
+      }
 
-      if (idfols.isNotEmpty) {
-        final detailCalls = idfols.map((idfol) {
-          final filtrosDet = widget.filtros.copyWith(clients: [selectedClient], idfols: [idfol]);
-          return ref.read(ctrlCtasDetalleProvider(filtrosDet).future);
-        }).toList();
+      if (clientToIdfols.isNotEmpty) {
+        const idfolChunkSize = 40;
+        final detalleRaw = <CtrlCtasDetalleItem>[];
+        final clientsToExport = hasSelectedClient
+            ? <String>[selectedClient]
+            : clientToIdfols.keys.toList();
+        final totalChunks = clientsToExport.fold<int>(0, (sum, client) {
+          final count = clientToIdfols[client]?.length ?? 0;
+          if (count == 0) return sum;
+          return sum + ((count + idfolChunkSize - 1) ~/ idfolChunkSize);
+        });
+        var processedChunks = 0;
 
-        final detalleLists = await Future.wait(detailCalls);
-        final detalleRaw = detalleLists.expand((rows) => rows).toList();
+        for (final client in clientsToExport) {
+          final idfols = clientToIdfols[client]?.toList() ?? const <String>[];
+          if (idfols.isEmpty) continue;
+          final filtrosDetBase = widget.filtros.copyWith(clients: [client]);
+
+          for (var start = 0; start < idfols.length; start += idfolChunkSize) {
+            processedChunks++;
+            final detailProgress = totalChunks <= 0
+                ? 0.78
+                : 0.28 + ((processedChunks / totalChunks) * 0.50);
+            _setExportProgress(
+              message: 'Consultando detalle ($processedChunks/$totalChunks)...',
+              progress: detailProgress,
+            );
+            final end = (start + idfolChunkSize) < idfols.length
+                ? (start + idfolChunkSize)
+                : idfols.length;
+            final idfolChunk = idfols.sublist(start, end);
+            final filtrosDet = filtrosDetBase.copyWith(idfols: idfolChunk);
+            final chunkRows = await api.detalle(filtrosDet);
+            detalleRaw.addAll(chunkRows);
+          }
+        }
+
         detalle = _applyDetalleView(
           detalleRaw,
           onlyNonZero: false,
@@ -301,31 +467,52 @@ class _CtrlCtasResumenClientePageState extends ConsumerState<CtrlCtasResumenClie
       }
 
       if (resumenCliente.isEmpty && resumenTrans.isEmpty && detalle.isEmpty) {
+        _setExportProgress(
+          message: 'Sin resultados para exportar.',
+          progress: 1.0,
+        );
         _showSnack('Sin resultados para exportar.');
         return;
       }
 
+      _setExportProgress(
+        message: 'Construyendo archivo Excel...',
+        progress: 0.88,
+      );
       final bytes = _buildExcelBytes(
         resumenCliente: resumenCliente,
         resumenTrans: resumenTrans,
         detalle: detalle,
       );
       if (bytes == null) {
+        _setExportProgress(
+          message: 'No se pudo generar el archivo.',
+          progress: 1.0,
+        );
         _showSnack('No se pudo generar el archivo Excel.');
         return;
       }
 
       final filename = _buildExportFilename();
+      _setExportProgress(message: 'Guardando archivo...', progress: 0.96);
       final saved = await getExcelExporter().save(bytes, filename);
       if (!mounted) return;
       if (!saved) {
+        _setExportProgress(message: 'Exportacion cancelada.', progress: 1.0);
         _showSnack('Exportacion cancelada.');
       } else {
+        _setExportProgress(message: 'Exportacion completada.', progress: 1.0);
         _showSnack('Exportacion lista: $filename');
       }
     } catch (e) {
+      _setExportProgress(
+        message: 'Error durante la exportacion.',
+        progress: 1.0,
+      );
       _showSnack('No se pudo exportar: ${apiErrorMessage(e)}');
     } finally {
+      await Future.delayed(const Duration(milliseconds: 250));
+      await _closeExportProgressDialog();
       if (mounted) {
         setState(() {
           _exporting = false;
@@ -340,7 +527,10 @@ class _CtrlCtasResumenClientePageState extends ConsumerState<CtrlCtasResumenClie
       children: [
         Text(text),
         const SizedBox(width: 4),
-        Icon(direction == _SortDir.asc ? Icons.arrow_upward : Icons.arrow_downward, size: 13),
+        Icon(
+          direction == _SortDir.asc ? Icons.arrow_upward : Icons.arrow_downward,
+          size: 13,
+        ),
       ],
     );
   }
@@ -357,13 +547,16 @@ class _CtrlCtasResumenClientePageState extends ConsumerState<CtrlCtasResumenClie
       mainAxisSize: MainAxisSize.min,
       children: [
         IconButton(
-          tooltip: 'Orden total ABS (${sortDirection == _SortDir.asc ? 'Asc' : 'Desc'})',
+          tooltip:
+              'Orden total ABS (${sortDirection == _SortDir.asc ? 'Asc' : 'Desc'})',
           onPressed: onToggleSort,
           constraints: btnConstraints,
           padding: EdgeInsets.zero,
           visualDensity: VisualDensity.compact,
           icon: Icon(
-            sortDirection == _SortDir.asc ? Icons.arrow_upward : Icons.arrow_downward,
+            sortDirection == _SortDir.asc
+                ? Icons.arrow_upward
+                : Icons.arrow_downward,
             size: 18,
           ),
         ),
@@ -398,13 +591,19 @@ class _CtrlCtasResumenClientePageState extends ConsumerState<CtrlCtasResumenClie
     _didAutoFitPanelWidths = true;
 
     const handlesWidth = _resizeHandleWidth * 2;
-    final maxLeftForFit = (viewportWidth - handlesWidth - _minRightPanelWidth).clamp(_minLeftPanelWidth, 1400.0).toDouble();
+    final maxLeftForFit = (viewportWidth - handlesWidth - _minRightPanelWidth)
+        .clamp(_minLeftPanelWidth, 1400.0)
+        .toDouble();
     final targetLeft = _hasStoredLeftWidth
         ? _leftPanelWidth.clamp(_minLeftPanelWidth, 1400.0).toDouble()
-        : (viewportWidth * 0.34).clamp(_minLeftPanelWidth, maxLeftForFit).toDouble();
+        : (viewportWidth * 0.34)
+              .clamp(_minLeftPanelWidth, maxLeftForFit)
+              .toDouble();
     final targetRight = _hasStoredRightWidth
         ? _rightPanelWidth.clamp(_minRightPanelWidth, 3200.0).toDouble()
-        : (viewportWidth - targetLeft - handlesWidth).clamp(_minRightPanelWidth, 3200.0).toDouble();
+        : (viewportWidth - targetLeft - handlesWidth)
+              .clamp(_minRightPanelWidth, 3200.0)
+              .toDouble();
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
@@ -438,6 +637,35 @@ class _CtrlCtasResumenClientePageState extends ConsumerState<CtrlCtasResumenClie
     return text;
   }
 
+  List<String> _normalizeStrings(Iterable<String> values) {
+    final out = <String>[];
+    final seen = <String>{};
+    for (final raw in values) {
+      final value = raw.trim();
+      if (value.isEmpty || seen.contains(value)) continue;
+      seen.add(value);
+      out.add(value);
+    }
+    return out;
+  }
+
+  bool get _hasSelectedClient => (_selectedClient ?? '').trim().isNotEmpty;
+
+  List<String> get _selectedCtas => _normalizeStrings(widget.filtros.ctas);
+
+  bool get _hasSingleCtaSelection => _selectedCtas.length == 1;
+
+  bool get _canExportCurrentSelection =>
+      _hasSingleCtaSelection || _hasSelectedClient;
+
+  String get _ctaAppBarDetail {
+    final ctas = _selectedCtas;
+    if (ctas.isEmpty) return 'CTA: Todas';
+    if (ctas.length == 1) return 'CTA: ${ctas.first}';
+    if (ctas.length <= 3) return 'CTA: ${ctas.join(', ')}';
+    return 'CTA: ${ctas.take(3).join(', ')} +${ctas.length - 3}';
+  }
+
   void _selectClient(String client) {
     setState(() {
       _selectedClient = client;
@@ -456,8 +684,11 @@ class _CtrlCtasResumenClientePageState extends ConsumerState<CtrlCtasResumenClie
   }
 
   void _openDetalleDialog({required String client, required String idfol}) {
-    final filtrosDet = widget.filtros.copyWith(clients: [client], idfols: [idfol]);
-    var onlyNonZero = false;
+    final filtrosDet = widget.filtros.copyWith(
+      clients: [client],
+      idfols: [idfol],
+    );
+    var onlyNonZero = true;
     var sortDirection = _SortDir.desc;
     var sortField = _DetalleSortField.total;
 
@@ -468,7 +699,9 @@ class _CtrlCtasResumenClientePageState extends ConsumerState<CtrlCtasResumenClie
         final height = MediaQuery.sizeOf(context).height * 0.85;
         return StatefulBuilder(
           builder: (context, setDialogState) {
-            final sortFieldLabel = sortField == _DetalleSortField.total ? 'Ordenando: Total ABS' : 'Ordenando: Fecha';
+            final sortFieldLabel = sortField == _DetalleSortField.total
+                ? 'Ordenando: Total ABS'
+                : 'Ordenando: Fecha';
             return Dialog(
               insetPadding: const EdgeInsets.all(16),
               child: SizedBox(
@@ -485,11 +718,20 @@ class _CtrlCtasResumenClientePageState extends ConsumerState<CtrlCtasResumenClie
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text('Detalle por transaccion', style: TextStyle(fontWeight: FontWeight.w700)),
+                                const Text(
+                                  'Detalle por transaccion',
+                                  style: TextStyle(fontWeight: FontWeight.w700),
+                                ),
                                 const SizedBox(height: 2),
                                 Text('CLIENT: $client   IDFOL: $idfol'),
                                 const SizedBox(height: 2),
-                                Text(sortFieldLabel, style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+                                Text(
+                                  sortFieldLabel,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey.shade700,
+                                  ),
+                                ),
                               ],
                             ),
                           ),
@@ -511,28 +753,41 @@ class _CtrlCtasResumenClientePageState extends ConsumerState<CtrlCtasResumenClie
                             ),
                           ),
                           IconButton(
-                            tooltip: 'Direccion ${sortDirection == _SortDir.asc ? 'Asc' : 'Desc'}',
+                            tooltip:
+                                'Direccion ${sortDirection == _SortDir.asc ? 'Asc' : 'Desc'}',
                             onPressed: () {
                               setDialogState(() {
-                                sortDirection = sortDirection == _SortDir.asc ? _SortDir.desc : _SortDir.asc;
+                                sortDirection = sortDirection == _SortDir.asc
+                                    ? _SortDir.desc
+                                    : _SortDir.asc;
                               });
                             },
-                            icon: Icon(sortDirection == _SortDir.asc ? Icons.arrow_upward : Icons.arrow_downward),
+                            icon: Icon(
+                              sortDirection == _SortDir.asc
+                                  ? Icons.arrow_upward
+                                  : Icons.arrow_downward,
+                            ),
                           ),
                           IconButton(
-                            tooltip: onlyNonZero ? 'Filtro: != 0 activo' : 'Filtrar: != 0',
+                            tooltip: onlyNonZero
+                                ? 'Filtro: != 0 activo'
+                                : 'Filtrar: != 0',
                             onPressed: () {
                               setDialogState(() {
                                 onlyNonZero = !onlyNonZero;
                               });
                             },
-                            icon: Icon(onlyNonZero ? Icons.filter_alt : Icons.filter_alt_outlined),
+                            icon: Icon(
+                              onlyNonZero
+                                  ? Icons.filter_alt
+                                  : Icons.filter_alt_outlined,
+                            ),
                           ),
                           IconButton(
                             tooltip: 'Limpiar filtros/orden',
                             onPressed: () {
                               setDialogState(() {
-                                onlyNonZero = false;
+                                onlyNonZero = true;
                                 sortDirection = _SortDir.desc;
                                 sortField = _DetalleSortField.total;
                               });
@@ -543,7 +798,9 @@ class _CtrlCtasResumenClientePageState extends ConsumerState<CtrlCtasResumenClie
                             builder: (context, ref, _) {
                               return IconButton(
                                 tooltip: 'Refrescar',
-                                onPressed: () => ref.invalidate(ctrlCtasDetalleProvider(filtrosDet)),
+                                onPressed: () => ref.invalidate(
+                                  ctrlCtasDetalleProvider(filtrosDet),
+                                ),
                                 icon: const Icon(Icons.refresh),
                               );
                             },
@@ -560,12 +817,18 @@ class _CtrlCtasResumenClientePageState extends ConsumerState<CtrlCtasResumenClie
                     Expanded(
                       child: Consumer(
                         builder: (context, ref, _) {
-                          final detalleAsync = ref.watch(ctrlCtasDetalleProvider(filtrosDet));
+                          final detalleAsync = ref.watch(
+                            ctrlCtasDetalleProvider(filtrosDet),
+                          );
                           return Padding(
                             padding: const EdgeInsets.all(10),
                             child: detalleAsync.when(
-                              loading: () => const Center(child: CircularProgressIndicator()),
-                              error: (error, _) => Center(child: Text('Error: ${apiErrorMessage(error)}')),
+                              loading: () => const Center(
+                                child: CircularProgressIndicator(),
+                              ),
+                              error: (error, _) => Center(
+                                child: Text('Error: ${apiErrorMessage(error)}'),
+                              ),
                               data: (items) => _buildDetalleTable(
                                 _applyDetalleView(
                                   items,
@@ -606,7 +869,11 @@ class _CtrlCtasResumenClientePageState extends ConsumerState<CtrlCtasResumenClie
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(height: 5, width: double.infinity, color: Theme.of(context).colorScheme.primary),
+          Container(
+            height: 5,
+            width: double.infinity,
+            color: Theme.of(context).colorScheme.primary,
+          ),
           Padding(
             padding: const EdgeInsets.fromLTRB(10, 8, 10, 6),
             child: Column(
@@ -617,29 +884,29 @@ class _CtrlCtasResumenClientePageState extends ConsumerState<CtrlCtasResumenClie
                   runSpacing: 4,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+                    Text(
+                      title,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
                     if (headerActions != null) headerActions,
                   ],
                 ),
                 if (subtitle != null && subtitle.trim().isNotEmpty) ...[
                   const SizedBox(height: 2),
-                  Text(subtitle, style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+                  Text(
+                    subtitle,
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                  ),
                 ],
               ],
             ),
           ),
           Divider(height: 1, color: Colors.grey.shade300),
           if (height == null)
-            Padding(
-              padding: const EdgeInsets.all(8),
-              child: child,
-            )
+            Padding(padding: const EdgeInsets.all(8), child: child)
           else
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(8),
-                child: child,
-              ),
+              child: Padding(padding: const EdgeInsets.all(8), child: child),
             ),
         ],
       ),
@@ -706,7 +973,12 @@ class _CtrlCtasResumenClientePageState extends ConsumerState<CtrlCtasResumenClie
         dataRowMaxHeight: 38,
         columns: [
           const DataColumn(label: Text('CLIENT')),
-          const DataColumn(label: SizedBox(width: _razonSocialWidth, child: Text('Razon social'))),
+          const DataColumn(
+            label: SizedBox(
+              width: _razonSocialWidth,
+              child: Text('Razon social'),
+            ),
+          ),
           DataColumn(label: _sortLabel('Total', _clienteTotalSort)),
         ],
         rows: [
@@ -714,7 +986,9 @@ class _CtrlCtasResumenClientePageState extends ConsumerState<CtrlCtasResumenClie
             DataRow(
               color: _selectedClient == row.client
                   ? WidgetStatePropertyAll(
-                      Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
+                      Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: 0.08),
                     )
                   : null,
               cells: [
@@ -746,7 +1020,9 @@ class _CtrlCtasResumenClientePageState extends ConsumerState<CtrlCtasResumenClie
 
   Widget _buildResumenTransTable(List<CtrlCtasResumenTransItem> items) {
     if (_selectedClient == null) {
-      return const Center(child: Text('Selecciona un cliente para ver transacciones'));
+      return const Center(
+        child: Text('Selecciona un cliente para ver transacciones'),
+      );
     }
     if (items.isEmpty) return const Center(child: Text('Sin transacciones'));
 
@@ -760,7 +1036,12 @@ class _CtrlCtasResumenClientePageState extends ConsumerState<CtrlCtasResumenClie
         dataRowMaxHeight: 38,
         columns: [
           const DataColumn(label: Text('CLIENT')),
-          const DataColumn(label: SizedBox(width: _razonSocialWidth, child: Text('Razon social'))),
+          const DataColumn(
+            label: SizedBox(
+              width: _razonSocialWidth,
+              child: Text('Razon social'),
+            ),
+          ),
           const DataColumn(label: Text('CTA')),
           const DataColumn(label: Text('IDFOL')),
           DataColumn(label: _sortLabel('Total', _transTotalSort)),
@@ -768,16 +1049,16 @@ class _CtrlCtasResumenClientePageState extends ConsumerState<CtrlCtasResumenClie
         rows: [
           for (final row in items)
             DataRow(
-              color: _selectedIdfol != null && _selectedIdfol == _clean(row.idfol)
+              color:
+                  _selectedIdfol != null && _selectedIdfol == _clean(row.idfol)
                   ? WidgetStatePropertyAll(
-                      Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
+                      Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: 0.08),
                     )
                   : null,
               cells: [
-                DataCell(
-                  Text(row.client),
-                  onTap: () => _selectTrans(row),
-                ),
+                DataCell(Text(row.client), onTap: () => _selectTrans(row)),
                 DataCell(
                   SizedBox(
                     width: _razonSocialWidth,
@@ -789,10 +1070,7 @@ class _CtrlCtasResumenClientePageState extends ConsumerState<CtrlCtasResumenClie
                   ),
                   onTap: () => _selectTrans(row),
                 ),
-                DataCell(
-                  Text(row.cta ?? '-'),
-                  onTap: () => _selectTrans(row),
-                ),
+                DataCell(Text(row.cta ?? '-'), onTap: () => _selectTrans(row)),
                 DataCell(
                   Text(row.idfol ?? '-'),
                   onTap: () => _selectTrans(row),
@@ -825,18 +1103,27 @@ class _CtrlCtasResumenClientePageState extends ConsumerState<CtrlCtasResumenClie
         dataRowMaxHeight: 40,
         columns: [
           DataColumn(
-            label: sortField == _DetalleSortField.fecha ? _sortLabel('FCND', sortDirection) : const Text('FCND'),
+            label: sortField == _DetalleSortField.fecha
+                ? _sortLabel('FCND', sortDirection)
+                : const Text('FCND'),
           ),
           const DataColumn(label: Text('NDOC')),
           const DataColumn(label: Text('SUC')),
           const DataColumn(label: Text('CLIENT')),
-          const DataColumn(label: SizedBox(width: _razonSocialWidth, child: Text('Razon social'))),
+          const DataColumn(
+            label: SizedBox(
+              width: _razonSocialWidth,
+              child: Text('Razon social'),
+            ),
+          ),
           const DataColumn(label: Text('CTA')),
           const DataColumn(label: Text('CLSD')),
           const DataColumn(label: Text('IDFOL')),
           const DataColumn(label: Text('RTXT')),
           DataColumn(
-            label: sortField == _DetalleSortField.total ? _sortLabel('IMPT', sortDirection) : const Text('IMPT'),
+            label: sortField == _DetalleSortField.total
+                ? _sortLabel('IMPT', sortDirection)
+                : const Text('IMPT'),
           ),
           const DataColumn(label: Text('IDOPV')),
         ],
@@ -873,23 +1160,49 @@ class _CtrlCtasResumenClientePageState extends ConsumerState<CtrlCtasResumenClie
 
   @override
   Widget build(BuildContext context) {
-    final resumenClienteAsync = ref.watch(ctrlCtasResumenClienteProvider(widget.filtros));
+    final resumenClienteAsync = ref.watch(
+      ctrlCtasResumenClienteProvider(widget.filtros),
+    );
 
     final selectedClient = _selectedClient;
 
-    AsyncValue<List<CtrlCtasResumenTransItem>> resumenTransAsync = const AsyncValue.data(<CtrlCtasResumenTransItem>[]);
+    AsyncValue<List<CtrlCtasResumenTransItem>> resumenTransAsync =
+        const AsyncValue.data(<CtrlCtasResumenTransItem>[]);
     if (selectedClient != null) {
-      final filtrosTrans = widget.filtros.copyWith(clients: [selectedClient], idfols: const []);
+      final filtrosTrans = widget.filtros.copyWith(
+        clients: [selectedClient],
+        idfols: const [],
+      );
       resumenTransAsync = ref.watch(ctrlCtasResumenTransProvider(filtrosTrans));
     }
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Resumen por Deudor'),
+        toolbarHeight: 68,
+        title: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Resumen por Deudor'),
+            Text(
+              _ctaAppBarDetail,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.white.withValues(alpha: 0.92),
+              ),
+            ),
+          ],
+        ),
         actions: [
           IconButton(
-            tooltip: 'Exportar Excel',
-            onPressed: _exporting ? null : _exportToExcel,
+            tooltip: _canExportCurrentSelection
+                ? 'Exportar Excel'
+                : 'Selecciona CLIENT o deja una sola CTA para habilitar exportacion',
+            onPressed: _exporting || !_canExportCurrentSelection
+                ? null
+                : _exportToExcel,
             icon: _exporting
                 ? const SizedBox(
                     width: 18,
@@ -909,7 +1222,12 @@ class _CtrlCtasResumenClientePageState extends ConsumerState<CtrlCtasResumenClie
               ref.invalidate(ctrlCtasResumenClienteProvider(widget.filtros));
               if (selectedClient != null) {
                 ref.invalidate(
-                  ctrlCtasResumenTransProvider(widget.filtros.copyWith(clients: [selectedClient], idfols: const [])),
+                  ctrlCtasResumenTransProvider(
+                    widget.filtros.copyWith(
+                      clients: [selectedClient],
+                      idfols: const [],
+                    ),
+                  ),
                 );
               }
             },
@@ -919,28 +1237,47 @@ class _CtrlCtasResumenClientePageState extends ConsumerState<CtrlCtasResumenClie
       ),
       body: LayoutBuilder(
         builder: (context, constraints) {
-          final panelHeight = constraints.maxHeight > 0 ? (constraints.maxHeight - 24).toDouble() : 760.0;
-          final viewportWidth = constraints.maxWidth > 0 ? constraints.maxWidth : 1200.0;
+          final panelHeight = constraints.maxHeight > 0
+              ? (constraints.maxHeight - 24).toDouble()
+              : 760.0;
+          final viewportWidth = constraints.maxWidth > 0
+              ? constraints.maxWidth
+              : 1200.0;
           _tryAutoFitPanelWidths(viewportWidth: viewportWidth);
 
           final maxLeftWidth =
-              (viewportWidth - (_resizeHandleWidth * 2) - _minRightPanelWidth).clamp(_minLeftPanelWidth, 1400.0).toDouble();
-          final effectiveLeftWidth = _leftPanelWidth.clamp(_minLeftPanelWidth, maxLeftWidth).toDouble();
-          final maxRightWidth = (viewportWidth - (_resizeHandleWidth * 2) - effectiveLeftWidth)
-              .clamp(_minRightPanelWidth, 3200.0)
+              (viewportWidth - (_resizeHandleWidth * 2) - _minRightPanelWidth)
+                  .clamp(_minLeftPanelWidth, 1400.0)
+                  .toDouble();
+          final effectiveLeftWidth = _leftPanelWidth
+              .clamp(_minLeftPanelWidth, maxLeftWidth)
               .toDouble();
-          final effectiveRightWidth = _rightPanelWidth.clamp(_minRightPanelWidth, maxRightWidth).toDouble();
-          final rowWidth = effectiveLeftWidth + _resizeHandleWidth + effectiveRightWidth + _resizeHandleWidth;
+          final maxRightWidth =
+              (viewportWidth - (_resizeHandleWidth * 2) - effectiveLeftWidth)
+                  .clamp(_minRightPanelWidth, 3200.0)
+                  .toDouble();
+          final effectiveRightWidth = _rightPanelWidth
+              .clamp(_minRightPanelWidth, maxRightWidth)
+              .toDouble();
+          final rowWidth =
+              effectiveLeftWidth +
+              _resizeHandleWidth +
+              effectiveRightWidth +
+              _resizeHandleWidth;
 
           final leftPanel = _panel(
             title: 'Resumen por cliente',
-            subtitle: selectedClient == null ? 'Selecciona un CLIENT' : 'CLIENT seleccionado: $selectedClient',
+            subtitle: selectedClient == null
+                ? 'Selecciona un CLIENT'
+                : 'CLIENT seleccionado: $selectedClient',
             headerActions: _panelControls(
               sortDirection: _clienteTotalSort,
               onlyNonZero: _clienteOnlyNonZero,
               onToggleSort: () {
                 setState(() {
-                  _clienteTotalSort = _clienteTotalSort == _SortDir.asc ? _SortDir.desc : _SortDir.asc;
+                  _clienteTotalSort = _clienteTotalSort == _SortDir.asc
+                      ? _SortDir.desc
+                      : _SortDir.asc;
                 });
               },
               onToggleNonZero: () {
@@ -950,7 +1287,7 @@ class _CtrlCtasResumenClientePageState extends ConsumerState<CtrlCtasResumenClie
               },
               onClear: () {
                 setState(() {
-                  _clienteOnlyNonZero = false;
+                  _clienteOnlyNonZero = true;
                   _clienteTotalSort = _SortDir.desc;
                 });
               },
@@ -958,8 +1295,10 @@ class _CtrlCtasResumenClientePageState extends ConsumerState<CtrlCtasResumenClie
             height: panelHeight,
             child: resumenClienteAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, _) => Center(child: Text('Error: ${apiErrorMessage(error)}')),
-              data: (items) => _buildResumenClienteTable(_applyResumenClienteView(items)),
+              error: (error, _) =>
+                  Center(child: Text('Error: ${apiErrorMessage(error)}')),
+              data: (items) =>
+                  _buildResumenClienteTable(_applyResumenClienteView(items)),
             ),
           );
 
@@ -973,7 +1312,9 @@ class _CtrlCtasResumenClientePageState extends ConsumerState<CtrlCtasResumenClie
               onlyNonZero: _transOnlyNonZero,
               onToggleSort: () {
                 setState(() {
-                  _transTotalSort = _transTotalSort == _SortDir.asc ? _SortDir.desc : _SortDir.asc;
+                  _transTotalSort = _transTotalSort == _SortDir.asc
+                      ? _SortDir.desc
+                      : _SortDir.asc;
                 });
               },
               onToggleNonZero: () {
@@ -983,7 +1324,7 @@ class _CtrlCtasResumenClientePageState extends ConsumerState<CtrlCtasResumenClie
               },
               onClear: () {
                 setState(() {
-                  _transOnlyNonZero = false;
+                  _transOnlyNonZero = true;
                   _transTotalSort = _SortDir.desc;
                 });
               },
@@ -991,8 +1332,10 @@ class _CtrlCtasResumenClientePageState extends ConsumerState<CtrlCtasResumenClie
             height: panelHeight,
             child: resumenTransAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, _) => Center(child: Text('Error: ${apiErrorMessage(error)}')),
-              data: (items) => _buildResumenTransTable(_applyResumenTransView(items)),
+              error: (error, _) =>
+                  Center(child: Text('Error: ${apiErrorMessage(error)}')),
+              data: (items) =>
+                  _buildResumenTransTable(_applyResumenTransView(items)),
             ),
           );
 
@@ -1008,7 +1351,9 @@ class _CtrlCtasResumenClientePageState extends ConsumerState<CtrlCtasResumenClie
                   _buildResizeHandle(
                     panelHeight: panelHeight,
                     onDrag: (deltaX) {
-                      final next = (_leftPanelWidth + deltaX).clamp(_minLeftPanelWidth, maxLeftWidth).toDouble();
+                      final next = (_leftPanelWidth + deltaX)
+                          .clamp(_minLeftPanelWidth, maxLeftWidth)
+                          .toDouble();
                       if (next == _leftPanelWidth) return;
                       setState(() {
                         _leftPanelWidth = next;
@@ -1021,7 +1366,9 @@ class _CtrlCtasResumenClientePageState extends ConsumerState<CtrlCtasResumenClie
                   _buildResizeHandle(
                     panelHeight: panelHeight,
                     onDrag: (deltaX) {
-                      final next = (_rightPanelWidth + deltaX).clamp(_minRightPanelWidth, maxRightWidth).toDouble();
+                      final next = (_rightPanelWidth + deltaX)
+                          .clamp(_minRightPanelWidth, maxRightWidth)
+                          .toDouble();
                       if (next == _rightPanelWidth) return;
                       setState(() {
                         _rightPanelWidth = next;
@@ -1078,7 +1425,8 @@ class _DualAxisTableScrollState extends State<_DualAxisTableScroll> {
         child: Scrollbar(
           controller: _horizontalCtrl,
           thumbVisibility: true,
-          notificationPredicate: (notification) => notification.metrics.axis == Axis.horizontal,
+          notificationPredicate: (notification) =>
+              notification.metrics.axis == Axis.horizontal,
           child: SingleChildScrollView(
             controller: _horizontalCtrl,
             primary: false,

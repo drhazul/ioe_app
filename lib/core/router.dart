@@ -51,6 +51,7 @@ import '../features/modulos/punto_venta/clientes/cliente_form_page.dart';
 import '../features/modulos/punto_venta/cotizaciones/cotizaciones_page.dart';
 import '../features/modulos/punto_venta/cotizaciones/cotizacion_form_page.dart';
 import '../features/modulos/punto_venta/cotizaciones/detalle_cot/detalle_cot_page.dart';
+import '../features/modulos/punto_venta/cotizaciones/pago_cotizacion_page.dart';
 
 import 'auth/auth_controller.dart';
 
@@ -296,6 +297,22 @@ final routerProvider = Provider<GoRouter>((ref) {
                 GoRoute(
                   path: ':idfol/detalle',
                   builder: (c, s) => DetalleCotPage(idfol: s.pathParameters['idfol'] ?? ''),
+                ),
+                GoRoute(
+                  path: ':idfol/pago',
+                  builder: (c, s) {
+                    final idfol = s.pathParameters['idfol'] ?? '';
+                    final tipotran =
+                        (s.uri.queryParameters['tipotran'] ?? 'VF').trim();
+                    final rawRqfac =
+                        (s.uri.queryParameters['rqfac'] ?? '').trim().toLowerCase();
+                    final rqfac = rawRqfac == '1' || rawRqfac == 'true';
+                    return PagoCotizacionPage(
+                      idfol: idfol,
+                      initialTipoTran: tipotran,
+                      initialRqfac: rqfac,
+                    );
+                  },
                 ),
                 GoRoute(
                   path: ':idfol',
