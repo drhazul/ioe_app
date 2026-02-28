@@ -31,6 +31,28 @@ class PvTicketLogApi {
     return PvTicketLogItem.fromJson(Map<String, dynamic>.from(res.data as Map));
   }
 
+  Future<PvTicketLogItem> updatePrice(
+    String id, {
+    required double pvta,
+    String? authPassword,
+  }) async {
+    final payload = <String, dynamic>{
+      'PVTA': pvta,
+      if ((authPassword ?? '').trim().isNotEmpty)
+        'AUTH_PASSWORD': authPassword!.trim(),
+    };
+    final res = await dio.patch('/pvticketlog/$id/precio', data: payload);
+    return PvTicketLogItem.fromJson(Map<String, dynamic>.from(res.data as Map));
+  }
+
+  Future<Map<String, dynamic>> authorizePrice(String authPassword) async {
+    final res = await dio.post(
+      '/pvticketlog/precio/authorize',
+      data: {'AUTH_PASSWORD': authPassword},
+    );
+    return Map<String, dynamic>.from(res.data as Map);
+  }
+
   Future<void> remove(String id) async {
     await dio.delete('/pvticketlog/$id');
   }

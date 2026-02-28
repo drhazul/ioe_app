@@ -30,6 +30,8 @@ import '../features/masterdata/access_reg_suc/access_reg_suc_page.dart';
 import '../features/masterdata/access_reg_suc/access_reg_suc_form_page.dart';
 import '../features/masterdata/cat_ctas/presentation/cat_ctas_list_page.dart';
 import '../features/masterdata/cat_ctas/presentation/cat_ctas_form_page.dart';
+import '../features/masterdata/dat_form/dat_form_page.dart';
+import '../features/masterdata/dat_form/dat_form_form_page.dart';
 import '../features/modulos/inventarios/inventarios_page.dart';
 import '../features/modulos/inventarios/inventario_form_page.dart';
 import '../features/modulos/inventarios/inventario_det_page.dart';
@@ -45,13 +47,21 @@ import '../features/modulos/mb52/mb52_models.dart';
 import '../features/modulos/ctrl_ctas/ctrl_ctas_models.dart';
 import '../features/modulos/ctrl_ctas/ctrl_ctas_consulta_page.dart';
 import '../features/modulos/ctrl_ctas/ctrl_ctas_resumen_cliente_page.dart';
+import '../features/modulos/reloj_checador/app/reloj_checador_app_page.dart';
+import '../features/modulos/reloj_checador/consultas/reloj_checador_consultas_page.dart';
 import '../features/modulos/punto_venta/punto_venta_home_page.dart';
 import '../features/modulos/punto_venta/clientes/clientes_page.dart';
 import '../features/modulos/punto_venta/clientes/cliente_form_page.dart';
 import '../features/modulos/punto_venta/cotizaciones/cotizaciones_page.dart';
 import '../features/modulos/punto_venta/cotizaciones/cotizacion_form_page.dart';
 import '../features/modulos/punto_venta/cotizaciones/detalle_cot/detalle_cot_page.dart';
-import '../features/modulos/punto_venta/cotizaciones/pago_cotizacion_page.dart';
+import '../features/modulos/punto_venta/cotizaciones/pago/pago_cotizacion_page.dart';
+import '../features/modulos/punto_venta/cotizaciones/pago/ref_detalle/ref_detalle_models.dart';
+import '../features/modulos/punto_venta/cotizaciones/pago/ref_detalle/ref_detalle_page.dart';
+import '../features/modulos/punto_venta/devoluciones/devoluciones_page.dart';
+import '../features/modulos/punto_venta/devoluciones/detalle/detalle_devolucion_page.dart';
+import '../features/modulos/punto_venta/devoluciones/detalle/detalle_devolucion_resumen_page.dart';
+import '../features/modulos/punto_venta/devoluciones/pago/pago_devolucion_page.dart';
 
 import 'auth/auth_controller.dart';
 
@@ -59,19 +69,22 @@ final routerProvider = Provider<GoRouter>((ref) {
   final auth = ref.watch(authControllerProvider);
 
   List<GoRoute> accessRoutes() => [
-        GoRoute(path: 'modulos-back', builder: (c, s) => const ModulosBackendPage()),
-        GoRoute(path: 'grupos-back', builder: (c, s) => const GruposBackendPage()),
-        GoRoute(
-          path: 'permisos-rol-back',
-          builder: (c, s) => const PermisosRolBackendPage(),
-        ),
-        GoRoute(path: 'mod-front', builder: (c, s) => const ModFrontPage()),
-        GoRoute(path: 'grupos-front', builder: (c, s) => const GruposFrontPage()),
-        GoRoute(
-          path: 'enrolamiento-front',
-          builder: (c, s) => const EnrolamientoFrontPage(),
-        ),
-      ];
+    GoRoute(
+      path: 'modulos-back',
+      builder: (c, s) => const ModulosBackendPage(),
+    ),
+    GoRoute(path: 'grupos-back', builder: (c, s) => const GruposBackendPage()),
+    GoRoute(
+      path: 'permisos-rol-back',
+      builder: (c, s) => const PermisosRolBackendPage(),
+    ),
+    GoRoute(path: 'mod-front', builder: (c, s) => const ModFrontPage()),
+    GoRoute(path: 'grupos-front', builder: (c, s) => const GruposFrontPage()),
+    GoRoute(
+      path: 'enrolamiento-front',
+      builder: (c, s) => const EnrolamientoFrontPage(),
+    ),
+  ];
 
   return GoRouter(
     initialLocation: '/login',
@@ -92,123 +105,184 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/',
         builder: (c, s) => const HomePage(),
         routes: [
-          GoRoute(path: 'masterdata', builder: (c, s) => const MasterDataPage(), routes: [
-            GoRoute(
-              path: 'access',
-              builder: (c, s) => const AccessPage(),
-              routes: accessRoutes(),
-            ),
-            GoRoute(
-              path: 'roles',
-              builder: (c, s) => const RolesPage(),
-              routes: [
-                GoRoute(path: 'new', builder: (c, s) => const RoleFormPage()),
-                GoRoute(
-                  path: ':id',
-                  builder: (c, s) => RoleFormPage(roleId: int.tryParse(s.pathParameters['id'] ?? '')),
-                ),
-              ],
-            ),
-            GoRoute(
-              path: 'datmodulos',
-              builder: (c, s) => const DatmodulosPage(),
-              routes: [
-                GoRoute(path: 'new', builder: (c, s) => const DatModuloFormPage()),
-                GoRoute(
-                  path: ':modulo',
-                  builder: (c, s) => DatModuloFormPage(modulo: s.pathParameters['modulo']),
-                ),
-              ],
-            ),
-            GoRoute(
-              path: 'deptos',
-              builder: (c, s) => const DeptosPage(),
-              routes: [
-                GoRoute(path: 'new', builder: (c, s) => const DeptoFormPage()),
-                GoRoute(
-                  path: ':id',
-                  builder: (c, s) => DeptoFormPage(deptoId: int.tryParse(s.pathParameters['id'] ?? '')),
-                ),
-              ],
-            ),
-            GoRoute(
-              path: 'users',
-              builder: (c, s) => const UsersPage(),
-              routes: [
-                GoRoute(path: 'new', builder: (c, s) => const UserFormPage()),
-                GoRoute(
-                  path: ':id',
-                  builder: (c, s) => UserFormPage(userId: int.tryParse(s.pathParameters['id'] ?? '')),
-                ),
-              ],
-            ),
-            GoRoute(
-              path: 'access-reg-suc',
-              builder: (c, s) => const AccessRegSucPage(),
-              routes: [
-                GoRoute(path: 'new', builder: (c, s) => const AccessRegSucFormPage()),
-                GoRoute(
-                  path: ':modulo/:usuario/:suc',
-                  builder: (c, s) {
-                    final rawModulo = s.pathParameters['modulo'];
-                    final rawUsuario = s.pathParameters['usuario'];
-                    final rawSuc = s.pathParameters['suc'];
-                    return AccessRegSucFormPage(
-                      modulo: rawModulo == null ? null : Uri.decodeComponent(rawModulo),
-                      usuario: rawUsuario == null ? null : Uri.decodeComponent(rawUsuario),
-                      suc: rawSuc == null ? null : Uri.decodeComponent(rawSuc),
-                    );
-                  },
-                ),
-              ],
-            ),
-            GoRoute(
-              path: 'sucursales',
-              builder: (c, s) => const SucursalesPage(),
-              routes: [
-                GoRoute(path: 'new', builder: (c, s) => const SucursalFormPage()),
-                GoRoute(
-                  path: ':suc',
-                  builder: (c, s) => SucursalFormPage(suc: s.pathParameters['suc']),
-                ),
-              ],
-            ),
-            GoRoute(
-              path: 'puestos',
-              builder: (c, s) => const PuestosPage(),
-              routes: [
-                GoRoute(path: 'new', builder: (c, s) => const PuestoFormPage()),
-                GoRoute(
-                  path: ':id',
-                  builder: (c, s) => PuestoFormPage(puestoId: int.tryParse(s.pathParameters['id'] ?? '')),
-                ),
-              ],
-            ),
-            GoRoute(
-              path: 'cat-ctas',
-              builder: (c, s) => const CatCtasListPage(),
-              routes: [
-                GoRoute(path: 'new', builder: (c, s) => const CatCtasFormPage()),
-                GoRoute(
-                  path: ':cta',
-                  builder: (c, s) => CatCtasFormPage(
-                    cta: s.pathParameters['cta'] == null
-                        ? null
-                        : Uri.decodeComponent(s.pathParameters['cta']!),
+          GoRoute(
+            path: 'masterdata',
+            builder: (c, s) => const MasterDataPage(),
+            routes: [
+              GoRoute(
+                path: 'access',
+                builder: (c, s) => const AccessPage(),
+                routes: accessRoutes(),
+              ),
+              GoRoute(
+                path: 'roles',
+                builder: (c, s) => const RolesPage(),
+                routes: [
+                  GoRoute(path: 'new', builder: (c, s) => const RoleFormPage()),
+                  GoRoute(
+                    path: ':id',
+                    builder: (c, s) => RoleFormPage(
+                      roleId: int.tryParse(s.pathParameters['id'] ?? ''),
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ]),
+                ],
+              ),
+              GoRoute(
+                path: 'datmodulos',
+                builder: (c, s) => const DatmodulosPage(),
+                routes: [
+                  GoRoute(
+                    path: 'new',
+                    builder: (c, s) => const DatModuloFormPage(),
+                  ),
+                  GoRoute(
+                    path: ':modulo',
+                    builder: (c, s) =>
+                        DatModuloFormPage(modulo: s.pathParameters['modulo']),
+                  ),
+                ],
+              ),
+              GoRoute(
+                path: 'deptos',
+                builder: (c, s) => const DeptosPage(),
+                routes: [
+                  GoRoute(
+                    path: 'new',
+                    builder: (c, s) => const DeptoFormPage(),
+                  ),
+                  GoRoute(
+                    path: ':id',
+                    builder: (c, s) => DeptoFormPage(
+                      deptoId: int.tryParse(s.pathParameters['id'] ?? ''),
+                    ),
+                  ),
+                ],
+              ),
+              GoRoute(
+                path: 'users',
+                builder: (c, s) => const UsersPage(),
+                routes: [
+                  GoRoute(path: 'new', builder: (c, s) => const UserFormPage()),
+                  GoRoute(
+                    path: ':id',
+                    builder: (c, s) => UserFormPage(
+                      userId: int.tryParse(s.pathParameters['id'] ?? ''),
+                    ),
+                  ),
+                ],
+              ),
+              GoRoute(
+                path: 'access-reg-suc',
+                builder: (c, s) => const AccessRegSucPage(),
+                routes: [
+                  GoRoute(
+                    path: 'new',
+                    builder: (c, s) => const AccessRegSucFormPage(),
+                  ),
+                  GoRoute(
+                    path: ':modulo/:usuario/:suc',
+                    builder: (c, s) {
+                      final rawModulo = s.pathParameters['modulo'];
+                      final rawUsuario = s.pathParameters['usuario'];
+                      final rawSuc = s.pathParameters['suc'];
+                      return AccessRegSucFormPage(
+                        modulo: rawModulo == null
+                            ? null
+                            : Uri.decodeComponent(rawModulo),
+                        usuario: rawUsuario == null
+                            ? null
+                            : Uri.decodeComponent(rawUsuario),
+                        suc: rawSuc == null
+                            ? null
+                            : Uri.decodeComponent(rawSuc),
+                      );
+                    },
+                  ),
+                ],
+              ),
+              GoRoute(
+                path: 'sucursales',
+                builder: (c, s) => const SucursalesPage(),
+                routes: [
+                  GoRoute(
+                    path: 'new',
+                    builder: (c, s) => const SucursalFormPage(),
+                  ),
+                  GoRoute(
+                    path: ':suc',
+                    builder: (c, s) =>
+                        SucursalFormPage(suc: s.pathParameters['suc']),
+                  ),
+                ],
+              ),
+              GoRoute(
+                path: 'puestos',
+                builder: (c, s) => const PuestosPage(),
+                routes: [
+                  GoRoute(
+                    path: 'new',
+                    builder: (c, s) => const PuestoFormPage(),
+                  ),
+                  GoRoute(
+                    path: ':id',
+                    builder: (c, s) => PuestoFormPage(
+                      puestoId: int.tryParse(s.pathParameters['id'] ?? ''),
+                    ),
+                  ),
+                ],
+              ),
+              GoRoute(
+                path: 'cat-ctas',
+                builder: (c, s) => const CatCtasListPage(),
+                routes: [
+                  GoRoute(
+                    path: 'new',
+                    builder: (c, s) => const CatCtasFormPage(),
+                  ),
+                  GoRoute(
+                    path: ':cta',
+                    builder: (c, s) => CatCtasFormPage(
+                      cta: s.pathParameters['cta'] == null
+                          ? null
+                          : Uri.decodeComponent(s.pathParameters['cta']!),
+                    ),
+                  ),
+                ],
+              ),
+              GoRoute(
+                path: 'dat-form',
+                builder: (c, s) => const DatFormPage(),
+                routes: [
+                  GoRoute(
+                    path: 'new',
+                    builder: (c, s) => const DatFormFormPage(),
+                  ),
+                  GoRoute(
+                    path: ':id',
+                    builder: (c, s) => DatFormFormPage(
+                      idform: int.tryParse(s.pathParameters['id'] ?? ''),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
           GoRoute(
             path: 'inventarios',
             builder: (c, s) => const InventariosPage(),
             routes: [
-              GoRoute(path: 'new', builder: (c, s) => const InventarioFormPage()),
-              GoRoute(path: 'captura', builder: (c, s) => const CapturaInventarioPage()),
+              GoRoute(
+                path: 'new',
+                builder: (c, s) => const InventarioFormPage(),
+              ),
+              GoRoute(
+                path: 'captura',
+                builder: (c, s) => const CapturaInventarioPage(),
+              ),
               GoRoute(
                 path: ':cont/captura/detalle',
-                builder: (c, s) => DetalleCapturaPage(cont: s.pathParameters['cont']),
+                builder: (c, s) =>
+                    DetalleCapturaPage(cont: s.pathParameters['cont']),
               ),
               GoRoute(
                 path: 'captura/detalle',
@@ -216,14 +290,12 @@ final routerProvider = Provider<GoRouter>((ref) {
               ),
               GoRoute(
                 path: ':cont/det',
-                builder: (c, s) => InventarioDetallePage(cont: s.pathParameters['cont'] ?? ''),
+                builder: (c, s) =>
+                    InventarioDetallePage(cont: s.pathParameters['cont'] ?? ''),
               ),
             ],
           ),
-          GoRoute(
-            path: 'catalogo',
-            builder: (c, s) => const DatArtPage(),
-          ),
+          GoRoute(path: 'catalogo', builder: (c, s) => const DatArtPage()),
           GoRoute(
             path: 'mb51',
             builder: (c, s) => const Mb51ConsultasPage(),
@@ -236,7 +308,9 @@ final routerProvider = Provider<GoRouter>((ref) {
                   if (extra is Mb51Filtros) {
                     filtros = extra;
                   } else if (extra is Map) {
-                    filtros = Mb51Filtros.fromJson(Map<String, dynamic>.from(extra));
+                    filtros = Mb51Filtros.fromJson(
+                      Map<String, dynamic>.from(extra),
+                    );
                   }
                   return Mb51ResultadosPage(filtros: filtros);
                 },
@@ -255,7 +329,9 @@ final routerProvider = Provider<GoRouter>((ref) {
                   if (extra is Mb52Filtros) {
                     filtros = extra;
                   } else if (extra is Map) {
-                    filtros = Mb52Filtros.fromJson(Map<String, dynamic>.from(extra));
+                    filtros = Mb52Filtros.fromJson(
+                      Map<String, dynamic>.from(extra),
+                    );
                   }
                   return Mb52ResultadosPage(filtros: filtros);
                 },
@@ -274,7 +350,9 @@ final routerProvider = Provider<GoRouter>((ref) {
                   if (extra is CtrlCtasFiltros) {
                     filtros = extra;
                   } else if (extra is Map) {
-                    filtros = CtrlCtasFiltros.fromJson(Map<String, dynamic>.from(extra));
+                    filtros = CtrlCtasFiltros.fromJson(
+                      Map<String, dynamic>.from(extra),
+                    );
                   }
                   return CtrlCtasResumenClientePage(filtros: filtros);
                 },
@@ -285,41 +363,117 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'punto-venta',
             builder: (c, s) => const PuntoVentaHomePage(),
             routes: [
-              GoRoute(path: 'clientes', builder: (c, s) => const ClientesPage(), routes: [
-                GoRoute(path: 'new', builder: (c, s) => const ClienteFormPage()),
-                GoRoute(
-                  path: ':id',
-                  builder: (c, s) => ClienteFormPage(id: s.pathParameters['id']),
-                ),
-              ]),
-              GoRoute(path: 'cotizaciones', builder: (c, s) => const CotizacionesPage(), routes: [
-                GoRoute(path: 'new', builder: (c, s) => const CotizacionFormPage()),
-                GoRoute(
-                  path: ':idfol/detalle',
-                  builder: (c, s) => DetalleCotPage(idfol: s.pathParameters['idfol'] ?? ''),
-                ),
-                GoRoute(
-                  path: ':idfol/pago',
-                  builder: (c, s) {
-                    final idfol = s.pathParameters['idfol'] ?? '';
-                    final tipotran =
-                        (s.uri.queryParameters['tipotran'] ?? 'VF').trim();
-                    final rawRqfac =
-                        (s.uri.queryParameters['rqfac'] ?? '').trim().toLowerCase();
-                    final rqfac = rawRqfac == '1' || rawRqfac == 'true';
-                    return PagoCotizacionPage(
-                      idfol: idfol,
-                      initialTipoTran: tipotran,
-                      initialRqfac: rqfac,
-                    );
-                  },
-                ),
-                GoRoute(
-                  path: ':idfol',
-                  builder: (c, s) => CotizacionFormPage(idfol: s.pathParameters['idfol']),
-                ),
-              ]),
+              GoRoute(
+                path: 'clientes',
+                builder: (c, s) => const ClientesPage(),
+                routes: [
+                  GoRoute(
+                    path: 'new',
+                    builder: (c, s) => const ClienteFormPage(),
+                  ),
+                  GoRoute(
+                    path: ':id',
+                    builder: (c, s) =>
+                        ClienteFormPage(id: s.pathParameters['id']),
+                  ),
+                ],
+              ),
+              GoRoute(
+                path: 'cotizaciones',
+                builder: (c, s) => const CotizacionesPage(),
+                routes: [
+                  GoRoute(
+                    path: 'new',
+                    builder: (c, s) => const CotizacionFormPage(),
+                  ),
+                  GoRoute(
+                    path: ':idfol/detalle',
+                    builder: (c, s) =>
+                        DetalleCotPage(idfol: s.pathParameters['idfol'] ?? ''),
+                  ),
+                  GoRoute(
+                    path: ':idfol/pago',
+                    builder: (c, s) {
+                      final idfol = s.pathParameters['idfol'] ?? '';
+                      final tipotran =
+                          (s.uri.queryParameters['tipotran'] ?? 'VF').trim();
+                      final rawRqfac = (s.uri.queryParameters['rqfac'] ?? '')
+                          .trim()
+                          .toLowerCase();
+                      final rqfac = rawRqfac == '1' || rawRqfac == 'true';
+                      return PagoCotizacionPage(
+                        idfol: idfol,
+                        initialTipoTran: tipotran,
+                        initialRqfac: rqfac,
+                      );
+                    },
+                  ),
+                  GoRoute(
+                    path: ':idfol/ref-detalle',
+                    builder: (c, s) {
+                      final idfol = s.pathParameters['idfol'] ?? '';
+                      final extra = s.extra;
+                      RefDetallePageArgs? args;
+                      if (extra is RefDetallePageArgs) {
+                        args = extra;
+                      } else if (extra is Map) {
+                        args = RefDetallePageArgs.fromMap(
+                          Map<String, dynamic>.from(extra),
+                        );
+                      }
+
+                      if (args == null) {
+                        return const Scaffold(
+                          body: Center(
+                            child: Text(
+                              'No se recibieron datos para REF_DETALLE',
+                            ),
+                          ),
+                        );
+                      }
+                      return RefDetallePage(args: args.copyWith(idfol: idfol));
+                    },
+                  ),
+                  GoRoute(
+                    path: ':idfol',
+                    builder: (c, s) =>
+                        CotizacionFormPage(idfol: s.pathParameters['idfol']),
+                  ),
+                ],
+              ),
+              GoRoute(
+                path: 'devoluciones',
+                builder: (c, s) => const DevolucionesPage(),
+                routes: [
+                  GoRoute(
+                    path: ':idfolDev/detalle',
+                    builder: (c, s) => DetalleDevolucionResumenPage(
+                      idfolDev: s.pathParameters['idfolDev'] ?? '',
+                    ),
+                  ),
+                  GoRoute(
+                    path: ':idfolDev/pago',
+                    builder: (c, s) => PagoDevolucionPage(
+                      idfolDev: s.pathParameters['idfolDev'] ?? '',
+                    ),
+                  ),
+                  GoRoute(
+                    path: ':idfolDev',
+                    builder: (c, s) => DetalleDevolucionPage(
+                      idfolDev: s.pathParameters['idfolDev'] ?? '',
+                    ),
+                  ),
+                ],
+              ),
             ],
+          ),
+          GoRoute(
+            path: 'reloj-checador/app',
+            builder: (c, s) => const RelojChecadorAppPage(),
+          ),
+          GoRoute(
+            path: 'reloj-checador/consultas',
+            builder: (c, s) => const RelojChecadorConsultasPage(),
           ),
         ],
       ),

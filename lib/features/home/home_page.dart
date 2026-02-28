@@ -23,31 +23,33 @@ class HomePage extends ConsumerWidget {
       ),
       body: RefreshIndicator(
         onRefresh: () async => ref.refresh(homeModulesProvider.future),
-        child: Builder(builder: (context) {
-          final modulesAsync = ref.watch(homeModulesProvider);
+        child: Builder(
+          builder: (context) {
+            final modulesAsync = ref.watch(homeModulesProvider);
 
-          return modulesAsync.when(
-            data: (data) => _ModulesList(response: data),
-            loading: () => ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              children: const [
-                Padding(
-                  padding: EdgeInsets.all(32),
-                  child: Center(child: CircularProgressIndicator()),
-                ),
-              ],
-            ),
-            error: (e, st) => ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text('No se pudo cargar los módulos: $e'),
-                ),
-              ],
-            ),
-          );
-        }),
+            return modulesAsync.when(
+              data: (data) => _ModulesList(response: data),
+              loading: () => ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: const [
+                  Padding(
+                    padding: EdgeInsets.all(32),
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                ],
+              ),
+              error: (e, st) => ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text('No se pudo cargar los módulos: $e'),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -59,7 +61,8 @@ class _ModulesList extends StatelessWidget {
   final HomeModulesResponse response;
 
   @override
-  Widget build(BuildContext context) => _ModulesListStateful(response: response);
+  Widget build(BuildContext context) =>
+      _ModulesListStateful(response: response);
 }
 
 class _ModulesListStateful extends StatefulWidget {
@@ -113,7 +116,9 @@ class _ModulesListStatefulState extends State<_ModulesListStateful> {
     final keys = grouped.keys.toList()..sort();
     if (keys.remove('OTROS')) keys.add('OTROS');
     for (final key in keys) {
-      grouped[key]!.sort((a, b) => a.nombre.toUpperCase().compareTo(b.nombre.toUpperCase()));
+      grouped[key]!.sort(
+        (a, b) => a.nombre.toUpperCase().compareTo(b.nombre.toUpperCase()),
+      );
     }
 
     final list = ListView(
@@ -134,7 +139,8 @@ class _ModulesListStatefulState extends State<_ModulesListStateful> {
         children: [
           _SearchBar(
             searchController: _searchCtrl,
-            onApplySearch: () => setState(() => _searchApplied = _searchCtrl.text),
+            onApplySearch: () =>
+                setState(() => _searchApplied = _searchCtrl.text),
             onClearSearch: () => setState(() {
               _searchCtrl.clear();
               _searchApplied = '';
@@ -247,7 +253,10 @@ class _ModuleRow extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     module.nombre,
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
@@ -266,9 +275,9 @@ class _ModuleRow extends StatelessWidget {
   }
 
   void _showComingSoon(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Ruta no configurada')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Ruta no configurada')));
   }
 
   void _navigate(BuildContext context) {
@@ -309,11 +318,9 @@ class _ModuleRow extends StatelessWidget {
     if (moduloCode == 'DAT_JAA_MB52') {
       return '/mb52';
     }
-    if (
-      moduloCode == 'DAT_CTRL_CTAS' ||
-      moduloCode == 'DAT_CTRL_CUENTAS' ||
-      moduloCode == 'DAT_CONS_CTAS'
-    ) {
+    if (moduloCode == 'DAT_CTRL_CTAS' ||
+        moduloCode == 'DAT_CTRL_CUENTAS' ||
+        moduloCode == 'DAT_CONS_CTAS') {
       return '/ctrl-ctas';
     }
     if (moduloCode == 'SYS_DAT_MAE') {
@@ -321,6 +328,12 @@ class _ModuleRow extends StatelessWidget {
     }
     if (moduloCode == 'PV_CAJAS') {
       return '/punto-venta';
+    }
+    if (moduloCode == 'RELOJ_CHECADOR' ||
+        moduloCode == 'ATTENDANCE' ||
+        moduloCode == 'DAT_RELOJ_CHECADOR' ||
+        moduloCode == 'DAT_RELOJ') {
+      return '/reloj-checador/app';
     }
 
     final name = _normalize('${module.codigo} ${module.nombre}');
@@ -336,12 +349,16 @@ class _ModuleRow extends StatelessWidget {
     if (name.contains('mb52')) {
       return '/mb52';
     }
-    if (
-      (name.contains('control') && name.contains('cuentas')) ||
-      (name.contains('consulta') && name.contains('credit')) ||
-      (name.contains('saldo') && name.contains('cuentas'))
-    ) {
+    if ((name.contains('control') && name.contains('cuentas')) ||
+        (name.contains('consulta') && name.contains('credit')) ||
+        (name.contains('saldo') && name.contains('cuentas'))) {
       return '/ctrl-ctas';
+    }
+    if (name.contains('reloj') &&
+        (name.contains('checador') ||
+            name.contains('asistencia') ||
+            name.contains('attendance'))) {
+      return '/reloj-checador/app';
     }
 
     return null;
@@ -358,5 +375,4 @@ class _ModuleRow extends StatelessWidget {
         .replaceAll('ñ', 'n')
         .replaceAll(RegExp(r'\s+'), ' ');
   }
-
 }

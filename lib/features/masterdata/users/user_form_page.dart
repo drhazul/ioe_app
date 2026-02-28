@@ -151,7 +151,12 @@ class _UserFormPageState extends ConsumerState<UserFormPage> {
                     controller: _usernameCtrl,
                     decoration: const InputDecoration(labelText: 'Usuario'),
                     enabled: !_saving,
-                    validator: (v) => v == null || v.trim().isEmpty ? 'Requerido' : null,
+                    validator: (v) {
+                      final value = v?.trim() ?? '';
+                      if (value.isEmpty) return 'Requerido';
+                      if (value.length < 3) return 'Minimo 3 caracteres';
+                      return null;
+                    },
                   ),
                   const SizedBox(height: 12),
                   TextFormField(

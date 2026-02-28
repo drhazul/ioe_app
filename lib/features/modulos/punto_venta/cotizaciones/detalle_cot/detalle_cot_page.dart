@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ioe_app/core/api_error.dart';
+import 'package:ioe_app/core/auth/auth_controller.dart';
 
 import '../../clientes/clientes_models.dart';
 import '../../clientes/clientes_providers.dart';
@@ -13,7 +14,7 @@ import '../new_ord/new_ord_models.dart';
 import '../new_ord/new_ord_providers.dart';
 import '../cotizaciones_models.dart';
 import '../cotizaciones_providers.dart';
-import '../pago_cotizacion_providers.dart';
+import '../pago/pago_cotizacion_providers.dart';
 import 'cotizacion_local_state.dart';
 import 'datart_models.dart';
 import 'datart_providers.dart';
@@ -32,6 +33,8 @@ class DetalleCotPage extends ConsumerStatefulWidget {
 }
 
 class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
+  static const int _kSuperPvRoleId = 4002;
+
   final _searchCtrl = TextEditingController();
   final _searchFocus = FocusNode();
   final _sphCtrl = TextEditingController();
@@ -202,6 +205,7 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
           localState: localState,
           onRemove: _removeLocalItem,
           onEditQty: _editQuantity,
+          onEditPrice: _editPrice,
           onCreateOrd: (item) => _createOrdFromRow(item, cot, razonSocial),
         );
         final rightPanel = _RightPanel(
@@ -444,6 +448,76 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('No se pudo actualizar cantidad: $e')),
         );
+      }
+    }
+  }
+
+  Future<void> _editPrice(CotizacionLocalItem item) async {
+    var targetItem = item;
+    if (targetItem.syncStatus != SyncStatus.synced) {
+      await _syncItem(targetItem);
+      targetItem = ref
+          .read(cotizacionLocalProvider(widget.idfol))
+          .items
+          .firstWhere((e) => e.id == item.id, orElse: () => targetItem);
+      if (targetItem.syncStatus != SyncStatus.synced) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'No se puede editar precio hasta sincronizar el renglón.',
+              ),
+            ),
+          );
+        }
+        return;
+      }
+    }
+
+    final roleId = ref.read(authControllerProvider).roleId ?? 0;
+    final isSupervisor = roleId == _kSuperPvRoleId;
+
+    String? authPassword;
+    if (!isSupervisor) {
+      authPassword = await _showSuperPvAuthDialog();
+      if (authPassword == null) return;
+    }
+
+    final nextPrice = await _showPriceDialog(targetItem.pvta);
+    if (nextPrice == null) return;
+
+    await ref.read(cotizacionLocalProvider(widget.idfol).notifier).setSyncStatus(
+          item.id,
+          SyncStatus.pending,
+          error: null,
+        );
+
+    try {
+      final updated = await ref.read(pvTicketLogApiProvider).updatePrice(
+            item.id,
+            pvta: nextPrice,
+            authPassword: authPassword,
+          );
+      final pvtaApplied = updated.pvta ?? nextPrice;
+      await ref.read(cotizacionLocalProvider(widget.idfol).notifier).updateItem(
+            item.id,
+            pvta: pvtaApplied,
+          );
+      await ref.read(cotizacionLocalProvider(widget.idfol).notifier).setSyncStatus(
+            item.id,
+            SyncStatus.synced,
+            error: null,
+          );
+      ref.invalidate(pvTicketLogListProvider(widget.idfol));
+    } catch (e) {
+      await ref.read(cotizacionLocalProvider(widget.idfol).notifier).setSyncStatus(
+            item.id,
+            SyncStatus.error,
+            error: e.toString(),
+          );
+      if (mounted) {
+        final msg = apiErrorMessage(e, fallback: 'No se pudo actualizar precio');
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
       }
     }
   }
@@ -801,6 +875,154 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
     _syncingPending = false;
   }
 
+  Future<String?> _showSuperPvAuthDialog() async {
+    final passwordCtrl = TextEditingController();
+    String? error;
+    bool validating = false;
+    bool dialogClosed = false;
+    StateSetter? dialogSetState;
+
+    Future<void> validateAndClose(BuildContext dialogContext) async {
+      if (validating) return;
+      final value = passwordCtrl.text.trim();
+      if (value.isEmpty) {
+        error = 'Ingresa la contraseña';
+        dialogSetState?.call(() {});
+        return;
+      }
+
+      validating = true;
+      error = null;
+      dialogSetState?.call(() {});
+      try {
+        await ref.read(pvTicketLogApiProvider).authorizePrice(value);
+        if (!dialogContext.mounted) return;
+        if (!mounted) return;
+        dialogClosed = true;
+        Navigator.of(dialogContext).pop(value);
+      } catch (e) {
+        error = apiErrorMessage(e, fallback: 'Autorización SUPERPV inválida');
+        dialogSetState?.call(() {});
+      } finally {
+        validating = false;
+        if (!dialogClosed) {
+          dialogSetState?.call(() {});
+        }
+      }
+    }
+
+    return showDialog<String>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Autorización SUPERPV'),
+          content: StatefulBuilder(
+            builder: (context, setState) {
+              dialogSetState = setState;
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: passwordCtrl,
+                    autofocus: true,
+                    obscureText: true,
+                    decoration: InputDecoration(
+                      labelText: 'Contraseña SUPERPV',
+                      errorText: error,
+                    ),
+                    onSubmitted: (_) async {
+                      await validateAndClose(context);
+                    },
+                  ),
+                  if (validating) ...[
+                    const SizedBox(height: 10),
+                    const LinearProgressIndicator(minHeight: 2),
+                  ],
+                ],
+              );
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: validating ? null : () => Navigator.of(context).pop(),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: validating ? null : () => validateAndClose(context),
+              child: const Text('Autorizar'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<double?> _showPriceDialog(double? current) async {
+    final initial = current == null ? '' : current.toStringAsFixed(2);
+    final ctrl = TextEditingController(text: initial);
+    String? error;
+    StateSetter? dialogSetState;
+    return showDialog<double>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Editar precio de venta'),
+          content: StatefulBuilder(
+            builder: (context, setState) {
+              dialogSetState = setState;
+              return TextField(
+                controller: ctrl,
+                autofocus: true,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Ej. 199.99',
+                  errorText: error,
+                ),
+                onSubmitted: (_) {
+                  final parsed = _parsePriceValue(ctrl.text);
+                  if (parsed == null) {
+                    error = 'Precio inválido';
+                    dialogSetState?.call(() {});
+                    return;
+                  }
+                  Navigator.of(context).pop(parsed);
+                },
+              );
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final parsed = _parsePriceValue(ctrl.text);
+                if (parsed == null) {
+                  error = 'Precio inválido';
+                  dialogSetState?.call(() {});
+                  return;
+                }
+                Navigator.of(context).pop(parsed);
+              },
+              child: const Text('Guardar'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  double? _parsePriceValue(String raw) {
+    final normalized = raw.trim().replaceAll(',', '.');
+    final parsed = double.tryParse(normalized);
+    if (parsed == null || parsed <= 0) return null;
+    return (parsed * 100).roundToDouble() / 100;
+  }
+
   Future<void> _openPagoYCierre(PvCtrFolAsvrModel cot) async {
     if (_openingCierre) return;
     setState(() => _openingCierre = true);
@@ -814,7 +1036,8 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
       final selectedTipo = await _showTipoCierreDialog(context);
       if (selectedTipo == null || !mounted) return;
 
-      final rqfacDefault = (cot.reqf ?? 0) == 1 || cierreContext.rqfacDefault;
+      final rqfacDefault =
+          selectedTipo == 'CA' ? false : cierreContext.rqfacDefault;
       final uri = Uri(
         path: '/punto-venta/cotizaciones/${Uri.encodeComponent(widget.idfol)}/pago',
         queryParameters: {
@@ -1061,12 +1284,14 @@ class _LeftPanel extends StatelessWidget {
     required this.localState,
     required this.onRemove,
     required this.onEditQty,
+    required this.onEditPrice,
     required this.onCreateOrd,
   });
 
   final CotizacionLocalState localState;
   final Future<void> Function(CotizacionLocalItem item) onRemove;
   final Future<void> Function(CotizacionLocalItem item) onEditQty;
+  final Future<void> Function(CotizacionLocalItem item) onEditPrice;
   final Future<void> Function(CotizacionLocalItem item) onCreateOrd;
 
   @override
@@ -1131,7 +1356,19 @@ class _LeftPanel extends StatelessWidget {
                               ),
                             ),
                           ),
-                          _TableCell(width: 80, child: Text(pvtaText)),
+                          _TableCell(
+                            width: 80,
+                            child: MouseRegion(
+                              cursor: SystemMouseCursors.click,
+                              child: GestureDetector(
+                                onDoubleTap: () => onEditPrice(item),
+                                child: Tooltip(
+                                  message: 'Doble clic para editar precio',
+                                  child: Text(pvtaText),
+                                ),
+                              ),
+                            ),
+                          ),
                           _TableCell(width: 90, child: Text(pvtatText)),
                           _TableCell(
                             width: 130,

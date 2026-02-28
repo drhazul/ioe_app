@@ -71,7 +71,10 @@ final dioProvider = Provider<Dio>((ref) {
         final status = err.response?.statusCode;
         final isAuthCall = _isAuthCall(err.requestOptions.path);
         final alreadyRetried = err.requestOptions.extra['__retried'] == true;
-        if (status == 401 && !isAuthCall && !alreadyRetried) {
+        if (status == 401 &&
+            !isAuthCall &&
+            !alreadyRetried &&
+            !_isBusinessUnauthorizedPath(err.requestOptions.path)) {
           final newAccess = await authController.ensureValidAccessToken(
             forceRefresh: true,
           );
@@ -96,6 +99,13 @@ bool _isAuthCall(String path) {
   final normalized = path.toLowerCase();
   return normalized.contains('/auth/login') ||
       normalized.contains('/auth/refresh');
+}
+
+bool _isBusinessUnauthorizedPath(String path) {
+  final normalized = path.toLowerCase();
+  // These endpoints may intentionally return 401 for business authorization
+  // (not auth token expiry), so do not trigger token refresh/retry.
+  return normalized.contains('/pv/devoluciones/crear');
 }
 
 void _finishTrackedProtectedRequest(

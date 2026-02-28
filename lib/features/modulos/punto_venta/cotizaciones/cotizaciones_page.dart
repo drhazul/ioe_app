@@ -6,6 +6,8 @@ import 'package:go_router/go_router.dart';
 import 'package:ioe_app/core/dio_provider.dart';
 import 'package:ioe_app/core/terminal_name.dart';
 import 'package:ioe_app/features/masterdata/sucursales/sucursales_providers.dart';
+import 'package:ioe_app/features/modulos/punto_venta/clientes/clientes_models.dart';
+import 'package:ioe_app/features/modulos/punto_venta/clientes/clientes_providers.dart';
 
 import 'cotizaciones_models.dart';
 import 'cotizaciones_providers.dart';
@@ -110,6 +112,23 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
                   selected: _selected,
                   onSelect: (c) {
                     setState(() => _selected = c);
+                    if (_isEstadoPagado(c.esta)) {
+                      final tipotran =
+                          (c.aut ?? '').trim().toUpperCase() == 'CA'
+                          ? 'CA'
+                          : 'VF';
+                      final rqfac = (c.reqf ?? 0) == 1 ? '1' : '0';
+                      final uri = Uri(
+                        path:
+                            '/punto-venta/cotizaciones/${Uri.encodeComponent(c.idfol)}/pago',
+                        queryParameters: {
+                          'tipotran': tipotran,
+                          'rqfac': rqfac,
+                        },
+                      );
+                      context.go(uri.toString());
+                      return;
+                    }
                     context.go('/punto-venta/cotizaciones/${Uri.encodeComponent(c.idfol)}/detalle');
                   },
                   onDelete: (c) => _confirmDelete(context, ref, c),
@@ -143,9 +162,7 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
       final matchSuc = suc.isEmpty || (c.suc ?? '').trim().toLowerCase() == suc;
       final esta = (c.esta ?? '').toUpperCase();
       final matchEsta = esta.contains('PENDIENTE') || esta.contains('PAGADO') || esta.contains('EDITANDO');
-      final aut = (c.aut ?? '').toUpperCase();
-      final matchAut = aut.contains('CP');
-      return matchTerm && matchOpv && matchSuc && matchEsta && matchAut;
+      return matchTerm && matchOpv && matchSuc && matchEsta;
     }).toList();
     filtered.sort((a, b) {
       final af = a.fcn;
@@ -161,6 +178,11 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
       return b.idfol.compareTo(a.idfol);
     });
     return filtered;
+  }
+
+  bool _isEstadoPagado(String? value) {
+    final estado = (value ?? '').trim().toUpperCase();
+    return estado.contains('PAGADO');
   }
 
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref, PvCtrFolAsvrModel model) async {
@@ -195,7 +217,8 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
     if (confirmed != true) return;
     if (!context.mounted) return;
 
-    if ((_userSuc ?? '').trim().isEmpty) {
+    final sucUsuario = (_userSuc ?? '').trim();
+    if (sucUsuario.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('No se encontró la sucursal del usuario.')),
       );
@@ -208,16 +231,28 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
       return;
     }
 
+    final cliente = await _pickClienteParaNuevaCotizacion(
+      context,
+      ref,
+      suc: sucUsuario,
+    );
+    if (cliente == null) return;
+    if (!context.mounted) return;
+
     final terminal = _resolveTerminalName();
     try {
       final created = await ref.read(cotizacionesApiProvider).createCotizacionAuto(ter: terminal);
+      await ref.read(cotizacionesApiProvider).updateCotizacion(
+            created.idfol,
+            {'CLIEN': cliente.idc.toInt()},
+          );
       ref.invalidate(cotizacionesListProvider);
       if (!context.mounted) return;
       context.go('/punto-venta/cotizaciones/${Uri.encodeComponent(created.idfol)}/detalle');
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No se pudo crear la cotización: $e')),
+        SnackBar(content: Text('No se pudo crear la cotización o asignar cliente: $e')),
       );
     }
   }
@@ -230,6 +265,53 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
     final suc = (_userSuc ?? '').trim();
     if (suc.isNotEmpty) return suc;
     return 'APP';
+  }
+
+  Future<FactClientShpModel?> _pickClienteParaNuevaCotizacion(
+    BuildContext context,
+    WidgetRef ref, {
+    required String suc,
+  }) async {
+    final sucNormalized = suc.trim().toUpperCase();
+    try {
+      final clientes = await ref.read(clientesApiProvider).fetchClientes();
+      final bySuc = clientes.where((c) {
+        return (c.suc ?? '').trim().toUpperCase() == sucNormalized;
+      }).toList()
+        ..sort(
+          (a, b) => a.razonSocialReceptor
+              .trim()
+              .toLowerCase()
+              .compareTo(b.razonSocialReceptor.trim().toLowerCase()),
+        );
+
+      if (bySuc.isEmpty) {
+        if (!context.mounted) return null;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'No hay clientes disponibles para la sucursal $sucNormalized.',
+            ),
+          ),
+        );
+        return null;
+      }
+
+      if (!context.mounted) return null;
+      return showDialog<FactClientShpModel>(
+        context: context,
+        builder: (_) => _ClientePickerDialog(
+          clientes: bySuc,
+          suc: sucNormalized,
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return null;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudieron cargar clientes: $e')),
+      );
+      return null;
+    }
   }
 
   Future<void> _loadUserContext() async {
@@ -485,5 +567,119 @@ class _CotizacionesTable extends StatelessWidget {
   String _formatMoney(double? value) {
     if (value == null) return '-';
     return '\$${value.toStringAsFixed(2)}';
+  }
+}
+
+class _ClientePickerDialog extends StatefulWidget {
+  const _ClientePickerDialog({
+    required this.clientes,
+    required this.suc,
+  });
+
+  final List<FactClientShpModel> clientes;
+  final String suc;
+
+  @override
+  State<_ClientePickerDialog> createState() => _ClientePickerDialogState();
+}
+
+class _ClientePickerDialogState extends State<_ClientePickerDialog> {
+  final TextEditingController _searchCtrl = TextEditingController();
+  FactClientShpModel? _selected;
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final filtered = _filter(widget.clientes, _searchCtrl.text);
+    return AlertDialog(
+      title: Text('Seleccionar cliente - SUC ${widget.suc}'),
+      content: SizedBox(
+        width: 760,
+        height: 460,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextField(
+              controller: _searchCtrl,
+              onChanged: (_) => setState(() {}),
+              decoration: const InputDecoration(
+                labelText: 'Buscar por IDC, nombre o RFC',
+                isDense: true,
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Expanded(
+              child: filtered.isEmpty
+                  ? const Center(child: Text('Sin resultados'))
+                  : RadioGroup<double>(
+                      groupValue: _selected?.idc,
+                      onChanged: (value) {
+                        if (value == null) return;
+                        for (final item in filtered) {
+                          if (item.idc == value) {
+                            setState(() => _selected = item);
+                            return;
+                          }
+                        }
+                      },
+                      child: ListView.separated(
+                        itemCount: filtered.length,
+                        separatorBuilder: (_, _) => const Divider(height: 1),
+                        itemBuilder: (context, index) {
+                          final c = filtered[index];
+                          final selected = _selected?.idc == c.idc;
+                          return ListTile(
+                            dense: true,
+                            selected: selected,
+                            onTap: () => setState(() => _selected = c),
+                            leading: Radio<double>(
+                              value: c.idc,
+                            ),
+                            title: Text(
+                              '${c.idc.toInt()} - ${c.razonSocialReceptor}',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            subtitle: Text(
+                              'RFC: ${c.rfcReceptor}${(c.suc ?? '').trim().isEmpty ? '' : ' | SUC: ${c.suc}'}',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: _selected == null
+              ? null
+              : () => Navigator.of(context).pop(_selected),
+          child: const Text('Seleccionar'),
+        ),
+      ],
+    );
+  }
+
+  List<FactClientShpModel> _filter(List<FactClientShpModel> input, String raw) {
+    final term = raw.trim().toLowerCase();
+    if (term.isEmpty) return input;
+    return input.where((c) {
+      final byId = c.idc.toString().toLowerCase().contains(term);
+      final byName = c.razonSocialReceptor.toLowerCase().contains(term);
+      final byRfc = c.rfcReceptor.toLowerCase().contains(term);
+      return byId || byName || byRfc;
+    }).toList();
   }
 }

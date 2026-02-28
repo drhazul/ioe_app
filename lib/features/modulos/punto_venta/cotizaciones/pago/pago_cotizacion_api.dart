@@ -24,7 +24,10 @@ class PagoCotizacionApi {
       'rqfac': rqfac,
       if ((suc ?? '').trim().isNotEmpty) 'suc': suc!.trim(),
     };
-    final res = await dio.post('/pv/cotizaciones/$idfol/cierre/preview', data: payload);
+    final res = await dio.post(
+      '/pv/cotizaciones/$idfol/cierre/preview',
+      data: payload,
+    );
     final data = Map<String, dynamic>.from(res.data as Map);
     return PagoCierrePreviewResponse.fromJson(data);
   }
@@ -49,5 +52,47 @@ class PagoCotizacionApi {
     final data = Map<String, dynamic>.from(res.data as Map);
     return PagoCierreResponse.fromJson(data);
   }
-}
 
+  Future<PagoCierrePrintPreviewResponse> fetchPrintPreview(String idfol) async {
+    final res = await dio.get('/pv/cotizaciones/$idfol/cierre/print-preview');
+    final data = Map<String, dynamic>.from(res.data as Map);
+    return PagoCierrePrintPreviewResponse.fromJson(data);
+  }
+
+  Future<void> updateRqfac({required String idfol, required bool rqfac}) async {
+    await dio.patch(
+      '/pvctrfolasvr/$idfol',
+      data: <String, dynamic>{'REQF': rqfac ? 1 : 0},
+    );
+  }
+
+  Future<void> updateEstado({
+    required String idfol,
+    required String esta,
+  }) async {
+    await dio.patch(
+      '/pvctrfolasvr/$idfol',
+      data: <String, dynamic>{'ESTA': esta.trim().toUpperCase()},
+    );
+  }
+
+  Future<List<PagoFormaCatalogItem>> fetchFormasPago({
+    bool includeInactive = false,
+  }) async {
+    final res = await dio.get(
+      '/dat-form',
+      queryParameters: {if (includeInactive) 'includeInactive': 'true'},
+    );
+    final data = res.data;
+    if (data is! List) return const [];
+
+    return data
+        .map(
+          (row) => PagoFormaCatalogItem.fromJson(
+            Map<String, dynamic>.from(row as Map),
+          ),
+        )
+        .where((item) => item.form.isNotEmpty)
+        .toList();
+  }
+}

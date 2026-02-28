@@ -79,6 +79,7 @@ class PuntoVentaHomePage extends StatelessWidget {
             subtitle: 'Historial y estatus',
             icon: Icons.rule_folder,
             tone: const Color(0xFF4A7A6C),
+            route: '/punto-venta/devoluciones',
           ),
         ],
       ),

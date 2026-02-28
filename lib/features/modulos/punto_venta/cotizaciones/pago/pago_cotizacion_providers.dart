@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:ioe_app/core/api_error.dart';
 import 'package:ioe_app/core/dio_provider.dart';
 
 import 'pago_cotizacion_api.dart';
@@ -23,17 +24,17 @@ class PagoCotizacionState {
   });
 
   factory PagoCotizacionState.initial(String idfol) => PagoCotizacionState(
-        idfol: idfol,
-        loading: false,
-        submitting: false,
-        initialized: false,
-        tipotran: 'VF',
-        rqfac: false,
-        context: null,
-        totales: null,
-        formas: const [],
-        error: null,
-      );
+    idfol: idfol,
+    loading: false,
+    submitting: false,
+    initialized: false,
+    tipotran: 'VF',
+    rqfac: false,
+    context: null,
+    totales: null,
+    formas: const [],
+    error: null,
+  );
 
   final String idfol;
   final bool loading;
@@ -78,17 +79,23 @@ final pagoCotizacionApiProvider = Provider<PagoCotizacionApi>(
   (ref) => PagoCotizacionApi(ref.read(dioProvider)),
 );
 
+final pagoFormasCatalogProvider =
+    FutureProvider.autoDispose<List<PagoFormaCatalogItem>>((ref) async {
+      final api = ref.read(pagoCotizacionApiProvider);
+      return api.fetchFormasPago();
+    });
+
 final pagoCotizacionControllerProvider = StateNotifierProvider.autoDispose
     .family<PagoCotizacionController, PagoCotizacionState, String>(
-  (ref, idfol) => PagoCotizacionController(
-    ref.read(pagoCotizacionApiProvider),
-    idfol: idfol,
-  ),
-);
+      (ref, idfol) => PagoCotizacionController(
+        ref.read(pagoCotizacionApiProvider),
+        idfol: idfol,
+      ),
+    );
 
 class PagoCotizacionController extends StateNotifier<PagoCotizacionState> {
   PagoCotizacionController(this._api, {required String idfol})
-      : super(PagoCotizacionState.initial(idfol));
+    : super(PagoCotizacionState.initial(idfol));
 
   final PagoCotizacionApi _api;
 
@@ -96,8 +103,6 @@ class PagoCotizacionController extends StateNotifier<PagoCotizacionState> {
     required String tipotran,
     required bool rqfac,
   }) async {
-    if (state.initialized && !state.loading) return;
-
     final normalizedTipo = _normalizeTipoTran(tipotran);
     state = state.copyWith(
       loading: true,
@@ -108,8 +113,12 @@ class PagoCotizacionController extends StateNotifier<PagoCotizacionState> {
 
     try {
       final context = await _api.fetchContext(state.idfol);
-      final effectiveRqfac =
-          normalizedTipo == 'CA' ? false : (rqfac || context.rqfacDefault);
+      if (normalizedTipo == 'CA') {
+        await _api.updateRqfac(idfol: state.idfol, rqfac: false);
+      }
+      final effectiveRqfac = normalizedTipo == 'CA'
+          ? false
+          : (rqfac || context.rqfacDefault);
       final preview = await _api.preview(
         idfol: state.idfol,
         tipotran: normalizedTipo,
@@ -130,33 +139,89 @@ class PagoCotizacionController extends StateNotifier<PagoCotizacionState> {
       state = state.copyWith(
         loading: false,
         initialized: false,
-        error: e.toString(),
+        error: apiErrorMessage(e, fallback: 'No se pudo inicializar pago'),
       );
     }
   }
 
   Future<void> setTipoTran(String tipotran) async {
     final normalized = _normalizeTipoTran(tipotran);
+    if (normalized == state.tipotran) return;
+    if (state.formas.isNotEmpty) {
+      state = state.copyWith(
+        error:
+            'No se puede cambiar el tipo de cierre cuando ya hay formas de pago registradas',
+      );
+      return;
+    }
+    final previousTipo = state.tipotran;
+    final previousRqfac = state.rqfac;
     final nextRqfac = normalized == 'CA' ? false : state.rqfac;
-    state = state.copyWith(
-      tipotran: normalized,
-      rqfac: nextRqfac,
-      error: null,
-    );
+    state = state.copyWith(tipotran: normalized, rqfac: nextRqfac, error: null);
+
+    if (normalized == 'CA') {
+      try {
+        await _api.updateRqfac(idfol: state.idfol, rqfac: false);
+      } catch (e) {
+        state = state.copyWith(
+          tipotran: previousTipo,
+          rqfac: previousRqfac,
+          error: apiErrorMessage(
+            e,
+            fallback: 'No se pudo actualizar RQFAC para cierre CA',
+          ),
+        );
+        return;
+      }
+    }
+
     await _refreshPreview();
   }
 
   Future<void> setRqfac(bool value) async {
     if (state.tipotran == 'CA') return;
+    if (state.formas.isNotEmpty) {
+      state = state.copyWith(
+        error:
+            'No se puede cambiar RQFAC cuando ya hay formas de pago registradas',
+      );
+      return;
+    }
+    final previous = state.rqfac;
     state = state.copyWith(rqfac: value, error: null);
-    await _refreshPreview();
+    try {
+      await _api.updateRqfac(idfol: state.idfol, rqfac: value);
+      await _refreshPreview();
+    } catch (e) {
+      state = state.copyWith(
+        loading: false,
+        rqfac: previous,
+        error: apiErrorMessage(e, fallback: 'No se pudo guardar RQFAC'),
+      );
+    }
   }
 
-  void addForma({
-    required String form,
-    required double impp,
-    String? aut,
-  }) {
+  void addForma({required String form, required double impp, String? aut}) {
+    final total = state.totales?.total ?? 0.0;
+    final faltante = _round2(
+      total > state.sumPagos ? total - state.sumPagos : 0.0,
+    );
+    final isEfectivo = form.trim().toUpperCase() == 'EFECTIVO';
+    if (total > 0 && (state.sumPagos + 0.0001) >= total) {
+      state = state.copyWith(
+        error:
+            'El importe de la cotización ya está cubierto. No puede agregar más formas de pago',
+      );
+      return;
+    }
+    if (!isEfectivo && total > 0 && impp - faltante > 0.0001) {
+      state = state.copyWith(
+        error:
+            'El importe de la forma no puede ser mayor al faltante por pagar (${_money(faltante)})',
+      );
+      return;
+    }
+
     final next = [
       ...state.formas,
       PagoCierreFormaDraft(
@@ -175,6 +240,20 @@ class PagoCotizacionController extends StateNotifier<PagoCotizacionState> {
     required double impp,
     String? aut,
   }) {
+    final total = state.totales?.total ?? 0.0;
+    final sumOtros = state.formas
+        .where((item) => item.id != id)
+        .fold(0.0, (acc, item) => acc + item.impp);
+    final faltante = _round2(total > sumOtros ? total - sumOtros : 0.0);
+    final isEfectivo = form.trim().toUpperCase() == 'EFECTIVO';
+    if (!isEfectivo && total > 0 && impp - faltante > 0.0001) {
+      state = state.copyWith(
+        error:
+            'El importe de la forma no puede ser mayor al faltante por pagar (${_money(faltante)})',
+      );
+      return;
+    }
+
     final next = state.formas.map((item) {
       if (item.id != id) return item;
       return item.copyWith(
@@ -209,14 +288,24 @@ class PagoCotizacionController extends StateNotifier<PagoCotizacionState> {
         idopv: idopv,
         formas: state.formas,
       );
+      PagoCierreContext? refreshedContext;
+      try {
+        refreshedContext = await _api.fetchContext(state.idfol);
+      } catch (_) {
+        refreshedContext = null;
+      }
       state = state.copyWith(
         submitting: false,
+        context: refreshedContext ?? state.context,
         totales: response.totales,
         error: null,
       );
       return response;
     } catch (e) {
-      state = state.copyWith(submitting: false, error: e.toString());
+      state = state.copyWith(
+        submitting: false,
+        error: apiErrorMessage(e, fallback: 'No se pudo finalizar el cierre'),
+      );
       rethrow;
     }
   }
@@ -241,7 +330,10 @@ class PagoCotizacionController extends StateNotifier<PagoCotizacionState> {
         error: null,
       );
     } catch (e) {
-      state = state.copyWith(loading: false, error: e.toString());
+      state = state.copyWith(
+        loading: false,
+        error: apiErrorMessage(e, fallback: 'No se pudo recalcular totales'),
+      );
     }
   }
 
@@ -252,7 +344,13 @@ class PagoCotizacionController extends StateNotifier<PagoCotizacionState> {
 
   String _nextId() {
     final now = DateTime.now().microsecondsSinceEpoch;
-    final random = Random.secure().nextInt(1 << 32).toRadixString(16);
+    // En Flutter Web, `1 << 32` puede evaluarse a 0; usar literal evita RangeError.
+    final random = Random.secure().nextInt(0x100000000).toRadixString(16);
     return '$now-$random';
   }
 }
+
+double _round2(double value) =>
+    (value.isFinite ? (value * 100).roundToDouble() / 100 : 0.0);
+
+String _money(double value) => '\$${value.toStringAsFixed(2)}';
