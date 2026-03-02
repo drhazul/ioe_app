@@ -110,6 +110,8 @@
 - Boton regresar en pago: si aun no esta en `PAGADO` vuelve a `detalle`; en `PAGADO` aplica flujo de envio a `TRANSMITIR`.
 - Desde panel de cotizaciones, si el folio ya esta en `PAGADO`, la seleccion abre directo la pantalla de pago (no detalle) para identificar el proceso de salida/transmision.
 - El panel de cotizaciones lista folios en `PENDIENTE`, `PAGADO` y `EDITANDO` filtrando por `ESTA` (sin depender del valor de `AUT`).
+- Optimizacion panel cotizaciones (2026-03): la consulta del panel usa filtros server-side `suc`, `opv` y `search` en `GET /pvctrfolasvr`; la pagina espera contexto JWT (`_contextReady`) antes de consultar para evitar carga masiva inicial sin criterios.
+- Compatibilidad consulta cotizaciones (2026-03): frontend deja de enviar query param `_` (cache-buster) para evitar `400` por `forbidNonWhitelisted` cuando backend valida query DTO.
 - Vista previa PDF de cierre (ticket 58/80mm): cabecera sucursal (`DAT_SUC`), detalle de articulos (`PV_TICKET_LOG`), totales+formas+cambio, pie transaccional (`OPV/OPVM`, `IDFOL`, `FCNM`, cliente) y ORDs con control (`ORD + UPC`) + codigo de barras `CODE39` + tabla con bordes del detalle.
 - Ajuste de impresion: se removio del encabezado del ticket el texto `COTIZACION FINALIZADA` y el `IDFOL` superior repetitivo.
 - Ajuste de maquetacion ticket: se aplica margen izquierdo fijo de `2mm` en tickets 58/80mm.

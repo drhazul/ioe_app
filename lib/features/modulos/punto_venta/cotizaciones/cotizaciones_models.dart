@@ -1,3 +1,38 @@
+class CotizacionesPanelQuery {
+  const CotizacionesPanelQuery({
+    this.suc = '',
+    this.opv = '',
+    this.search = '',
+  });
+
+  final String suc;
+  final String opv;
+  final String search;
+
+  CotizacionesPanelQuery copyWith({
+    String? suc,
+    String? opv,
+    String? search,
+  }) {
+    return CotizacionesPanelQuery(
+      suc: suc ?? this.suc,
+      opv: opv ?? this.opv,
+      search: search ?? this.search,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is CotizacionesPanelQuery &&
+        other.suc == suc &&
+        other.opv == opv &&
+        other.search == search;
+  }
+
+  @override
+  int get hashCode => Object.hash(suc, opv, search);
+}
+
 class PvCtrFolAsvrModel {
   PvCtrFolAsvrModel({
     required this.idfol,

@@ -203,6 +203,8 @@ autenticacion, datos maestros, inventarios, control de cuentas y punto de venta.
 - En estado `PAGADO`, el boton regresar en pago cambia a icono de candado y, al presionarlo, actualiza `ESTA='TRANSMITIR'` para regresar al panel.
 - Si una cotizacion en panel tiene `ESTA='PAGADO'`, la seleccion abre directo la pantalla de pago en lugar del detalle.
 - El panel de cotizaciones muestra registros con estado `PENDIENTE`, `PAGADO` y `EDITANDO` usando filtro por `ESTA` (sin condicionar por `AUT`).
+- Optimizacion panel (2026-03): la lista de cotizaciones consulta `GET /pvctrfolasvr` con filtros `suc`, `opv` y `search` en backend; la pantalla espera cargar contexto JWT antes de disparar la consulta para evitar carga masiva sin criterios.
+- Compatibilidad de consulta (2026-03): la app ya no envia query param `_` en `GET /pvctrfolasvr` para evitar rechazo `400` cuando backend aplica validacion estricta de query.
 - Al cierre exitoso, app habilita un boton `Imprimir ticket` debajo de `Finalizar cierre`.
 - Al presionar `Imprimir ticket`, app muestra dialogo de ancho 58mm/80mm y abre la vista previa PDF.
 - Navegacion de regreso en pago: si no esta finalizada la cotizacion vuelve a detalle; si ya esta finalizada vuelve al panel de cotizaciones.

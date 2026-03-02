@@ -27,6 +27,8 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
   int? _roleId;
   String? _userSuc;
   String? _userOpv;
+  bool _contextReady = false;
+  CotizacionesPanelQuery _query = const CotizacionesPanelQuery();
 
   @override
   void initState() {
@@ -44,6 +46,12 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_contextReady) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     final cotizacionesAsync = ref.watch(cotizacionesListProvider);
     final isAdmin = (_roleId ?? 0) == 1;
     final hasUserSuc = (_userSuc ?? '').trim().isNotEmpty;
@@ -89,26 +97,12 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
                   hasUserOpv: hasUserOpv,
                   hasUserSuc: hasUserSuc,
                   onSucChanged: (value) => setState(() => _sucCtrl.text = value?.trim() ?? ''),
-                  onSearch: () => setState(() {}),
-                  onClear: () => setState(() {
-                    _searchCtrl.clear();
-                    if (hasUserOpv) {
-                      _opvCtrl.text = _userOpv ?? '';
-                    } else {
-                      _opvCtrl.clear();
-                    }
-                    if (isAdmin) {
-                      _sucCtrl.clear();
-                    } else if (hasUserSuc) {
-                      _sucCtrl.text = _userSuc ?? '';
-                    } else {
-                      _sucCtrl.clear();
-                    }
-                  }),
+                  onSearch: _applyFilters,
+                  onClear: _clearFilters,
                 ),
                 const SizedBox(height: 12),
                 _CotizacionesTable(
-                  cotizaciones: _filter(cotizaciones),
+                  cotizaciones: cotizaciones,
                   selected: _selected,
                   onSelect: (c) {
                     setState(() => _selected = c);
@@ -143,41 +137,41 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
     );
   }
 
-  List<PvCtrFolAsvrModel> _filter(List<PvCtrFolAsvrModel> data) {
-    final term = _searchCtrl.text.trim().toLowerCase();
+  void _applyFilters() {
     final isAdmin = (_roleId ?? 0) == 1;
-    final hasUserSuc = (_userSuc ?? '').trim().isNotEmpty;
-    final hasUserOpv = (_userOpv ?? '').trim().isNotEmpty;
-    final baseSuc = isAdmin ? _sucCtrl.text : (hasUserSuc ? _userSuc! : _sucCtrl.text);
-    final baseOpv = hasUserOpv ? _userOpv! : _opvCtrl.text;
-    final suc = baseSuc.trim().toLowerCase();
-    final opv = baseOpv.trim().toLowerCase();
-    final filtered = data.where((c) {
-      final matchTerm = term.isEmpty || c.idfol.toLowerCase().contains(term);
-      final matchOpv = opv.isEmpty
-          ? true
-          : hasUserOpv
-              ? (c.opv ?? '').trim().toLowerCase() == opv
-              : (c.opv ?? '').toLowerCase().contains(opv);
-      final matchSuc = suc.isEmpty || (c.suc ?? '').trim().toLowerCase() == suc;
-      final esta = (c.esta ?? '').toUpperCase();
-      final matchEsta = esta.contains('PENDIENTE') || esta.contains('PAGADO') || esta.contains('EDITANDO');
-      return matchTerm && matchOpv && matchSuc && matchEsta;
-    }).toList();
-    filtered.sort((a, b) {
-      final af = a.fcn;
-      final bf = b.fcn;
-      if (af != null && bf != null) {
-        final cmp = bf.compareTo(af);
-        if (cmp != 0) return cmp;
-      } else if (af != null) {
-        return -1;
-      } else if (bf != null) {
-        return 1;
-      }
-      return b.idfol.compareTo(a.idfol);
+    final suc = isAdmin
+        ? _sucCtrl.text.trim()
+        : (_userSuc ?? _sucCtrl.text).trim();
+    final opv = (_userOpv ?? _opvCtrl.text).trim();
+    final next = CotizacionesPanelQuery(
+      suc: suc,
+      opv: opv,
+      search: _searchCtrl.text.trim(),
+    );
+    setState(() {
+      _selected = null;
+      _query = next;
     });
-    return filtered;
+    ref.read(cotizacionesPanelQueryProvider.notifier).state = next;
+  }
+
+  void _clearFilters() {
+    final isAdmin = (_roleId ?? 0) == 1;
+    setState(() {
+      _searchCtrl.clear();
+      if (isAdmin) {
+        _sucCtrl.clear();
+      } else {
+        _sucCtrl.text = (_userSuc ?? '').trim();
+      }
+      _opvCtrl.text = (_userOpv ?? '').trim();
+      _selected = null;
+      _query = CotizacionesPanelQuery(
+        suc: _sucCtrl.text.trim(),
+        opv: _opvCtrl.text.trim(),
+      );
+    });
+    ref.read(cotizacionesPanelQueryProvider.notifier).state = _query;
   }
 
   bool _isEstadoPagado(String? value) {
@@ -317,24 +311,42 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
   Future<void> _loadUserContext() async {
     final storage = ref.read(storageProvider);
     final token = await storage.getAccessToken();
-    if (token == null || token.isEmpty) return;
+    if (token == null || token.isEmpty) {
+      if (!mounted) return;
+      final query = CotizacionesPanelQuery(
+        suc: _sucCtrl.text.trim(),
+        opv: _opvCtrl.text.trim(),
+      );
+      ref.read(cotizacionesPanelQueryProvider.notifier).state = query;
+      setState(() {
+        _query = query;
+        _contextReady = true;
+      });
+      return;
+    }
+
     final payload = _decodeJwt(token);
     if (!mounted) return;
+
+    final roleId = _asInt(payload['roleId']) ?? 0;
+    final suc = (payload['suc'] ?? payload['SUC'] ?? '').toString().trim();
+    final opv = (payload['opv'] ?? payload['OPV'] ?? payload['username'] ?? '')
+        .toString()
+        .trim();
+    final query = CotizacionesPanelQuery(
+      suc: suc,
+      opv: opv,
+    );
+
+    ref.read(cotizacionesPanelQueryProvider.notifier).state = query;
     setState(() {
-      _roleId = _asInt(payload['roleId']);
-      final rawSuc = payload['suc'] ?? payload['SUC'];
-      final rawOpv = payload['opv'] ?? payload['OPV'] ?? payload['username'];
-      _userSuc = rawSuc?.toString().trim();
-      _userOpv = rawOpv?.toString().trim();
-      if ((_userOpv ?? '').trim().isNotEmpty) {
-        _opvCtrl.text = _userOpv!;
-      }
-      if ((_userSuc ?? '').trim().isNotEmpty) {
-        final isAdmin = (_roleId ?? 0) == 1;
-        if (!isAdmin || _sucCtrl.text.trim().isEmpty) {
-          _sucCtrl.text = _userSuc!;
-        }
-      }
+      _roleId = roleId;
+      _userSuc = suc;
+      _userOpv = opv;
+      if (opv.isNotEmpty) _opvCtrl.text = opv;
+      if (suc.isNotEmpty) _sucCtrl.text = suc;
+      _query = query;
+      _contextReady = true;
     });
   }
 
@@ -352,7 +364,7 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
   int? _asInt(dynamic value) {
     if (value is int) return value;
     if (value is num) return value.toInt();
-    return null;
+    return int.tryParse(value?.toString() ?? '');
   }
 }
 

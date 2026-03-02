@@ -7,17 +7,41 @@ class CotizacionesApi {
 
   final Dio dio;
 
-  Future<List<PvCtrFolAsvrModel>> fetchCotizaciones() async {
-    final res = await dio.get('/pvctrfolasvr', queryParameters: {'_': DateTime.now().millisecondsSinceEpoch});
-    final list = (res.data as List<dynamic>)
-        .map((e) => PvCtrFolAsvrModel.fromJson(Map<String, dynamic>.from(e)))
+  Future<List<PvCtrFolAsvrModel>> fetchCotizaciones({
+    String? suc,
+    String? opv,
+    String? search,
+  }) async {
+    final res = await dio.get(
+      '/pvctrfolasvr',
+      queryParameters: {
+        if ((suc ?? '').trim().isNotEmpty) 'suc': suc!.trim(),
+        if ((opv ?? '').trim().isNotEmpty) 'opv': opv!.trim(),
+        if ((search ?? '').trim().isNotEmpty) 'search': search!.trim(),
+      },
+    );
+
+    final raw = res.data;
+    final List rows;
+    if (raw is List) {
+      rows = raw;
+    } else if (raw is Map) {
+      rows = (raw['items'] as List?) ?? const [];
+    } else {
+      rows = const [];
+    }
+
+    return rows
+        .map(
+          (e) => PvCtrFolAsvrModel.fromJson(
+            Map<String, dynamic>.from(e as Map),
+          ),
+        )
         .toList();
-    return list;
   }
 
   Future<PvCtrFolAsvrModel> fetchCotizacion(String idfol) async {
-    final res =
-        await dio.get('/pvctrfolasvr/$idfol', queryParameters: {'_': DateTime.now().millisecondsSinceEpoch});
+    final res = await dio.get('/pvctrfolasvr/$idfol');
     return PvCtrFolAsvrModel.fromJson(Map<String, dynamic>.from(res.data as Map));
   }
 

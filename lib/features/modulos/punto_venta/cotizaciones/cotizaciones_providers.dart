@@ -6,9 +6,19 @@ import 'cotizaciones_models.dart';
 
 final cotizacionesApiProvider = Provider<CotizacionesApi>((ref) => CotizacionesApi(ref.read(dioProvider)));
 
+final cotizacionesPanelQueryProvider =
+    StateProvider<CotizacionesPanelQuery>(
+      (ref) => const CotizacionesPanelQuery(),
+    );
+
 final cotizacionesListProvider = FutureProvider.autoDispose<List<PvCtrFolAsvrModel>>((ref) async {
   final api = ref.read(cotizacionesApiProvider);
-  return api.fetchCotizaciones();
+  final query = ref.watch(cotizacionesPanelQueryProvider);
+  return api.fetchCotizaciones(
+    suc: query.suc,
+    opv: query.opv,
+    search: query.search,
+  );
 });
 
 final cotizacionProvider = FutureProvider.autoDispose.family<PvCtrFolAsvrModel, String>((ref, idfol) async {
