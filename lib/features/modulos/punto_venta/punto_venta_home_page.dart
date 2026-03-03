@@ -92,6 +92,7 @@ class PuntoVentaHomePage extends StatelessWidget {
             subtitle: 'Consulta y administra servicios',
             icon: Icons.view_list,
             tone: const Color(0xFF2B5F63),
+            route: '/ps',
           ),
           _PvOption(
             title: 'Panel de apartados',

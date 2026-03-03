@@ -6,6 +6,9 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 import 'package:ioe_app/core/api_error.dart';
 import 'package:ioe_app/core/excel_exporter.dart';
 import 'package:ioe_app/features/masterdata/sucursales/sucursales_models.dart';
@@ -26,8 +29,9 @@ class DatArtUiConfig {
   static const double horizontalMargin = 8;
 
   static double get tableWidth {
-    const columnCount = 10;
+    const columnCount = 12;
     final totalColumns =
+        colSelect +
         colSuc +
         colArt +
         colUpc +
@@ -37,12 +41,14 @@ class DatArtUiConfig {
         colStockMin +
         colPvta +
         colCtop +
-        colEstatus;
+        colEstatus +
+        colPrint;
     return totalColumns +
         (columnSpacing * (columnCount - 1)) +
         (horizontalMargin * 2);
   }
 
+  static const double colSelect = 40;
   static const double colSuc = 30;
   static const double colArt = 50;
   static const double colUpc = 80;
@@ -53,6 +59,7 @@ class DatArtUiConfig {
   static const double colPvta = 60;
   static const double colCtop = 60;
   static const double colEstatus = 110;
+  static const double colPrint = 46;
 }
 
 class DatArtPage extends ConsumerStatefulWidget {
@@ -91,6 +98,9 @@ class _DatArtPageState extends ConsumerState<DatArtPage> {
   bool _detailLoading = false;
   String? _detailError;
   String? _selectedKey;
+  final Set<String> _selectedRows = <String>{};
+  final Map<String, DatArtModel> _selectedItems = <String, DatArtModel>{};
+  bool _printingLabels = false;
   bool _exporting = false;
   bool _uploadingMassive = false;
   bool _uploadingAltaMasiva = false;
@@ -462,6 +472,7 @@ class _DatArtPageState extends ConsumerState<DatArtPage> {
         _items = result.items;
         _totalCount = result.total;
         _hasMore = result.hasMore;
+        _syncSelectedRowsWithVisible(result.items);
       });
     } catch (e) {
       if (!mounted) return;
@@ -755,6 +766,8 @@ class _DatArtPageState extends ConsumerState<DatArtPage> {
       _selectedKey = null;
       _detailItem = null;
       _detailError = null;
+      _selectedRows.clear();
+      _selectedItems.clear();
     });
 
     await _search(resetPage: true, forceLoteId: response.loteId);
@@ -1530,6 +1543,8 @@ class _DatArtPageState extends ConsumerState<DatArtPage> {
       _selectedKey = null;
       _detailItem = null;
       _detailError = null;
+      _selectedRows.clear();
+      _selectedItems.clear();
     });
   }
 
@@ -1595,6 +1610,8 @@ class _DatArtPageState extends ConsumerState<DatArtPage> {
       _selectedKey = null;
       _detailItem = null;
       _detailError = null;
+      _selectedRows.clear();
+      _selectedItems.clear();
     });
   }
 
@@ -1621,6 +1638,8 @@ class _DatArtPageState extends ConsumerState<DatArtPage> {
       _detailItem = null;
       _detailError = null;
       _selectedKey = null;
+      _selectedRows.clear();
+      _selectedItems.clear();
     });
   }
 
@@ -1650,6 +1669,469 @@ class _DatArtPageState extends ConsumerState<DatArtPage> {
   }
 
   String _rowKey(DatArtModel item) => '${item.suc}|${item.art}|${item.upc}';
+
+  bool get _allVisibleSelected =>
+      _items.isNotEmpty &&
+      _items.every((item) => _selectedRows.contains(_rowKey(item)));
+
+  void _syncSelectedRowsWithVisible(List<DatArtModel> visibleItems) {
+    for (final item in visibleItems) {
+      final key = _rowKey(item);
+      if (_selectedRows.contains(key)) {
+        _selectedItems[key] = item;
+      }
+    }
+  }
+
+  void _toggleRowSelection(DatArtModel item, bool selected) {
+    final key = _rowKey(item);
+    setState(() {
+      if (selected) {
+        _selectedRows.add(key);
+        _selectedItems[key] = item;
+      } else {
+        _selectedRows.remove(key);
+        _selectedItems.remove(key);
+      }
+    });
+  }
+
+  void _toggleVisibleSelection(bool selected) {
+    if (_items.isEmpty) return;
+    setState(() {
+      for (final item in _items) {
+        final key = _rowKey(item);
+        if (selected) {
+          _selectedRows.add(key);
+          _selectedItems[key] = item;
+        } else {
+          _selectedRows.remove(key);
+          _selectedItems.remove(key);
+        }
+      }
+    });
+  }
+
+  void _clearSelection({bool showMessage = true}) {
+    if (_selectedRows.isEmpty && _selectedItems.isEmpty) return;
+    setState(() {
+      _selectedRows.clear();
+      _selectedItems.clear();
+    });
+    if (showMessage) {
+      _showSnack('Selección limpiada.');
+    }
+  }
+
+  Future<void> _printSelectedLabels() async {
+    await _printLabels(_selectedItems.values.toList());
+  }
+
+  Future<void> _printSingleLabel(DatArtModel item) async {
+    await _printLabels([item]);
+  }
+
+  Future<void> _printLabels(List<DatArtModel> baseItems) async {
+    if (_printingLabels) return;
+    final uniqueItems = <String, DatArtModel>{};
+    for (final item in baseItems) {
+      uniqueItems[_rowKey(item)] = item;
+    }
+    if (uniqueItems.isEmpty) {
+      _showSnack('Selecciona al menos un artículo para imprimir etiquetas.');
+      return;
+    }
+
+    setState(() => _printingLabels = true);
+    try {
+      final items = <DatArtModel>[];
+      var fallbackCount = 0;
+      for (final item in uniqueItems.values) {
+        try {
+          final full = await ref
+              .read(datArtApiProvider)
+              .fetchArticulo(item.suc, item.art, item.upc);
+          items.add(full);
+        } catch (_) {
+          fallbackCount += 1;
+          items.add(item);
+        }
+      }
+
+      if (items.isEmpty) {
+        _showSnack('No hay artículos válidos para imprimir.');
+        return;
+      }
+
+      final now = DateTime.now();
+      final doc = _buildLabelsPdf(items, printedAt: now);
+      final y = now.year.toString().padLeft(4, '0');
+      final m = now.month.toString().padLeft(2, '0');
+      final d = now.day.toString().padLeft(2, '0');
+      final hh = now.hour.toString().padLeft(2, '0');
+      final mm = now.minute.toString().padLeft(2, '0');
+      await Printing.layoutPdf(
+        name: 'etiquetas_datart_$y$m$d-$hh$mm.pdf',
+        onLayout: (_) async => doc.save(),
+      );
+
+      if (fallbackCount > 0) {
+        _showSnack(
+          'Se imprimieron ${items.length} etiqueta(s). '
+          '$fallbackCount artículo(s) usaron datos base por no cargar detalle.',
+        );
+      }
+    } catch (e) {
+      _showSnack('No se pudo generar la impresión de etiquetas: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _printingLabels = false);
+      }
+    }
+  }
+
+  pw.Document _buildLabelsPdf(
+    List<DatArtModel> items, {
+    required DateTime printedAt,
+  }) {
+    const labelWidthMm = 76.0;
+    const labelHeightMm = 56.0;
+    final pageFormat = PdfPageFormat(
+      labelWidthMm * PdfPageFormat.mm,
+      labelHeightMm * PdfPageFormat.mm,
+      marginAll: 0,
+    );
+    final doc = pw.Document();
+    for (final item in items) {
+      doc.addPage(
+        pw.Page(
+          pageFormat: pageFormat,
+          margin: pw.EdgeInsets.all(2 * PdfPageFormat.mm),
+          build: (_) => _buildLabelPage(item, printedAt: printedAt),
+        ),
+      );
+    }
+    return doc;
+  }
+
+  pw.Widget _buildLabelPage(
+    DatArtModel item, {
+    required DateTime printedAt,
+  }) {
+    final suc = item.suc.trim().isEmpty ? '-' : item.suc.trim();
+    final art = item.art.trim().isEmpty ? '-' : item.art.trim();
+    final des = (item.des ?? '').trim().isEmpty ? '-' : item.des!.trim();
+    final printDate = _formatLabelDate(printedAt);
+    final umue = _formatLabelNumeric(item.umue);
+    final utra = _formatLabelNumeric(item.utra);
+    final univ = _formatLabelNumeric(item.univ);
+
+    return pw.Container(
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: PdfColors.black, width: 0.9),
+      ),
+      padding: const pw.EdgeInsets.all(3),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+        children: [
+          pw.Row(
+            children: [
+              pw.Expanded(
+                flex: 3,
+                child: _simpleLabelCell(
+                  '"Distribuidora IOE"',
+                  fontSize: 9,
+                  bold: true,
+                ),
+              ),
+              pw.SizedBox(width: 2),
+              pw.Expanded(
+                child: _simpleLabelCell(
+                  'SUC: $suc',
+                  fontSize: 8,
+                  bold: true,
+                  align: pw.TextAlign.center,
+                ),
+              ),
+            ],
+          ),
+          pw.SizedBox(height: 2),
+          pw.Row(
+            children: [
+              pw.Expanded(
+                flex: 2,
+                child: _fieldLabelCell('ART', art, maxLines: 1),
+              ),
+              pw.SizedBox(width: 2),
+              pw.Expanded(child: _fieldLabelCell('F. IMPR', printDate)),
+            ],
+          ),
+          pw.SizedBox(height: 2),
+          _fieldLabelCell('DES', des, maxLines: 2),
+          pw.SizedBox(height: 2),
+          pw.Expanded(
+            child: pw.Row(
+              crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+              children: [
+                pw.Expanded(flex: 3, child: _barcodeLabelCell(item.upc)),
+                pw.SizedBox(width: 2),
+                pw.Expanded(
+                  flex: 2,
+                  child: _ubicacionLabelCell(
+                    umue: umue,
+                    utra: utra,
+                    univ: univ,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _simpleLabelCell(
+    String value, {
+    double fontSize = 8,
+    bool bold = false,
+    pw.TextAlign align = pw.TextAlign.left,
+  }) {
+    return pw.Container(
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: PdfColors.black, width: 0.7),
+      ),
+      padding: const pw.EdgeInsets.symmetric(horizontal: 3, vertical: 2),
+      alignment: pw.Alignment.centerLeft,
+      child: pw.Text(
+        value,
+        maxLines: 1,
+        overflow: pw.TextOverflow.clip,
+        textAlign: align,
+        style: pw.TextStyle(
+          fontSize: fontSize,
+          fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+        ),
+      ),
+    );
+  }
+
+  pw.Widget _fieldLabelCell(String label, String value, {int maxLines = 1}) {
+    return pw.Container(
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: PdfColors.black, width: 0.7),
+      ),
+      padding: const pw.EdgeInsets.symmetric(horizontal: 3, vertical: 2),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        mainAxisAlignment: pw.MainAxisAlignment.center,
+        children: [
+          pw.Text(
+            label,
+            style: pw.TextStyle(fontSize: 6.5, fontWeight: pw.FontWeight.bold),
+          ),
+          pw.SizedBox(height: 1),
+          pw.Text(
+            value,
+            maxLines: maxLines,
+            overflow: pw.TextOverflow.clip,
+            style: const pw.TextStyle(fontSize: 8),
+          ),
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _barcodeLabelCell(String upc) {
+    final ean13 = _buildEan13FromUpc(upc);
+    return pw.Container(
+      padding: const pw.EdgeInsets.all(3),
+      child: ean13 == null
+          ? pw.Center(
+              child: pw.Text(
+                'UPC sin dígitos para EAN13',
+                textAlign: pw.TextAlign.center,
+                style: const pw.TextStyle(fontSize: 8),
+              ),
+            )
+          : pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+              children: [
+                pw.Expanded(
+                  child: pw.BarcodeWidget(
+                    barcode: pw.Barcode.ean13(),
+                    data: ean13,
+                    drawText: true,
+                  ),
+                ),
+                pw.SizedBox(height: 1),
+                pw.Text(
+                  'EAN13: $ean13',
+                  textAlign: pw.TextAlign.center,
+                  style: const pw.TextStyle(fontSize: 6.5),
+                ),
+              ],
+            ),
+    );
+  }
+
+  pw.Widget _ubicacionLabelCell({
+    required String umue,
+    required String utra,
+    required String univ,
+  }) {
+    return pw.Container(
+      padding: const pw.EdgeInsets.all(2),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Text(
+            'Ubicacion fisica:',
+            style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold),
+          ),
+          pw.SizedBox(height: 2),
+          _ubicacionRow('UMUE', umue),
+          _ubicacionRow('UTRA', utra),
+          _ubicacionRow('UNIV', univ),
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _ubicacionRow(String label, String value) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.only(bottom: 2),
+      child: pw.Row(
+        children: [
+          pw.Container(
+            width: 26,
+            decoration: pw.BoxDecoration(
+              border: pw.Border.all(color: PdfColors.black, width: 0.6),
+            ),
+            padding: const pw.EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+            child: pw.Text(
+              label,
+              style: const pw.TextStyle(fontSize: 6.5),
+            ),
+          ),
+          pw.SizedBox(width: 2),
+          pw.Expanded(
+            child: pw.Container(
+              decoration: pw.BoxDecoration(
+                border: pw.Border.all(color: PdfColors.black, width: 0.6),
+              ),
+              padding: const pw.EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+              child: pw.Text(
+                value,
+                maxLines: 1,
+                overflow: pw.TextOverflow.clip,
+                style: const pw.TextStyle(fontSize: 6.5),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatLabelDate(DateTime value) {
+    final dd = value.day.toString().padLeft(2, '0');
+    final mm = value.month.toString().padLeft(2, '0');
+    final yyyy = value.year.toString().padLeft(4, '0');
+    final hh = value.hour.toString().padLeft(2, '0');
+    final min = value.minute.toString().padLeft(2, '0');
+    return '$dd/$mm/$yyyy $hh:$min';
+  }
+
+  String _formatLabelNumeric(double? value) {
+    if (value == null) return '-';
+    if (value == value.truncateToDouble()) {
+      return value.toInt().toString();
+    }
+    final fixed = value.toStringAsFixed(4);
+    return fixed.replaceFirst(RegExp(r'\.0+$'), '').replaceFirst(
+      RegExp(r'(\.\d*?)0+$'),
+      r'$1',
+    );
+  }
+
+  String? _buildEan13FromUpc(String upc) {
+    final digits = upc.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.isEmpty) return null;
+    final base12 = digits.length >= 12
+        ? digits.substring(digits.length - 12)
+        : digits.padLeft(12, '0');
+    final checkDigit = _ean13CheckDigit(base12);
+    return '$base12$checkDigit';
+  }
+
+  int _ean13CheckDigit(String base12) {
+    var sum = 0;
+    for (var i = 0; i < base12.length; i += 1) {
+      final digit = int.tryParse(base12[i]) ?? 0;
+      sum += i.isEven ? digit : digit * 3;
+    }
+    return (10 - (sum % 10)) % 10;
+  }
+
+  Widget _buildSelectionToolbar() {
+    final canSelectVisible = _items.isNotEmpty;
+    final selectedCount = _selectedItems.length;
+    final actionLabel = _allVisibleSelected
+        ? 'Quitar filtrados'
+        : 'Seleccionar filtrados';
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Theme.of(
+          context,
+        ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Theme.of(context).dividerColor),
+      ),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          ElevatedButton.icon(
+            onPressed: canSelectVisible
+                ? () => _toggleVisibleSelection(!_allVisibleSelected)
+                : null,
+            icon: Icon(
+              _allVisibleSelected ? Icons.deselect : Icons.select_all,
+              size: 18,
+            ),
+            label: Text(actionLabel),
+          ),
+          OutlinedButton.icon(
+            onPressed: selectedCount > 0 ? _clearSelection : null,
+            icon: const Icon(Icons.clear_all, size: 18),
+            label: const Text('Limpiar selección'),
+          ),
+          ElevatedButton.icon(
+            onPressed: selectedCount > 0 && !_printingLabels
+                ? _printSelectedLabels
+                : null,
+            icon: _printingLabels
+                ? const SizedBox(
+                    height: 14,
+                    width: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.print, size: 18),
+            label: Text(
+              _printingLabels
+                  ? 'Imprimiendo...'
+                  : 'Imprimir etiquetas ($selectedCount)',
+            ),
+          ),
+          Text('Selección local: $selectedCount artículo(s).'),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1718,6 +2200,31 @@ class _DatArtPageState extends ConsumerState<DatArtPage> {
                     : const Icon(Icons.upload_file),
                 label: const Text('Modificacion Masiva'),
               ),
+            ),
+            IconButton(
+              onPressed: _items.isNotEmpty
+                  ? () => _toggleVisibleSelection(!_allVisibleSelected)
+                  : null,
+              tooltip: _allVisibleSelected
+                  ? 'Quitar artículos filtrados'
+                  : 'Seleccionar artículos filtrados',
+              icon: Icon(
+                _allVisibleSelected ? Icons.deselect : Icons.select_all,
+              ),
+            ),
+            IconButton(
+              onPressed: _selectedItems.isNotEmpty && !_printingLabels
+                  ? _printSelectedLabels
+                  : null,
+              tooltip:
+                  'Imprimir etiquetas de artículos seleccionados (${_selectedItems.length})',
+              icon: _printingLabels
+                  ? const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.print),
             ),
             IconButton(
               onPressed: _exporting ? null : _exportExcel,
@@ -1873,7 +2380,11 @@ class _DatArtPageState extends ConsumerState<DatArtPage> {
                           );
                         },
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 10),
+                      if (_hasSearched || _selectedItems.isNotEmpty) ...[
+                        _buildSelectionToolbar(),
+                        const SizedBox(height: 10),
+                      ],
                       Expanded(child: _buildResults()),
                       if (_hasSearched)
                         _PaginationBar(
@@ -1981,6 +2492,13 @@ class _DatArtPageState extends ConsumerState<DatArtPage> {
       return Center(child: Text(msg));
     }
 
+    final anyVisibleSelected = _items.any(
+      (item) => _selectedRows.contains(_rowKey(item)),
+    );
+    final headerSelectionValue = anyVisibleSelected
+        ? (_allVisibleSelected ? true : null)
+        : false;
+
     final horizontalTable = SingleChildScrollView(
       controller: _horizontalScrollCtrl,
       scrollDirection: Axis.horizontal,
@@ -2001,6 +2519,20 @@ class _DatArtPageState extends ConsumerState<DatArtPage> {
             headingRowHeight: DatArtUiConfig.headingRowHeight,
             horizontalMargin: DatArtUiConfig.horizontalMargin,
             columns: [
+              DataColumn(
+                label: SizedBox(
+                  width: DatArtUiConfig.colSelect,
+                  child: Checkbox(
+                    value: headerSelectionValue,
+                    tristate: true,
+                    visualDensity: VisualDensity.compact,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    onChanged: (value) {
+                      _toggleVisibleSelection(value != false);
+                    },
+                  ),
+                ),
+              ),
               DataColumn(label: _colLabel('SUC', DatArtUiConfig.colSuc)),
               DataColumn(label: _colLabel('ART', DatArtUiConfig.colArt)),
               DataColumn(label: _colLabel('UPC', DatArtUiConfig.colUpc)),
@@ -2015,13 +2547,27 @@ class _DatArtPageState extends ConsumerState<DatArtPage> {
               DataColumn(
                 label: _colLabel('ESTATUS', DatArtUiConfig.colEstatus),
               ),
+              DataColumn(label: _colLabel('IMP', DatArtUiConfig.colPrint)),
             ],
             rows: _items.map((item) {
               final key = _rowKey(item);
+              final checked = _selectedRows.contains(key);
               return DataRow(
                 selected: _selectedKey == key,
                 onSelectChanged: (_) => _selectItem(item),
                 cells: [
+                  DataCell(
+                    SizedBox(
+                      width: DatArtUiConfig.colSelect,
+                      child: Checkbox(
+                        value: checked,
+                        visualDensity: VisualDensity.compact,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        onChanged: (value) =>
+                            _toggleRowSelection(item, value ?? false),
+                      ),
+                    ),
+                  ),
                   DataCell(_cellText(item.suc, DatArtUiConfig.colSuc)),
                   DataCell(_cellText(item.art, DatArtUiConfig.colArt)),
                   DataCell(_cellText(item.upc, DatArtUiConfig.colUpc)),
@@ -2044,6 +2590,24 @@ class _DatArtPageState extends ConsumerState<DatArtPage> {
                   ),
                   DataCell(
                     _cellText(item.estatus ?? '-', DatArtUiConfig.colEstatus),
+                  ),
+                  DataCell(
+                    SizedBox(
+                      width: DatArtUiConfig.colPrint,
+                      child: IconButton(
+                        tooltip: 'Imprimir etiqueta del artículo',
+                        onPressed: _printingLabels
+                            ? null
+                            : () => _printSingleLabel(item),
+                        icon: const Icon(Icons.print, size: 18),
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints.tightFor(
+                          width: 24,
+                          height: 24,
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               );

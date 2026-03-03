@@ -60,6 +60,11 @@ autenticacion, datos maestros, inventarios, control de cuentas y punto de venta.
 - `/datart`, `/datart/:suc/:art/:upc`, `/datart/massive-upload`,
   `/articulos/alta-masiva/upload|preview|validate|commit`.
 - tablas: `DAT_ART`, `DAT_ART_MASIVA_TMP`.
+- Impresion etiquetas DAT_ART (frontend):
+- pantalla `lib/features/modulos/catalogo/datart_page.dart` con seleccion local por renglón y seleccion de filtrados para impresión masiva.
+- imprime una etiqueta por artículo en PDF (`76mm x 56mm`) con vista previa de impresión/selección de impresora.
+- el `EAN13` se construye tomando solo los 12 dígitos derechos de `UPC` (si excede) y calculando dígito verificador.
+- campos de etiqueta: sucursal, artículo, fecha de impresión, descripción, ubicación física (`UMUE`, `UTRA`, `UNIV`) y código de barras.
 - MB51/MB52:
 - `/dat-mb51/search`, `/dat-mb52/resumen`, `/dat-almacen`, `/dat-cmov`.
 - tablas/fuentes: `DAT_MB51`, `DAT_ART`, `DAT_ALMACEN`, `DAT_CMOV`.
@@ -80,6 +85,7 @@ autenticacion, datos maestros, inventarios, control de cuentas y punto de venta.
 - `/factclientshp` -> `FACT_CLIENT_SHP`.
 - `/pvctrfolasvr` -> `PV_CTR_FOL_ASVR`.
 - `/pv/devoluciones/*` -> `PV_CTR_FOL_ASVR`, `PV_DEV_DET_TMP`, `PV_TICKET_LOG`, `PV_CTR_FOL_FORM(_SVR)`, `PV_CTR_ORDS`, `FAC_SVR_SHAP`, `FACT_IDFOLDEV`, `DAT_CTRL_CTAS`.
+- `/ps/*` -> `PV_CTR_FOL_ASVR`, `PV_TICKET_LOG`, `PV_CTR_FOL_FORMTMP`, `DAT_CTRL_CTAS`, `PV_DAT_PS`, `DAT_REF_GTO`.
 - `/pvticketlog` -> `PV_TICKET_LOG`.
 - `/pvctrords` -> `PV_CTR_ORDS`, `PV_CTR_ORDS_DET`.
 - `/refdetalle` -> `REF_DETALLE`.
@@ -87,6 +93,54 @@ autenticacion, datos maestros, inventarios, control de cuentas y punto de venta.
 - `/dat-form` -> `DAT_FORM` (CRUD de catalogo de formas de pago con estado activo/inactivo).
 - `/jrqdepa|jrqsubd|jrqclas|jrqscla|jrqscla2|jrqguia` ->
   `JRQ_DEPA`, `JRQ_SUBD`, `JRQ_CLAS`, `JRQ_SCLA`, `JRQ_SCLA2`, `JRQ_GUIA`.
+
+## Pago de Servicios (nuevo flujo 2026-03)
+
+- Rutas:
+- `/ps` (panel)
+- `/ps/:idFol` (detalle)
+- `/ps/:idFol/pago` (pago/terminar)
+- Archivos frontend:
+- `lib/features/modulos/pagos_servicios/ps_panel_page.dart`
+- `lib/features/modulos/pagos_servicios/ps_detalle_page.dart`
+- `lib/features/modulos/pagos_servicios/ps_pago_page.dart`
+- `lib/features/modulos/pagos_servicios/ps_api.dart`
+- `lib/features/modulos/pagos_servicios/ps_models.dart`
+- `lib/features/modulos/pagos_servicios/ps_providers.dart`
+- Providers:
+- `psFoliosProvider`
+- `psDetalleProvider(idFol)`
+- `psAdeudosProvider(client)`
+- `psPagoSummaryProvider(idFol)`
+- `psFormasPagoProvider(idFol)`
+- `psSelectedArtProvider`
+- Endpoints usados:
+- `GET /ps/folios`, `POST /ps/folios`, `GET /ps/folios/:idFol`
+- `PUT /ps/folios/:idFol/cliente`
+- `POST /ps/folios/:idFol/ticket/service`
+- `GET /ps/clientes/:client/adeudos`
+- `POST /ps/folios/:idFol/ticket/reference/folio`
+- `POST /ps/folios/:idFol/ticket/reference/gasto`
+- `PUT /ps/folios/:idFol/ticket/pvta`
+- `DELETE /ps/folios/:idFol/ticket/line`
+- `POST /ps/folios/:idFol/procesar`
+- `POST /ps/folios/:idFol/formas-pago`
+- `DELETE /ps/folios/:idFol/formas-pago/:idF`
+- `GET /ps/folios/:idFol/formas-pago/summary`
+- `POST /ps/folios/:idFol/terminar`
+- Reglas UI:
+- flujo panel -> detalle -> pago, con captura de `PVTA` por línea y asignación de referencia por `ART` seleccionado.
+- botón `Seleccione Cliente` abre modal y actualiza cliente del folio por `PUT /ps/folios/:idFol/cliente`; queda bloqueado cuando el ticket ya tiene líneas.
+- en detalle, el backend valida `PVTA` por adeudo usando `DAT_CTRL_CTAS` (misma fuente de adeudos) y no permite captura sin `ORD`.
+- en pago, formas distintas de `EFECTIVO` exigen autorización/referencia.
+- al cubrir total, se habilita `Terminar` para pasar `ESTA='TRANSMITIR'`.
+- compatibilidad backend PS (2026-03): `sql/sp_ps_module_create.sql` crea/siembra `PV_TIPO_ESTA` para resolver alta de servicio cuando faltaba ese catálogo.
+- compatibilidad backend PS (2026-03): consulta de adeudos acepta `CLIENT` grande (`BIGINT`) para evitar fallos de conversión por IDs altos.
+- detalle PS (2026-03): el panel muestra `Adeudos` solo si el ticket contiene `AD/AP/CR`; muestra `Referencias de gasto` solo si contiene `DG/DC`.
+- adeudos PS (2026-03): cuando `adeudosRes` llega vacío, la UI usa `adeudosR` para no ocultar resultados válidos de `DAT_CTRL_CTAS`.
+- Referencia de error corregido (2026-03-03): al asignar adeudo en detalle PS se observó `400` con `No existe DAT_CTRL_CTAS_RES para validar referencia de folio`; backend se depuró para resolver la referencia directamente desde `DAT_CTRL_CTAS`.
+- Regla vigente (2026-03-03): al usar el mismo adeudo en otra línea del ticket PS, backend devuelve `400` con `La referencia ya fue asignada a otra linea del ticket`.
+- Referencia de error corregido (2026-03-03): al abrir detalle PS se observó `400` desde API con `Invalid object name 'dbo.PV_TICKET_LOG_SVR'.`; backend y script SQL se alinearon para usar exclusivamente `dbo.PV_TICKET_LOG`.
 
 ## Reloj Checador (Asistencia)
 
@@ -133,11 +187,12 @@ autenticacion, datos maestros, inventarios, control de cuentas y punto de venta.
 - Interaccion: doble clic en columna `PVTA` del renglón agregado al ticket.
 - Regla de autorizacion:
 - usuario `SUPERPV` (supervisor) edita directo precio.
-- usuario no supervisor debe capturar contraseña valida de un usuario con rol `SUPERPV`.
-- la contraseña se prevalida en backend y, si no coincide con `SUPERPV`, no se abre el popup de precio.
+- la UI envia `PATCH /pvticketlog/:id/precio` sin `AUTH_PASSWORD`; backend determina si el solicitante ya es `SUPERPV`.
+- si backend responde que requiere autorizacion `SUPERPV` (`403`), la UI solicita contraseña supervisor, la prevalida y reintenta el `PATCH` con `AUTH_PASSWORD`.
+- si la contraseña no coincide con un `SUPERPV` activo, no se aplica el cambio de precio.
 - Endpoint usado:
 - `PATCH /pvticketlog/:id/precio` con `PVTA` y `AUTH_PASSWORD` cuando aplica.
-- `POST /pvticketlog/precio/authorize` para validar contraseña `SUPERPV` previo al popup de precio.
+- `POST /pvticketlog/precio/authorize` para validar contraseña `SUPERPV` cuando backend exige autorizacion.
 - El flujo actualiza `PVTA/PVTAT` del renglón y mantiene sincronizacion local-remota de la cotizacion.
 
 ## Flujo de cierre de cotizacion (PV)

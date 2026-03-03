@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ioe_app/core/api_error.dart';
-import 'package:ioe_app/core/auth/auth_controller.dart';
 
 import '../../clientes/clientes_models.dart';
 import '../../clientes/clientes_providers.dart';
@@ -33,8 +32,6 @@ class DetalleCotPage extends ConsumerStatefulWidget {
 }
 
 class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
-  static const int _kSuperPvRoleId = 4002;
-
   final _searchCtrl = TextEditingController();
   final _searchFocus = FocusNode();
   final _sphCtrl = TextEditingController();
@@ -474,15 +471,6 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
       }
     }
 
-    final roleId = ref.read(authControllerProvider).roleId ?? 0;
-    final isSupervisor = roleId == _kSuperPvRoleId;
-
-    String? authPassword;
-    if (!isSupervisor) {
-      authPassword = await _showSuperPvAuthDialog();
-      if (authPassword == null) return;
-    }
-
     final nextPrice = await _showPriceDialog(targetItem.pvta);
     if (nextPrice == null) return;
 
@@ -493,11 +481,18 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
         );
 
     try {
-      final updated = await ref.read(pvTicketLogApiProvider).updatePrice(
-            item.id,
-            pvta: nextPrice,
-            authPassword: authPassword,
-          );
+      final updated = await _updatePriceWithResolvedAuthorization(
+        itemId: item.id,
+        nextPrice: nextPrice,
+      );
+      if (updated == null) {
+        await ref.read(cotizacionLocalProvider(widget.idfol).notifier).setSyncStatus(
+              item.id,
+              SyncStatus.synced,
+              error: null,
+            );
+        return;
+      }
       final pvtaApplied = updated.pvta ?? nextPrice;
       await ref.read(cotizacionLocalProvider(widget.idfol).notifier).updateItem(
             item.id,
@@ -520,6 +515,27 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
       }
     }
+  }
+
+  Future<PvTicketLogItem?> _updatePriceWithResolvedAuthorization({
+    required String itemId,
+    required double nextPrice,
+  }) async {
+    final api = ref.read(pvTicketLogApiProvider);
+    try {
+      return await api.updatePrice(itemId, pvta: nextPrice);
+    } on DioException catch (e) {
+      if (e.response?.statusCode != 403) rethrow;
+    }
+
+    final authPassword = await _showSuperPvAuthDialog();
+    if (authPassword == null) return null;
+
+    return api.updatePrice(
+      itemId,
+      pvta: nextPrice,
+      authPassword: authPassword,
+    );
   }
 
   Future<void> _createOrdFromRow(

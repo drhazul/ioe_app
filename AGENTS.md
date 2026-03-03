@@ -41,6 +41,11 @@
 - `/datart`, `/datart/massive-upload`, `/articulos/alta-masiva/*`.
 - tablas: `DAT_ART`, `DAT_ART_MASIVA_TMP`.
 - campos clave: `SUC`, `ART`, `UPC`, `DES`, `TIPO`, `PVTA`, `CTOP`, `DEPA`, `SUBD`, `CLAS`, `SCLA`, `SCLA2`.
+- Impresion etiquetas DAT_ART (2026-03):
+- UI en `lib/features/modulos/catalogo/datart_page.dart` con seleccion local por renglón (casilla), seleccion masiva de artículos filtrados en grilla y boton de impresión por artículo/seleccionados.
+- La etiqueta se renderiza en PDF para vista previa/seleccion de impresora con tamaño fijo `76mm x 56mm`, una pagina por artículo seleccionado.
+- Código de barras `EAN13`: se sanitiza `UPC` a digitos, se toman los 12 digitos derechos cuando excede longitud y se calcula digito verificador para formar EAN13 valido.
+- Campos impresos en etiqueta: encabezado de distribuidora/sucursal, `ART`, fecha-hora de impresión, `DES`, bloque de ubicación física (`UMUE`, `UTRA`, `UNIV`) y código de barras.
 - MB51/MB52:
 - `/dat-mb51/search`, `/dat-mb52/resumen`, `/dat-almacen`, `/dat-cmov`.
 - tablas/fuentes: `DAT_MB51`, `DAT_ALMACEN`, `DAT_CMOV`, `DAT_ART`.
@@ -51,6 +56,14 @@
 - Clientes `/factclientshp` -> `FACT_CLIENT_SHP`.
 - Cotizaciones `/pvctrfolasvr` -> `PV_CTR_FOL_ASVR`.
 - Devoluciones `/pv/devoluciones/*` -> `PV_CTR_FOL_ASVR`, `PV_DEV_DET_TMP`, `PV_TICKET_LOG`, `PV_CTR_FOL_FORM(_SVR)`, `PV_CTR_ORDS`, `FAC_SVR_SHAP`, `FACT_IDFOLDEV`, `DAT_CTRL_CTAS`.
+- Pago de servicios `/ps/*` -> `PV_CTR_FOL_ASVR`, `PV_TICKET_LOG`, `PV_CTR_FOL_FORMTMP`, `DAT_CTRL_CTAS`, `PV_DAT_PS`, `DAT_REF_GTO`.
+- PS detalle: `Seleccione Cliente` usa `PUT /ps/folios/:idFol/cliente` y el cambio de cliente queda bloqueado cuando existen líneas en `PV_TICKET_LOG`.
+- PS SQL requerido: `PV_TIPO_ESTA` debe existir con `RELACION` para AD/AP/CR/DC/DG; el script `sp_ps_module_create.sql` lo crea/siembra para evitar error al agregar servicio.
+- PS adeudos: el backend ya soporta IDs de cliente grandes (`BIGINT`) en `/ps/clientes/:client/adeudos`.
+- PS UI (2026-03): `Adeudos` solo se muestra cuando hay servicio `AD/AP/CR` en ticket; `Referencias de gasto` solo cuando hay `DG/DC`.
+- PS adeudos UI (2026-03): si `adeudosRes` está vacío pero `adeudosR` trae datos, la lista usa `adeudosR` para mostrar resultados.
+- PS referencia de adeudo (2026-03): backend eliminó dependencia de `DAT_CTRL_CTAS_RES`; al asignar referencia de folio usa directamente el `IDFOL` elegido de la consulta de adeudos basada en `DAT_CTRL_CTAS`.
+- PS referencia de adeudo (2026-03): backend no permite reutilizar la misma referencia en múltiples líneas del mismo ticket.
 - Tickets `/pvticketlog` -> `PV_TICKET_LOG`.
 - Ordenes `/pvctrords` -> `PV_CTR_ORDS`, `PV_CTR_ORDS_DET`.
 - Referencias `/refdetalle` -> `REF_DETALLE`.
@@ -68,10 +81,11 @@
 ## Punto de venta: edicion de precio en detalle de cotizacion
 - En `DetalleCotPage`, doble clic sobre la celda `PVTA` abre edicion de precio del renglón en `PV_TICKET_LOG`.
 - Si el usuario logueado tiene rol supervisor (`SUPERPV`), abre directo el modal de nuevo importe.
-- Si no es supervisor, primero abre modal de autorizacion para capturar contraseña de un usuario `SUPERPV`; la contraseña se valida en backend y solo si es valida se abre modal de nuevo importe.
-- Si la contraseña no coincide con un usuario activo `SUPERPV`, la UI no avanza al modal de importe.
+- La UI intenta actualizar precio con `PATCH /pvticketlog/:id/precio` sin `AUTH_PASSWORD`; backend evalua si el solicitante es `SUPERPV`.
+- Si backend exige autorizacion (`403`), la UI abre modal de contraseña `SUPERPV`, prevalida con `POST /pvticketlog/precio/authorize` y reintenta `PATCH` con `AUTH_PASSWORD`.
+- Si la contraseña no coincide con un usuario activo `SUPERPV`, la UI no aplica el cambio de precio.
 - La actualizacion remota se hace via `PATCH /pvticketlog/:id/precio` enviando `PVTA` y, cuando aplica, `AUTH_PASSWORD`.
-- La prevalidacion de contraseña se realiza con `POST /pvticketlog/precio/authorize`.
+- La prevalidacion de contraseña se realiza con `POST /pvticketlog/precio/authorize` cuando backend exige autorizacion.
 - La app mantiene sincronizacion local/remota del renglón y refresca providers de ticket al aplicar el cambio.
 
 ## Punto de venta: cierre de cotizacion (implementado)
@@ -198,6 +212,51 @@
 - el panel de devoluciones solo muestra folios con `ESTA IN ('DEV PEND','PAGADO')`.
 - desde panel de devoluciones, si un folio ya está en `PAGADO`, la selección abre directo `/pago` (sin pasar por selección de artículos/detalle).
 - tras finalizar se habilita botón `Imprimir ticket`, que sigue flujo similar a cotizaciones: selector 58mm/80mm y vista previa PDF con `GET /pv/devoluciones/:idfolDev/print-preview`.
+
+## Pago de Servicios (implementado 2026-03)
+- Rutas UI:
+- `/ps` (panel)
+- `/ps/:idFol` (detalle)
+- `/ps/:idFol/pago` (pago/terminar)
+- Integracion en router:
+- `lib/core/router.dart` registra las tres rutas.
+- Integracion Home/PV:
+- `lib/features/home/home_page.dart` resuelve modulos de pago de servicios hacia `/ps`.
+- `lib/features/modulos/punto_venta/punto_venta_home_page.dart` agrega card de acceso a `/ps`.
+- Estructura frontend:
+- `lib/features/modulos/pagos_servicios/ps_panel_page.dart`
+- `lib/features/modulos/pagos_servicios/ps_detalle_page.dart`
+- `lib/features/modulos/pagos_servicios/ps_pago_page.dart`
+- `lib/features/modulos/pagos_servicios/ps_api.dart`
+- `lib/features/modulos/pagos_servicios/ps_models.dart`
+- `lib/features/modulos/pagos_servicios/ps_providers.dart`
+- Providers:
+- `psFoliosProvider`
+- `psDetalleProvider(idFol)`
+- `psAdeudosProvider(client)`
+- `psPagoSummaryProvider(idFol)`
+- `psFormasPagoProvider(idFol)`
+- `psSelectedArtProvider`
+- Endpoints consumidos:
+- `GET /ps/folios`
+- `POST /ps/folios`
+- `GET /ps/folios/:idFol`
+- `POST /ps/folios/:idFol/ticket/service`
+- `GET /ps/clientes/:client/adeudos`
+- `POST /ps/folios/:idFol/ticket/reference/folio`
+- `POST /ps/folios/:idFol/ticket/reference/gasto`
+- `PUT /ps/folios/:idFol/ticket/pvta`
+- `DELETE /ps/folios/:idFol/ticket/line`
+- `POST /ps/folios/:idFol/procesar`
+- `POST /ps/folios/:idFol/formas-pago`
+- `DELETE /ps/folios/:idFol/formas-pago/:idF`
+- `GET /ps/folios/:idFol/formas-pago/summary`
+- `POST /ps/folios/:idFol/terminar`
+- Reglas UI relevantes:
+- en detalle, `PVTA` se captura/edita por línea y el backend valida referencia y tope de adeudo.
+- la referencia de adeudo/gasto se asigna a la línea seleccionada (`psSelectedArtProvider`).
+- en estado `PAGADO` el detalle queda solo lectura y habilita `Terminar`.
+- en pago, formas no `EFECTIVO` exigen `Autorización/referencia`; al cubrir total se habilita `Terminar` para mover el folio a `TRANSMITIR`.
 
 ## Reloj Checador (asistencia) - implementado (2026-02)
 - Rutas UI:

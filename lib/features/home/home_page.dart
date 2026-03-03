@@ -329,6 +329,12 @@ class _ModuleRow extends StatelessWidget {
     if (moduloCode == 'PV_CAJAS') {
       return '/punto-venta';
     }
+    if (moduloCode == 'PV_PAGO_SERVICIOS' ||
+        moduloCode == 'PV_PAGOS_SERVICIOS' ||
+        moduloCode == 'DAT_PNL_PS' ||
+        moduloCode == 'PV_PNL_PS') {
+      return '/ps';
+    }
     if (moduloCode == 'RELOJ_CHECADOR' ||
         moduloCode == 'ATTENDANCE' ||
         moduloCode == 'DAT_RELOJ_CHECADOR' ||
@@ -353,6 +359,9 @@ class _ModuleRow extends StatelessWidget {
         (name.contains('consulta') && name.contains('credit')) ||
         (name.contains('saldo') && name.contains('cuentas'))) {
       return '/ctrl-ctas';
+    }
+    if (name.contains('pago') && name.contains('servicio')) {
+      return '/ps';
     }
     if (name.contains('reloj') &&
         (name.contains('checador') ||

@@ -47,6 +47,9 @@ import '../features/modulos/mb52/mb52_models.dart';
 import '../features/modulos/ctrl_ctas/ctrl_ctas_models.dart';
 import '../features/modulos/ctrl_ctas/ctrl_ctas_consulta_page.dart';
 import '../features/modulos/ctrl_ctas/ctrl_ctas_resumen_cliente_page.dart';
+import '../features/modulos/pagos_servicios/ps_panel_page.dart';
+import '../features/modulos/pagos_servicios/ps_detalle_page.dart';
+import '../features/modulos/pagos_servicios/ps_pago_page.dart';
 import '../features/modulos/reloj_checador/app/reloj_checador_app_page.dart';
 import '../features/modulos/reloj_checador/consultas/reloj_checador_consultas_page.dart';
 import '../features/modulos/punto_venta/punto_venta_home_page.dart';
@@ -356,6 +359,24 @@ final routerProvider = Provider<GoRouter>((ref) {
                   }
                   return CtrlCtasResumenClientePage(filtros: filtros);
                 },
+              ),
+            ],
+          ),
+          GoRoute(
+            path: 'ps',
+            builder: (c, s) => const PsPanelPage(),
+            routes: [
+              GoRoute(
+                path: ':idFol/pago',
+                builder: (c, s) => PsPagoPage(
+                  idFol: s.pathParameters['idFol'] ?? '',
+                ),
+              ),
+              GoRoute(
+                path: ':idFol',
+                builder: (c, s) => PsDetallePage(
+                  idFol: s.pathParameters['idFol'] ?? '',
+                ),
               ),
             ],
           ),
