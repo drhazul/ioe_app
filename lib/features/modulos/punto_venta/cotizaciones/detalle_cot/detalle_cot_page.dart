@@ -104,6 +104,7 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
     CotizacionLocalState localState,
     AsyncValue<List<PvTicketLogItem>> ticketLogAsync,
   ) {
+    final isEstadoPagado = _isEstadoPagado(cot.esta);
     final clientesAsync = ref.watch(clientesListProvider);
     final razonSocial = cot.clien == null
         ? '-'
@@ -143,21 +144,27 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
         actions: [
           IconButton(
             tooltip: 'Pago y cierre',
-            onPressed: localState.loading || ticketLogAsync.isLoading || _openingCierre
+            onPressed: isEstadoPagado || _openingCierre
                 ? null
                 : () => _openPagoYCierre(cot),
             icon: const Icon(Icons.point_of_sale_outlined),
           ),
           IconButton(
             tooltip: 'Limpiar local',
-            onPressed: localState.loading || ticketLogAsync.isLoading
+            onPressed: localState.loading || ticketLogAsync.isLoading || isEstadoPagado
                 ? null
                 : () => ref.read(cotizacionLocalProvider(widget.idfol).notifier).clearAll(),
             icon: const Icon(Icons.delete_sweep),
           ),
         ],
       ),
-      body: _buildBody(context, cot, localState, razonSocial),
+      body: _buildBody(
+        context,
+        cot,
+        localState,
+        razonSocial,
+        isReadOnly: isEstadoPagado,
+      ),
     );
   }
 
@@ -165,8 +172,9 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
     BuildContext context,
     PvCtrFolAsvrModel cot,
     CotizacionLocalState localState,
-    String razonSocial,
-  ) {
+    String razonSocial, {
+    required bool isReadOnly,
+  }) {
     final datArtQuery = DatArtQuery(
       suc: cot.suc ?? '',
       by: _appliedSearchBy,
@@ -200,6 +208,7 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
         final isWide = constraints.maxWidth >= 1100;
         final leftPanel = _LeftPanel(
           localState: localState,
+          readOnly: isReadOnly,
           onRemove: _removeLocalItem,
           onEditQty: _editQuantity,
           onEditPrice: _editPrice,
@@ -208,6 +217,7 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
         final rightPanel = _RightPanel(
           datArtAsync: datArtAsync,
           hasSearchCriteria: hasSearchCriteria,
+          readOnly: isReadOnly,
           onAdd: _addFromDatArt,
         );
         final headerSearch = ConstrainedBox(
@@ -263,6 +273,7 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
             adicCtrl: _adicCtrl,
             onSearchApply: _applySearch,
             onClearSearch: _clearSearch,
+            enabled: !isReadOnly,
           ),
         );
 
@@ -1061,7 +1072,11 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
           'rqfac': rqfacDefault ? '1' : '0',
         },
       );
-      context.push(uri.toString());
+      await context.push(uri.toString());
+      if (!mounted) return;
+      ref.invalidate(cotizacionProvider(widget.idfol));
+      ref.invalidate(pvTicketLogListProvider(widget.idfol));
+      ref.invalidate(cotizacionesListProvider);
     } catch (e) {
       if (!mounted) return;
       final msg = apiErrorMessage(
@@ -1148,6 +1163,11 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
     String toHex(int value) => value.toRadixString(16).padLeft(2, '0');
     final b = bytes.map(toHex).toList();
     return '${b[0]}${b[1]}${b[2]}${b[3]}-${b[4]}${b[5]}-${b[6]}${b[7]}-${b[8]}${b[9]}-${b[10]}${b[11]}${b[12]}${b[13]}${b[14]}${b[15]}';
+  }
+
+  bool _isEstadoPagado(String? estado) {
+    final value = (estado ?? '').trim().toUpperCase();
+    return value.contains('PAGADO');
   }
 
   CotizacionLocalItem _toLocalItem(PvTicketLogItem item) {
@@ -1298,6 +1318,7 @@ class _InfoTile extends StatelessWidget {
 class _LeftPanel extends StatelessWidget {
   const _LeftPanel({
     required this.localState,
+    required this.readOnly,
     required this.onRemove,
     required this.onEditQty,
     required this.onEditPrice,
@@ -1305,6 +1326,7 @@ class _LeftPanel extends StatelessWidget {
   });
 
   final CotizacionLocalState localState;
+  final bool readOnly;
   final Future<void> Function(CotizacionLocalItem item) onRemove;
   final Future<void> Function(CotizacionLocalItem item) onEditQty;
   final Future<void> Function(CotizacionLocalItem item) onEditPrice;
@@ -1365,9 +1387,11 @@ class _LeftPanel extends StatelessWidget {
                           _TableCell(
                             width: 60,
                             child: MouseRegion(
-                              cursor: SystemMouseCursors.click,
+                              cursor: readOnly
+                                  ? SystemMouseCursors.basic
+                                  : SystemMouseCursors.click,
                               child: GestureDetector(
-                                onDoubleTap: () => onEditQty(item),
+                                onDoubleTap: readOnly ? null : () => onEditQty(item),
                                 child: Text(item.ctd.toStringAsFixed(2)),
                               ),
                             ),
@@ -1375,9 +1399,11 @@ class _LeftPanel extends StatelessWidget {
                           _TableCell(
                             width: 80,
                             child: MouseRegion(
-                              cursor: SystemMouseCursors.click,
+                              cursor: readOnly
+                                  ? SystemMouseCursors.basic
+                                  : SystemMouseCursors.click,
                               child: GestureDetector(
-                                onDoubleTap: () => onEditPrice(item),
+                                onDoubleTap: readOnly ? null : () => onEditPrice(item),
                                 child: Tooltip(
                                   message: 'Doble clic para editar precio',
                                   child: Text(pvtaText),
@@ -1389,9 +1415,11 @@ class _LeftPanel extends StatelessWidget {
                           _TableCell(
                             width: 130,
                             child: MouseRegion(
-                              cursor: SystemMouseCursors.click,
+                              cursor: readOnly
+                                  ? SystemMouseCursors.basic
+                                  : SystemMouseCursors.click,
                               child: GestureDetector(
-                                onDoubleTap: () => onCreateOrd(item),
+                                onDoubleTap: readOnly ? null : () => onCreateOrd(item),
                                 child: Tooltip(
                                   message: 'Doble clic para crear ORD',
                                   child: Text(
@@ -1405,7 +1433,7 @@ class _LeftPanel extends StatelessWidget {
                           IconButton(
                             tooltip: 'Quitar',
                             icon: const Icon(Icons.close, size: 18),
-                            onPressed: () => onRemove(item),
+                            onPressed: readOnly ? null : () => onRemove(item),
                           ),
                         ],
                       ),
@@ -1433,11 +1461,13 @@ class _RightPanel extends StatelessWidget {
   const _RightPanel({
     required this.datArtAsync,
     required this.hasSearchCriteria,
+    required this.readOnly,
     required this.onAdd,
   });
 
   final AsyncValue<List<DatArtModel>> datArtAsync;
   final bool hasSearchCriteria;
+  final bool readOnly;
   final ValueChanged<DatArtModel> onAdd;
 
   @override
@@ -1493,7 +1523,7 @@ class _RightPanel extends StatelessWidget {
                           IconButton(
                             tooltip: 'Agregar',
                             icon: const Icon(Icons.add_circle_outline, size: 18),
-                            onPressed: () => onAdd(item),
+                            onPressed: readOnly ? null : () => onAdd(item),
                           ),
                         ],
                       );
@@ -1541,6 +1571,7 @@ class _SearchHeaderPanel extends StatelessWidget {
     required this.adicCtrl,
     required this.onSearchApply,
     required this.onClearSearch,
+    required this.enabled,
   });
 
   final TextEditingController searchCtrl;
@@ -1567,6 +1598,7 @@ class _SearchHeaderPanel extends StatelessWidget {
   final TextEditingController adicCtrl;
   final VoidCallback onSearchApply;
   final VoidCallback onClearSearch;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
@@ -1595,6 +1627,7 @@ class _SearchHeaderPanel extends StatelessWidget {
       adicCtrl: adicCtrl,
       onSearchApply: onSearchApply,
       onClearSearch: onClearSearch,
+      enabled: enabled,
     );
   }
 }
@@ -1625,6 +1658,7 @@ class _SearchFilters extends StatelessWidget {
     required this.adicCtrl,
     required this.onSearchApply,
     required this.onClearSearch,
+    required this.enabled,
   });
 
   final TextEditingController searchCtrl;
@@ -1651,6 +1685,7 @@ class _SearchFilters extends StatelessWidget {
   final TextEditingController adicCtrl;
   final VoidCallback onSearchApply;
   final VoidCallback onClearSearch;
+  final bool enabled;
   static const double _filterHeight = 28;
   static const double _filterFontSize = 11;
   static const EdgeInsets _filterPadding = EdgeInsets.symmetric(horizontal: 8, vertical: 6);
@@ -1687,7 +1722,7 @@ class _SearchFilters extends StatelessWidget {
                     DropdownMenuItem(value: 'MODELO', child: Text('MODELO', style: TextStyle(fontSize: _filterFontSize))),
                   ],
                   initialValue: searchBy,
-                  onChanged: onSearchByChanged,
+                  onChanged: enabled ? onSearchByChanged : null,
                   decoration: const InputDecoration(
                     border: OutlineInputBorder(),
                     isDense: true,
@@ -1701,7 +1736,8 @@ class _SearchFilters extends StatelessWidget {
                 child: TextField(
                   controller: searchCtrl,
                   focusNode: searchFocus,
-                  onSubmitted: (_) => onSearchApply(),
+                  enabled: enabled,
+                  onSubmitted: enabled ? (_) => onSearchApply() : null,
                   style: const TextStyle(fontSize: _filterFontSize),
                   decoration: const InputDecoration(
                     border: OutlineInputBorder(),
@@ -1725,7 +1761,7 @@ class _SearchFilters extends StatelessWidget {
                 width: 80,
                 asyncItems: depaAsync,
                 value: selectedDepa,
-                enabled: true,
+                enabled: enabled,
                 itemValue: (item) => item.depa,
                 itemLabel: (item) => _formatOption(item.depa, item.ddepa),
                 onChanged: onDepaChanged,
@@ -1735,7 +1771,7 @@ class _SearchFilters extends StatelessWidget {
                 width: 80,
                 asyncItems: subdAsync,
                 value: selectedSubd,
-                enabled: selectedDepa != null,
+                enabled: enabled && selectedDepa != null,
                 itemValue: (item) => item.subd,
                 itemLabel: (item) => _formatOption(item.subd, item.dsubd),
                 onChanged: onSubdChanged,
@@ -1745,7 +1781,7 @@ class _SearchFilters extends StatelessWidget {
                 width: 80,
                 asyncItems: clasAsync,
                 value: selectedClas,
-                enabled: selectedSubd != null,
+                enabled: enabled && selectedSubd != null,
                 itemValue: (item) => item.clas,
                 itemLabel: (item) => _formatOption(item.clas, item.dclas),
                 onChanged: onClasChanged,
@@ -1755,7 +1791,7 @@ class _SearchFilters extends StatelessWidget {
                 width: 80,
                 asyncItems: sclaAsync,
                 value: selectedScla,
-                enabled: selectedClas != null,
+                enabled: enabled && selectedClas != null,
                 itemValue: (item) => item.scla,
                 itemLabel: (item) => _formatOption(item.scla, item.dscla),
                 onChanged: onSclaChanged,
@@ -1765,7 +1801,7 @@ class _SearchFilters extends StatelessWidget {
                 width: 80,
                 asyncItems: scla2Async,
                 value: selectedScla2,
-                enabled: selectedScla != null,
+                enabled: enabled && selectedScla != null,
                 itemValue: (item) => item.scla2,
                 itemLabel: (item) => _formatOption(item.scla2, item.dscla2),
                 onChanged: onScla2Changed,
@@ -1777,12 +1813,12 @@ class _SearchFilters extends StatelessWidget {
             spacing: 6,
             runSpacing: 6,
             children: [
-              _MiniField(label: 'SPH', controller: sphCtrl),
-              _MiniField(label: 'CYL', controller: cylCtrl),
-              _MiniField(label: 'ADIC', controller: adicCtrl),
+              _MiniField(label: 'SPH', controller: sphCtrl, enabled: enabled),
+              _MiniField(label: 'CYL', controller: cylCtrl, enabled: enabled),
+              _MiniField(label: 'ADIC', controller: adicCtrl, enabled: enabled),
               IconButton(
                 tooltip: 'Buscar',
-                onPressed: onSearchApply,
+                onPressed: enabled ? onSearchApply : null,
                 icon: const Icon(Icons.search, size: 18),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints.tightFor(width: _filterHeight, height: _filterHeight),
@@ -1790,7 +1826,7 @@ class _SearchFilters extends StatelessWidget {
               ),
               IconButton(
                 tooltip: 'Limpiar',
-                onPressed: onClearSearch,
+                onPressed: enabled ? onClearSearch : null,
                 icon: const Icon(Icons.clear, size: 18),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints.tightFor(width: _filterHeight, height: _filterHeight),
@@ -1818,10 +1854,15 @@ class _SearchFilters extends StatelessWidget {
 }
 
 class _MiniField extends StatelessWidget {
-  const _MiniField({required this.label, required this.controller});
+  const _MiniField({
+    required this.label,
+    required this.controller,
+    required this.enabled,
+  });
 
   final String label;
   final TextEditingController controller;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
@@ -1829,6 +1870,7 @@ class _MiniField extends StatelessWidget {
       width: 70,
       child: TextField(
         controller: controller,
+        enabled: enabled,
         keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
         decoration: InputDecoration(
           labelText: label,

@@ -111,12 +111,21 @@ class PuntoVentaHomePage extends StatelessWidget {
             subtitle: 'Revision rapida de caja',
             icon: Icons.point_of_sale,
             tone: const Color(0xFF233A63),
+            route: '/estado-cajon',
           ),
           _PvOption(
             title: 'Retiro parcial',
             subtitle: 'Salida parcial de efectivo',
             icon: Icons.money_off,
             tone: const Color(0xFF34507C),
+            route: '/retiros',
+          ),
+          _PvOption(
+            title: 'Cambio forma pago',
+            subtitle: 'Modifica forma de cobro autorizada',
+            icon: Icons.swap_horiz,
+            tone: const Color(0xFF43611F),
+            route: '/cambio-forma-pago/auth',
           ),
           _PvOption(
             title: 'Reimpresion de ticket',

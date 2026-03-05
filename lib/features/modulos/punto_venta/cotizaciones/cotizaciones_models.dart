@@ -37,6 +37,7 @@ class PvCtrFolAsvrModel {
   PvCtrFolAsvrModel({
     required this.idfol,
     this.clien,
+    this.razonSocialReceptor,
     this.doc,
     this.fcn,
     this.suc,
@@ -57,6 +58,7 @@ class PvCtrFolAsvrModel {
 
   final String idfol;
   final int? clien;
+  final String? razonSocialReceptor;
   final String? doc;
   final DateTime? fcn;
   final String? suc;
@@ -78,6 +80,11 @@ class PvCtrFolAsvrModel {
     return PvCtrFolAsvrModel(
       idfol: json['IDFOL']?.toString() ?? '',
       clien: _asInt(json['CLIEN']),
+      razonSocialReceptor: _asText(
+        json['RazonSocialReceptor'] ??
+            json['RAZONSOCIALRECEPTOR'] ??
+            json['CLIENTE_NOMBRE'],
+      ),
       doc: json['DOC']?.toString(),
       fcn: _asDate(json['FCN']),
       suc: json['SUC']?.toString(),
@@ -115,5 +122,11 @@ class PvCtrFolAsvrModel {
     if (value == null) return null;
     if (value is DateTime) return value;
     return DateTime.tryParse(value.toString());
+  }
+
+  static String? _asText(dynamic value) {
+    final text = (value ?? '').toString().trim();
+    if (text.isEmpty) return null;
+    return text;
   }
 }

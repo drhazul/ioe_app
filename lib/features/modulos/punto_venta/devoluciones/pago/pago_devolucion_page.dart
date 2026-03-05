@@ -444,6 +444,9 @@ class _PagoDevolucionPageState extends ConsumerState<PagoDevolucionPage> {
     final header = data.header;
     final totals = data.totals;
     final footer = data.footer;
+    final ords = _collectOrdsFromItems(data.items);
+    final fcnTrans = _resolveTicketDate(data.formas);
+    final isCotizacionAbierta = totals.tipotran.trim().toUpperCase() == 'CA';
     final widthPt = _mmToPt(widthMm);
     final pageFormat = PdfPageFormat(
       widthPt,
@@ -458,12 +461,15 @@ class _PagoDevolucionPageState extends ConsumerState<PagoDevolucionPage> {
       if ((footer.opv ?? '').trim().isNotEmpty) footer.opv!.trim(),
       if ((footer.opvNombre ?? '').trim().isNotEmpty) footer.opvNombre!.trim(),
     ].join(' - ');
+    final nonCashFormas = data.formas
+        .where((f) => f.form.trim().toUpperCase() != 'EFECTIVO')
+        .toList(growable: false);
 
     doc.addPage(
       pw.MultiPage(
         pageFormat: pageFormat,
         margin: pw.EdgeInsets.only(left: leftMarginPt),
-        maxPages: 60,
+        maxPages: 120,
         build: (_) => [
           pw.Text(line, style: pw.TextStyle(fontSize: smallFontSize)),
           pw.Text(
@@ -519,46 +525,50 @@ class _PagoDevolucionPageState extends ConsumerState<PagoDevolucionPage> {
             ),
           ),
           _ticketRow('Total base', _money(totals.totalBase), baseFontSize),
-          _ticketRow('Subtotal', _money(totals.subtotal), baseFontSize),
-          _ticketRow('IVA', _money(totals.iva), baseFontSize),
-          _ticketRow('Total final', _money(totals.total), baseFontSize),
-          _ticketRow('Pagos', _money(totals.sumPagos), baseFontSize),
-          _ticketRow('Faltante', _money(totals.faltante), baseFontSize),
-          _ticketRow('Cambio', _money(totals.cambio), baseFontSize),
-          pw.SizedBox(height: 4),
-          pw.Text(
-            'FORMAS',
-            style: pw.TextStyle(
-              fontSize: baseFontSize,
-              fontWeight: pw.FontWeight.bold,
-            ),
-          ),
-          if (data.formas.isEmpty)
+          if (!isCotizacionAbierta) ...[
+            _ticketRow('Subtotal', _money(totals.subtotal), baseFontSize),
+            _ticketRow('IVA', _money(totals.iva), baseFontSize),
+            _ticketRow('Total final', _money(totals.total), baseFontSize),
+            _ticketRow('Pagos', _money(totals.sumPagos), baseFontSize),
+            _ticketRow('Faltante', _money(totals.faltante), baseFontSize),
+            _ticketRow('Cambio', _money(totals.cambio), baseFontSize),
+          ],
+          if (!isCotizacionAbierta) ...[
+            pw.SizedBox(height: 4),
             pw.Text(
-              'Sin formas de pago',
-              style: pw.TextStyle(fontSize: smallFontSize),
-            )
-          else
-            ...data.formas.map((f) {
-              final ref = (f.aut ?? '').trim();
-              return pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  _ticketRow(f.form, _money(f.impp), baseFontSize),
-                  if (ref.isNotEmpty)
-                    pw.Text(
-                      'REF: $ref',
-                      style: pw.TextStyle(fontSize: smallFontSize),
-                    ),
-                  if (f.fcn != null)
-                    pw.Text(
-                      'FCN: ${_fmtDateTime(f.fcn)}',
-                      style: pw.TextStyle(fontSize: smallFontSize),
-                    ),
-                ],
-              );
-            }),
-          pw.SizedBox(height: 4),
+              'FORMAS',
+              style: pw.TextStyle(
+                fontSize: baseFontSize,
+                fontWeight: pw.FontWeight.bold,
+              ),
+            ),
+            if (data.formas.isEmpty)
+              pw.Text(
+                'Sin formas de pago',
+                style: pw.TextStyle(fontSize: smallFontSize),
+              )
+            else
+              ...data.formas.map((f) {
+                final ref = (f.aut ?? '').trim();
+                return pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    _ticketRow(f.form, _money(f.impp), baseFontSize),
+                    if (ref.isNotEmpty)
+                      pw.Text(
+                        'REF: $ref',
+                        style: pw.TextStyle(fontSize: smallFontSize),
+                      ),
+                    if (f.fcn != null)
+                      pw.Text(
+                        'FCN: ${_fmtDateTime(f.fcn)}',
+                        style: pw.TextStyle(fontSize: smallFontSize),
+                      ),
+                  ],
+                );
+              }),
+            pw.SizedBox(height: 4),
+          ],
           pw.Text(line, style: pw.TextStyle(fontSize: smallFontSize)),
           pw.Text(
             'TRANSACCION',
@@ -580,6 +590,10 @@ class _PagoDevolucionPageState extends ConsumerState<PagoDevolucionPage> {
             style: pw.TextStyle(fontSize: baseFontSize),
           ),
           pw.Text(
+            'FCNM: ${_fmtDateTime(fcnTrans)}',
+            style: pw.TextStyle(fontSize: baseFontSize),
+          ),
+          pw.Text(
             'ESTADO: ${footer.esta ?? '-'}',
             style: pw.TextStyle(fontSize: baseFontSize),
           ),
@@ -593,10 +607,234 @@ class _PagoDevolucionPageState extends ConsumerState<PagoDevolucionPage> {
           ),
           pw.SizedBox(height: 4),
           pw.Text(line, style: pw.TextStyle(fontSize: smallFontSize)),
+          pw.Text(
+            'RESUMEN DE ORDS',
+            style: pw.TextStyle(
+              fontSize: baseFontSize,
+              fontWeight: pw.FontWeight.bold,
+            ),
+          ),
+          if (ords.isEmpty)
+            pw.Text(
+              'Sin ORDs ligadas',
+              style: pw.TextStyle(fontSize: smallFontSize),
+            )
+          else
+            ...ords.map((ord) {
+              return pw.Container(
+                width: double.infinity,
+                margin: const pw.EdgeInsets.only(bottom: 2),
+                padding: const pw.EdgeInsets.symmetric(
+                  vertical: 2,
+                  horizontal: 2,
+                ),
+                decoration: pw.BoxDecoration(
+                  color: PdfColors.grey100,
+                  border: pw.Border.all(color: PdfColors.grey500, width: 0.5),
+                ),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(
+                      'ORD: ${ord.ord}',
+                      style: pw.TextStyle(fontSize: baseFontSize),
+                    ),
+                    pw.Text(
+                      'DES: ${ord.description.isEmpty ? '-' : ord.description}',
+                      style: pw.TextStyle(fontSize: smallFontSize),
+                    ),
+                    pw.Text(
+                      'UPC: ${ord.upc.isEmpty ? '-' : ord.upc}',
+                      style: pw.TextStyle(fontSize: smallFontSize),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          if (nonCashFormas.isNotEmpty)
+            pw.Text(
+              'GRACIAS POR SU CONFIANZA',
+              style: pw.TextStyle(
+                fontSize: smallFontSize,
+                fontWeight: pw.FontWeight.bold,
+              ),
+            ),
+          if (nonCashFormas.isNotEmpty) ...[
+            pw.SizedBox(height: 4),
+            ...nonCashFormas.map(
+              (forma) => _buildVoucherSectionDevolucion(
+                forma: forma,
+                idfol: footer.idfolDev,
+                suc: header.suc,
+                clienteNombre: footer.clienteNombre,
+                clienteId: footer.clienteId?.toStringAsFixed(0),
+                tra: null,
+                fecha: forma.fcn ?? fcnTrans,
+                totalOperacion: totals.total,
+                baseFontSize: baseFontSize,
+                smallFontSize: smallFontSize,
+              ),
+            ),
+          ],
         ],
       ),
     );
     return doc;
+  }
+
+  List<_DevolucionTicketOrdSummary> _collectOrdsFromItems(
+    List<DevolucionPrintItem> items,
+  ) {
+    final byOrd = <String, List<DevolucionPrintItem>>{};
+    for (final item in items) {
+      final ord = (item.ord ?? '').trim();
+      if (ord.isEmpty) continue;
+      byOrd.putIfAbsent(ord, () => <DevolucionPrintItem>[]).add(item);
+    }
+
+    final result = <_DevolucionTicketOrdSummary>[];
+    for (final entry in byOrd.entries) {
+      final upcs = <String>{};
+      final descriptions = <String>{};
+      for (final item in entry.value) {
+        final upc = (item.upc ?? '').trim();
+        final description = (item.des ?? item.art ?? '').trim();
+        if (upc.isNotEmpty) upcs.add(upc);
+        if (description.isNotEmpty) descriptions.add(description);
+      }
+      result.add(
+        _DevolucionTicketOrdSummary(
+          ord: entry.key,
+          upc: upcs.join(', '),
+          description: descriptions.join(' | '),
+        ),
+      );
+    }
+    result.sort((a, b) => a.ord.compareTo(b.ord));
+    return result;
+  }
+
+  DateTime? _resolveTicketDate(List<DevolucionPrintForma> formas) {
+    DateTime? latest;
+    for (final forma in formas) {
+      final current = forma.fcn;
+      if (current == null) continue;
+      if (latest == null || current.isAfter(latest)) {
+        latest = current;
+      }
+    }
+    return latest;
+  }
+
+  pw.Widget _buildVoucherSectionDevolucion({
+    required DevolucionPrintForma forma,
+    required String idfol,
+    required String suc,
+    required String? clienteNombre,
+    required String? clienteId,
+    required String? tra,
+    required DateTime? fecha,
+    required double totalOperacion,
+    required double baseFontSize,
+    required double smallFontSize,
+  }) {
+    final form = forma.form.trim().isEmpty ? '-' : forma.form.trim().toUpperCase();
+    final impd = _money(totalOperacion);
+    final autRef = (forma.aut ?? '').trim().isEmpty ? '-' : forma.aut!.trim();
+    final clienteNom = (clienteNombre ?? '').trim().isEmpty ? '-' : clienteNombre!.trim();
+    final clienteCodigo = (clienteId ?? '').trim().isEmpty ? '-' : clienteId!.trim();
+    final traValue = (tra ?? '').trim().isEmpty ? '-' : tra!.trim();
+
+    pw.Widget lineText(String text, {bool bold = false}) {
+      return pw.Padding(
+        padding: const pw.EdgeInsets.only(top: 1, bottom: 1),
+        child: pw.Text(
+          text,
+          style: pw.TextStyle(
+            fontSize: smallFontSize,
+            fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+          ),
+        ),
+      );
+    }
+
+    return pw.Padding(
+      padding: const pw.EdgeInsets.only(top: 2),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          _buildVoucherCutLine(smallFontSize: smallFontSize),
+          pw.Text(
+            'VOUCHER',
+            style: pw.TextStyle(
+              fontSize: baseFontSize,
+              fontWeight: pw.FontWeight.bold,
+            ),
+          ),
+          pw.SizedBox(height: 2),
+          pw.Text(
+            'SOPORTE RECEPCION\nPAGO',
+            textAlign: pw.TextAlign.center,
+            style: pw.TextStyle(
+              fontSize: baseFontSize,
+              fontWeight: pw.FontWeight.bold,
+            ),
+          ),
+          pw.SizedBox(height: 2),
+          pw.Text(
+            'Detalle',
+            style: pw.TextStyle(
+              fontSize: smallFontSize,
+              fontWeight: pw.FontWeight.bold,
+            ),
+          ),
+          lineText('FORM   $form'),
+          lineText('IMPD   $impd'),
+          lineText('AUT o REF   $autRef'),
+          pw.SizedBox(height: 6),
+          lineText('Nombre de cliente   $clienteNom'),
+          lineText('IDC   $clienteCodigo'),
+          lineText('FCN   ${_fmtDateTime(fecha)}'),
+          pw.SizedBox(height: 16),
+          lineText('____________________________'),
+          lineText('Firma cliente'),
+          lineText('SUC   $suc   TRA   $traValue'),
+          lineText('IDFOL   $idfol', bold: true),
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _buildVoucherCutLine({required double smallFontSize}) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.only(top: 2, bottom: 2),
+      child: pw.Row(
+        children: [
+          pw.Expanded(
+            child: pw.Text(
+              '----------------',
+              style: pw.TextStyle(fontSize: smallFontSize),
+            ),
+          ),
+          pw.SizedBox(width: 4),
+          pw.Text(
+            '✂',
+            style: pw.TextStyle(
+              fontSize: smallFontSize + 1,
+              fontWeight: pw.FontWeight.bold,
+            ),
+          ),
+          pw.SizedBox(width: 4),
+          pw.Expanded(
+            child: pw.Text(
+              '----------------',
+              textAlign: pw.TextAlign.right,
+              style: pw.TextStyle(fontSize: smallFontSize),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   pw.Widget _buildTicketDetalleItem(
@@ -638,11 +876,10 @@ class _PagoDevolucionPageState extends ConsumerState<PagoDevolucionPage> {
     return pw.Row(
       mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
       children: [
-        pw.Text(label, style: pw.TextStyle(fontSize: fontSize)),
-        pw.Text(
-          value,
-          style: pw.TextStyle(fontSize: fontSize, fontWeight: pw.FontWeight.bold),
+        pw.Expanded(
+          child: pw.Text(label, style: pw.TextStyle(fontSize: fontSize)),
         ),
+        pw.Text(value, style: pw.TextStyle(fontSize: fontSize)),
       ],
     );
   }
@@ -651,6 +888,8 @@ class _PagoDevolucionPageState extends ConsumerState<PagoDevolucionPage> {
     final is58 = widthMm <= 58;
     final charsPerLine = is58 ? 28 : 34;
     final lineMm = is58 ? 3.3 : 3.9;
+    final isCotizacionAbierta = data.totals.tipotran.trim().toUpperCase() == 'CA';
+    final ords = _collectOrdsFromItems(data.items);
     double mm = 0;
 
     mm += 6;
@@ -695,19 +934,22 @@ class _PagoDevolucionPageState extends ConsumerState<PagoDevolucionPage> {
     }
 
     mm += 8;
-    mm += lineMm * 7;
-    mm += 5;
-    if (data.formas.isEmpty) {
-      mm += lineMm;
-    } else {
-      for (final forma in data.formas) {
+    mm += lineMm;
+    if (!isCotizacionAbierta) {
+      mm += lineMm * 6;
+      mm += 5;
+      if (data.formas.isEmpty) {
         mm += lineMm;
-        final ref = (forma.aut ?? '').trim();
-        if (ref.isNotEmpty) {
-          mm += _measureTextHeightMm('REF: $ref', charsPerLine, lineMm);
-        }
-        if (forma.fcn != null) {
+      } else {
+        for (final forma in data.formas) {
           mm += lineMm;
+          final ref = (forma.aut ?? '').trim();
+          if (ref.isNotEmpty) {
+            mm += _measureTextHeightMm('REF: $ref', charsPerLine, lineMm);
+          }
+          if (forma.fcn != null) {
+            mm += lineMm;
+          }
         }
       }
     }
@@ -729,6 +971,11 @@ class _PagoDevolucionPageState extends ConsumerState<PagoDevolucionPage> {
       charsPerLine,
       lineMm,
     );
+    mm += _measureTextHeightMm(
+      'FCNM: ${_fmtDateTime(_resolveTicketDate(data.formas))}',
+      charsPerLine,
+      lineMm,
+    );
     mm += _measureTextHeightMm('ESTADO: ${footer.esta ?? '-'}', charsPerLine, lineMm);
     mm += _measureTextHeightMm('AUT: ${footer.aut ?? '-'}', charsPerLine, lineMm);
     mm += _measureTextHeightMm(
@@ -737,6 +984,34 @@ class _PagoDevolucionPageState extends ConsumerState<PagoDevolucionPage> {
       lineMm,
     );
 
+    mm += 7;
+    if (ords.isEmpty) {
+      mm += lineMm;
+    } else {
+      for (final ord in ords) {
+        mm += _measureTextHeightMm('ORD: ${ord.ord}', charsPerLine, lineMm);
+        mm += _measureTextHeightMm(
+          'DES: ${ord.description.isEmpty ? '-' : ord.description}',
+          charsPerLine,
+          lineMm,
+        );
+        mm += _measureTextHeightMm(
+          'UPC: ${ord.upc.isEmpty ? '-' : ord.upc}',
+          charsPerLine,
+          lineMm,
+        );
+        mm += 2.5;
+      }
+    }
+    final nonCashFormas = data.formas
+        .where((f) => f.form.trim().toUpperCase() != 'EFECTIVO')
+        .toList(growable: false);
+    if (nonCashFormas.isNotEmpty) {
+      mm += 6;
+      final perVoucher = is58 ? 108.0 : 120.0;
+      mm += nonCashFormas.length * perVoucher;
+    }
+
     mm += is58 ? 10 : 16;
     final minMm = is58 ? 170.0 : 220.0;
     final maxMm = is58 ? 1400.0 : 1900.0;
@@ -744,11 +1019,19 @@ class _PagoDevolucionPageState extends ConsumerState<PagoDevolucionPage> {
   }
 
   double _measureTextHeightMm(String text, int charsPerLine, double lineMm) {
-    final safe = text.trim();
-    if (safe.isEmpty) return lineMm;
-    final len = safe.length;
-    final lines = (len / charsPerLine).ceil().clamp(1, 12);
-    return lines * lineMm;
+    final value = text.trim();
+    if (value.isEmpty) return 0;
+    final normalized = value.replaceAll('\r', '');
+    var totalLines = 0;
+    for (final rawLine in normalized.split('\n')) {
+      final line = rawLine.trim();
+      if (line.isEmpty) {
+        totalLines += 1;
+        continue;
+      }
+      totalLines += max(1, (line.length / charsPerLine).ceil());
+    }
+    return totalLines * lineMm;
   }
 
   double _mmToPt(double mm) => mm * PdfPageFormat.mm;
@@ -758,8 +1041,8 @@ class _PagoDevolucionPageState extends ConsumerState<PagoDevolucionPage> {
   String _fmtDateTime(DateTime? value) {
     if (value == null) return '-';
     final local = value.toLocal();
-    String two(int v) => v.toString().padLeft(2, '0');
-    return '${local.year}-${two(local.month)}-${two(local.day)} ${two(local.hour)}:${two(local.minute)}';
+    String p2(int n) => n.toString().padLeft(2, '0');
+    return '${p2(local.day)}/${p2(local.month)}/${local.year} ${p2(local.hour)}:${p2(local.minute)}';
   }
 
   String _nextId() {
@@ -767,6 +1050,18 @@ class _PagoDevolucionPageState extends ConsumerState<PagoDevolucionPage> {
     final rnd = Random.secure().nextInt(0x100000000).toRadixString(16);
     return '$now-$rnd';
   }
+}
+
+class _DevolucionTicketOrdSummary {
+  const _DevolucionTicketOrdSummary({
+    required this.ord,
+    required this.upc,
+    required this.description,
+  });
+
+  final String ord;
+  final String upc;
+  final String description;
 }
 
 class _SectionContainer extends StatelessWidget {

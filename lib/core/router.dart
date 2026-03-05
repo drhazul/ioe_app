@@ -50,8 +50,14 @@ import '../features/modulos/ctrl_ctas/ctrl_ctas_resumen_cliente_page.dart';
 import '../features/modulos/pagos_servicios/ps_panel_page.dart';
 import '../features/modulos/pagos_servicios/ps_detalle_page.dart';
 import '../features/modulos/pagos_servicios/ps_pago_page.dart';
+import '../features/modulos/cambio_forma_pago/cambio_forma_pago_auth_page.dart';
+import '../features/modulos/cambio_forma_pago/cambio_forma_pago_panel_page.dart';
+import '../features/modulos/retiros/retiros_panel_page.dart';
+import '../features/modulos/retiros/retiro_detalle_page.dart';
+import '../features/modulos/retiros/retiro_efectivo_page.dart';
 import '../features/modulos/reloj_checador/app/reloj_checador_app_page.dart';
 import '../features/modulos/reloj_checador/consultas/reloj_checador_consultas_page.dart';
+import '../features/modulos/estado_cajon/app/estado_cajon_page.dart';
 import '../features/modulos/punto_venta/punto_venta_home_page.dart';
 import '../features/modulos/punto_venta/clientes/clientes_page.dart';
 import '../features/modulos/punto_venta/clientes/cliente_form_page.dart';
@@ -271,6 +277,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
           GoRoute(
+            path: 'estado-cajon',
+            builder: (c, s) => const EstadoCajonPage(),
+          ),
+          GoRoute(
             path: 'inventarios',
             builder: (c, s) => const InventariosPage(),
             routes: [
@@ -379,6 +389,33 @@ final routerProvider = Provider<GoRouter>((ref) {
                 ),
               ),
             ],
+          ),
+          GoRoute(
+            path: 'retiros',
+            builder: (c, s) => const RetirosPanelPage(),
+            routes: [
+              GoRoute(
+                path: 'efectivo/:idfor',
+                builder: (c, s) => RetiroEfectivoPage(
+                  idfor: s.pathParameters['idfor'] ?? '',
+                  idret: (s.uri.queryParameters['idret'] ?? '').trim(),
+                ),
+              ),
+              GoRoute(
+                path: ':idret',
+                builder: (c, s) => RetiroDetallePage(
+                  idret: s.pathParameters['idret'] ?? '',
+                ),
+              ),
+            ],
+          ),
+          GoRoute(
+            path: 'cambio-forma-pago/auth',
+            builder: (c, s) => const CambioFormaPagoAuthPage(),
+          ),
+          GoRoute(
+            path: 'cambio-forma-pago',
+            builder: (c, s) => const CambioFormaPagoPanelPage(),
           ),
           GoRoute(
             path: 'punto-venta',

@@ -18,6 +18,7 @@ class PsDetallePage extends ConsumerStatefulWidget {
 class _PsDetallePageState extends ConsumerState<PsDetallePage> {
   bool _showAdeudos = false;
   bool _updatingCliente = false;
+  bool _processingServicio = false;
 
   @override
   void initState() {
@@ -38,6 +39,20 @@ class _PsDetallePageState extends ConsumerState<PsDetallePage> {
       data: (detail) => detail.header,
       orElse: () => null,
     );
+    final appBarCanProcesar = detailAsync.maybeWhen(
+      data: (detail) {
+        final estado = (detail.header.esta ?? '').trim().toUpperCase();
+        return estado == 'PENDIENTE' || estado == 'PAGADO2';
+      },
+      orElse: () => false,
+    );
+    final appBarBlockedByStatus = detailAsync.maybeWhen(
+      data: (detail) {
+        final estado = (detail.header.esta ?? '').trim().toUpperCase();
+        return estado == 'PAGADO2';
+      },
+      orElse: () => false,
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -48,12 +63,27 @@ class _PsDetallePageState extends ConsumerState<PsDetallePage> {
         ),
         actions: [
           IconButton(
+            tooltip: 'Procesar servicio',
+            onPressed: appBarCanProcesar && !_processingServicio
+                ? _procesarServicio
+                : null,
+            icon: _processingServicio
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+                : const Icon(Icons.point_of_sale),
+          ),
+          IconButton(
             tooltip: 'Refrescar',
-            onPressed: () {
-              ref.invalidate(psDetalleProvider(widget.idFol));
-              ref.invalidate(psPagoSummaryProvider(widget.idFol));
-              ref.invalidate(psAdeudosProvider);
-            },
+            onPressed: appBarBlockedByStatus
+                ? null
+                : () {
+                    ref.invalidate(psDetalleProvider(widget.idFol));
+                    ref.invalidate(psPagoSummaryProvider(widget.idFol));
+                    ref.invalidate(psAdeudosProvider);
+                  },
             icon: const Icon(Icons.refresh),
           ),
         ],
@@ -64,8 +94,8 @@ class _PsDetallePageState extends ConsumerState<PsDetallePage> {
         data: (detail) {
           final header = detail.header;
           final estado = (header.esta ?? '').trim().toUpperCase();
-          final isPagado = estado == 'PAGADO';
-          final editable = estado == 'PENDIENTE';
+          final blockedByStatus = estado == 'PAGADO2';
+          final editable = estado == 'PENDIENTE' && !blockedByStatus;
           final client = header.clien ?? 0;
           final ticketTypes = detail.ticket
               .map((line) => (line.upc ?? '').trim().toUpperCase())
@@ -75,23 +105,21 @@ class _PsDetallePageState extends ConsumerState<PsDetallePage> {
           final hasGastoService = ticketTypes.any((upc) => upc == 'DC' || upc == 'DG');
           final canUseAdeudos = client > 1;
           final hasTicketLines = detail.ticket.isNotEmpty;
-          final adeudosAsync = (_showAdeudos && canUseAdeudos && hasAdeudoService)
+          final adeudosAsync = (_showAdeudos && canUseAdeudos && hasAdeudoService && !blockedByStatus)
               ? ref.watch(psAdeudosProvider(client))
               : null;
 
           final topLine = _TopActionsLine(
             services: detail.servicios,
             editable: editable,
-            isPagado: isPagado,
             showAdeudos: _showAdeudos,
             canUseAdeudos: canUseAdeudos,
             hasAdeudoService: hasAdeudoService,
             hasTicketLines: hasTicketLines,
             selectingCliente: _updatingCliente,
+            blockedByStatus: blockedByStatus,
             onSelectCliente: () => _seleccionarCliente(header, detail.ticket),
             onToggleAdeudos: () => setState(() => _showAdeudos = !_showAdeudos),
-            onProcesar: _procesarServicio,
-            onTerminar: _terminar,
             onAddService: _agregarServicio,
           );
 
@@ -99,6 +127,7 @@ class _PsDetallePageState extends ConsumerState<PsDetallePage> {
             lines: detail.ticket,
             selectedArt: selectedArt,
             editable: editable,
+            interactive: !blockedByStatus,
             onSelect: (art) => ref.read(psSelectedArtProvider.notifier).state = art,
             onEdit: _editarPvta,
             onDelete: _eliminarLinea,
@@ -113,6 +142,7 @@ class _PsDetallePageState extends ConsumerState<PsDetallePage> {
                   selectedArt: selectedArt,
                   editable: editable,
                   onAssign: _asignarReferenciaAdeudo,
+                  onViewDetalle: _mostrarRegistrosAdeudo,
                 ),
               if (_showAdeudos && canUseAdeudos && hasAdeudoService) const SizedBox(height: 12),
               if (hasGastoService)
@@ -150,6 +180,7 @@ class _PsDetallePageState extends ConsumerState<PsDetallePage> {
                         selectedArt: selectedArt,
                         editable: editable,
                         onAssign: _asignarReferenciaAdeudo,
+                        onViewDetalle: _mostrarRegistrosAdeudo,
                       ),
                     if (_showAdeudos && canUseAdeudos && hasAdeudoService) const SizedBox(height: 12),
                     if (hasGastoService)
@@ -209,6 +240,14 @@ class _PsDetallePageState extends ConsumerState<PsDetallePage> {
   }
 
   Future<void> _agregarServicio(PsServicioItem item) async {
+    final ids = item.ids.trim().toUpperCase();
+    final detail = ref.read(psDetalleProvider(widget.idFol)).valueOrNull;
+    final clien = detail?.header.clien ?? 0;
+    if ((ids == 'AD' || ids == 'AP' || ids == 'CR') && clien <= 1) {
+      _showError('Seleccione Cliente');
+      return;
+    }
+
     try {
       final res = await ref.read(psApiProvider).addService(
             idFol: widget.idFol,
@@ -400,6 +439,48 @@ class _PsDetallePageState extends ConsumerState<PsDetallePage> {
     }
   }
 
+  Future<void> _mostrarRegistrosAdeudo(Map<String, dynamic> row) async {
+    final detail = ref.read(psDetalleProvider(widget.idFol)).valueOrNull;
+    final headerClient = detail?.header.clien ?? 0;
+    final rowClientText = (row['CLIENT'] ?? row['client'] ?? '').toString().trim();
+    final rowClient = int.tryParse(rowClientText.split('.').first) ?? 0;
+    final client = headerClient > 0 ? headerClient : rowClient;
+
+    if (client <= 0) {
+      _showError('No se encontró cliente válido para consultar DAT_CTRL_CTAS');
+      return;
+    }
+
+    final idFolRef = _resolveAdeudoFolio(row);
+    if (idFolRef.isEmpty) {
+      _showError('El registro seleccionado no contiene IDFOL');
+      return;
+    }
+
+    try {
+      final rows = await ref.read(psApiProvider).fetchAdeudosFolioDetalle(
+            client: client,
+            idFol: idFolRef,
+          );
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => _AdeudoDetalleDialog(
+          idFol: idFolRef,
+          rows: rows,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      _showError(
+        apiErrorMessage(
+          e,
+          fallback: 'No se pudieron consultar registros DAT_CTRL_CTAS del folio',
+        ),
+      );
+    }
+  }
+
   Future<void> _asignarReferenciaGasto(PsRefGastoItem item) async {
     final art = (ref.read(psSelectedArtProvider) ?? '').trim();
     if (art.isEmpty) {
@@ -421,6 +502,7 @@ class _PsDetallePageState extends ConsumerState<PsDetallePage> {
   }
 
   Future<void> _procesarServicio() async {
+    setState(() => _processingServicio = true);
     try {
       await ref.read(psApiProvider).procesar(widget.idFol);
       ref.invalidate(psDetalleProvider(widget.idFol));
@@ -430,18 +512,8 @@ class _PsDetallePageState extends ConsumerState<PsDetallePage> {
     } catch (e) {
       if (!mounted) return;
       _showError(apiErrorMessage(e, fallback: 'No se pudo procesar servicio'));
-    }
-  }
-
-  Future<void> _terminar() async {
-    try {
-      await ref.read(psApiProvider).terminar(widget.idFol);
-      ref.invalidate(psFoliosProvider);
-      if (!mounted) return;
-      context.go('/ps');
-    } catch (e) {
-      if (!mounted) return;
-      _showError(apiErrorMessage(e, fallback: 'No se pudo terminar folio'));
+    } finally {
+      if (mounted) setState(() => _processingServicio = false);
     }
   }
 
@@ -556,31 +628,27 @@ class _TopActionsLine extends StatelessWidget {
   const _TopActionsLine({
     required this.services,
     required this.editable,
-    required this.isPagado,
     required this.showAdeudos,
     required this.canUseAdeudos,
     required this.hasAdeudoService,
     required this.hasTicketLines,
     required this.selectingCliente,
+    required this.blockedByStatus,
     required this.onSelectCliente,
     required this.onToggleAdeudos,
-    required this.onProcesar,
-    required this.onTerminar,
     required this.onAddService,
   });
 
   final List<PsServicioItem> services;
   final bool editable;
-  final bool isPagado;
   final bool showAdeudos;
   final bool canUseAdeudos;
   final bool hasAdeudoService;
   final bool hasTicketLines;
   final bool selectingCliente;
+  final bool blockedByStatus;
   final VoidCallback onSelectCliente;
   final VoidCallback onToggleAdeudos;
-  final VoidCallback onProcesar;
-  final VoidCallback onTerminar;
   final ValueChanged<PsServicioItem> onAddService;
 
   @override
@@ -598,7 +666,9 @@ class _TopActionsLine extends StatelessWidget {
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           OutlinedButton.icon(
-            onPressed: (hasTicketLines || selectingCliente) ? null : onSelectCliente,
+            onPressed: (hasTicketLines || selectingCliente || blockedByStatus)
+                ? null
+                : onSelectCliente,
             icon: selectingCliente
                 ? const SizedBox(
                     width: 14,
@@ -609,25 +679,16 @@ class _TopActionsLine extends StatelessWidget {
             label: const Text('Seleccione Cliente'),
           ),
           OutlinedButton.icon(
-            onPressed: (canUseAdeudos && hasAdeudoService) ? onToggleAdeudos : null,
+            onPressed: (canUseAdeudos && hasAdeudoService && !blockedByStatus)
+                ? onToggleAdeudos
+                : null,
             icon: Icon(showAdeudos ? Icons.visibility_off : Icons.receipt_long),
             label: Text(showAdeudos ? 'Ocultar adeudos' : 'Adeudos cliente'),
           ),
-          FilledButton.icon(
-            onPressed: editable ? onProcesar : null,
-            icon: const Icon(Icons.play_arrow),
-            label: const Text('Procesar servicio'),
-          ),
-          if (isPagado)
-            FilledButton.icon(
-              onPressed: onTerminar,
-              icon: const Icon(Icons.lock),
-              label: const Text('Terminar'),
-            ),
           ...services.map((item) {
             return ActionChip(
               label: Text('${item.ids} - ${item.dessv}'),
-              onPressed: editable ? () => onAddService(item) : null,
+              onPressed: (editable && !blockedByStatus) ? () => onAddService(item) : null,
             );
           }),
         ],
@@ -790,6 +851,7 @@ class _TicketSection extends StatelessWidget {
     required this.lines,
     required this.selectedArt,
     required this.editable,
+    required this.interactive,
     required this.onSelect,
     required this.onEdit,
     required this.onDelete,
@@ -798,6 +860,7 @@ class _TicketSection extends StatelessWidget {
   final List<PsTicketLine> lines;
   final String? selectedArt;
   final bool editable;
+  final bool interactive;
   final ValueChanged<String?> onSelect;
   final ValueChanged<PsTicketLine> onEdit;
   final ValueChanged<PsTicketLine> onDelete;
@@ -819,13 +882,13 @@ class _TicketSection extends StatelessWidget {
               Column(
                 children: lines.map((line) {
                   final art = (line.art ?? '').trim();
-                  final selected = art.isNotEmpty && art == (selectedArt ?? '').trim();
-                  return Container(
-                    color: selected ? Colors.blue.shade50 : null,
-                    child: ListTile(
-                      dense: true,
-                      onTap: () => onSelect(art.isEmpty ? null : art),
-                      title: Text('${line.art ?? '-'} | ${line.des ?? '-'}'),
+                    final selected = art.isNotEmpty && art == (selectedArt ?? '').trim();
+                    return Container(
+                      color: selected ? Colors.blue.shade50 : null,
+                      child: ListTile(
+                        dense: true,
+                        onTap: interactive ? () => onSelect(art.isEmpty ? null : art) : null,
+                        title: Text('${line.art ?? '-'} | ${line.des ?? '-'}'),
                       subtitle: Text(
                         'ORD: ${line.ord ?? '-'} | CTD: ${line.ctd ?? 0} | PVTA: ${line.pvta ?? '-'} | TOTAL: ${line.total ?? '-'}',
                       ),
@@ -861,12 +924,14 @@ class _AdeudosSection extends StatelessWidget {
     required this.selectedArt,
     required this.editable,
     required this.onAssign,
+    required this.onViewDetalle,
   });
 
   final AsyncValue<PsAdeudosResponse>? adeudosAsync;
   final String? selectedArt;
   final bool editable;
   final ValueChanged<Map<String, dynamic>> onAssign;
+  final ValueChanged<Map<String, dynamic>> onViewDetalle;
 
   @override
   Widget build(BuildContext context) {
@@ -900,11 +965,25 @@ class _AdeudosSection extends StatelessWidget {
                         contentPadding: EdgeInsets.zero,
                         title: Text('Folio: ${folio.isEmpty ? '-' : folio} | Relación: ${relacion.isEmpty ? '-' : relacion}'),
                         subtitle: Text('Adeudo: ${adeudo.isEmpty ? '-' : adeudo}'),
-                        trailing: OutlinedButton(
-                          onPressed: editable && (selectedArt ?? '').trim().isNotEmpty
-                              ? () => onAssign(row)
-                              : null,
-                          child: const Text('Asignar referencia'),
+                        trailing: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 260),
+                          child: Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            alignment: WrapAlignment.end,
+                            children: [
+                              OutlinedButton(
+                                onPressed: folio.isEmpty ? null : () => onViewDetalle(row),
+                                child: const Text('Ver registros'),
+                              ),
+                              OutlinedButton(
+                                onPressed: editable && (selectedArt ?? '').trim().isNotEmpty
+                                    ? () => onAssign(row)
+                                    : null,
+                                child: const Text('Asignar referencia'),
+                              ),
+                            ],
+                          ),
                         ),
                       );
                     }).toList(),
@@ -923,6 +1002,163 @@ class _AdeudosSection extends StatelessWidget {
       if (value.isNotEmpty) return value;
     }
     return '';
+  }
+}
+
+class _AdeudoDetalleDialog extends StatefulWidget {
+  const _AdeudoDetalleDialog({
+    required this.idFol,
+    required this.rows,
+  });
+
+  final String idFol;
+  final List<Map<String, dynamic>> rows;
+
+  @override
+  State<_AdeudoDetalleDialog> createState() => _AdeudoDetalleDialogState();
+}
+
+class _AdeudoDetalleDialogState extends State<_AdeudoDetalleDialog> {
+  late final ScrollController _horizontalCtrl;
+  late final ScrollController _verticalCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _horizontalCtrl = ScrollController();
+    _verticalCtrl = ScrollController();
+  }
+
+  @override
+  void dispose() {
+    _horizontalCtrl.dispose();
+    _verticalCtrl.dispose();
+    super.dispose();
+  }
+
+  static const List<String> _columns = [
+    'SUC',
+    'IDFOL',
+    'IMPT',
+    'NDOC',
+    'CTA',
+    'CLIENT',
+    'FCND',
+    'CLSD',
+    'RTXT',
+    'IDOPV',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final tableRows = widget.rows.asMap().entries.map((entry) {
+      final row = entry.value;
+      final index = entry.key + 1;
+      final ndoc = _value(row, const ['NDOC', 'ndoc']);
+      final cta = _value(row, const ['CTA', 'cta']);
+      final client = _value(row, const ['CLIENT', 'client']);
+      final fcnd = _value(row, const ['FCND', 'fcnd', 'FCN', 'fcn', 'FCNR', 'fcnr']);
+      final clsd = _value(row, const ['CLSD', 'clsd', 'CMOV', 'cmov']);
+      final idfol = _value(row, const ['IDFOL', 'idfol']);
+      final rtxt = _value(row, const ['RTXT', 'rtxt']);
+      final impt = _formatAmount(_value(row, const ['IMPT', 'impt']));
+      final suc = _value(row, const ['SUC', 'suc']);
+      final idopv = _value(row, const ['IDOPV', 'idopv', 'OPV', 'opv']);
+
+      return DataRow(
+        cells: [
+          DataCell(Text(index.toString())),
+          DataCell(SelectableText(suc)),
+          DataCell(SelectableText(idfol)),
+          DataCell(
+            Align(
+              alignment: Alignment.centerRight,
+              child: SelectableText(impt),
+            ),
+          ),
+          DataCell(SelectableText(ndoc)),
+          DataCell(SelectableText(cta)),
+          DataCell(SelectableText(client)),
+          DataCell(SelectableText(fcnd)),
+          DataCell(SelectableText(clsd)),
+          DataCell(SelectableText(rtxt)),
+          DataCell(SelectableText(idopv)),
+        ],
+      );
+    }).toList(growable: false);
+
+    return AlertDialog(
+      title: Text('DAT_CTRL_CTAS - Folio ${widget.idFol}'),
+      content: SizedBox(
+        width: 900,
+        height: 520,
+        child: widget.rows.isEmpty
+            ? const Center(
+                child: Text('Sin registros para este folio en DAT_CTRL_CTAS'),
+              )
+            : Scrollbar(
+                controller: _horizontalCtrl,
+                thumbVisibility: true,
+                notificationPredicate: (notification) =>
+                    notification.metrics.axis == Axis.horizontal,
+                child: SingleChildScrollView(
+                  controller: _horizontalCtrl,
+                  scrollDirection: Axis.horizontal,
+                  primary: false,
+                  child: SizedBox(
+                    width: 1450,
+                    child: Scrollbar(
+                      controller: _verticalCtrl,
+                      thumbVisibility: true,
+                      notificationPredicate: (notification) =>
+                          notification.metrics.axis == Axis.vertical,
+                      child: SingleChildScrollView(
+                        controller: _verticalCtrl,
+                        primary: false,
+                        child: DataTable(
+                          headingRowHeight: 34,
+                          dataRowMinHeight: 32,
+                          dataRowMaxHeight: 36,
+                          columnSpacing: 18,
+                          border: TableBorder.all(
+                            color: Theme.of(context).dividerColor.withValues(alpha: 0.45),
+                            width: 0.8,
+                          ),
+                          columns: [
+                            const DataColumn(label: Text('#')),
+                            ..._columns.map((name) => DataColumn(label: Text(name))),
+                          ],
+                          rows: tableRows,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+      ),
+      actions: [
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cerrar'),
+        ),
+      ],
+    );
+  }
+
+  String _value(Map<String, dynamic> row, List<String> keys) {
+    for (final key in keys) {
+      final value = row[key];
+      if (value == null) continue;
+      final text = value.toString().trim();
+      if (text.isNotEmpty) return text;
+    }
+    return '-';
+  }
+
+  String _formatAmount(String raw) {
+    final value = double.tryParse(raw.replaceAll(',', ''));
+    if (value == null) return raw;
+    return value.toStringAsFixed(2);
   }
 }
 

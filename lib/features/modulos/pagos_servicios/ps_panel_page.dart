@@ -22,7 +22,6 @@ class _PsPanelPageState extends ConsumerState<PsPanelPage> {
   final _searchCtrl = TextEditingController();
   final _sucCtrl = TextEditingController();
   final _opvCtrl = TextEditingController();
-  String _esta = 'PENDIENTE';
 
   int? _roleId;
   String? _userSuc;
@@ -57,6 +56,11 @@ class _PsPanelPageState extends ConsumerState<PsPanelPage> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          tooltip: 'Regresar a Punto de Venta',
+          onPressed: () => context.go('/punto-venta'),
+          icon: const Icon(Icons.arrow_back),
+        ),
         title: const Text('Pago de Servicios - Panel'),
         actions: [
           IconButton(
@@ -92,8 +96,6 @@ class _PsPanelPageState extends ConsumerState<PsPanelPage> {
                   searchCtrl: _searchCtrl,
                   sucCtrl: _sucCtrl,
                   opvCtrl: _opvCtrl,
-                  esta: _esta,
-                  onEstaChanged: (value) => setState(() => _esta = value),
                   onSearch: _applyFilters,
                   onClear: _clearFilters,
                   onSucChanged: (value) => setState(() => _sucCtrl.text = value?.trim() ?? ''),
@@ -104,7 +106,13 @@ class _PsPanelPageState extends ConsumerState<PsPanelPage> {
                   selected: _selected,
                   onSelect: (item) {
                     setState(() => _selected = item);
-                    context.go('/ps/${Uri.encodeComponent(item.idfol)}');
+                    final estado = (item.esta ?? '').trim().toUpperCase();
+                    final idfol = Uri.encodeComponent(item.idfol);
+                    if (estado == 'PAGADO') {
+                      context.go('/ps/$idfol/pago');
+                      return;
+                    }
+                    context.go('/ps/$idfol');
                   },
                 ),
               ],
@@ -122,11 +130,12 @@ class _PsPanelPageState extends ConsumerState<PsPanelPage> {
     final suc = isAdmin
         ? _sucCtrl.text.trim()
         : (_userSuc ?? _sucCtrl.text).trim();
+    final opv = (_userOpv ?? _opvCtrl.text).trim();
 
     setState(() => _selected = null);
     ref.read(psPanelQueryProvider.notifier).state = PsPanelQuery(
       suc: suc,
-      esta: _esta,
+      opv: opv,
       search: _searchCtrl.text.trim(),
     );
   }
@@ -140,12 +149,11 @@ class _PsPanelPageState extends ConsumerState<PsPanelPage> {
       } else {
         _sucCtrl.text = (_userSuc ?? '').trim();
       }
-      _esta = 'PENDIENTE';
       _selected = null;
     });
     ref.read(psPanelQueryProvider.notifier).state = PsPanelQuery(
       suc: _sucCtrl.text.trim(),
-      esta: _esta,
+      opv: (_userOpv ?? _opvCtrl.text).trim(),
       search: '',
     );
   }
@@ -225,7 +233,7 @@ class _PsPanelPageState extends ConsumerState<PsPanelPage> {
 
     final query = PsPanelQuery(
       suc: roleId == 1 ? _sucCtrl.text.trim() : suc,
-      esta: _esta,
+      opv: opv,
       search: '',
     );
 
@@ -264,8 +272,6 @@ class _PsTopFilters extends ConsumerWidget {
     required this.searchCtrl,
     required this.sucCtrl,
     required this.opvCtrl,
-    required this.esta,
-    required this.onEstaChanged,
     required this.onSearch,
     required this.onClear,
     required this.onSucChanged,
@@ -275,8 +281,6 @@ class _PsTopFilters extends ConsumerWidget {
   final TextEditingController searchCtrl;
   final TextEditingController sucCtrl;
   final TextEditingController opvCtrl;
-  final String esta;
-  final ValueChanged<String> onEstaChanged;
   final VoidCallback onSearch;
   final VoidCallback onClear;
   final ValueChanged<String?> onSucChanged;
@@ -339,26 +343,6 @@ class _PsTopFilters extends ConsumerWidget {
             else
               _SmallField(label: 'Sucursal', controller: sucCtrl, enabled: false),
             _SmallField(label: 'OPV', controller: opvCtrl, enabled: false),
-            SizedBox(
-              width: 180,
-              child: DropdownButtonFormField<String>(
-                initialValue: esta,
-                decoration: const InputDecoration(
-                  labelText: 'Estado',
-                  border: OutlineInputBorder(),
-                  isDense: true,
-                ),
-                items: const [
-                  DropdownMenuItem(value: 'PENDIENTE', child: Text('PENDIENTE')),
-                  DropdownMenuItem(value: 'PAGADO', child: Text('PAGADO')),
-                  DropdownMenuItem(value: 'ALL', child: Text('ALL')),
-                ],
-                onChanged: (value) {
-                  if (value == null) return;
-                  onEstaChanged(value);
-                },
-              ),
-            ),
             SizedBox(
               width: 360,
               child: TextField(

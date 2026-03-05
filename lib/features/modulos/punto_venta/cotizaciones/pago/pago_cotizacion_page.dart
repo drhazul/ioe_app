@@ -266,7 +266,7 @@ class _PagoCotizacionPageState extends ConsumerState<PagoCotizacionPage> {
                       label: Text(
                         state.submitting
                             ? 'Finalizando...'
-                            : 'Finalizar cierre',
+                            : 'Finalizar Cotizacion',
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -440,6 +440,10 @@ class _PagoCotizacionPageState extends ConsumerState<PagoCotizacionPage> {
       }
       return;
     }
+    if (context.canPop()) {
+      context.pop();
+      return;
+    }
     final idfolEncoded = Uri.encodeComponent(widget.idfol);
     context.go('/punto-venta/cotizaciones/$idfolEncoded/detalle');
   }
@@ -536,6 +540,9 @@ class _PagoCotizacionPageState extends ConsumerState<PagoCotizacionPage> {
     final smallFontSize = widthMm <= 58 ? 8.0 : 9.0;
     final line = '-' * (widthMm <= 58 ? 30 : 38);
     final isCotizacionAbierta = totals.tipotran.trim().toUpperCase() == 'CA';
+    final nonCashFormas = data.formas
+        .where((f) => f.form.trim().toUpperCase() != 'EFECTIVO')
+        .toList(growable: false);
 
     final opvLabel = [
       if ((footer.opv ?? '').trim().isNotEmpty) footer.opv!.trim(),
@@ -713,68 +720,31 @@ class _PagoCotizacionPageState extends ConsumerState<PagoCotizacionPage> {
                 ),
               );
             }),
-          pw.SizedBox(height: 4),
-          pw.Text(line, style: pw.TextStyle(fontSize: smallFontSize)),
-          pw.Text(
-            'ORDS',
-            style: pw.TextStyle(
-              fontSize: baseFontSize,
-              fontWeight: pw.FontWeight.bold,
-            ),
-          ),
-          if (data.ords.isEmpty)
+          if (nonCashFormas.isNotEmpty)
             pw.Text(
-              'Sin ORDs ligadas',
-              style: pw.TextStyle(fontSize: smallFontSize),
-            )
-          else
-              ...data.ords.map((ord) {
-                final ordUpc = _resolveOrdUpc(ord, data.items);
-                final ordDesc = (ord.desc ?? '').trim();
-                final ordTipo = (ord.tipo ?? '').trim();
-                final barcodeData = _sanitizeCode39Data(ord.iord);
-                return pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    _buildOrdCutLine(smallFontSize: smallFontSize),
-                    pw.Text(
-                      'ORD: ${ord.iord}',
-                      style: pw.TextStyle(fontSize: baseFontSize),
-                    ),
-                    pw.Text(
-                      'UPC: ${ordUpc.isEmpty ? '-' : ordUpc}',
-                      style: pw.TextStyle(fontSize: smallFontSize),
-                    ),
-                    if (ordDesc.isNotEmpty)
-                      pw.Text(
-                        ordDesc,
-                        style: pw.TextStyle(fontSize: smallFontSize),
-                      ),
-                    if (ordTipo.isNotEmpty)
-                      pw.Text(
-                        'TIPO: $ordTipo',
-                        style: pw.TextStyle(fontSize: smallFontSize),
-                      ),
-                    if (barcodeData.isNotEmpty)
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.only(top: 2, bottom: 3),
-                        child: pw.BarcodeWidget(
-                          barcode: pw.Barcode.code39(),
-                          data: barcodeData,
-                          drawText: true,
-                          textStyle: pw.TextStyle(fontSize: smallFontSize),
-                          width: widthMm <= 58 ? _mmToPt(48) : _mmToPt(70),
-                          height: widthMm <= 58 ? 30 : 36,
-                        ),
-                      ),
-                    _buildOrdDetailsTable(
-                      ord,
-                      smallFontSize: smallFontSize,
-                    ),
-                    pw.SizedBox(height: 2),
-                  ],
-                );
-            }),
+              'GRACIAS POR SU CONFIANZA',
+              style: pw.TextStyle(
+                fontSize: smallFontSize,
+                fontWeight: pw.FontWeight.bold,
+              ),
+            ),
+          if (nonCashFormas.isNotEmpty) ...[
+            pw.SizedBox(height: 4),
+            ...nonCashFormas.map(
+              (forma) => _buildVoucherSectionCotizacion(
+                forma: forma,
+                idfol: footer.idfol,
+                suc: header.suc,
+                clienteNombre: footer.clienteNombre,
+                clienteId: footer.clienteId?.toString(),
+                tra: null,
+                fecha: forma.fcn ?? footer.fcnm,
+                totalOperacion: totals.total,
+                baseFontSize: baseFontSize,
+                smallFontSize: smallFontSize,
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -816,23 +786,112 @@ class _PagoCotizacionPageState extends ConsumerState<PagoCotizacionPage> {
     );
   }
 
-  pw.Widget _buildOrdCutLine({required double smallFontSize}) {
+  pw.Widget _buildVoucherCutLine({required double smallFontSize}) {
     return pw.Padding(
       padding: const pw.EdgeInsets.only(top: 2, bottom: 2),
       child: pw.Row(
         children: [
-          pw.Expanded(child: pw.Container(height: 0.8, color: PdfColors.grey700)),
-          pw.Padding(
-            padding: const pw.EdgeInsets.symmetric(horizontal: 4),
+          pw.Expanded(
             child: pw.Text(
-              '✂',
-              style: pw.TextStyle(
-                fontSize: smallFontSize + 1,
-                fontWeight: pw.FontWeight.bold,
-              ),
+              '----------------',
+              style: pw.TextStyle(fontSize: smallFontSize),
             ),
           ),
-          pw.Expanded(child: pw.Container(height: 0.8, color: PdfColors.grey700)),
+          pw.SizedBox(width: 4),
+          pw.Text(
+            '✂',
+            style: pw.TextStyle(
+              fontSize: smallFontSize + 1,
+              fontWeight: pw.FontWeight.bold,
+            ),
+          ),
+          pw.SizedBox(width: 4),
+          pw.Expanded(
+            child: pw.Text(
+              '----------------',
+              textAlign: pw.TextAlign.right,
+              style: pw.TextStyle(fontSize: smallFontSize),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _buildVoucherSectionCotizacion({
+    required PagoCierrePrintForma forma,
+    required String idfol,
+    required String suc,
+    required String? clienteNombre,
+    required String? clienteId,
+    required String? tra,
+    required DateTime? fecha,
+    required double totalOperacion,
+    required double baseFontSize,
+    required double smallFontSize,
+  }) {
+    final form = forma.form.trim().isEmpty ? '-' : forma.form.trim().toUpperCase();
+    final impd = _money(totalOperacion);
+    final autRef = (forma.aut ?? '').trim().isEmpty ? '-' : forma.aut!.trim();
+    final clienteNom = (clienteNombre ?? '').trim().isEmpty ? '-' : clienteNombre!.trim();
+    final clienteCodigo = (clienteId ?? '').trim().isEmpty ? '-' : clienteId!.trim();
+    final traValue = (tra ?? '').trim().isEmpty ? '-' : tra!.trim();
+
+    pw.Widget lineText(String text, {bool bold = false}) {
+      return pw.Padding(
+        padding: const pw.EdgeInsets.only(top: 1, bottom: 1),
+        child: pw.Text(
+          text,
+          style: pw.TextStyle(
+            fontSize: smallFontSize,
+            fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+          ),
+        ),
+      );
+    }
+
+    return pw.Padding(
+      padding: const pw.EdgeInsets.only(top: 2),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          _buildVoucherCutLine(smallFontSize: smallFontSize),
+          pw.Text(
+            'VOUCHER',
+            style: pw.TextStyle(
+              fontSize: baseFontSize,
+              fontWeight: pw.FontWeight.bold,
+            ),
+          ),
+          pw.SizedBox(height: 2),
+          pw.Text(
+            'SOPORTE RECEPCION\nPAGO',
+            textAlign: pw.TextAlign.center,
+            style: pw.TextStyle(
+              fontSize: baseFontSize,
+              fontWeight: pw.FontWeight.bold,
+            ),
+          ),
+          pw.SizedBox(height: 2),
+          pw.Text(
+            'Detalle',
+            style: pw.TextStyle(
+              fontSize: smallFontSize,
+              fontWeight: pw.FontWeight.bold,
+            ),
+          ),
+          lineText('FORM   $form'),
+          lineText('IMPD   $impd'),
+          lineText('AUT o REF   $autRef'),
+          pw.SizedBox(height: 6),
+          lineText('Nombre de cliente   $clienteNom'),
+          lineText('IDC   $clienteCodigo'),
+          lineText('FCN   ${_fmtDateTime(fecha)}'),
+          pw.SizedBox(height: 16),
+          lineText('____________________________'),
+          lineText('Firma cliente'),
+          lineText('SUC   $suc   TRA   $traValue'),
+          lineText('IDFOL   $idfol', bold: true),
         ],
       ),
     );
@@ -956,41 +1015,17 @@ class _PagoCotizacionPageState extends ConsumerState<PagoCotizacionPage> {
       }
     }
 
-    // ORDs detalle.
-    mm += 7;
-    if (data.ords.isEmpty) {
-      mm += lineMm;
-    } else {
-      for (final ord in data.ords) {
-        final ordUpc = _resolveOrdUpc(ord, data.items);
-        final ordDesc = (ord.desc ?? '').trim();
-        final ordTipo = (ord.tipo ?? '').trim();
-        final barcodeData = _sanitizeCode39Data(ord.iord);
-        mm += 4.0; // linea de recorte
-        mm += _measureTextHeightMm('ORD: ${ord.iord}', charsPerLine, lineMm);
-        mm += _measureTextHeightMm(
-          'UPC: ${ordUpc.isEmpty ? '-' : ordUpc}',
-          charsPerLine,
-          lineMm,
-        );
-        if (ordDesc.isNotEmpty) {
-          mm += _measureTextHeightMm(ordDesc, charsPerLine, lineMm);
-        }
-        if (ordTipo.isNotEmpty) {
-          mm += _measureTextHeightMm('TIPO: $ordTipo', charsPerLine, lineMm);
-        }
-        if (barcodeData.isNotEmpty) {
-          mm += is58 ? 16.0 : 20.0;
-        }
-        mm += is58 ? 22.0 : 31.0; // tabla JOB/ESF/CIL/EJE
-        mm += 2.0;
-      }
+    final nonCashFormas = data.formas
+        .where((f) => f.form.trim().toUpperCase() != 'EFECTIVO')
+        .toList(growable: false);
+    if (nonCashFormas.isNotEmpty) {
+      mm += 8; // separador + titulo voucher
+      final perVoucher = is58 ? 108.0 : 120.0;
+      mm += nonCashFormas.length * perVoucher;
     }
 
     // Ajuste final para evitar saltos por redondeo/render.
-    // En 80mm se aplica un buffer extra porque el bloque de ORDs puede consumir
-    // algo mas de alto en preview/impresion (tabla + barcode) y provocar hoja extra.
-    mm += is58 ? 10.0 : (42.0 + (data.ords.length * 10.0));
+    mm += is58 ? 10.0 : 16.0;
     final minMm = is58 ? 180.0 : 230.0;
     final maxMm = is58 ? 1800.0 : 2400.0;
     return mm.clamp(minMm, maxMm).toDouble();
@@ -1043,93 +1078,6 @@ class _PagoCotizacionPageState extends ConsumerState<PagoCotizacionPage> {
     }
 
     return upcs.join(', ');
-  }
-
-  String _sanitizeCode39Data(String value) {
-    final raw = value.trim().toUpperCase();
-    if (raw.isEmpty) return '';
-    final reg = RegExp(r'^[0-9A-Z\-\.\ \$\/\+\%]$');
-    final sb = StringBuffer();
-    for (final codeUnit in raw.codeUnits) {
-      final ch = String.fromCharCode(codeUnit);
-      sb.write(reg.hasMatch(ch) ? ch : '-');
-    }
-    final sanitized = sb.toString().trim();
-    return sanitized.isEmpty ? '' : sanitized;
-  }
-
-  pw.Widget _buildOrdDetailsTable(
-    PagoCierrePrintOrd ord, {
-    required double smallFontSize,
-  }) {
-    final rows = ord.details
-        .map(
-          (d) => [
-            (d.job ?? '').trim(),
-            (d.esf ?? '').trim(),
-            (d.cil ?? '').trim(),
-            (d.eje ?? '').trim(),
-          ],
-        )
-        .toList();
-
-    if (rows.isEmpty) {
-      rows.add(['', '', '', '']);
-    }
-
-    pw.Widget cell(
-      String text, {
-      required bool header,
-    }) {
-      return pw.Container(
-        padding: const pw.EdgeInsets.symmetric(vertical: 2, horizontal: 3),
-        alignment: pw.Alignment.center,
-        child: pw.Text(
-          text,
-          style: pw.TextStyle(
-            fontSize: smallFontSize,
-            fontWeight: header ? pw.FontWeight.bold : pw.FontWeight.normal,
-          ),
-        ),
-      );
-    }
-
-    return pw.Padding(
-      padding: const pw.EdgeInsets.only(top: 2, bottom: 2),
-      child: pw.Table(
-        border: pw.TableBorder.all(
-          color: PdfColors.grey700,
-          width: 0.6,
-        ),
-        columnWidths: const {
-          0: pw.FlexColumnWidth(1.0),
-          1: pw.FlexColumnWidth(1.2),
-          2: pw.FlexColumnWidth(1.2),
-          3: pw.FlexColumnWidth(1.2),
-        },
-        children: [
-          pw.TableRow(
-            decoration: const pw.BoxDecoration(color: PdfColors.grey200),
-            children: [
-              cell('JOB', header: true),
-              cell('ESF', header: true),
-              cell('CIL', header: true),
-              cell('EJE', header: true),
-            ],
-          ),
-          ...rows.map(
-            (row) => pw.TableRow(
-              children: [
-                cell(row[0], header: false),
-                cell(row[1], header: false),
-                cell(row[2], header: false),
-                cell(row[3], header: false),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   Future<_ReferenciaSinUsar?> _findReferenciaSinUsar(

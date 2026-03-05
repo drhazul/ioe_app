@@ -33,3 +33,8 @@ final devolucionDetallePreparadoProvider = FutureProvider.autoDispose
       final api = ref.read(devolucionesApiProvider);
       return api.prepararDetalle(idfolDev.trim());
     });
+
+final devolucionSelectedLineIdsProvider =
+    StateProvider.autoDispose.family<Set<String>, String>(
+      (ref, idfolDev) => <String>{},
+    );

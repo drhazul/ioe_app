@@ -9,14 +9,17 @@ class PsApi {
 
   Future<List<PsFolioItem>> fetchFolios({
     String? suc,
-    String? esta,
+    String? opv,
+    String esta = 'ALL',
     String? search,
   }) async {
+    final normalizedEsta = esta.trim().isEmpty ? 'ALL' : esta.trim().toUpperCase();
     final res = await dio.get(
       '/ps/folios',
       queryParameters: {
         if ((suc ?? '').trim().isNotEmpty) 'suc': suc!.trim(),
-        if ((esta ?? '').trim().isNotEmpty) 'esta': esta!.trim(),
+        if ((opv ?? '').trim().isNotEmpty) 'opv': opv!.trim(),
+        'esta': normalizedEsta,
         if ((search ?? '').trim().isNotEmpty) 'search': search!.trim(),
       },
     );
@@ -75,6 +78,17 @@ class PsApi {
   Future<PsAdeudosResponse> fetchAdeudosCliente(int client) async {
     final res = await dio.get('/ps/clientes/$client/adeudos');
     return PsAdeudosResponse.fromJson(Map<String, dynamic>.from(res.data as Map));
+  }
+
+  Future<List<Map<String, dynamic>>> fetchAdeudosFolioDetalle({
+    required int client,
+    required String idFol,
+  }) async {
+    final encodedFol = Uri.encodeComponent(idFol.trim());
+    final res = await dio.get('/ps/clientes/$client/adeudos/$encodedFol/detalle');
+    final data = Map<String, dynamic>.from(res.data as Map);
+    final items = (data['items'] as List?) ?? const [];
+    return items.map((row) => Map<String, dynamic>.from(row as Map)).toList();
   }
 
   Future<List<PsClienteItem>> fetchClientes() async {
@@ -199,8 +213,45 @@ class PsApi {
     return PsPagoSummary.fromJson(Map<String, dynamic>.from(res.data as Map));
   }
 
-  Future<Map<String, dynamic>> terminar(String idFol) async {
-    final res = await dio.post('/ps/folios/$idFol/terminar');
+  Future<List<PsFormaCatalogItem>> fetchFormasPagoCatalog({
+    bool includeInactive = false,
+  }) async {
+    final res = await dio.get(
+      '/dat-form',
+      queryParameters: {if (includeInactive) 'includeInactive': 'true'},
+    );
+    final data = res.data;
+    if (data is! List) return const [];
+    return data
+        .map(
+          (row) => PsFormaCatalogItem.fromJson(
+            Map<String, dynamic>.from(row as Map),
+          ),
+        )
+        .where((item) => item.form.isNotEmpty)
+        .toList();
+  }
+
+  Future<Map<String, dynamic>> finalizarPago({
+    required String idFol,
+    required List<PsFormaPagoDraftItem> formas,
+  }) async {
+    final res = await dio.post(
+      '/ps/folios/$idFol/finalizar',
+      data: {
+        'formas': formas.map((item) => item.toFinalizeJson()).toList(growable: false),
+      },
+    );
     return Map<String, dynamic>.from(res.data as Map);
+  }
+
+  Future<void> updateEstado({
+    required String idFol,
+    required String esta,
+  }) async {
+    await dio.patch(
+      '/pvctrfolasvr/$idFol',
+      data: <String, dynamic>{'ESTA': esta.trim().toUpperCase()},
+    );
   }
 }

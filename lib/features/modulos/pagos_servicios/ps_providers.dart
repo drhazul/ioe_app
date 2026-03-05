@@ -13,11 +13,26 @@ final psPanelQueryProvider = StateProvider<PsPanelQuery>(
 final psFoliosProvider = FutureProvider.autoDispose<List<PsFolioItem>>((ref) async {
   final api = ref.read(psApiProvider);
   final query = ref.watch(psPanelQueryProvider);
-  return api.fetchFolios(
+  final folios = await api.fetchFolios(
     suc: query.suc,
-    esta: query.esta,
+    opv: query.opv,
+    esta: 'ALL',
     search: query.search,
   );
+  const estadosPermitidos = {'PENDIENTE', 'PAGADO'};
+  final opvNorm = query.opv.trim().toUpperCase();
+  return folios
+      .where(
+        (folio) {
+          final estadoValido = estadosPermitidos.contains(
+            (folio.esta ?? '').trim().toUpperCase(),
+          );
+          if (!estadoValido) return false;
+          if (opvNorm.isEmpty) return true;
+          return (folio.opv ?? '').trim().toUpperCase() == opvNorm;
+        },
+      )
+      .toList(growable: false);
 });
 
 final psDetalleProvider =
@@ -43,5 +58,32 @@ final psFormasPagoProvider =
       final summary = await ref.watch(psPagoSummaryProvider(idFol).future);
       return summary.formas;
     });
+
+final psFormasCatalogProvider =
+    FutureProvider.autoDispose<List<PsFormaCatalogItem>>((ref) async {
+      final api = ref.read(psApiProvider);
+      return api.fetchFormasPagoCatalog();
+    });
+
+class PsPagoDraftFormasNotifier extends StateNotifier<List<PsFormaPagoDraftItem>> {
+  PsPagoDraftFormasNotifier() : super(const []);
+
+  void add(PsFormaPagoDraftItem item) {
+    state = [...state, item];
+  }
+
+  void removeByLocalId(String localId) {
+    state = state.where((item) => item.localId != localId).toList(growable: false);
+  }
+
+  void clear() {
+    state = const [];
+  }
+}
+
+final psPagoDraftFormasProvider = StateNotifierProvider.family<PsPagoDraftFormasNotifier,
+    List<PsFormaPagoDraftItem>, String>((ref, idFol) {
+  return PsPagoDraftFormasNotifier();
+});
 
 final psSelectedArtProvider = StateProvider<String?>((ref) => null);

@@ -335,6 +335,26 @@ class _ModuleRow extends StatelessWidget {
         moduloCode == 'PV_PNL_PS') {
       return '/ps';
     }
+    if (moduloCode == 'CAMBIO_FPGO' ||
+        moduloCode == 'CAMBIO_FORMA_PAGO' ||
+        moduloCode == 'PV_CTR_FORM_MOD' ||
+        moduloCode == 'PV_CTR_FORM_MOD_SVR' ||
+        moduloCode == 'FORM_MOD') {
+      return '/cambio-forma-pago/auth';
+    }
+    if (moduloCode == 'DAT_RET_PARCIAL' ||
+        moduloCode == 'RETIRO_PARCIAL' ||
+        moduloCode == 'PV_RETIROS' ||
+        moduloCode == 'PV_RETIRO_PARCIAL') {
+      return '/retiros';
+    }
+    if (moduloCode == 'DAT_FORM_ENTR_OPV' ||
+        moduloCode == 'DAT_RES_ENTRE_CAJ' ||
+        moduloCode == 'PV_ESTADO_CAJON' ||
+        moduloCode == 'PV_ESTADO_CAJON_OPV' ||
+        moduloCode == 'ESTADO_CAJON') {
+      return '/estado-cajon';
+    }
     if (moduloCode == 'RELOJ_CHECADOR' ||
         moduloCode == 'ATTENDANCE' ||
         moduloCode == 'DAT_RELOJ_CHECADOR' ||
@@ -362,6 +382,20 @@ class _ModuleRow extends StatelessWidget {
     }
     if (name.contains('pago') && name.contains('servicio')) {
       return '/ps';
+    }
+    if (name.contains('cambio') &&
+        name.contains('forma') &&
+        name.contains('pago')) {
+      return '/cambio-forma-pago/auth';
+    }
+    if (name.contains('retiro') &&
+        (name.contains('parcial') || name.contains('caja'))) {
+      return '/retiros';
+    }
+    if (name.contains('estado') &&
+        name.contains('cajon') &&
+        (name.contains('opv') || name.contains('caja'))) {
+      return '/estado-cajon';
     }
     if (name.contains('reloj') &&
         (name.contains('checador') ||

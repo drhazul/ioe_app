@@ -439,7 +439,7 @@ class _TopFilters extends ConsumerWidget {
               child: TextField(
                 controller: searchCtrl,
                 decoration: const InputDecoration(
-                  labelText: 'Buscar cotización',
+                  labelText: 'Buscar folio / CLIEN / razón social',
                   isDense: true,
                   border: OutlineInputBorder(),
                 ),
@@ -500,71 +500,69 @@ class _CotizacionesTable extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       elevation: 0,
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            color: Colors.grey.shade200,
-            child: const Row(
-              children: [
-                SizedBox(width: 70, child: Text('SUC', style: TextStyle(fontWeight: FontWeight.w600))),
-                SizedBox(width: 140, child: Text('OPV', style: TextStyle(fontWeight: FontWeight.w600))),
-                SizedBox(width: 240, child: Text('IDFOL', style: TextStyle(fontWeight: FontWeight.w600))),
-                SizedBox(width: 110, child: Text('FCN', style: TextStyle(fontWeight: FontWeight.w600))),
-                SizedBox(width: 70, child: Text('TRA', style: TextStyle(fontWeight: FontWeight.w600))),
-                SizedBox(width: 90, child: Text('N Cliente', style: TextStyle(fontWeight: FontWeight.w600))),
-                SizedBox(width: 140, child: Text('Estado', style: TextStyle(fontWeight: FontWeight.w600))),
-                SizedBox(width: 110, child: Text('Importe', style: TextStyle(fontWeight: FontWeight.w600))),
-                SizedBox(width: 96),
+      child: SizedBox(
+        height: 420,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SingleChildScrollView(
+            child: DataTable(
+              showCheckboxColumn: false,
+              headingRowHeight: 40,
+              dataRowMinHeight: 42,
+              dataRowMaxHeight: 48,
+              horizontalMargin: 12,
+              columnSpacing: 20,
+              columns: const [
+                DataColumn(label: Text('SUC', style: TextStyle(fontWeight: FontWeight.w600))),
+                DataColumn(label: Text('OPV', style: TextStyle(fontWeight: FontWeight.w600))),
+                DataColumn(label: Text('IDFOL', style: TextStyle(fontWeight: FontWeight.w600))),
+                DataColumn(label: Text('FCN', style: TextStyle(fontWeight: FontWeight.w600))),
+                DataColumn(label: Text('TRA', style: TextStyle(fontWeight: FontWeight.w600))),
+                DataColumn(label: Text('CLIEN', style: TextStyle(fontWeight: FontWeight.w600))),
+                DataColumn(label: Text('Razón social receptor', style: TextStyle(fontWeight: FontWeight.w600))),
+                DataColumn(label: Text('Estado', style: TextStyle(fontWeight: FontWeight.w600))),
+                DataColumn(label: Text('Importe', style: TextStyle(fontWeight: FontWeight.w600))),
+                DataColumn(label: SizedBox(width: 36)),
               ],
-            ),
-          ),
-          const Divider(height: 1),
-          SizedBox(
-            height: 420,
-            child: ListView.separated(
-              itemCount: cotizaciones.length,
-              itemBuilder: (_, index) {
-                final c = cotizaciones[index];
+              rows: cotizaciones.map((c) {
                 final selectedRow = selected?.idfol == c.idfol;
-                return InkWell(
-                  onTap: () => onSelect(c),
-                  child: Container(
-                    color: selectedRow ? Colors.blue.shade50 : null,
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    child: Row(
-                      children: [
-                        SizedBox(width: 70, child: Text(c.suc ?? '-')),
-                        SizedBox(width: 140, child: Text(c.opv ?? '-', overflow: TextOverflow.ellipsis)),
-                        SizedBox(width: 240, child: Text(c.idfol, overflow: TextOverflow.ellipsis)),
-                        SizedBox(width: 110, child: Text(_formatDate(c.fcn))),
-                        SizedBox(width: 70, child: Text(c.tra ?? '-')),
-                        SizedBox(width: 90, child: Text(c.clien?.toString() ?? '-')),
-                        SizedBox(width: 140, child: Text(c.esta ?? '-', overflow: TextOverflow.ellipsis)),
-                        SizedBox(width: 110, child: Text(_formatMoney(c.impt))),
-                        SizedBox(
-                          width: 96,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              IconButton(
-                                tooltip: 'Eliminar',
-                                onPressed: () => onDelete(c),
-                                icon: const Icon(Icons.delete_outline, size: 18),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                final razonSocial = (c.razonSocialReceptor ?? '').trim();
+                return DataRow(
+                  selected: selectedRow,
+                  onSelectChanged: (_) => onSelect(c),
+                  cells: [
+                    DataCell(_cellText(c.suc ?? '-')),
+                    DataCell(_cellText(c.opv ?? '-')),
+                    DataCell(_cellText(c.idfol)),
+                    DataCell(_cellText(_formatDate(c.fcn))),
+                    DataCell(_cellText(c.tra ?? '-')),
+                    DataCell(_cellText(c.clien?.toString() ?? '-')),
+                    DataCell(_cellText(razonSocial.isEmpty ? '-' : razonSocial)),
+                    DataCell(_cellText(c.esta ?? '-')),
+                    DataCell(_cellText(_formatMoney(c.impt), align: TextAlign.right)),
+                    DataCell(
+                      IconButton(
+                        tooltip: 'Eliminar',
+                        onPressed: () => onDelete(c),
+                        icon: const Icon(Icons.delete_outline, size: 18),
+                      ),
                     ),
-                  ),
+                  ],
                 );
-              },
-              separatorBuilder: (_, _) => const Divider(height: 1),
+              }).toList(),
             ),
           ),
-        ],
+        ),
       ),
+    );
+  }
+
+  Widget _cellText(String value, {TextAlign align = TextAlign.left}) {
+    return Text(
+      value,
+      textAlign: align,
+      softWrap: false,
+      overflow: TextOverflow.visible,
     );
   }
 

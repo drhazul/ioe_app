@@ -1,22 +1,22 @@
 class PsPanelQuery {
   const PsPanelQuery({
     this.suc = '',
-    this.esta = 'PENDIENTE',
+    this.opv = '',
     this.search = '',
   });
 
   final String suc;
-  final String esta;
+  final String opv;
   final String search;
 
   PsPanelQuery copyWith({
     String? suc,
-    String? esta,
+    String? opv,
     String? search,
   }) {
     return PsPanelQuery(
       suc: suc ?? this.suc,
-      esta: esta ?? this.esta,
+      opv: opv ?? this.opv,
       search: search ?? this.search,
     );
   }
@@ -25,12 +25,12 @@ class PsPanelQuery {
   bool operator ==(Object other) {
     return other is PsPanelQuery &&
         other.suc == suc &&
-        other.esta == esta &&
+        other.opv == opv &&
         other.search == search;
   }
 
   @override
-  int get hashCode => Object.hash(suc, esta, search);
+  int get hashCode => Object.hash(suc, opv, search);
 }
 
 class PsFolioItem {
@@ -308,6 +308,32 @@ class PsAdeudosResponse {
   }
 }
 
+class PsFormaCatalogItem {
+  PsFormaCatalogItem({
+    required this.idform,
+    required this.aspel,
+    required this.form,
+    required this.nom,
+    required this.estado,
+  });
+
+  final int? idform;
+  final int? aspel;
+  final String form;
+  final String nom;
+  final bool estado;
+
+  factory PsFormaCatalogItem.fromJson(Map<String, dynamic> json) {
+    return PsFormaCatalogItem(
+      idform: _asInt(json['idform']),
+      aspel: _asInt(json['aspel']),
+      form: (json['form']?.toString() ?? '').trim().toUpperCase(),
+      nom: (json['nom']?.toString() ?? '').trim(),
+      estado: json['estado'] == true || _asInt(json['estado']) == 1,
+    );
+  }
+}
+
 class PsFormaPagoItem {
   PsFormaPagoItem({
     required this.idf,
@@ -334,6 +360,29 @@ class PsFormaPagoItem {
       aut: _asText(json['AUT']),
       fcn: _asDate(json['FCN']),
     );
+  }
+}
+
+class PsFormaPagoDraftItem {
+  PsFormaPagoDraftItem({
+    required this.localId,
+    required this.form,
+    required this.impp,
+    this.aut,
+  });
+
+  final String localId;
+  final String form;
+  final double impp;
+  final String? aut;
+
+  Map<String, dynamic> toFinalizeJson() {
+    final normalizedAut = (aut ?? '').trim();
+    return {
+      'form': form.trim().toUpperCase(),
+      'impp': impp,
+      if (normalizedAut.isNotEmpty) 'aut': normalizedAut,
+    };
   }
 }
 
@@ -378,6 +427,30 @@ class PsPagoSummary {
             ),
           )
           .toList(),
+    );
+  }
+
+  PsPagoSummary copyWith({
+    String? idfol,
+    String? suc,
+    String? esta,
+    double? total,
+    double? pagado,
+    double? restante,
+    double? cambio,
+    int? ivaIntegrado,
+    List<PsFormaPagoItem>? formas,
+  }) {
+    return PsPagoSummary(
+      idfol: idfol ?? this.idfol,
+      suc: suc ?? this.suc,
+      esta: esta ?? this.esta,
+      total: total ?? this.total,
+      pagado: pagado ?? this.pagado,
+      restante: restante ?? this.restante,
+      cambio: cambio ?? this.cambio,
+      ivaIntegrado: ivaIntegrado ?? this.ivaIntegrado,
+      formas: formas ?? this.formas,
     );
   }
 }
