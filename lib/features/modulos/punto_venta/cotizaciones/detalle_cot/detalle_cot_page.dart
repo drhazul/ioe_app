@@ -77,7 +77,6 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
   Widget build(BuildContext context) {
     final cotizacionAsync = ref.watch(cotizacionProvider(widget.idfol));
     final localState = ref.watch(cotizacionLocalProvider(widget.idfol));
-    final ticketLogAsync = ref.watch(pvTicketLogListProvider(widget.idfol));
     ref.listen<AsyncValue<List<PvTicketLogItem>>>(
       pvTicketLogListProvider(widget.idfol),
       (prev, next) {
@@ -92,7 +91,7 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
     );
 
     return cotizacionAsync.when(
-      data: (cot) => _buildScaffold(context, cot, localState, ticketLogAsync),
+      data: (cot) => _buildScaffold(context, cot, localState),
       loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (e, _) => Scaffold(body: Center(child: Text('Error: $e'))),
     );
@@ -102,7 +101,6 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
     BuildContext context,
     PvCtrFolAsvrModel cot,
     CotizacionLocalState localState,
-    AsyncValue<List<PvTicketLogItem>> ticketLogAsync,
   ) {
     final isEstadoPagado = _isEstadoPagado(cot.esta);
     final clientesAsync = ref.watch(clientesListProvider);
@@ -148,13 +146,6 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
                 ? null
                 : () => _openPagoYCierre(cot),
             icon: const Icon(Icons.point_of_sale_outlined),
-          ),
-          IconButton(
-            tooltip: 'Limpiar local',
-            onPressed: localState.loading || ticketLogAsync.isLoading || isEstadoPagado
-                ? null
-                : () => ref.read(cotizacionLocalProvider(widget.idfol).notifier).clearAll(),
-            icon: const Icon(Icons.delete_sweep),
           ),
         ],
       ),

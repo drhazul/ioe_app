@@ -83,6 +83,7 @@ autenticacion, datos maestros, inventarios, control de cuentas y punto de venta.
 - En la vista de resumen, el filtro `!= 0` inicia activo por defecto (cliente, transaccion y detalle).
 - Punto de venta:
 - `/factclientshp` -> `FACT_CLIENT_SHP`.
+- Panel clientes UI (2026-03): en alta de cliente, el modal usa valores predeterminados `SELECCIONAR` para `RfcEmisor`/`RegimenFiscalReceptor`/`UsoCfdi` (en payload `RegimenFiscalReceptor=0` por tipo numérico) y `COLOCAR` para `EmailReceptor`; incluye botón `CANCELAR` y, después de `Guardar registro`, cierra el modal y refresca la consulta del panel.
 - `/pvctrfolasvr` -> `PV_CTR_FOL_ASVR`.
 - `/pv/devoluciones/*` -> `PV_CTR_FOL_ASVR`, `PV_DEV_DET_TMP`, `PV_TICKET_LOG`, `PV_CTR_FOL_FORM(_SVR)`, `PV_CTR_ORDS`, `FAC_SVR_SHAP`, `FACT_IDFOLDEV`, `DAT_CTRL_CTAS`.
 - `/ps/*` -> `PV_CTR_FOL_ASVR`, `PV_TICKET_LOG`, `PV_CTR_FOL_FORM`, `DAT_CTRL_CTAS`, `PV_DAT_PS`, `DAT_REF_GTO`.
@@ -175,7 +176,9 @@ autenticacion, datos maestros, inventarios, control de cuentas y punto de venta.
 - en pago, para formas no `EFECTIVO`, `Autorización/referencia` no es editable y se captura reutilizando `ref_detalle_page.dart` (`Generar/Asignar referencia`).
 - en pago, una forma distinta de `EFECTIVO` no puede superar el restante por pagar (`total - pagado`), validado en modal y nuevamente antes de enviar al API.
 - en pago, formas distintas de `EFECTIVO` exigen autorización/referencia.
+- en pago (2026-03): los botones `Finalizar Pago de servicio` e `Imprimir ticket` se muestran fuera de contenedor y a ancho completo de la página.
 - en pago, al cubrir total se habilita `Finalizar Pago de servicio`; este botón envía el lote local a `POST /ps/folios/:idFol/finalizar` para insertar `PV_CTR_FOL_FORM` (`IMPP/IMPC/IMPD/AUT`) y generar `DAT_CTRL_CTAS` antes de fijar `ESTA='PAGADO'`.
+- política de fecha de finalización PS (2026-03): backend toma la fecha actual del sistema al finalizar para `PV_CTR_FOL_FORM.FCN`, `PV_CTR_FOL_ASVR.FCNM` y movimientos `DAT_CTRL_CTAS` del cierre.
 - en pago, al generar `DAT_CTRL_CTAS`, el backend toma `CLSD` desde `DAT_CMOV.CMOV` filtrando `RELACION=<servicio>` y `TIPO='ABONO'`; si no encuentra mapeo, rechaza el cierre.
 - en pago, el AppBar usa flecha mientras no está `PAGADO`; al quedar `PAGADO` (o al abrir un folio `PAGADO` desde panel) cambia a candado y habilita la salida a `TRANSMITIR`.
 - en pago, el botón secundario es `Imprimir ticket` (sustituye `Regresar a detalle`).
@@ -342,6 +345,7 @@ autenticacion, datos maestros, inventarios, control de cuentas y punto de venta.
 - Ajuste tecnico: controles `Radio` migrados a `RadioGroup` en dialogos de seleccion (cliente y referencias) para compatibilidad con Flutter >= 3.32.
 - Regla funcional CA: cuando `tipotran=CA`, app fuerza `rqfac=false` y persiste `REQF=0` en `PV_CTR_FOL_ASVR` antes del preview para recalcular importes sin factura.
 - Al cierre exitoso, backend deja la cotizacion en `PV_CTR_FOL_ASVR.ESTA='PAGADO'` y app no redirige de inmediato.
+- política de fecha de finalización cotización (2026-03): backend registra fecha de proceso actual al cerrar en `PV_CTR_FOL_FORM(_SVR).FCN`, `PV_CTR_FOL_ASVR.FCNM` y movimientos contables de `CREDITO/DEUDOR`.
 - En estado `PAGADO`, el boton regresar en pago cambia a icono de candado y, al presionarlo, actualiza `ESTA='TRANSMITIR'` para regresar al panel.
 - Si una cotizacion en panel tiene `ESTA='PAGADO'`, la seleccion abre directo la pantalla de pago en lugar del detalle.
 - El panel de cotizaciones muestra registros con estado `PENDIENTE`, `PAGADO` y `EDITANDO` usando filtro por `ESTA` (sin condicionar por `AUT`).
@@ -411,13 +415,18 @@ autenticacion, datos maestros, inventarios, control de cuentas y punto de venta.
 - en selección se oculta la columna `DIFD` y el botón principal cambia a `Ir Detalle devolución`.
 - detalle devolución ejecuta `POST /pv/devoluciones/:idfolDev/detalle/preparar` para insertar en `PV_TICKET_LOG` únicamente artículos con `CTDD>0`.
 - navegación a pago habilitada desde detalle devolución.
+- trazabilidad UI (2026-03): en `/punto-venta/devoluciones/:idfolDev/detalle`, `Ir a pago` se movió al `AppBar` con icono de caja (`Icons.point_of_sale`) y se retiró del bloque de acciones del body.
+- trazabilidad UI (2026-03): en la tarjeta de contexto de detalle devolución se ocultaron `AUT dev`, `AUT origen` y `Estado`.
 - pago usa preview backend para totales/IVA con `RQFAC` del folio origen (switch visible solo lectura).
+- trazabilidad UI (2026-03): en `/punto-venta/devoluciones/:idfolDev/pago`, la tarjeta de contexto oculta `AUT dev`, `AUT origen`, `Tipo` y `Líneas seleccionadas`.
 - en pago no se permite agregar, editar ni eliminar formas de pago.
 - al finalizar devolución, el folio queda en `ESTA='PAGADO'`.
+- política de fecha de finalización devolución (2026-03): backend reutiliza una fecha de proceso actual única al cerrar para `FACT_IDFOLDEV` (`FCN/FCNR`), `PV_CTR_FOL_FORM(_SVR).FCN`, `PV_CTR_FOL_ASVR.FCNM`, `PV_TICKET_LOG.UPDATED_AT` y movimientos contables relacionados.
 - cuando el folio está en `PAGADO`, el botón regresar cambia a candado; al presionarlo actualiza `ESTA='TRANSMITIR'` y vuelve al panel.
 - al volver al panel desde pago/candado, frontend invalida el provider del panel y recarga la consulta.
 - el panel de devoluciones muestra únicamente estados `DEV PEND` y `PAGADO`.
 - desde panel, si el folio está en `PAGADO`, la selección abre directo la ruta de pago (sin mostrar selección/detalle).
+- desde panel, si el folio no está en `PAGADO` pero ya tiene artículos seleccionados (`linesSelected > 0` o alguna línea con `CTDD > 0`), la selección abre directo `/punto-venta/devoluciones/:idfolDev/detalle`; sin selección previa, abre `/punto-venta/devoluciones/:idfolDev`.
 - al finalizar se habilita `Imprimir ticket`; al presionarlo abre selector 58mm/80mm y la vista previa PDF con `GET /pv/devoluciones/:idfolDev/print-preview`.
 - En ticket de devolución (2026-03), si hay formas no `EFECTIVO`, la impresión agrega al final un voucher `SOPORTE RECEPCION PAGO` por cada forma no efectivo.
 - En ticket de devolución (2026-03), el voucher agrega espacio en blanco para firma y renglón `Firma cliente` después de `FCN`.

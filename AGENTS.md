@@ -54,6 +54,7 @@
 - tablas/fuentes: `DAT_CTRL_CTAS`, `DAT_CAT_CTAS`, `FACT_CLIENT_SHP`, `PV_OPV`, `USR_MOD_SUC`.
 - Punto de venta:
 - Clientes `/factclientshp` -> `FACT_CLIENT_SHP`.
+- Panel clientes UI (2026-03): en alta de cliente, el modal predetermina `RfcEmisor`/`RegimenFiscalReceptor`/`UsoCfdi` con `SELECCIONAR` (en payload `RegimenFiscalReceptor=0` por tipo numérico) y `EmailReceptor` con `COLOCAR`; agrega botón `CANCELAR` y, al guardar, cierra el modal y recarga el panel.
 - Cotizaciones `/pvctrfolasvr` -> `PV_CTR_FOL_ASVR`.
 - Devoluciones `/pv/devoluciones/*` -> `PV_CTR_FOL_ASVR`, `PV_DEV_DET_TMP`, `PV_TICKET_LOG`, `PV_CTR_FOL_FORM(_SVR)`, `PV_CTR_ORDS`, `FAC_SVR_SHAP`, `FACT_IDFOLDEV`, `DAT_CTRL_CTAS`.
 - Pago de servicios `/ps/*` -> `PV_CTR_FOL_ASVR`, `PV_TICKET_LOG`, `PV_CTR_FOL_FORM`, `DAT_CTRL_CTAS`, `PV_DAT_PS`, `DAT_REF_GTO`.
@@ -128,6 +129,7 @@
 - Totales y validaciones criticas siempre se confirman en backend (no confiar en calculo frontend).
 - Al finalizar exitosamente se refrescan providers de cotizacion/ticket y la pantalla queda en pago (sin redireccion inmediata).
 - El cierre exitoso persiste `PV_CTR_FOL_ASVR.ESTA='PAGADO'` (estado confirmado desde backend, no flag local de UI).
+- Política de fecha de finalización cotización (2026-03): backend registra fecha actual del sistema al cierre en `PV_CTR_FOL_FORM(_SVR).FCN`, `PV_CTR_FOL_ASVR.FCNM` y movimientos contables de `CREDITO/DEUDOR`.
 - Tras cierre exitoso se habilita boton `Imprimir ticket` (debajo de `Finalizar cierre`), que abre dialogo de ancho 58mm/80mm y luego la vista previa PDF.
 - En pago, cuando `ESTA` es `PAGADO`, el boton regresar cambia a icono de candado y al presionarlo actualiza `ESTA='TRANSMITIR'` y regresa al panel.
 - Boton regresar en pago: si aun no esta en `PAGADO` vuelve a `detalle`; en `PAGADO` aplica flujo de envio a `TRANSMITIR`.
@@ -221,13 +223,18 @@
 - en selección se oculta columna `DIFD` y el botón principal navega a `Ir Detalle devolución`.
 - al abrir detalle devolución, frontend ejecuta `POST /pv/devoluciones/:idfolDev/detalle/preparar` para insertar en `PV_TICKET_LOG` solo líneas con `CTDD>0`.
 - navegación a pago se habilita desde detalle devolución cuando existe ticket preparado.
+- trazabilidad UI adicional (2026-03): en `/punto-venta/devoluciones/:idfolDev/detalle`, la acción `Ir a pago` se movió al `AppBar` con icono de caja (`Icons.point_of_sale`) y se retiró del bloque de acciones del body.
+- trazabilidad UI adicional (2026-03): en el card de contexto de detalle devolución se ocultaron `AUT dev`, `AUT origen` y `Estado`.
 - pago recalcula preview usando `RQFAC` derivado del folio origen (solo lectura en UI, sin edición manual del switch).
+- trazabilidad UI adicional (2026-03): en `/punto-venta/devoluciones/:idfolDev/pago`, el card de contexto oculta `AUT dev`, `AUT origen`, `Tipo` y `Líneas seleccionadas`.
 - en pago no se permite agregar, editar ni eliminar formas de pago.
 - al finalizar devolución, backend deja el folio en `ESTA='PAGADO'`; en esa condición la navegación de regreso muestra icono candado.
+- Política de fecha de finalización devolución (2026-03): backend usa una fecha de proceso actual única al cerrar para `FACT_IDFOLDEV` (`FCN/FCNR`), `PV_CTR_FOL_FORM(_SVR).FCN`, `PV_CTR_FOL_ASVR.FCNM`, `PV_TICKET_LOG.UPDATED_AT` y movimientos contables asociados.
 - al presionar candado en pago, frontend actualiza `ESTA='TRANSMITIR'` via `PATCH /pvctrfolasvr/:idfol` y regresa al panel.
 - al regresar a panel desde pago/candado, frontend invalida el provider del panel para forzar recarga inmediata de la consulta.
 - el panel de devoluciones solo muestra folios con `ESTA IN ('DEV PEND','PAGADO')`.
 - desde panel de devoluciones, si un folio ya está en `PAGADO`, la selección abre directo `/pago` (sin pasar por selección de artículos/detalle).
+- desde panel de devoluciones, si un folio no está en `PAGADO` pero ya tiene artículos seleccionados (`linesSelected > 0` o alguna línea con `CTDD > 0`), la selección abre directo `/detalle`; si no hay selección previa, abre `/punto-venta/devoluciones/:idfolDev`.
 - tras finalizar se habilita botón `Imprimir ticket`, que sigue flujo similar a cotizaciones: selector 58mm/80mm y vista previa PDF con `GET /pv/devoluciones/:idfolDev/print-preview`.
 - Ticket devoluciones voucher (2026-03): si hay formas no `EFECTIVO`, la impresión agrega al final un voucher `SOPORTE RECEPCION PAGO` por cada forma no efectivo.
 - Ticket devoluciones voucher (2026-03): el voucher incluye espacio en blanco para firma y renglón `Firma cliente` debajo de `FCN`.
@@ -290,7 +297,9 @@
 - en pago, para formas no `EFECTIVO` el campo `Autorización / referencia` es de solo lectura y se captura reutilizando `ref_detalle_page.dart` de cotizaciones (`Generar/Asignar referencia`).
 - en pago, una forma distinta de `EFECTIVO` no puede exceder el restante por pagar (`total - pagado`) en validación de modal y prevalidación antes de enviar al API.
 - en pago, formas no `EFECTIVO` exigen `Autorización/referencia`; al cubrir total se habilita `Finalizar Pago de servicio`.
+- en pago (2026-03): los botones `Finalizar Pago de servicio` e `Imprimir ticket` se renderizan fuera de contenedor y en ancho completo de página.
 - en pago, al finalizar se envía el lote local de formas a `POST /ps/folios/:idFol/finalizar`; backend inserta `PV_CTR_FOL_FORM`, genera `DAT_CTRL_CTAS` y confirma `ESTA='PAGADO'`.
+- Política de fecha de finalización PS (2026-03): backend toma fecha actual del sistema al finalizar para `PV_CTR_FOL_FORM.FCN`, `PV_CTR_FOL_ASVR.FCNM` y movimientos `DAT_CTRL_CTAS` del cierre.
 - en pago, `DAT_CTRL_CTAS.CLSD` se determina por `DAT_CMOV.CMOV` con `RELACION=<servicio UPC>` y `TIPO='ABONO'`; si no existe mapeo, backend rechaza finalizar.
 - en pago, el AppBar muestra flecha mientras `ESTA != PAGADO`; al quedar `PAGADO` (o entrar así desde panel) cambia a candado y al presionarlo actualiza `ESTA='TRANSMITIR'`.
 - en pago, el botón secundario es `Imprimir ticket` (reemplaza `Regresar a detalle`).

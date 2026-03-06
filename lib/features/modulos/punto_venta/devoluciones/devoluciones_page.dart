@@ -103,16 +103,7 @@ class _DevolucionesPageState extends ConsumerState<DevolucionesPage> {
                 _PanelTable(
                   rows: items,
                   selected: _selected,
-                  onSelect: (item) {
-                    setState(() => _selected = item);
-                    if (_isEstadoPagado(item.esta)) {
-                      context.go(
-                        '/punto-venta/devoluciones/${Uri.encodeComponent(item.idfol)}/pago',
-                      );
-                      return;
-                    }
-                    context.go('/punto-venta/devoluciones/${Uri.encodeComponent(item.idfol)}');
-                  },
+                  onSelect: _handleRowSelect,
                 ),
               ],
             ),
@@ -220,6 +211,42 @@ class _DevolucionesPageState extends ConsumerState<DevolucionesPage> {
   bool _isEstadoPagado(String? value) {
     final estado = (value ?? '').trim().toUpperCase();
     return estado.contains('PAGADO');
+  }
+
+  Future<void> _handleRowSelect(DevolucionPanelItem item) async {
+    setState(() => _selected = item);
+    final idfolDev = Uri.encodeComponent(item.idfol);
+    if (_isEstadoPagado(item.esta)) {
+      context.go('/punto-venta/devoluciones/$idfolDev/pago');
+      return;
+    }
+
+    try {
+      final detalle = await ref.read(devolucionesApiProvider).fetchDetalle(item.idfol);
+      if (!mounted) return;
+      final hasSelectedLines = detalle.summary.linesSelected > 0 ||
+          detalle.lines.any((line) => (line.ctdd ?? 0) > 0);
+      if (hasSelectedLines) {
+        context.go('/punto-venta/devoluciones/$idfolDev/detalle');
+        return;
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              apiErrorMessage(
+                e,
+                fallback: 'No se pudo validar el detalle de la devolución',
+              ),
+            ),
+          ),
+        );
+      }
+    }
+
+    if (!mounted) return;
+    context.go('/punto-venta/devoluciones/$idfolDev');
   }
 }
 

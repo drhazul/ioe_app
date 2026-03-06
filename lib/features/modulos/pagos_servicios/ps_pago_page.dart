@@ -22,6 +22,11 @@ const Set<String> _formasConReferencia = {
   'DEPOSITO 3RO',
 };
 
+const Set<String> _formasNoPermitidasPs = {
+  'CREDITO',
+  'DEUDOR',
+};
+
 bool _formRequiereReferenciaTipo(String form) =>
     _formasConReferencia.contains(form.toUpperCase().trim());
 
@@ -169,10 +174,12 @@ class _PsPagoPageState extends ConsumerState<PsPagoPage> {
                     secondSection,
                   ],
                   const SizedBox(height: 14),
-                  _SectionContainer(
-                    child: Column(
-                      children: [
-                        FilledButton.icon(
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
                           onPressed: canFinalize ? _finalizarPago : null,
                           icon: _saving
                               ? const SizedBox(
@@ -189,8 +196,11 @@ class _PsPagoPageState extends ConsumerState<PsPagoPage> {
                                 : 'Finalizar Pago de servicio',
                           ),
                         ),
-                        const SizedBox(height: 10),
-                        OutlinedButton.icon(
+                      ),
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
                           onPressed: canPrint ? _imprimirTicket : null,
                           icon: _printingTicket
                               ? const SizedBox(
@@ -207,8 +217,8 @@ class _PsPagoPageState extends ConsumerState<PsPagoPage> {
                                 : 'Imprimir ticket',
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ],
               );
@@ -1506,6 +1516,7 @@ List<String> _formasParaDialogo(List<PsFormaCatalogItem> catalogo) {
   for (final item in catalogo) {
     final form = item.form.trim().toUpperCase();
     if (form.isEmpty) continue;
+    if (_formasNoPermitidasPs.contains(form)) continue;
     if (seen.add(form)) result.add(form);
   }
   if (!seen.contains('EFECTIVO')) {

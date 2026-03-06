@@ -38,6 +38,10 @@ class ClienteFormBody extends ConsumerStatefulWidget {
 }
 
 class _ClienteFormBodyState extends ConsumerState<ClienteFormBody> {
+  static const String _selectDefault = 'SELECCIONAR';
+  static const String _emailDefault = 'COLOCAR';
+  static const int _regimenDefault = 0;
+
   final _formKey = GlobalKey<FormState>();
   final _razonCtrl = TextEditingController();
   final _rfcCtrl = TextEditingController();
@@ -60,8 +64,16 @@ class _ClienteFormBodyState extends ConsumerState<ClienteFormBody> {
   @override
   void initState() {
     super.initState();
-    if (widget.id == null && _rfcCtrl.text.trim().isEmpty) {
-      _rfcCtrl.text = 'XAXX010101000';
+    if (widget.id == null) {
+      if (_rfcCtrl.text.trim().isEmpty) {
+        _rfcCtrl.text = 'XAXX010101000';
+      }
+      if (_emailCtrl.text.trim().isEmpty) {
+        _emailCtrl.text = _emailDefault;
+      }
+      _rfcEmisor = _selectDefault;
+      _regimenFiscal = _regimenDefault;
+      _usoCfdi = _selectDefault;
     }
     _loader = _bootstrap();
   }
@@ -148,11 +160,11 @@ class _ClienteFormBodyState extends ConsumerState<ClienteFormBody> {
     final payload = <String, dynamic>{
       'RAZONSOCIALRECEPTOR': _razonCtrl.text.trim().toUpperCase(),
       'RFCRECEPTOR': _rfcCtrl.text.trim().toUpperCase(),
-      'EMAILRECEPTOR': _emailCtrl.text.trim(),
-      'RFCEMISOR': _rfcEmisor,
-      'USOCFDI': _usoCfdi,
+      'EMAILRECEPTOR': _emailCtrl.text.trim().isEmpty ? _emailDefault : _emailCtrl.text.trim(),
+      'RFCEMISOR': (_rfcEmisor ?? _selectDefault).trim(),
+      'USOCFDI': (_usoCfdi ?? _selectDefault).trim(),
       'CODIGOPOSTALRECEPTOR': _codigoPostalCtrl.text.trim().toUpperCase(),
-      'REGIMENFISCALRECEPTOR': _regimenFiscal,
+      'REGIMENFISCALRECEPTOR': _regimenFiscal ?? _regimenDefault,
       'DOMI': _domiCtrl.text.trim().isEmpty ? null : _domiCtrl.text.trim(),
       'NCEL': _ncelCtrl.text.trim().isEmpty ? null : _ncelCtrl.text.trim(),
       'OPTICA': _aliasCtrl.text.trim().isEmpty ? null : _aliasCtrl.text.trim().toUpperCase(),
@@ -173,7 +185,8 @@ class _ClienteFormBodyState extends ConsumerState<ClienteFormBody> {
       }
       ref.invalidate(clientesListProvider);
       widget.onSaved?.call();
-      if (mounted) context.pop();
+      if (!mounted) return;
+      context.pop(true);
     } catch (e) {
       if (!mounted) return;
       final msg = apiErrorMessage(e, fallback: 'No se pudo guardar');
@@ -181,6 +194,11 @@ class _ClienteFormBodyState extends ConsumerState<ClienteFormBody> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  void _cancel() {
+    if (_saving || !mounted) return;
+    context.pop(false);
   }
 
   String? _validateRfc(String? value) {
@@ -345,12 +363,18 @@ class _ClienteFormBodyState extends ConsumerState<ClienteFormBody> {
                             byRfc[rfc] = '$baseLabel - $rfc';
                           }
                           final entries = byRfc.entries.toList();
-                          final items = <DropdownMenuItem<String>>[];
+                          final items = <DropdownMenuItem<String>>[
+                            _menuItem<String>(_selectDefault, _selectDefault, 0),
+                          ];
                           for (var i = 0; i < entries.length; i++) {
-                            items.add(_menuItem<String>(entries[i].key, entries[i].value, i));
+                            items.add(
+                              _menuItem<String>(entries[i].key, entries[i].value, i + 1),
+                            );
                           }
 
-                          final value = items.any((i) => i.value == _rfcEmisor) ? _rfcEmisor : null;
+                          final value = items.any((i) => i.value == _rfcEmisor)
+                              ? _rfcEmisor
+                              : _selectDefault;
 
                           return DropdownButtonFormField<String>(
                             initialValue: value,
@@ -360,7 +384,7 @@ class _ClienteFormBodyState extends ConsumerState<ClienteFormBody> {
                             onChanged: _saving
                                 ? null
                                 : (v) => setState(() {
-                                      _rfcEmisor = v;
+                                      _rfcEmisor = v ?? _selectDefault;
                                     }),
                             decoration: const InputDecoration(border: OutlineInputBorder(), isDense: true),
                             validator: (v) => v == null || v.trim().isEmpty ? 'Requerido' : null,
@@ -384,12 +408,22 @@ class _ClienteFormBodyState extends ConsumerState<ClienteFormBody> {
                       label: 'RegimenFiscalReceptor *',
                       child: regAsync.when(
                         data: (regs) {
-                          final items = <DropdownMenuItem<int>>[];
+                          final items = <DropdownMenuItem<int>>[
+                            _menuItem<int>(_regimenDefault, _selectDefault, 0),
+                          ];
                           for (var i = 0; i < regs.length; i++) {
                             final r = regs[i];
-                            items.add(_menuItem<int>(r.codigo, '${r.codigo} - ${r.descripcion ?? ''}', i));
+                            items.add(
+                              _menuItem<int>(
+                                r.codigo,
+                                '${r.codigo} - ${r.descripcion ?? ''}',
+                                i + 1,
+                              ),
+                            );
                           }
-                          final value = items.any((i) => i.value == _regimenFiscal) ? _regimenFiscal : null;
+                          final value = items.any((i) => i.value == _regimenFiscal)
+                              ? _regimenFiscal
+                              : _regimenDefault;
                           return DropdownButtonFormField<int>(
                             initialValue: value,
                             isExpanded: true,
@@ -398,7 +432,7 @@ class _ClienteFormBodyState extends ConsumerState<ClienteFormBody> {
                             onChanged: _saving
                                 ? null
                                 : (v) => setState(() {
-                                      _regimenFiscal = v;
+                                      _regimenFiscal = v ?? _regimenDefault;
                                     }),
                             decoration: const InputDecoration(border: OutlineInputBorder(), isDense: true),
                             validator: (v) => v == null ? 'Requerido' : null,
@@ -412,12 +446,22 @@ class _ClienteFormBodyState extends ConsumerState<ClienteFormBody> {
                       label: 'UsoCfdi *',
                       child: usoAsync.when(
                         data: (usos) {
-                          final items = <DropdownMenuItem<String>>[];
+                          final items = <DropdownMenuItem<String>>[
+                            _menuItem<String>(_selectDefault, _selectDefault, 0),
+                          ];
                           for (var i = 0; i < usos.length; i++) {
                             final u = usos[i];
-                            items.add(_menuItem<String>(u.usoCfdi, '${u.usoCfdi} - ${u.descripcion ?? ''}', i));
+                            items.add(
+                              _menuItem<String>(
+                                u.usoCfdi,
+                                '${u.usoCfdi} - ${u.descripcion ?? ''}',
+                                i + 1,
+                              ),
+                            );
                           }
-                          final value = items.any((i) => i.value == _usoCfdi) ? _usoCfdi : null;
+                          final value = items.any((i) => i.value == _usoCfdi)
+                              ? _usoCfdi
+                              : _selectDefault;
                           return DropdownButtonFormField<String>(
                             initialValue: value,
                             isExpanded: true,
@@ -426,7 +470,7 @@ class _ClienteFormBodyState extends ConsumerState<ClienteFormBody> {
                             onChanged: _saving
                                 ? null
                                 : (v) => setState(() {
-                                      _usoCfdi = v;
+                                      _usoCfdi = v ?? _selectDefault;
                                     }),
                             decoration: const InputDecoration(border: OutlineInputBorder(), isDense: true),
                             validator: (v) => v == null || v.trim().isEmpty ? 'Requerido' : null,
@@ -440,9 +484,18 @@ class _ClienteFormBodyState extends ConsumerState<ClienteFormBody> {
                       width: 420,
                       child: Align(
                         alignment: Alignment.centerRight,
-                        child: FilledButton(
-                          onPressed: _saving ? null : _submit,
-                          child: Text(_saving ? 'Guardando...' : 'Guardar registro'),
+                        child: Wrap(
+                          spacing: 8,
+                          children: [
+                            OutlinedButton(
+                              onPressed: _saving ? null : _cancel,
+                              child: const Text('CANCELAR'),
+                            ),
+                            FilledButton(
+                              onPressed: _saving ? null : _submit,
+                              child: Text(_saving ? 'Guardando...' : 'Guardar registro'),
+                            ),
+                          ],
                         ),
                       ),
                     ),

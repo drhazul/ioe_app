@@ -16,11 +16,24 @@ class DetalleDevolucionResumenPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final detalleAsync = ref.watch(devolucionDetallePreparadoProvider(idfolDev));
+    final appBarCanIrPago = detalleAsync.maybeWhen(
+      data: (detalle) => detalle.items.isNotEmpty,
+      orElse: () => false,
+    );
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Detalle devolución'),
         actions: [
+          IconButton(
+            tooltip: 'Ir a pago',
+            onPressed: appBarCanIrPago
+                ? () => context.go(
+                      '/punto-venta/devoluciones/${Uri.encodeComponent(idfolDev)}/pago',
+                    )
+                : null,
+            icon: const Icon(Icons.point_of_sale),
+          ),
           IconButton(
             tooltip: 'Refrescar',
             onPressed: () => ref.invalidate(devolucionDetallePreparadoProvider(idfolDev)),
@@ -46,29 +59,6 @@ class DetalleDevolucionResumenPage extends ConsumerWidget {
               padding: const EdgeInsets.all(16),
               children: [
                 _HeaderCard(detalle: detalle),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 8,
-                  children: [
-                    FilledButton.icon(
-                      onPressed: detalle.items.isEmpty
-                          ? null
-                          : () => context.go(
-                                '/punto-venta/devoluciones/${Uri.encodeComponent(idfolDev)}/pago',
-                              ),
-                      icon: const Icon(Icons.payments_outlined),
-                      label: const Text('Ir a pago'),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: () => context.go(
-                        '/punto-venta/devoluciones/${Uri.encodeComponent(idfolDev)}',
-                      ),
-                      icon: const Icon(Icons.arrow_back),
-                      label: const Text('Regresar selección'),
-                    ),
-                  ],
-                ),
                 const SizedBox(height: 12),
                 _LinesTable(lines: detalle.items),
               ],
@@ -141,10 +131,7 @@ class _HeaderCard extends StatelessWidget {
             _kv('Folio devolución', contextData.idfolDev),
             _kv('Folio origen', contextData.idfolOrig),
             _kv('Sucursal', contextData.suc),
-            _kv('AUT dev', contextData.autDev),
-            _kv('AUT origen', contextData.autOrig),
             _kv('Cliente', contextData.clien?.toStringAsFixed(0) ?? '-'),
-            _kv('Estado', contextData.estaDev ?? '-'),
             _kv('Líneas ticket', summary.lines.toString()),
             _kv('Total ticket', '\$${summary.total.toStringAsFixed(2)}'),
           ],

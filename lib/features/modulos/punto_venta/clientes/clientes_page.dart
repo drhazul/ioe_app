@@ -119,17 +119,20 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
   }
 
   Future<void> _openCreateDialog(BuildContext context, WidgetRef ref) async {
-    await showDialog<void>(
+    final saved = await showDialog<bool>(
       context: context,
       builder: (ctx) => Dialog(
         child: SizedBox(
           width: 960,
-          child: ClienteFormBody(
-            onSaved: () => ref.invalidate(clientesListProvider),
-          ),
+          child: const ClienteFormBody(),
         ),
       ),
     );
+    if (!mounted) return;
+    if (saved == true) {
+      ref.invalidate(clientesListProvider);
+      await ref.read(clientesListProvider.future);
+    }
   }
 }
 
