@@ -54,6 +54,8 @@ class PvCtrFolAsvrModel {
     this.opvm,
     this.mod,
     this.idfolorig,
+    this.idfolinicial,
+    this.origenAut,
   });
 
   final String idfol;
@@ -75,6 +77,8 @@ class PvCtrFolAsvrModel {
   final String? opvm;
   final int? mod;
   final String? idfolorig;
+  final String? idfolinicial;
+  final String? origenAut;
 
   factory PvCtrFolAsvrModel.fromJson(Map<String, dynamic> json) {
     return PvCtrFolAsvrModel(
@@ -101,6 +105,8 @@ class PvCtrFolAsvrModel {
       opvm: json['OPVM']?.toString(),
       mod: _asInt(json['MOD']),
       idfolorig: json['IDFOLORIG']?.toString(),
+      idfolinicial: json['IDFOLINICIAL']?.toString(),
+      origenAut: json['ORIGEN_AUT']?.toString(),
     );
   }
 

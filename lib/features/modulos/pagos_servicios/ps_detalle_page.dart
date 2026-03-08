@@ -488,6 +488,13 @@ class _PsDetallePageState extends ConsumerState<PsDetallePage> {
       return;
     }
 
+    final detail = ref.read(psDetalleProvider(widget.idFol)).valueOrNull;
+    final origen = (detail?.header.origenAut ?? '').trim().toUpperCase();
+    if (origen == 'VF') {
+      _showError('No se permite mezclar origen VF con referencias de gasto (CA) en la misma transacción.');
+      return;
+    }
+
     try {
       await ref.read(psApiProvider).setReferenceGasto(
             idFol: widget.idFol,
@@ -566,6 +573,8 @@ class _HeaderInlineTitle extends StatelessWidget {
     final esta = _textOrFallback(header?.esta, '-').toUpperCase();
     final clien = header?.clien == null ? '-' : header!.clien.toString();
     final cliente = _textOrFallback(header?.razonSocialReceptor, '-');
+    final idfolInicial = _textOrFallback(header?.idfolinicial, '-');
+    final origenAut = _textOrFallback(header?.origenAut, '-').toUpperCase();
 
     return Row(
       children: [
@@ -585,9 +594,13 @@ class _HeaderInlineTitle extends StatelessWidget {
               children: [
                 _chip('IDFOL: $idfol'),
                 const SizedBox(width: 6),
+                _chip('IDFOLINICIAL: $idfolInicial'),
+                const SizedBox(width: 6),
                 _chip('SUC: $suc'),
                 const SizedBox(width: 6),
                 _chip('ESTA: $esta'),
+                const SizedBox(width: 6),
+                _chip('ORIGEN_AUT: $origenAut'),
                 const SizedBox(width: 6),
                 _chip('CLIEN: $clien'),
                 const SizedBox(width: 6),

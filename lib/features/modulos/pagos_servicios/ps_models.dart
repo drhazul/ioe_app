@@ -45,6 +45,8 @@ class PsFolioItem {
     this.clien,
     this.fcn,
     this.razonSocialReceptor,
+    this.idfolinicial,
+    this.origenAut,
   });
 
   final String idfol;
@@ -57,6 +59,8 @@ class PsFolioItem {
   final double? clien;
   final DateTime? fcn;
   final String? razonSocialReceptor;
+  final String? idfolinicial;
+  final String? origenAut;
 
   factory PsFolioItem.fromJson(Map<String, dynamic> json) {
     return PsFolioItem(
@@ -70,6 +74,8 @@ class PsFolioItem {
       clien: _asDouble(json['CLIEN']),
       fcn: _asDate(json['FCN']),
       razonSocialReceptor: _asText(json['RazonSocialReceptor']),
+      idfolinicial: _asText(json['IDFOLINICIAL']),
+      origenAut: _asText(json['ORIGEN_AUT']),
     );
   }
 }
@@ -90,6 +96,8 @@ class PsDetalleHeader {
     this.reqf,
     this.clien,
     this.razonSocialReceptor,
+    this.idfolinicial,
+    this.origenAut,
   });
 
   final String idfol;
@@ -106,6 +114,8 @@ class PsDetalleHeader {
   final int? reqf;
   final int? clien;
   final String? razonSocialReceptor;
+  final String? idfolinicial;
+  final String? origenAut;
 
   factory PsDetalleHeader.fromJson(Map<String, dynamic> json) {
     return PsDetalleHeader(
@@ -123,6 +133,8 @@ class PsDetalleHeader {
       reqf: _asInt(json['REQF']),
       clien: _asInt(json['CLIEN']),
       razonSocialReceptor: _asText(json['RazonSocialReceptor']),
+      idfolinicial: _asText(json['IDFOLINICIAL']),
+      origenAut: _asText(json['ORIGEN_AUT']),
     );
   }
 }

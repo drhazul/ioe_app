@@ -541,9 +541,11 @@ class _PanelTable extends StatelessWidget {
             child: const Row(
               children: [
                 SizedBox(width: 220, child: Text('Folio', style: TextStyle(fontWeight: FontWeight.w600))),
+                SizedBox(width: 200, child: Text('Folio inicial', style: TextStyle(fontWeight: FontWeight.w600))),
                 SizedBox(width: 200, child: Text('Folio origen', style: TextStyle(fontWeight: FontWeight.w600))),
                 SizedBox(width: 80, child: Text('SUC', style: TextStyle(fontWeight: FontWeight.w600))),
                 SizedBox(width: 120, child: Text('AUT', style: TextStyle(fontWeight: FontWeight.w600))),
+                SizedBox(width: 120, child: Text('ORIGEN_AUT', style: TextStyle(fontWeight: FontWeight.w600))),
                 SizedBox(width: 140, child: Text('Estado', style: TextStyle(fontWeight: FontWeight.w600))),
                 SizedBox(width: 120, child: Text('Importe', style: TextStyle(fontWeight: FontWeight.w600))),
                 SizedBox(width: 220, child: Text('Cliente', style: TextStyle(fontWeight: FontWeight.w600))),
@@ -567,9 +569,11 @@ class _PanelTable extends StatelessWidget {
                     child: Row(
                       children: [
                         SizedBox(width: 220, child: Text(item.idfol, overflow: TextOverflow.ellipsis)),
+                        SizedBox(width: 200, child: Text(item.idfolinicial ?? '-', overflow: TextOverflow.ellipsis)),
                         SizedBox(width: 200, child: Text(item.idfolorig ?? '-', overflow: TextOverflow.ellipsis)),
                         SizedBox(width: 80, child: Text(item.suc ?? '-')),
                         SizedBox(width: 120, child: Text(item.aut ?? '-')),
+                        SizedBox(width: 120, child: Text((item.origenAut ?? '-').toUpperCase())),
                         SizedBox(width: 140, child: Text(item.esta ?? '-', overflow: TextOverflow.ellipsis)),
                         SizedBox(width: 120, child: Text(_money(item.impt))),
                         SizedBox(

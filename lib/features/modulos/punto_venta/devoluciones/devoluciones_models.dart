@@ -48,6 +48,8 @@ class DevolucionPanelItem {
     this.fcn,
     this.fcnm,
     this.razonSocialReceptor,
+    this.idfolinicial,
+    this.origenAut,
   });
 
   final String idfol;
@@ -63,6 +65,8 @@ class DevolucionPanelItem {
   final DateTime? fcn;
   final DateTime? fcnm;
   final String? razonSocialReceptor;
+  final String? idfolinicial;
+  final String? origenAut;
 
   factory DevolucionPanelItem.fromJson(Map<String, dynamic> json) {
     return DevolucionPanelItem(
@@ -79,6 +83,8 @@ class DevolucionPanelItem {
       fcn: _asDate(json['FCN']),
       fcnm: _asDate(json['FCNM']),
       razonSocialReceptor: _asText(json['RazonSocialReceptor']),
+      idfolinicial: _asText(json['IDFOLINICIAL']),
+      origenAut: _asText(json['ORIGEN_AUT']),
     );
   }
 }
