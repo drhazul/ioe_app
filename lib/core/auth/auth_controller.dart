@@ -108,6 +108,52 @@ class AuthController extends StateNotifier<AuthState> {
     }
   }
 
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final storage = ref.read(storageProvider);
+    final accessToken = await ensureValidAccessToken();
+    if (accessToken == null || accessToken.isEmpty) {
+      throw Exception('No hay sesión activa para cambiar contraseña');
+    }
+
+    try {
+      final res = await _authClient().post(
+        '/auth/change-password',
+        data: {
+          'currentPassword': currentPassword,
+          'newPassword': newPassword,
+        },
+        options: Options(
+          headers: {'Authorization': 'Bearer $accessToken'},
+          validateStatus: (status) =>
+              status != null && status >= 200 && status < 500,
+        ),
+      );
+
+      final status = res.statusCode ?? 0;
+      if (status < 200 || status >= 300) {
+        throw Exception('No se pudo actualizar la contraseña');
+      }
+
+      final access = _readTokenValue(res.data, 'accessToken');
+      final refresh = _readTokenValue(res.data, 'refreshToken');
+      if (access == null || refresh == null) {
+        throw Exception('Respuesta inválida al cambiar contraseña');
+      }
+
+      await storage.saveTokens(access: access, refresh: refresh);
+      _setAuthenticatedFromToken(access);
+    } on DioException catch (e) {
+      final msg = apiErrorMessage(
+        e,
+        fallback: 'No se pudo actualizar la contraseña',
+      );
+      throw Exception(msg);
+    }
+  }
+
   Future<String?> ensureValidAccessToken({bool forceRefresh = false}) async {
     final storage = ref.read(storageProvider);
     final access = await storage.getAccessToken();
@@ -264,6 +310,7 @@ class AuthController extends StateNotifier<AuthState> {
         userId: _asInt(payload['sub']),
         username: payload['username'] as String?,
         roleId: _asInt(payload['roleId']),
+        mustChangePassword: _asBool(payload['mustChangePassword']) ?? false,
       ),
     );
   }
@@ -277,6 +324,7 @@ class AuthController extends StateNotifier<AuthState> {
         userId: null,
         username: null,
         roleId: null,
+        mustChangePassword: false,
       ),
     );
   }
@@ -288,7 +336,8 @@ class AuthController extends StateNotifier<AuthState> {
         current.isAuthenticated == next.isAuthenticated &&
         current.userId == next.userId &&
         current.username == next.username &&
-        current.roleId == next.roleId;
+        current.roleId == next.roleId &&
+        current.mustChangePassword == next.mustChangePassword;
     if (unchanged) return;
 
     state = next;
@@ -393,6 +442,17 @@ class AuthController extends StateNotifier<AuthState> {
   int? _asInt(dynamic value) {
     if (value is int) return value;
     if (value is num) return value.toInt();
+    return null;
+  }
+
+  bool? _asBool(dynamic value) {
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    if (value is String) {
+      final normalized = value.trim().toLowerCase();
+      if (normalized == 'true' || normalized == '1') return true;
+      if (normalized == 'false' || normalized == '0') return false;
+    }
     return null;
   }
 

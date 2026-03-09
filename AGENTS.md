@@ -21,13 +21,17 @@
 - Home/Menu: `/access/me/front-menu` -> `MOD_FRONT`, `GRUPMOD_FRONT`, `GRUPMOD_FRONT_MOD`, `ROL_GRUPMOD_FRONT`.
 - Auth:
 - `/auth/login`, `/auth/refresh` -> `USUARIO`, `USUARIO_TOKEN`.
-- payload JWT esperado: `sub`, `username`, `roleId`, `nivel`, `suc`.
+- payload JWT esperado: `sub`, `username`, `roleId`, `nivel`, `suc`, `mustChangePassword`.
+- primer acceso (2026-03): cuando `mustChangePassword=true`, la app fuerza ruta `/auth/change-password` hasta completar `POST /auth/change-password`.
 - Maestros:
 - Roles `/roles` -> `ROL`: `IDROL`, `CODIGO`, `NOMBRE`, `DESCRIPCION`, `ACTIVO`, `FCNR`.
 - Deptos `/deptos` -> `DEPARTAMENTO`: `IDDEPTO`, `NOMBRE`, `ACTIVO`, `FCNR`.
 - Puestos `/puestos` -> `PUESTO`: `IDPUESTO`, `IDDEPTO`, `NOMBRE`, `ACTIVO`, `FCNR`.
-- Usuarios `/users` -> `USUARIO`: `IDUSUARIO`, `USERNAME`, `NOMBRE`, `APELLIDOS`, `MAIL`, `ESTATUS`, `NIVEL`, `IDROL`, `IDDEPTO`, `IDPUESTO`, `SUC`.
+- Usuarios `/users` -> `USUARIO`: `IDUSUARIO`, `USERNAME`, `NOMBRE`, `APELLIDOS`, `MAIL`, `ESTATUS`, `NIVEL`, `IDROL`, `IDDEPTO`, `IDPUESTO`, `SUC`, `FORZAR_CAMBIO_PASS`.
 - Validacion UI usuarios: el formulario de alta/edicion exige `USERNAME` con minimo 3 caracteres para alinear con validacion backend de `/users`.
+- UI usuarios (2026-03): en alta se genera contraseña temporal aleatoria de 6 dígitos, con botón para regenerar y mostrar/ocultar.
+- UI usuarios (2026-03): el formulario permite controlar `FORZAR_CAMBIO_PASS` para exigir cambio de contraseña en próximo acceso.
+- UI usuarios (2026-03): el listado soporta visualización agrupada por sucursal/departamento y filtros por ambas vistas.
 - Sucursales `/dat-suc` (en backend) -> `DAT_SUC`: `SUC`, `DESC`, `ENCAR`, `ZONA`, `RFC`, `DIRECCION`, `CONTACTO`, `IVA_INTEGRADO`.
 - Datmodulos `/datmodulos` -> `MOD_FRONT`: `IDMOD_FRONT`, `CODIGO`, `NOMBRE`, `DEPTO`, `ACTIVO`, `FCNR`.
 - Accesos `/access/*` -> `MODULO`, `GRUP_MODULO`, `GRUPMOD_MODULO`, `ROL_GRUP_MODULO_PERM`, `MOD_FRONT`, `GRUPMOD_FRONT`, `GRUPMOD_FRONT_MOD`, `ROL_GRUPMOD_FRONT`.

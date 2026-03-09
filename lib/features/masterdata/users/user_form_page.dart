@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -29,15 +31,20 @@ class _UserFormPageState extends ConsumerState<UserFormPage> {
 
   late Future<void> _loader;
   bool _saving = false;
+  bool _obscurePassword = true;
   String _estatus = 'ACTIVO';
   int? _roleId;
   int? _deptoId;
   int? _puestoId;
   String? _suc;
+  bool _forzarCambioPass = true;
 
   @override
   void initState() {
     super.initState();
+    if (widget.userId == null) {
+      _passwordCtrl.text = _generateRandomPassword();
+    }
     _loader = _bootstrap();
   }
 
@@ -54,6 +61,7 @@ class _UserFormPageState extends ConsumerState<UserFormPage> {
     _deptoId = user.idDepto;
     _puestoId = user.idPuesto;
     _suc = (user.suc?.trim().isEmpty ?? true) ? null : user.suc;
+    _forzarCambioPass = user.forzarCambioPass;
   }
 
   @override
@@ -89,6 +97,7 @@ class _UserFormPageState extends ConsumerState<UserFormPage> {
       'IDDEPTO': _deptoId,
       'IDPUESTO': _puestoId,
       'SUC': (suc == null || suc.isEmpty) ? null : suc,
+      'FORZAR_CAMBIO_PASS': _forzarCambioPass,
     };
 
     if (_passwordCtrl.text.trim().isNotEmpty) {
@@ -119,6 +128,18 @@ class _UserFormPageState extends ConsumerState<UserFormPage> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  String _generateRandomPassword() {
+    final random = Random.secure();
+    return List.generate(6, (_) => random.nextInt(10)).join();
+  }
+
+  void _regeneratePassword() {
+    setState(() {
+      _passwordCtrl.text = _generateRandomPassword();
+      _obscurePassword = false;
+    });
   }
 
   @override
@@ -161,9 +182,53 @@ class _UserFormPageState extends ConsumerState<UserFormPage> {
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _passwordCtrl,
-                    decoration: InputDecoration(labelText: widget.userId == null ? 'Contraseña' : 'Contraseña (dejar vacío para mantener)'),
-                    obscureText: true,
+                    decoration: InputDecoration(
+                      labelText: widget.userId == null
+                          ? 'Contraseña'
+                          : 'Contraseña (dejar vacío para mantener)',
+                      helperText: widget.userId == null
+                          ? 'Se genera automáticamente una contraseña temporal de 6 dígitos'
+                          : null,
+                      suffixIcon: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (widget.userId == null)
+                            IconButton(
+                              tooltip: 'Generar nueva contraseña',
+                              icon: const Icon(Icons.casino_outlined),
+                              onPressed: _saving ? null : _regeneratePassword,
+                            ),
+                          IconButton(
+                            tooltip: _obscurePassword
+                                ? 'Mostrar contraseña'
+                                : 'Ocultar contraseña',
+                            icon: Icon(
+                              _obscurePassword
+                                  ? Icons.visibility
+                                  : Icons.visibility_off,
+                            ),
+                            onPressed: _saving
+                                ? null
+                                : () => setState(
+                                      () =>
+                                          _obscurePassword = !_obscurePassword,
+                                    ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    obscureText: _obscurePassword,
                     enabled: !_saving,
+                    validator: (value) {
+                      final text = value?.trim() ?? '';
+                      if (widget.userId == null && text.isEmpty) {
+                        return 'Contraseña requerida para crear';
+                      }
+                      if (text.isNotEmpty && text.length < 6) {
+                        return 'Mínimo 6 caracteres';
+                      }
+                      return null;
+                    },
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
@@ -262,6 +327,19 @@ class _UserFormPageState extends ConsumerState<UserFormPage> {
                     },
                     loading: () => const LinearProgressIndicator(),
                     error: (e, _) => Text('Error sucursales: $e'),
+                  ),
+                  const SizedBox(height: 12),
+                  SwitchListTile.adaptive(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Forzar cambio de contraseña en próximo acceso'),
+                    subtitle: const Text(
+                      'Recomendado para usuarios nuevos o cuando se reinicia contraseña',
+                    ),
+                    value: _forzarCambioPass,
+                    onChanged: _saving
+                        ? null
+                        : (value) =>
+                            setState(() => _forzarCambioPass = value),
                   ),
                   const SizedBox(height: 12),
                   TextFormField(

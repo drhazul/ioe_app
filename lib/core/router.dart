@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../features/login/login_page.dart';
+import '../features/login/force_change_password_page.dart';
 import '../features/home/home_page.dart';
 import '../features/masterdata/masterdata_page.dart';
 import '../features/masterdata/access/access_page.dart';
@@ -102,14 +103,26 @@ final routerProvider = Provider<GoRouter>((ref) {
     ),
     redirect: (context, state) {
       final loggingIn = state.matchedLocation == '/login';
+      final changingPassword =
+          state.matchedLocation == '/auth/change-password';
       if (auth.isLoading) return null;
 
       if (!auth.isAuthenticated) return loggingIn ? null : '/login';
+      if (auth.mustChangePassword && !changingPassword) {
+        return '/auth/change-password';
+      }
+      if (!auth.mustChangePassword && changingPassword) {
+        return '/';
+      }
       if (auth.isAuthenticated && loggingIn) return '/';
       return null;
     },
     routes: [
       GoRoute(path: '/login', builder: (c, s) => const LoginPage()),
+      GoRoute(
+        path: '/auth/change-password',
+        builder: (c, s) => const ForceChangePasswordPage(),
+      ),
       GoRoute(
         path: '/',
         builder: (c, s) => const HomePage(),

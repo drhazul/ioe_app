@@ -36,6 +36,7 @@ autenticacion, datos maestros, inventarios, control de cuentas y punto de venta.
 - tablas: `MOD_FRONT`, `GRUPMOD_FRONT`, `GRUPMOD_FRONT_MOD`, `ROL_GRUPMOD_FRONT`.
 - Auth:
 - `POST /auth/login`, `POST /auth/refresh`.
+- Primer acceso (2026-03): cuando el JWT trae `mustChangePassword=true`, la app redirige a `/auth/change-password` y bloquea navegación hasta completar `POST /auth/change-password`.
 - tablas: `USUARIO`, `USUARIO_TOKEN`.
 - Maestros:
 - `/roles` -> `ROL` (`IDROL`, `CODIGO`, `NOMBRE`, `ACTIVO`).
@@ -43,6 +44,9 @@ autenticacion, datos maestros, inventarios, control de cuentas y punto de venta.
 - `/puestos` -> `PUESTO` (`IDPUESTO`, `IDDEPTO`, `NOMBRE`, `ACTIVO`).
 - `/users` -> `USUARIO` (`IDUSUARIO`, `USERNAME`, `IDROL`, `IDDEPTO`, `IDPUESTO`, `SUC`, `ESTATUS`).
 - UI maestros usuarios: el formulario valida `USERNAME` con minimo 3 caracteres antes de `POST /users`.
+- UI maestros usuarios (2026-03): en alta se genera contraseña temporal aleatoria de 6 dígitos, con botón para regenerar y mostrar/ocultar contraseña.
+- UI maestros usuarios (2026-03): el formulario permite controlar `FORZAR_CAMBIO_PASS` para exigir cambio de contraseña en el próximo acceso.
+- UI maestros usuarios (2026-03): el listado soporta visualización agrupada por sucursal o departamento y filtros por ambas dimensiones.
 - `/datmodulos` -> `MOD_FRONT` (`CODIGO`, `NOMBRE`, `DEPTO`, `ACTIVO`).
 - `/usr-mod-suc` -> `USR_MOD_SUC` (`MODULO`, `USUARIO`, `SUC`, `ACTIVO`).
 - `/cat-ctas` -> `DAT_CAT_CTAS` (`CTA`, `DCTA`, `RELACION`, `SUC`).
