@@ -350,7 +350,10 @@ class _ModuleRow extends StatelessWidget {
     }
     if (moduloCode == 'DAT_FORM_ENTR_OPV' ||
         moduloCode == 'DAT_RES_ENTRE_CAJ' ||
-        moduloCode == 'PV_ESTADO_CAJON' ||
+        moduloCode == 'PV_ENTREGA_CG') {
+      return '/caja-general';
+    }
+    if (moduloCode == 'PV_ESTADO_CAJON' ||
         moduloCode == 'PV_ESTADO_CAJON_OPV' ||
         moduloCode == 'ESTADO_CAJON') {
       return '/estado-cajon';
@@ -391,6 +394,10 @@ class _ModuleRow extends StatelessWidget {
     if (name.contains('retiro') &&
         (name.contains('parcial') || name.contains('caja'))) {
       return '/retiros';
+    }
+    if ((name.contains('entrega') && name.contains('caja')) ||
+        (name.contains('caja') && name.contains('general'))) {
+      return '/caja-general';
     }
     if (name.contains('estado') &&
         name.contains('cajon') &&

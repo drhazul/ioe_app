@@ -54,9 +54,9 @@ class _CtrlCtasResumenClientePageState
   bool _hasStoredRightWidth = false;
   bool _didAutoFitPanelWidths = false;
   _SortDir _clienteTotalSort = _SortDir.desc;
-  bool _clienteOnlyNonZero = true;
+  bool _clienteOnlyNonZero = false;
   _SortDir _transTotalSort = _SortDir.desc;
-  bool _transOnlyNonZero = true;
+  bool _transOnlyNonZero = false;
   bool _exporting = false;
   final ValueNotifier<_ExportProgressState> _exportProgressState =
       ValueNotifier(
@@ -688,7 +688,7 @@ class _CtrlCtasResumenClientePageState
       clients: [client],
       idfols: [idfol],
     );
-    var onlyNonZero = true;
+    var onlyNonZero = false;
     var sortDirection = _SortDir.desc;
     var sortField = _DetalleSortField.total;
 
@@ -787,7 +787,7 @@ class _CtrlCtasResumenClientePageState
                             tooltip: 'Limpiar filtros/orden',
                             onPressed: () {
                               setDialogState(() {
-                                onlyNonZero = true;
+                                onlyNonZero = false;
                                 sortDirection = _SortDir.desc;
                                 sortField = _DetalleSortField.total;
                               });
@@ -1287,7 +1287,7 @@ class _CtrlCtasResumenClientePageState
               },
               onClear: () {
                 setState(() {
-                  _clienteOnlyNonZero = true;
+                  _clienteOnlyNonZero = false;
                   _clienteTotalSort = _SortDir.desc;
                 });
               },
@@ -1324,7 +1324,7 @@ class _CtrlCtasResumenClientePageState
               },
               onClear: () {
                 setState(() {
-                  _transOnlyNonZero = true;
+                  _transOnlyNonZero = false;
                   _transTotalSort = _SortDir.desc;
                 });
               },

@@ -11,6 +11,7 @@ class UserModel {
   final int? idPuesto;
   final String? suc;
   final String? sucDesc;
+  final String? rolCodigo;
   final String? rolNombre;
   final String? deptoNombre;
   final String? puestoNombre;
@@ -29,6 +30,7 @@ class UserModel {
     required this.idPuesto,
     required this.suc,
     required this.sucDesc,
+    required this.rolCodigo,
     required this.rolNombre,
     required this.deptoNombre,
     required this.puestoNombre,
@@ -54,6 +56,7 @@ class UserModel {
       idPuesto: json['IDPUESTO'] as int?,
       suc: json['SUC'] as String?,
       sucDesc: sucursal?['DESC'] as String? ?? sucursal?['desc'] as String?,
+      rolCodigo: rol?['CODIGO'] as String?,
       rolNombre: rol != null ? (rol['NOMBRE'] as String? ?? rol['CODIGO'] as String?) : null,
       deptoNombre: depto?['NOMBRE'] as String?,
       puestoNombre: puesto?['NOMBRE'] as String?,

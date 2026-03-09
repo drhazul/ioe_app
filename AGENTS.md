@@ -56,6 +56,7 @@
 - Control de cuentas:
 - `/ctrl-ctas/config`, `/ctrl-ctas/catalog/*`, `/ctrl-ctas/consulta/*`.
 - tablas/fuentes: `DAT_CTRL_CTAS`, `DAT_CAT_CTAS`, `FACT_CLIENT_SHP`, `PV_OPV`, `USR_MOD_SUC`.
+- compatibilidad histórica ctrl-ctas (2026-03): backend ejecuta SQL directo en `/ctrl-ctas/consulta/*`, normaliza `FCND`, completa faltantes de fecha con `1900-01-01` y `2100-12-31`, e incluye filas legacy con `SUC` nulo/vacío bajo filtro de sucursal.
 - Punto de venta:
 - Clientes `/factclientshp` -> `FACT_CLIENT_SHP`.
 - Panel clientes UI (2026-03): en alta de cliente, el modal predetermina `RfcEmisor`/`RegimenFiscalReceptor`/`UsoCfdi` con `SELECCIONAR` (en payload `RegimenFiscalReceptor=0` por tipo numérico) y `EmailReceptor` con `COLOCAR`; agrega botón `CANCELAR` y, al guardar, cierra el modal y recarga el panel.
@@ -484,7 +485,7 @@
 - En exportacion con CTA unica y sin CLIENT seleccionado, `RESUMEN_TRANS` y `DETALLE` deben incluir todos los CLIENT de la consulta (filtrados por la CTA seleccionada).
 - Para evitar errores de conexion, la consulta de `DETALLE` en exportacion debe enviarse por cliente y por bloques de `IDFOL` (secuencial), no con N llamadas concurrentes por folio.
 - La exportacion en `CtrlCtasResumenClientePage` debe mostrar modal de progreso no cerrable manualmente, con avance por etapas, y cerrarse solo al finalizar o en error.
-- En `CtrlCtasResumenClientePage` el filtro `!= 0` debe iniciar activo por defecto en resumen cliente, resumen transaccion y detalle de transaccion.
+- En `CtrlCtasResumenClientePage` el filtro `!= 0` inicia desactivado por defecto en resumen cliente, resumen transaccion y detalle de transaccion para mostrar todos los registros; el usuario puede activarlo desde los controles del panel.
 
 ## Documentacion viva obligatoria
 - Cada nueva implementacion que cambie modulos, rutas, providers, endpoints, tablas, campos o consultas debe actualizar en el mismo trabajo:

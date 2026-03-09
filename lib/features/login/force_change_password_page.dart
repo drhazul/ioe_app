@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/auth/auth_controller.dart';
 
@@ -56,6 +57,13 @@ class _ForceChangePasswordPageState
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  Future<void> _cancel() async {
+    if (_saving) return;
+    await ref.read(authControllerProvider.notifier).logout();
+    if (!mounted) return;
+    context.go('/login');
   }
 
   @override
@@ -194,6 +202,12 @@ class _ForceChangePasswordPageState
                                 ? 'Guardando...'
                                 : 'Actualizar contraseña y continuar',
                           ),
+                        ),
+                        const SizedBox(height: 8),
+                        OutlinedButton.icon(
+                          onPressed: _saving ? null : _cancel,
+                          icon: const Icon(Icons.cancel_outlined),
+                          label: const Text('Cancelar'),
                         ),
                       ],
                     ),

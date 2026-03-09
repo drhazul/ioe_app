@@ -59,6 +59,9 @@ import '../features/modulos/retiros/retiro_efectivo_page.dart';
 import '../features/modulos/reloj_checador/app/reloj_checador_app_page.dart';
 import '../features/modulos/reloj_checador/consultas/reloj_checador_consultas_page.dart';
 import '../features/modulos/estado_cajon/app/estado_cajon_page.dart';
+import '../features/modulos/caja_general/app/caja_general_page.dart';
+import '../features/modulos/caja_general/app/entrega_opv_page.dart';
+import '../features/modulos/caja_general/app/entrega_global_page.dart';
 import '../features/modulos/punto_venta/punto_venta_home_page.dart';
 import '../features/modulos/punto_venta/clientes/clientes_page.dart';
 import '../features/modulos/punto_venta/clientes/cliente_form_page.dart';
@@ -292,6 +295,48 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'estado-cajon',
             builder: (c, s) => const EstadoCajonPage(),
+          ),
+          GoRoute(
+            path: 'caja-general',
+            builder: (c, s) => const CajaGeneralPage(),
+            routes: [
+              GoRoute(
+                path: 'opv',
+                builder: (c, s) {
+                  final now = DateTime.now();
+                  final suc = (s.uri.queryParameters['suc'] ?? '').trim();
+                  final opv = (s.uri.queryParameters['opv'] ?? '').trim();
+                  final tipo = (s.uri.queryParameters['tipo'] ?? 'GLOBAL')
+                      .trim()
+                      .toUpperCase();
+                  final fcn = (s.uri.queryParameters['fcn'] ?? '').trim();
+                  final fecha = _parseSqlDateOrNow(fcn, now);
+                  return EntregaOpvPage(
+                    suc: suc,
+                    opv: opv,
+                    fecha: fecha,
+                    tipo: tipo.isEmpty ? 'GLOBAL' : tipo,
+                  );
+                },
+              ),
+              GoRoute(
+                path: 'global',
+                builder: (c, s) {
+                  final now = DateTime.now();
+                  final suc = (s.uri.queryParameters['suc'] ?? '').trim();
+                  final tipo = (s.uri.queryParameters['tipo'] ?? 'GLOBAL')
+                      .trim()
+                      .toUpperCase();
+                  final fcn = (s.uri.queryParameters['fcn'] ?? '').trim();
+                  final fecha = _parseSqlDateOrNow(fcn, now);
+                  return EntregaGlobalPage(
+                    suc: suc,
+                    fecha: fecha,
+                    tipo: tipo.isEmpty ? 'GLOBAL' : tipo,
+                  );
+                },
+              ),
+            ],
           ),
           GoRoute(
             path: 'inventarios',
@@ -564,4 +609,19 @@ class GoRouterRefreshStream extends ChangeNotifier {
     _sub.cancel();
     super.dispose();
   }
+}
+
+DateTime _parseSqlDateOrNow(String raw, DateTime now) {
+  final text = raw.trim();
+  if (!RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(text)) {
+    return DateTime(now.year, now.month, now.day);
+  }
+  final parts = text.split('-').map(int.parse).toList(growable: false);
+  final parsed = DateTime(parts[0], parts[1], parts[2]);
+  if (parsed.year != parts[0] ||
+      parsed.month != parts[1] ||
+      parsed.day != parts[2]) {
+    return DateTime(now.year, now.month, now.day);
+  }
+  return parsed;
 }

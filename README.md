@@ -77,6 +77,7 @@ autenticacion, datos maestros, inventarios, control de cuentas y punto de venta.
   `/ctrl-ctas/catalog/opvs`, `/ctrl-ctas/consulta/resumen-cliente`,
   `/ctrl-ctas/consulta/resumen-transaccion`, `/ctrl-ctas/consulta/detalle`.
 - fuentes: `DAT_CTRL_CTAS`, `DAT_CAT_CTAS`, `FACT_CLIENT_SHP`, `PV_OPV`, `USR_MOD_SUC`.
+- Compatibilidad histórica (2026-03): backend ejecuta SQL directo para `/ctrl-ctas/consulta/*`, normaliza `FCND`, completa faltantes de fecha con `1900-01-01` y `2100-12-31`, e incluye filas legacy con `SUC` nulo/vacío cuando hay filtro por sucursal.
 - Regla UI de exportacion (pantalla `Resumen por Deudor`):
 - se habilita exportar si hay exactamente una CTA en criterios, o si el usuario selecciona un CLIENT.
 - si CTA esta en `Todas` o multiples CTA, exportar permanece deshabilitado hasta seleccionar un CLIENT.
@@ -84,7 +85,7 @@ autenticacion, datos maestros, inventarios, control de cuentas y punto de venta.
 - Si hay CTA unica y no se selecciona CLIENT, el archivo exporta `RESUMEN_TRANS` y `DETALLE` para todos los CLIENT que cumplan esa CTA.
 - La carga de `DETALLE` para exportacion se ejecuta por cliente y por bloques de `IDFOL` para reducir fallas de red por demasiadas llamadas simultaneas.
 - Durante exportacion se muestra una ventana emergente de progreso (no cerrable) y se cierra automaticamente al terminar o fallar.
-- En la vista de resumen, el filtro `!= 0` inicia activo por defecto (cliente, transaccion y detalle).
+- En la vista de resumen, el filtro `!= 0` inicia desactivado por defecto (cliente, transaccion y detalle) para mostrar todos los registros; puede activarse desde la barra de controles de cada panel.
 - Punto de venta:
 - `/factclientshp` -> `FACT_CLIENT_SHP`.
 - Panel clientes UI (2026-03): en alta de cliente, el modal usa valores predeterminados `SELECCIONAR` para `RfcEmisor`/`RegimenFiscalReceptor`/`UsoCfdi` (en payload `RegimenFiscalReceptor=0` por tipo numérico) y `COLOCAR` para `EmailReceptor`; incluye botón `CANCELAR` y, después de `Guardar registro`, cierra el modal y refresca la consulta del panel.
