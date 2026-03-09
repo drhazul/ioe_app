@@ -42,14 +42,14 @@ class _PsDetallePageState extends ConsumerState<PsDetallePage> {
     final appBarCanProcesar = detailAsync.maybeWhen(
       data: (detail) {
         final estado = (detail.header.esta ?? '').trim().toUpperCase();
-        return estado == 'PENDIENTE' || estado == 'PAGADO2';
+        return estado == 'PENDIENTE';
       },
       orElse: () => false,
     );
     final appBarBlockedByStatus = detailAsync.maybeWhen(
       data: (detail) {
         final estado = (detail.header.esta ?? '').trim().toUpperCase();
-        return estado == 'PAGADO2';
+        return estado == 'PAGADO' || estado == 'TRANSMITIR';
       },
       orElse: () => false,
     );
@@ -94,7 +94,7 @@ class _PsDetallePageState extends ConsumerState<PsDetallePage> {
         data: (detail) {
           final header = detail.header;
           final estado = (header.esta ?? '').trim().toUpperCase();
-          final blockedByStatus = estado == 'PAGADO2';
+          final blockedByStatus = estado == 'PAGADO' || estado == 'TRANSMITIR';
           final editable = estado == 'PENDIENTE' && !blockedByStatus;
           final client = header.clien ?? 0;
           final ticketTypes = detail.ticket
@@ -571,6 +571,7 @@ class _HeaderInlineTitle extends StatelessWidget {
     final idfol = _textOrFallback(header?.idfol, fallbackIdFol);
     final suc = _textOrFallback(header?.suc, '-');
     final esta = _textOrFallback(header?.esta, '-').toUpperCase();
+    final aut = _textOrFallback(header?.aut, '-').toUpperCase();
     final clien = header?.clien == null ? '-' : header!.clien.toString();
     final cliente = _textOrFallback(header?.razonSocialReceptor, '-');
     final idfolInicial = _textOrFallback(header?.idfolinicial, '-');
@@ -599,6 +600,8 @@ class _HeaderInlineTitle extends StatelessWidget {
                 _chip('SUC: $suc'),
                 const SizedBox(width: 6),
                 _chip('ESTA: $esta'),
+                const SizedBox(width: 6),
+                _chip('AUT: $aut'),
                 const SizedBox(width: 6),
                 _chip('ORIGEN_AUT: $origenAut'),
                 const SizedBox(width: 6),
@@ -1223,3 +1226,6 @@ class _ReferenciasGastoSection extends StatelessWidget {
     );
   }
 }
+
+
+

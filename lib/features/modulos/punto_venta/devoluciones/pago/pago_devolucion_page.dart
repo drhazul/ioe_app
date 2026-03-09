@@ -283,7 +283,7 @@ class _PagoDevolucionPageState extends ConsumerState<PagoDevolucionPage> {
 
   bool _isEstadoPagado(String? value) {
     final estado = (value ?? '').trim().toUpperCase();
-    return estado.contains('PAGADO');
+    return estado == 'PAGADO' || estado == 'TRANSMITIR';
   }
 
   Future<void> _onBackPressed({required bool isEstadoPagado}) async {
@@ -346,6 +346,9 @@ class _PagoDevolucionPageState extends ConsumerState<PagoDevolucionPage> {
             rqfac: _rqfac,
             formas: _formas,
           );
+      final resolvedIdfolDev = res.idfolDev.trim().isEmpty
+          ? widget.idfolDev
+          : res.idfolDev.trim();
       if (!mounted) return;
       setState(() {
         _printEnabled = true;
@@ -354,10 +357,15 @@ class _PagoDevolucionPageState extends ConsumerState<PagoDevolucionPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Devolución finalizada (${res.idfolDev}) - estado PAGADO confirmado. Ya puede imprimir ticket.',
+            'Devolución finalizada ($resolvedIdfolDev) - estado PAGADO confirmado. Ya puede imprimir ticket.',
           ),
         ),
       );
+      if (resolvedIdfolDev != widget.idfolDev) {
+        context.go(
+          '/punto-venta/devoluciones/${Uri.encodeComponent(resolvedIdfolDev)}/pago',
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -389,11 +397,26 @@ class _PagoDevolucionPageState extends ConsumerState<PagoDevolucionPage> {
       final preview = await ref
           .read(devolucionesApiProvider)
           .fetchPrintPreview(widget.idfolDev);
+      final nonCashFormas = preview.formas
+          .where((f) => f.form.trim().toUpperCase() != 'EFECTIVO')
+          .toList(growable: false);
       final doc = _buildTicketPdf(preview, widthMm: widthMm);
       if (!context.mounted) return;
       await Printing.layoutPdf(
         name: 'devolucion_${preview.idfolDev}.pdf',
         onLayout: (_) async => doc.save(),
+      );
+      if (!context.mounted || nonCashFormas.isEmpty) return;
+      final openVoucher = await _confirmOpenVoucherPreview(context);
+      if (!context.mounted || !openVoucher) return;
+      final voucherDoc = _buildVoucherPdf(
+        preview,
+        widthMm: widthMm,
+        nonCashFormas: nonCashFormas,
+      );
+      await Printing.layoutPdf(
+        name: 'devolucion_${preview.idfolDev}_voucher.pdf',
+        onLayout: (_) async => voucherDoc.save(),
       );
     } catch (e) {
       if (!context.mounted) return;
@@ -404,6 +427,31 @@ class _PagoDevolucionPageState extends ConsumerState<PagoDevolucionPage> {
       );
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
     }
+  }
+
+  Future<bool> _confirmOpenVoucherPreview(BuildContext context) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Abrir voucher'),
+          content: const Text(
+            'Se cerró la vista previa del ticket. ¿Desea abrir ahora la vista previa del voucher?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('No'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Sí'),
+            ),
+          ],
+        );
+      },
+    );
+    return result == true;
   }
 
   Future<double?> _selectTicketWidth(BuildContext context) {
@@ -659,23 +707,60 @@ class _PagoDevolucionPageState extends ConsumerState<PagoDevolucionPage> {
                 fontWeight: pw.FontWeight.bold,
               ),
             ),
-          if (nonCashFormas.isNotEmpty) ...[
-            pw.SizedBox(height: 4),
-            ...nonCashFormas.map(
-              (forma) => _buildVoucherSectionDevolucion(
-                forma: forma,
-                idfol: footer.idfolDev,
-                suc: header.suc,
-                clienteNombre: footer.clienteNombre,
-                clienteId: footer.clienteId?.toStringAsFixed(0),
-                tra: null,
-                fecha: forma.fcn ?? fcnTrans,
-                totalOperacion: totals.total,
-                baseFontSize: baseFontSize,
-                smallFontSize: smallFontSize,
-              ),
+        ],
+      ),
+    );
+    return doc;
+  }
+
+  pw.Document _buildVoucherPdf(
+    DevolucionPrintPreviewResponse data, {
+    required double widthMm,
+    required List<DevolucionPrintForma> nonCashFormas,
+  }) {
+    final doc = pw.Document();
+    if (nonCashFormas.isEmpty) return doc;
+
+    final header = data.header;
+    final totals = data.totals;
+    final footer = data.footer;
+    final fcnTrans = _resolveTicketDate(data.formas);
+
+    final widthPt = _mmToPt(widthMm);
+    final pageFormat = PdfPageFormat(
+      widthPt,
+      _mmToPt(
+        _estimateVoucherHeightMm(
+          voucherCount: nonCashFormas.length,
+          widthMm: widthMm,
+        ),
+      ),
+      marginAll: 0,
+    );
+    final leftMarginPt = _mmToPt(2);
+    final baseFontSize = widthMm <= 58 ? 9.0 : 10.0;
+    final smallFontSize = widthMm <= 58 ? 8.0 : 9.0;
+
+    doc.addPage(
+      pw.MultiPage(
+        pageFormat: pageFormat,
+        margin: pw.EdgeInsets.only(left: leftMarginPt),
+        maxPages: 120,
+        build: (_) => [
+          ...nonCashFormas.map(
+            (forma) => _buildVoucherSectionDevolucion(
+              forma: forma,
+              idfol: footer.idfolDev,
+              suc: header.suc,
+              clienteNombre: footer.clienteNombre,
+              clienteId: footer.clienteId?.toStringAsFixed(0),
+              tra: null,
+              fecha: forma.fcn ?? fcnTrans,
+              totalOperacion: totals.total,
+              baseFontSize: baseFontSize,
+              smallFontSize: smallFontSize,
             ),
-          ],
+          ),
         ],
       ),
     );
@@ -1003,18 +1088,22 @@ class _PagoDevolucionPageState extends ConsumerState<PagoDevolucionPage> {
         mm += 2.5;
       }
     }
-    final nonCashFormas = data.formas
-        .where((f) => f.form.trim().toUpperCase() != 'EFECTIVO')
-        .toList(growable: false);
-    if (nonCashFormas.isNotEmpty) {
-      mm += 6;
-      final perVoucher = is58 ? 108.0 : 120.0;
-      mm += nonCashFormas.length * perVoucher;
-    }
-
     mm += is58 ? 10 : 16;
     final minMm = is58 ? 170.0 : 220.0;
     final maxMm = is58 ? 1400.0 : 1900.0;
+    return mm.clamp(minMm, maxMm).toDouble();
+  }
+
+  double _estimateVoucherHeightMm({
+    required int voucherCount,
+    required double widthMm,
+  }) {
+    final is58 = widthMm <= 58;
+    final perVoucher = is58 ? 108.0 : 120.0;
+    final padding = is58 ? 14.0 : 18.0;
+    final minMm = is58 ? 140.0 : 170.0;
+    final maxMm = is58 ? 1800.0 : 2400.0;
+    final mm = (voucherCount * perVoucher) + padding;
     return mm.clamp(minMm, maxMm).toDouble();
   }
 
@@ -1108,6 +1197,10 @@ class _ContextCard extends StatelessWidget {
           children: [
             _kv('Folio devolución', preview.context.idfolDev),
             _kv('Folio origen', preview.context.idfolOrig),
+            _kv('IDFOLINICIAL', preview.context.idfolInicial ?? '-'),
+            _kv('AUT', preview.context.autDev),
+            _kv('ESTA', (preview.context.estaDev ?? '-').toUpperCase()),
+            _kv('ORIGEN_AUT', (preview.context.origenAut ?? '-').toUpperCase()),
             _kv('Sucursal', preview.context.suc),
             _kv('Cliente', preview.context.clien?.toStringAsFixed(0) ?? '-'),
           ],
@@ -1286,3 +1379,6 @@ class _FormasCard extends StatelessWidget {
     );
   }
 }
+
+
+

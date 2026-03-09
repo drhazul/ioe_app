@@ -108,7 +108,7 @@ class _PsPanelPageState extends ConsumerState<PsPanelPage> {
                     setState(() => _selected = item);
                     final estado = (item.esta ?? '').trim().toUpperCase();
                     final idfol = Uri.encodeComponent(item.idfol);
-                    if (estado == 'PAGADO') {
+                    if (estado == 'PAGADO' || estado == 'TRANSMITIR') {
                       context.go('/ps/$idfol/pago');
                       return;
                     }
@@ -395,10 +395,12 @@ class _PsPanelTable extends StatelessWidget {
             child: const Row(
               children: [
                 SizedBox(width: 220, child: Text('IDFOL', style: TextStyle(fontWeight: FontWeight.w600))),
+                SizedBox(width: 220, child: Text('IDFOLINICIAL', style: TextStyle(fontWeight: FontWeight.w600))),
                 SizedBox(width: 90, child: Text('SUC', style: TextStyle(fontWeight: FontWeight.w600))),
                 SizedBox(width: 140, child: Text('OPV', style: TextStyle(fontWeight: FontWeight.w600))),
                 SizedBox(width: 130, child: Text('ESTA', style: TextStyle(fontWeight: FontWeight.w600))),
                 SizedBox(width: 120, child: Text('AUT', style: TextStyle(fontWeight: FontWeight.w600))),
+                SizedBox(width: 120, child: Text('ORIGEN_AUT', style: TextStyle(fontWeight: FontWeight.w600))),
                 SizedBox(width: 120, child: Text('IMPT', style: TextStyle(fontWeight: FontWeight.w600))),
                 SizedBox(width: 260, child: Text('Cliente', style: TextStyle(fontWeight: FontWeight.w600))),
               ],
@@ -421,10 +423,12 @@ class _PsPanelTable extends StatelessWidget {
                     child: Row(
                       children: [
                         SizedBox(width: 220, child: Text(item.idfol, overflow: TextOverflow.ellipsis)),
+                        SizedBox(width: 220, child: Text(item.idfolinicial ?? '-', overflow: TextOverflow.ellipsis)),
                         SizedBox(width: 90, child: Text(item.suc ?? '-')),
                         SizedBox(width: 140, child: Text(item.opv ?? '-', overflow: TextOverflow.ellipsis)),
                         SizedBox(width: 130, child: Text(item.esta ?? '-', overflow: TextOverflow.ellipsis)),
                         SizedBox(width: 120, child: Text(item.aut ?? '-')),
+                        SizedBox(width: 120, child: Text((item.origenAut ?? '-').toUpperCase())),
                         SizedBox(width: 120, child: Text(_money(item.impt))),
                         SizedBox(
                           width: 260,
@@ -478,3 +482,4 @@ class _SmallField extends StatelessWidget {
     );
   }
 }
+

@@ -143,9 +143,8 @@ class CotizacionesApi {
   bool _isVisibleEstado(String? value) {
     final estado = _normalize(value);
     return estado == 'PENDIENTE' ||
-        estado == 'PAGADO' ||
-        estado == 'EDITADO' ||
-        estado == 'EDITANDO';
+        estado == 'EDITANDO' ||
+        estado == 'PAGADO';
   }
 
   bool _isVisibleAut(String? value) {
@@ -155,7 +154,7 @@ class CotizacionesApi {
 
   bool _isSearchOverrideEstado(String? value) {
     final estado = _normalize(value);
-    return estado == 'PENDIENTE' || estado == 'EDITADO';
+    return estado == 'PENDIENTE';
   }
 
   bool _matchesExactFilter(String? rowValue, String filterValue) {
@@ -175,3 +174,4 @@ class CotizacionesApi {
     return (value ?? '').trim().toUpperCase();
   }
 }
+

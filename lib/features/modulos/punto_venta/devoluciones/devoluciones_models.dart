@@ -102,6 +102,8 @@ class DevolucionDetalleHeader {
     this.estaDev,
     this.opv,
     this.opvm,
+    this.idfolInicial,
+    this.origenAut,
   });
 
   final String idfolDev;
@@ -115,6 +117,8 @@ class DevolucionDetalleHeader {
   final String? estaDev;
   final String? opv;
   final String? opvm;
+  final String? idfolInicial;
+  final String? origenAut;
 
   factory DevolucionDetalleHeader.fromJson(Map<String, dynamic> json) {
     return DevolucionDetalleHeader(
@@ -129,6 +133,8 @@ class DevolucionDetalleHeader {
       estaDev: _asText(json['estaDev']),
       opv: _asText(json['opv']),
       opvm: _asText(json['opvm']),
+      idfolInicial: _asText(json['idfolInicial']),
+      origenAut: _asText(json['origenAut']),
     );
   }
 }
@@ -753,3 +759,4 @@ String? _asText(dynamic value) {
   final text = value?.toString().trim() ?? '';
   return text.isEmpty ? null : text;
 }
+

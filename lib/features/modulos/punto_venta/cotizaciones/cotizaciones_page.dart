@@ -59,7 +59,7 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Panel de cotizaciones pendientes'),
+        title: const Text('Panel de cotizaciones'),
         actions: [
           IconButton(
             onPressed: () => ref.invalidate(cotizacionesListProvider),
@@ -176,7 +176,7 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
 
   bool _isEstadoPagado(String? value) {
     final estado = (value ?? '').trim().toUpperCase();
-    return estado.contains('PAGADO');
+    return estado == 'PAGADO' || estado == 'TRANSMITIR';
   }
 
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref, PvCtrFolAsvrModel model) async {
@@ -697,3 +697,4 @@ class _ClientePickerDialogState extends State<_ClientePickerDialog> {
     }).toList();
   }
 }
+

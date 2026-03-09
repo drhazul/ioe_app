@@ -422,7 +422,7 @@ class _DetalleDevolucionPageState extends ConsumerState<DetalleDevolucionPage> {
 
   bool _isEstadoPagado(String? value) {
     final estado = (value ?? '').trim().toUpperCase();
-    return estado.contains('PAGADO');
+    return estado == 'PAGADO' || estado == 'TRANSMITIR';
   }
 }
 
@@ -447,6 +447,10 @@ class _HeaderCard extends StatelessWidget {
           children: [
             _kv('Folio devolución', header.idfolDev),
             _kv('Folio origen', header.idfolOrig),
+            _kv('IDFOLINICIAL', header.idfolInicial ?? '-'),
+            _kv('AUT', header.autDev),
+            _kv('ESTA', (header.estaDev ?? '-').toUpperCase()),
+            _kv('ORIGEN_AUT', (header.origenAut ?? '-').toUpperCase()),
             _kv('Cliente', header.clien?.toStringAsFixed(0) ?? '-'),
             _kv(
               'Total selección',
@@ -636,3 +640,7 @@ class _LinesTable extends StatelessWidget {
     );
   }
 }
+
+
+
+

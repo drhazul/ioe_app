@@ -90,6 +90,7 @@
 
 ## Punto de venta: edicion de precio en detalle de cotizacion
 - En `DetalleCotPage`, doble clic sobre la celda `PVTA` abre edicion de precio del renglón en `PV_TICKET_LOG`.
+- En la cabecera de `DetalleCotPage` se ocultan los campos `IDFOLINICIAL`, `AUT`, `ESTA` y `ORIGEN_AUT`; se mantienen `Sucursal`, `Cotizacion`, `Fecha`, `Nombre OPV`, `N Cliente` y `Nombre Cliente`.
 - Si el usuario logueado tiene rol supervisor (`SUPERPV`), abre directo el modal de nuevo importe.
 - La UI intenta actualizar precio con `PATCH /pvticketlog/:id/precio` sin `AUTH_PASSWORD`; backend evalua si el solicitante es `SUPERPV`.
 - Si backend exige autorizacion (`403`), la UI abre modal de contraseña `SUPERPV`, prevalida con `POST /pvticketlog/precio/authorize` y reintenta `PATCH` con `AUTH_PASSWORD`.
@@ -125,6 +126,7 @@
 - `DELETE /pv/refdetalle/:idref`
 - Dependencia backend de cierre:
 - `POST /pv/cotizaciones/:idfol/cierre` se procesa en API via `dbo.sp_pv_cotizacion_cerrar`; si ese SP no existe, backend responde `409` indicando ejecutar `ioe-api/sql/sp_pv_cotizacion_cerrar_create.sql`.
+- el backend resuelve el folio de pago por `IDFOL` actual o `IDFOLINICIAL`; esto mantiene compatibilidad cuando el cierre cambia el folio visible de `CP` a `CA/VF`.
 - En fallos de validacion SQL del SP de cierre, backend responde `400/409` con mensaje de negocio (en lugar de `500` por abortos transaccionales internos).
 - Totales y validaciones criticas siempre se confirman en backend (no confiar en calculo frontend).
 - Al finalizar exitosamente se refrescan providers de cotizacion/ticket y la pantalla queda en pago (sin redireccion inmediata).
@@ -134,16 +136,17 @@
 - En pago, cuando `ESTA` es `PAGADO`, el boton regresar cambia a icono de candado y al presionarlo actualiza `ESTA='TRANSMITIR'` y regresa al panel.
 - Boton regresar en pago: si aun no esta en `PAGADO` vuelve a `detalle`; en `PAGADO` aplica flujo de envio a `TRANSMITIR`.
 - Desde panel de cotizaciones, si el folio ya esta en `PAGADO`, la seleccion abre directo la pantalla de pago (no detalle) para identificar el proceso de salida/transmision.
-- El panel de cotizaciones lista folios en `PENDIENTE`, `PAGADO` y `EDITANDO` filtrando por `ESTA` (sin depender del valor de `AUT`).
+- El panel de cotizaciones lista folios en `PENDIENTE`, `EDITANDO` y `PAGADO` filtrando por `ESTA` (sin depender del valor de `AUT`); `TRANSMITIR` se conserva para salida, no para visualización del panel.
 - Optimizacion panel cotizaciones (2026-03): la consulta del panel usa filtros server-side `suc`, `opv` y `search` en `GET /pvctrfolasvr`; la pagina espera contexto JWT (`_contextReady`) antes de consultar para evitar carga masiva inicial sin criterios.
 - Compatibilidad consulta cotizaciones (2026-03): frontend deja de enviar query param `_` (cache-buster) para evitar `400` por `forbidNonWhitelisted` cuando backend valida query DTO.
 - Panel cotizaciones UI (2026-03): la grilla migra a columnas de ancho dinamico por contenido (con scroll horizontal) para evitar truncado de datos.
 - Panel cotizaciones UI (2026-03): se agregan columnas `CLIEN` y `Razon social receptor` en la visualizacion principal.
 - Panel cotizaciones busqueda (2026-03): el campo `Buscar cotizacion` permite buscar en el mismo input por `IDFOL`, `CLIEN` y `RazonSocialReceptor`.
-- Panel cotizaciones seguridad (2026-03): la lista normal mantiene filtro estricto por `SUC/OPV` del contexto; solo en busqueda por folio (`IDFOL`) se permite mostrar folio de otro OPV cuando cumple `ESTA in ('PENDIENTE','EDITADO')` y `AUT in ('CP','CA','VF')`.
+- Panel cotizaciones seguridad (2026-03): la lista normal mantiene filtro estricto por `SUC/OPV` del contexto; solo en busqueda por folio (`IDFOL`) se permite mostrar folio de otro OPV cuando cumple `ESTA = 'PENDIENTE'` y `AUT in ('CP','CA','VF')`.
 - Vista previa PDF de cierre (ticket 58/80mm): cabecera sucursal (`DAT_SUC`), detalle de articulos (`PV_TICKET_LOG`), totales+formas+cambio, pie transaccional (`OPV/OPVM`, `IDFOL`, `FCNM`, cliente) y ORDs con control (`ORD + UPC`) + codigo de barras `CODE39` + tabla con bordes del detalle.
 - Ticket cotizaciones voucher (2026-03): si el cierre incluye formas no `EFECTIVO`, la impresión agrega al final un voucher `SOPORTE RECEPCION PAGO` por cada forma no efectivo (`FORM/IMPD/AUT o REF/AUT` + datos de cliente/folio).
 - Ticket cotizaciones voucher (2026-03): el voucher incluye espacio en blanco para firma y renglón `Firma cliente` debajo de `FCN`.
+- Ticket cotizaciones impresión (2026-03): el voucher se movió a un segundo PDF; al cerrar la vista previa del ticket principal, la app solicita confirmación y luego abre la vista previa del PDF de vouchers (mismo ancho 58/80 seleccionado).
 - Ticket cotizaciones impresión (2026-03): se agrega línea de recorte entre `RESUMEN DE ORDS` y `ORDS`; `GRACIAS POR SU CONFIANZA` se imprime después de `RESUMEN DE ORDS` y antes del recorte hacia `ORDS`.
 - Ticket cotizaciones impresion (2026-03-04): se retira del PDF el bloque detallado `ORDS` (barcode `CODE39` + tabla `JOB/ESF/CIL/EJE`); se conserva `RESUMEN DE ORDS` y vouchers. El diseño retirado queda respaldado en `lib/features/modulos/taller/etiqueta/ticket_ords_legacy_layout.dart`.
 - Ajuste de impresion: se removio del encabezado del ticket el texto `COTIZACION FINALIZADA` y el `IDFOL` superior repetitivo.
@@ -162,12 +165,12 @@
 - Para ORDs creadas desde cotizacion, `PV_CTR_ORDS.CLIEN` se maneja como `FLOAT` para soportar IDs grandes; requiere script `ioe-api/sql/PV_CTR_ORDS_CLIEN_float.sql`.
 - Reglas UI de formas (actualizacion):
 - El dropdown de formas de pago en el modal se alimenta desde `DAT_FORM` via `GET /dat-form` (ya no lista fija hardcodeada).
-- Con `tipotran=CA`, el selector de formas en el modal solo permite `EFECTIVO`.
+- Con `tipotran=CA`, el selector de formas en el modal permite `EFECTIVO` y `CREDITO`.
 - El campo `Autorizacion / referencia` y el boton `Generar/Asignar referencia` solo se muestran para `TARJETA`, `CHEQUE`, `TRANSFERENCIA` y `DEPOSITO 3RO`.
 - La referencia ya no se captura manualmente: se crea/asigna via `REF_DETALLE` y se regresa `IDREF` al formulario de pago.
 - Si hay referencias del folio en `CAPTURADO` o `PROCESADO` que no se usan en el cierre, backend rechaza finalizar hasta eliminarlas.
 - En cierre `VF`, para formas `CREDITO`/`DEUDOR` backend inserta en `PV_CTR_FOL_FORM_SVR` (si existe; fallback `PV_CTR_FOL_FORM`) con `IMPP` positivo y `AUT=IDFOL`.
-- Para `CREDITO`, backend valida disponible con `FACT_CLIENT_SHP.L_CRED - SUM(ABS(DAT_CTRL_CTAS.IMPT))` filtrando `CTA='101001002'` y `CLIENT=@IDC`.
+- Para `CREDITO`, backend valida disponible con saldo neto de `DAT_CTRL_CTAS` (`SUM(IMPT)`) filtrando `CTA='101001002'` y `CLIENT=@IDC`; disponible = `FACT_CLIENT_SHP.L_CRED - MAX(-SUM(IMPT), 0)` (cargos negativos consumen crédito y abonos positivos lo liberan).
 - Para `CREDITO`/`DEUDOR`, backend registra cargo en `DAT_CTRL_CTAS` con `CMOV=602`, `CTA='101001002'`, `CLIENT`, `IDFOL`, `NDOC` y `IMPT` negativo.
 - Compatibilidad backend en `DAT_CTRL_CTAS`: puede insertar clase en `CMOV` o `CLSD` segun columnas disponibles y completar `FCND/RTXT` cuando existan.
 - `NDOC` de cargo se genera concurrente bajo transaccion (sin `DCount`), con formato base `N6000001+`.
@@ -181,6 +184,7 @@
 - Ajuste UI: en el resumen unificado ya no se muestra el label/valor `IVA integrado sucursal`.
 - Ajuste funcional: al entrar/reingresar a la pagina de pago se vuelve a recalcular preview/totales (sin reutilizar inicializacion previa), respetando `tipotran`/`rqfac` y reglas de IVA del backend.
 - Persistencia `RQFAC`: al activar/desactivar el switch en pago se actualiza `PV_CTR_FOL_ASVR.REQF` por `IDFOL` via `PATCH /pvctrfolasvr/:idfol`.
+- Foliado visible: al finalizar cierre la pantalla adopta el `IDFOL` actual devuelto por backend (`SUC-YYYYMMDD-CA|VF-####`) para AppBar, impresión y salida a `TRANSMITIR`; la ruta sigue siendo compatible por `IDFOLINICIAL`.
 - Reingreso a pago: `DetalleCotPage` abre pago tomando `rqfac` desde `cierre/context` (backend) para evitar usar valores stale de la grilla local.
 - Validacion UI previa a cierre: antes de `POST /pv/cotizaciones/:idfol/cierre`, la app consulta `GET /pv/refdetalle?idfol=:idfol` y bloquea finalizar si hay referencias `CAPTURADO/PROCESADO` no usadas en `formas.aut`.
 - Si la prevalidacion detecta referencias sin usar, la app redirige a `/punto-venta/cotizaciones/:idfol/ref-detalle` con la referencia detectada preseleccionada para su gestion (usar/eliminar) antes de permitir cerrar.
@@ -232,12 +236,13 @@
 - Política de fecha de finalización devolución (2026-03): backend usa una fecha de proceso actual única al cerrar para `FACT_IDFOLDEV` (`FCN/FCNR`), `PV_CTR_FOL_FORM(_SVR).FCN`, `PV_CTR_FOL_ASVR.FCNM`, `PV_TICKET_LOG.UPDATED_AT` y movimientos contables asociados.
 - al presionar candado en pago, frontend actualiza `ESTA='TRANSMITIR'` via `PATCH /pvctrfolasvr/:idfol` y regresa al panel.
 - al regresar a panel desde pago/candado, frontend invalida el provider del panel para forzar recarga inmediata de la consulta.
-- el panel de devoluciones solo muestra folios con `ESTA IN ('DEV PEND','PAGADO')`.
+- el panel de devoluciones solo muestra folios con `ESTA IN ('PENDIENTE','EDITANDO','PAGADO')`; `TRANSMITIR` se mantiene como estado operativo de salida y ya no se lista en panel.
 - desde panel de devoluciones, si un folio ya está en `PAGADO`, la selección abre directo `/pago` (sin pasar por selección de artículos/detalle).
 - desde panel de devoluciones, si un folio no está en `PAGADO` pero ya tiene artículos seleccionados (`linesSelected > 0` o alguna línea con `CTDD > 0`), la selección abre directo `/detalle`; si no hay selección previa, abre `/punto-venta/devoluciones/:idfolDev`.
 - tras finalizar se habilita botón `Imprimir ticket`, que sigue flujo similar a cotizaciones: selector 58mm/80mm y vista previa PDF con `GET /pv/devoluciones/:idfolDev/print-preview`.
 - Ticket devoluciones voucher (2026-03): si hay formas no `EFECTIVO`, la impresión agrega al final un voucher `SOPORTE RECEPCION PAGO` por cada forma no efectivo.
 - Ticket devoluciones voucher (2026-03): el voucher incluye espacio en blanco para firma y renglón `Firma cliente` debajo de `FCN`.
+- Ticket devoluciones impresión (2026-03): el voucher se genera en un segundo PDF; al cerrar la vista previa del ticket principal, la app solicita confirmación y luego abre la vista previa del voucher.
 - Ticket devoluciones impresión (2026-03): se agrega línea de recorte entre `RESUMEN DE ORDS` y `ORDS`; `GRACIAS POR SU CONFIANZA` se imprime después de `RESUMEN DE ORDS` y antes del recorte hacia `ORDS`.
 - Ticket devoluciones impresion (2026-03-04): se retira del PDF el bloque detallado `ORDS` (barcode `CODE39` + tabla `JOB/ESF/CIL/EJE`); se conserva `RESUMEN DE ORDS` y vouchers. El diseño retirado queda respaldado en `lib/features/modulos/taller/etiqueta/ticket_ords_legacy_layout.dart`.
 - Ticket devoluciones formato (2026-03): el PDF se homologa a cotizaciones con bloques `DETALLE`, `TOTALES`, `FORMAS`, `TRANSACCION`, `RESUMEN DE ORDS`, `ORDS` (barcode `CODE39` + tabla `JOB/ESF/CIL/EJE`) y vouchers para formas no `EFECTIVO`.
@@ -288,7 +293,7 @@
 - en detalle, el resumen de adeudos del cliente se basa en `DAT_CTRL_CTAS` agrupado por `CLIENT, IDFOL` con `SUM(IMPT) <> 0`.
 - la referencia de adeudo/gasto se asigna a la línea seleccionada (`psSelectedArtProvider`).
 - en detalle, `Procesar servicio` se ejecuta desde el AppBar (no dentro del bloque de acciones del body).
-- en detalle, si `ESTA='PAGADO2'` la pantalla se bloquea (sin edición/selección) y solo permanecen activos el botón `Procesar servicio` y el regreso del AppBar.
+- en detalle, si `ESTA IN ('PAGADO','TRANSMITIR')` la pantalla se bloquea (sin edición/selección) y solo permanecen activos el botón `Procesar servicio` y el regreso del AppBar.
 - en detalle, los servicios `AD/AP/CR` exigen cliente seleccionado (`CLIEN != 1`) antes de agregar línea.
 - en detalle, el backend también rechaza `AD/AP/CR` cuando `CLIEN <= 1` (mensaje `Seleccione Cliente`) para evitar bypass por API directa.
 - en detalle/adeudos, cada fila muestra botón `Ver registros` que abre popup tabular (listado por renglones y columnas) con movimientos de `DAT_CTRL_CTAS` del folio seleccionado.
@@ -305,6 +310,7 @@
 - en pago, el botón secundario es `Imprimir ticket` (reemplaza `Regresar a detalle`).
 - Ticket PS voucher (2026-03): al imprimir, si existen formas no `EFECTIVO`, el PDF agrega al final un voucher `SOPORTE RECEPCION PAGO` por cada forma no efectivo.
 - Ticket PS voucher (2026-03): el voucher incluye espacio en blanco para firma y renglón `Firma cliente` debajo de `FCN`.
+- Ticket PS impresión (2026-03): el voucher se genera en un segundo PDF; al cerrar la vista previa del ticket principal, la app solicita confirmación y luego abre la vista previa del voucher.
 - Ticket PS impresión (2026-03): se agrega línea de recorte entre `RESUMEN DE ORDS` y `ORDS`; `GRACIAS POR SU CONFIANZA` se imprime después de `RESUMEN DE ORDS` y antes del recorte hacia `ORDS`.
 - Ticket PS impresion (2026-03-04): se retira del PDF el bloque detallado `ORDS` (barcode `CODE39` + tabla `JOB/ESF/CIL/EJE`); se conserva `RESUMEN DE ORDS` y vouchers. El diseño retirado queda respaldado en `lib/features/modulos/taller/etiqueta/ticket_ords_legacy_layout.dart`.
 - Ticket PS formato (2026-03): el PDF se homologa a cotizaciones con bloques `DETALLE`, `TOTALES`, `FORMAS`, `TRANSACCION`, `RESUMEN DE ORDS`, `ORDS` (barcode `CODE39` + tabla `JOB/ESF/CIL/EJE`) y vouchers para formas no `EFECTIVO`.

@@ -372,15 +372,15 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
     }
   }
 
-  Future<void> _markEditando() async {
+  Future<void> _markPendiente() async {
     try {
-      await ref.read(cotizacionesApiProvider).updateCotizacion(widget.idfol, {'ESTA': 'EDITANDO'});
+      await ref.read(cotizacionesApiProvider).updateCotizacion(widget.idfol, {'ESTA': 'PENDIENTE'});
       ref.invalidate(cotizacionProvider(widget.idfol));
       ref.invalidate(cotizacionesListProvider);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('No se pudo actualizar a EDITANDO: $e')),
+          SnackBar(content: Text('No se pudo regularizar a PENDIENTE: $e')),
         );
       }
     }
@@ -745,7 +745,7 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
           return 'No se permite crear ORD para el cliente seleccionado.';
         }
         if (code == 'INVALID_STATUS') {
-          return 'El documento no está en estado EDITANDO.';
+          return 'El documento no está en estado PENDIENTE.';
         }
         if (code == 'INVALID_QTY') {
           return 'La cantidad registrada para el articulo no permite crear ORD';
@@ -1135,7 +1135,7 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
     );
     await ref.read(cotizacionLocalProvider(widget.idfol).notifier).addItem(item);
     if (wasEmpty) {
-      await _markEditando();
+      await _markPendiente();
     }
     await _syncItem(item);
     _requestSearchFocus();
@@ -1158,7 +1158,7 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
 
   bool _isEstadoPagado(String? estado) {
     final value = (estado ?? '').trim().toUpperCase();
-    return value.contains('PAGADO');
+    return value == 'PAGADO' || value == 'TRANSMITIR';
   }
 
   CotizacionLocalItem _toLocalItem(PvTicketLogItem item) {
@@ -2067,3 +2067,6 @@ class _TableCell extends StatelessWidget {
     );
   }
 }
+
+
+

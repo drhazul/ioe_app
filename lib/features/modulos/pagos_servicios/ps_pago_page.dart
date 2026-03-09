@@ -425,24 +425,49 @@ class _PsPagoPageState extends ConsumerState<PsPagoPage> {
 
     setState(() => _saving = true);
     try {
-      await ref.read(psApiProvider).finalizarPago(
-            idFol: widget.idFol,
+      final currentIdFol = widget.idFol;
+      final response = await ref.read(psApiProvider).finalizarPago(
+            idFol: currentIdFol,
             formas: draft,
           );
-      ref.read(psPagoDraftFormasProvider(widget.idFol).notifier).clear();
-      ref.invalidate(psPagoSummaryProvider(widget.idFol));
-      ref.invalidate(psFormasPagoProvider(widget.idFol));
-      ref.invalidate(psDetalleProvider(widget.idFol));
+
+      String resolvedIdFol = '';
+      final resultPayload = response['result'];
+      if (resultPayload is Map) {
+        resolvedIdFol =
+            ((resultPayload['IDFOL'] ?? resultPayload['idfol'] ?? '') as Object)
+                .toString()
+                .trim();
+      }
+      if (resolvedIdFol.isEmpty) {
+        resolvedIdFol =
+            ((response['idfol'] ?? response['IDFOL'] ?? '') as Object)
+                .toString()
+                .trim();
+      }
+      if (resolvedIdFol.isEmpty) {
+        resolvedIdFol = currentIdFol;
+      }
+
+      ref.read(psPagoDraftFormasProvider(currentIdFol).notifier).clear();
+      for (final idFol in <String>{currentIdFol, resolvedIdFol}) {
+        ref.invalidate(psPagoSummaryProvider(idFol));
+        ref.invalidate(psFormasPagoProvider(idFol));
+        ref.invalidate(psDetalleProvider(idFol));
+      }
       ref.invalidate(psFoliosProvider);
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-            'Pago finalizado. Estado PAGADO aplicado. Puede imprimir ticket.',
+            'Pago finalizado ($resolvedIdFol). Estado PAGADO aplicado. Puede imprimir ticket.',
           ),
         ),
       );
+      if (resolvedIdFol != currentIdFol) {
+        context.go('/ps/${Uri.encodeComponent(resolvedIdFol)}/pago');
+      }
     } catch (e) {
       if (!mounted) return;
       _showError(apiErrorMessage(e, fallback: 'No se pudo finalizar pago PS'));
@@ -496,6 +521,9 @@ class _PsPagoPageState extends ConsumerState<PsPagoPage> {
       } catch (_) {
         detalle = null;
       }
+      final nonCashFormas = summary.formas
+          .where((f) => f.form.trim().toUpperCase() != 'EFECTIVO')
+          .toList(growable: false);
 
       final doc = _buildTicketPdf(
         summary: summary,
@@ -506,6 +534,19 @@ class _PsPagoPageState extends ConsumerState<PsPagoPage> {
       await Printing.layoutPdf(
         name: 'ps_${summary.idfol}.pdf',
         onLayout: (_) async => doc.save(),
+      );
+      if (!mounted || nonCashFormas.isEmpty) return;
+      final openVoucher = await _confirmOpenVoucherPreview(context);
+      if (!mounted || !openVoucher) return;
+      final voucherDoc = _buildVoucherPdf(
+        summary: summary,
+        detalle: detalle,
+        widthMm: widthMm,
+        nonCashFormas: nonCashFormas,
+      );
+      await Printing.layoutPdf(
+        name: 'ps_${summary.idfol}_voucher.pdf',
+        onLayout: (_) async => voucherDoc.save(),
       );
     } catch (e) {
       if (!mounted) return;
@@ -518,6 +559,31 @@ class _PsPagoPageState extends ConsumerState<PsPagoPage> {
     } finally {
       if (mounted) setState(() => _printingTicket = false);
     }
+  }
+
+  Future<bool> _confirmOpenVoucherPreview(BuildContext context) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Abrir voucher'),
+          content: const Text(
+            'Se cerró la vista previa del ticket. ¿Desea abrir ahora la vista previa del voucher?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('No'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Sí'),
+            ),
+          ],
+        );
+      },
+    );
+    return result == true;
   }
 
   Future<double?> _selectTicketWidth(BuildContext context) {
@@ -743,27 +809,65 @@ class _PsPagoPageState extends ConsumerState<PsPagoPage> {
                 fontWeight: pw.FontWeight.bold,
               ),
             ),
-          if (nonCashFormas.isNotEmpty) ...[
-            pw.SizedBox(height: 4),
-            ...nonCashFormas.map(
-              (forma) => _buildVoucherSectionPs(
-                forma: forma,
-                idfol: summary.idfol,
-                suc: sucLabel,
-                clienteNombre: header?.razonSocialReceptor,
-                clienteId: header?.clien?.toString(),
-                tra: header?.tra,
-                fecha: forma.fcn ?? transDate,
-                totalOperacion: summary.total,
-                baseFontSize: baseFont,
-                smallFontSize: smallFont,
-              ),
-            ),
-          ],
         ],
       ),
     );
 
+    return doc;
+  }
+
+  pw.Document _buildVoucherPdf({
+    required PsPagoSummary summary,
+    required double widthMm,
+    required List<PsFormaPagoItem> nonCashFormas,
+    PsDetalleResponse? detalle,
+  }) {
+    final doc = pw.Document();
+    if (nonCashFormas.isEmpty) return doc;
+
+    final header = detalle?.header;
+    final transDate = _resolveTicketDate(summary.formas);
+    final sucValue = (summary.suc).trim();
+    final sucLabel = sucValue.isEmpty ? '-' : sucValue;
+
+    final widthPt = _mmToPt(widthMm);
+    final pageFormat = PdfPageFormat(
+      widthPt,
+      _mmToPt(
+        _estimateVoucherHeightMm(
+          voucherCount: nonCashFormas.length,
+          widthMm: widthMm,
+        ),
+      ),
+      marginAll: 0,
+    );
+    final leftMarginPt = _mmToPt(2);
+    final baseFont = widthMm <= 58 ? 9.0 : 10.0;
+    final smallFont = widthMm <= 58 ? 8.0 : 9.0;
+
+    doc.addPage(
+      pw.MultiPage(
+        pageFormat: pageFormat,
+        margin: pw.EdgeInsets.only(left: leftMarginPt),
+        maxPages: 120,
+        build: (_) => [
+          ...nonCashFormas.map(
+            (forma) => _buildVoucherSectionPs(
+              forma: forma,
+              idfol: summary.idfol,
+              suc: sucLabel,
+              clienteNombre: header?.razonSocialReceptor,
+              clienteId: header?.clien?.toString(),
+              tra: header?.tra,
+              fecha: forma.fcn ?? transDate,
+              totalOperacion: summary.total,
+              baseFontSize: baseFont,
+              smallFontSize: smallFont,
+            ),
+          ),
+        ],
+      ),
+    );
     return doc;
   }
 
@@ -976,7 +1080,7 @@ class _PsPagoPageState extends ConsumerState<PsPagoPage> {
 
   bool _isEstadoPagado(String? value) {
     final estado = (value ?? '').trim().toUpperCase();
-    return estado.contains('PAGADO');
+    return estado == 'PAGADO' || estado == 'TRANSMITIR';
   }
 }
 
@@ -1448,18 +1552,22 @@ double _estimateTicketHeightMm(
       mm += 2.5;
     }
   }
-  final nonCashCount = summary.formas
-      .where((f) => f.form.trim().toUpperCase() != 'EFECTIVO')
-      .length;
-  if (nonCashCount > 0) {
-    mm += 6;
-    final perVoucher = is58 ? 108.0 : 120.0;
-    mm += nonCashCount * perVoucher;
-  }
-
   mm += is58 ? 10 : 16;
   final minMm = is58 ? 180.0 : 230.0;
   final maxMm = is58 ? 1800.0 : 2400.0;
+  return mm.clamp(minMm, maxMm).toDouble();
+}
+
+double _estimateVoucherHeightMm({
+  required int voucherCount,
+  required double widthMm,
+}) {
+  final is58 = widthMm <= 58;
+  final perVoucher = is58 ? 108.0 : 120.0;
+  final padding = is58 ? 14.0 : 18.0;
+  final minMm = is58 ? 140.0 : 170.0;
+  final maxMm = is58 ? 1800.0 : 2400.0;
+  final mm = (voucherCount * perVoucher) + padding;
   return mm.clamp(minMm, maxMm).toDouble();
 }
 
@@ -1529,3 +1637,4 @@ String _defaultFormaInicial(List<String> formas) {
   if (formas.contains('EFECTIVO')) return 'EFECTIVO';
   return formas.isNotEmpty ? formas.first : 'EFECTIVO';
 }
+

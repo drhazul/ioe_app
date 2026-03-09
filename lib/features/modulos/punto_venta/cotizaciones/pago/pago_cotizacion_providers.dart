@@ -47,6 +47,11 @@ class PagoCotizacionState {
   final List<PagoCierreFormaDraft> formas;
   final String? error;
 
+  String get visibleIdfol {
+    final current = context?.idfol.trim() ?? '';
+    return current.isNotEmpty ? current : idfol;
+  }
+
   double get sumPagos => formas.fold(0.0, (acc, item) => acc + item.impp);
 
   PagoCotizacionState copyWith({
@@ -290,9 +295,13 @@ class PagoCotizacionController extends StateNotifier<PagoCotizacionState> {
       );
       PagoCierreContext? refreshedContext;
       try {
-        refreshedContext = await _api.fetchContext(state.idfol);
+        refreshedContext = await _api.fetchContext(response.idfol);
       } catch (_) {
-        refreshedContext = null;
+        try {
+          refreshedContext = await _api.fetchContext(state.idfol);
+        } catch (_) {
+          refreshedContext = null;
+        }
       }
       state = state.copyWith(
         submitting: false,

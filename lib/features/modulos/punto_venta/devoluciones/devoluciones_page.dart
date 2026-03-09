@@ -210,7 +210,7 @@ class _DevolucionesPageState extends ConsumerState<DevolucionesPage> {
 
   bool _isEstadoPagado(String? value) {
     final estado = (value ?? '').trim().toUpperCase();
-    return estado.contains('PAGADO');
+    return estado == 'PAGADO' || estado == 'TRANSMITIR';
   }
 
   Future<void> _handleRowSelect(DevolucionPanelItem item) async {
@@ -600,3 +600,4 @@ class _PanelTable extends StatelessWidget {
     return '\$${value.toStringAsFixed(2)}';
   }
 }
+
