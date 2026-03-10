@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ioe_app/core/dio_provider.dart';
+import 'package:ioe_app/features/masterdata/sucursales/sucursales_models.dart';
+import 'package:ioe_app/features/masterdata/sucursales/sucursales_providers.dart';
 import 'package:ioe_app/features/masterdata/users/users_models.dart';
 import 'package:ioe_app/features/masterdata/users/users_providers.dart';
 
@@ -21,6 +23,7 @@ class _CajaGeneralPageState extends ConsumerState<CajaGeneralPage> {
   late DateTime _fecha;
   static const _operationTipo = 'GLOBAL';
   String _suc = '';
+  bool _isAdmin = false;
   String? _tokenOpv;
   String? _selectedOpv;
   bool _contextReady = false;
@@ -44,90 +47,246 @@ class _CajaGeneralPageState extends ConsumerState<CajaGeneralPage> {
     }
 
     final usersAsync = ref.watch(usersListProvider);
+    final sucursalesAsync = _isAdmin
+        ? ref.watch(sucursalesListProvider)
+        : const AsyncData<List<SucursalModel>>(<SucursalModel>[]);
+
+    final loadingUsers = usersAsync.isLoading;
+    final loadingSucursales = _isAdmin && sucursalesAsync.isLoading;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Caja General'),
       ),
-      body: usersAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => _buildLayout(
-          opvField: TextFormField(
-            enabled: false,
-            initialValue: '',
-            decoration: InputDecoration(
-              labelText: 'OPV',
-              border: const OutlineInputBorder(),
-              isDense: true,
-              helperText: 'No se pudieron cargar OPV: $error',
-            ),
-          ),
-          selectedOpv: null,
-        ),
-        data: (users) {
-          final options = _buildOpvOptions(users, _suc);
-          final selectedOpv = _resolveSelectedOpv(options);
-
-          if (selectedOpv != _selectedOpv) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (!mounted) return;
-              setState(() => _selectedOpv = selectedOpv);
-              _saveFiltros(opv: selectedOpv ?? '');
-            });
-          }
-
-          final opvField = options.isEmpty
-              ? TextFormField(
-                  enabled: false,
-                  initialValue: '',
-                  decoration: const InputDecoration(
-                    labelText: 'OPV',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                    helperText:
-                        'No hay usuarios OPV/SUPERVISOR activos en tu sucursal.',
-                  ),
-                )
-              : DropdownButtonFormField<String>(
-                  key: ValueKey(
-                    'cg-opv-$_suc-${selectedOpv ?? ''}-$options.length',
-                  ),
-                  initialValue: selectedOpv,
-                  isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'OPV',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                  items: options
-                      .map(
-                        (option) => DropdownMenuItem<String>(
-                          value: option.opv,
-                          child: Text(option.label),
-                        ),
-                      )
-                      .toList(growable: false),
-                  onChanged: (value) {
-                    if (value == null) return;
-                    setState(() => _selectedOpv = value);
-                    _saveFiltros(opv: value);
-                  },
-                );
-
-          return _buildLayout(
-            opvField: opvField,
-            selectedOpv: selectedOpv,
-          );
-        },
-      ),
+      body: (loadingUsers || loadingSucursales)
+          ? const Center(child: CircularProgressIndicator())
+          : _buildReadyBody(usersAsync, sucursalesAsync),
     );
   }
 
+  Widget _buildReadyBody(
+    AsyncValue<List<UserModel>> usersAsync,
+    AsyncValue<List<SucursalModel>> sucursalesAsync,
+  ) {
+    final sucursalesError = _isAdmin ? sucursalesAsync.asError?.error : null;
+    final sucursales = _isAdmin
+        ? (sucursalesAsync.asData?.value ?? const <SucursalModel>[])
+        : const <SucursalModel>[];
+    final sucursalesOptions = _buildSucursalOptions(sucursales);
+    final suc = _resolveSucursalSelection(sucursales);
+    final sucReady = _isAdmin
+        ? sucursalesError == null &&
+            sucursalesOptions.isNotEmpty &&
+            suc.trim().isNotEmpty
+        : suc.trim().isNotEmpty;
+
+    if (usersAsync.hasError) {
+      return _buildLayout(
+        introText: _isAdmin
+            ? 'Seleccione sucursal, OPV y fecha.'
+            : 'La sucursal se toma del usuario logueado. Seleccione OPV y fecha.',
+        sucField: _buildSucursalField(
+          sucursales: sucursales,
+          selectedSuc: suc,
+          loadError: sucursalesError,
+        ),
+        sucReady: sucReady,
+        opvField: TextFormField(
+          enabled: false,
+          initialValue: '',
+          decoration: InputDecoration(
+            labelText: 'OPV',
+            border: const OutlineInputBorder(),
+            isDense: true,
+            helperText: 'No se pudieron cargar OPV: ${usersAsync.error}',
+          ),
+        ),
+        selectedOpv: null,
+      );
+    }
+
+    final users = usersAsync.asData?.value ?? const <UserModel>[];
+    final options = _buildOpvOptions(users, suc);
+    final selectedOpv = _resolveSelectedOpv(options);
+
+    if (selectedOpv != _selectedOpv) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() => _selectedOpv = selectedOpv);
+        _saveFiltros(opv: selectedOpv ?? '', suc: suc);
+      });
+    }
+
+    final opvField = options.isEmpty
+        ? TextFormField(
+            enabled: false,
+            initialValue: '',
+            decoration: const InputDecoration(
+              labelText: 'OPV',
+              border: OutlineInputBorder(),
+              isDense: true,
+              helperText:
+                  'No hay usuarios OPV/SUPERVISOR activos en la sucursal seleccionada.',
+            ),
+          )
+        : DropdownButtonFormField<String>(
+            key: ValueKey(
+              'cg-opv-$suc-${selectedOpv ?? ''}-$options.length',
+            ),
+            initialValue: selectedOpv,
+            isExpanded: true,
+            decoration: const InputDecoration(
+              labelText: 'OPV',
+              border: OutlineInputBorder(),
+              isDense: true,
+            ),
+            items: options
+                .map(
+                  (option) => DropdownMenuItem<String>(
+                    value: option.opv,
+                    child: Text(option.label),
+                  ),
+                )
+                .toList(growable: false),
+            onChanged: (value) {
+              if (value == null) return;
+              setState(() => _selectedOpv = value);
+              _saveFiltros(opv: value, suc: suc);
+            },
+          );
+
+    return _buildLayout(
+      introText: _isAdmin
+          ? 'Seleccione sucursal, OPV y fecha.'
+          : 'La sucursal se toma del usuario logueado. Seleccione OPV y fecha.',
+      sucField: _buildSucursalField(
+        sucursales: sucursales,
+        selectedSuc: suc,
+        loadError: sucursalesError,
+      ),
+      sucReady: sucReady,
+      opvField: opvField,
+      selectedOpv: selectedOpv,
+    );
+  }
+
+  Widget _buildSucursalField({
+    required List<SucursalModel> sucursales,
+    required String selectedSuc,
+    required Object? loadError,
+  }) {
+    if (!_isAdmin) {
+      return TextFormField(
+        enabled: false,
+        initialValue: selectedSuc,
+        decoration: const InputDecoration(
+          labelText: 'Sucursal (SUC)',
+          border: OutlineInputBorder(),
+          isDense: true,
+        ),
+      );
+    }
+
+    if (loadError != null) {
+      return TextFormField(
+        enabled: false,
+        initialValue: selectedSuc,
+        decoration: InputDecoration(
+          labelText: 'Sucursal (SUC)',
+          border: const OutlineInputBorder(),
+          isDense: true,
+          helperText: 'No se pudieron cargar sucursales: $loadError',
+        ),
+      );
+    }
+
+    final options = _buildSucursalOptions(sucursales);
+    if (options.isEmpty) {
+      return TextFormField(
+        enabled: false,
+        initialValue: selectedSuc,
+        decoration: const InputDecoration(
+          labelText: 'Sucursal (SUC)',
+          border: OutlineInputBorder(),
+          isDense: true,
+          helperText: 'No hay sucursales disponibles en DAT_SUC.',
+        ),
+      );
+    }
+
+    final resolved = options.any((item) => item.suc == selectedSuc)
+        ? selectedSuc
+        : options.first.suc;
+
+    return DropdownButtonFormField<String>(
+      key: ValueKey('cg-suc-$resolved-${options.length}'),
+      initialValue: resolved,
+      isExpanded: true,
+      decoration: const InputDecoration(
+        labelText: 'Sucursal (SUC)',
+        border: OutlineInputBorder(),
+        isDense: true,
+      ),
+      items: options
+          .map(
+            (option) => DropdownMenuItem<String>(
+              value: option.suc,
+              child: Text(option.label),
+            ),
+          )
+          .toList(growable: false),
+      onChanged: (value) {
+        if (value == null) return;
+        if (value == _suc) return;
+        setState(() {
+          _suc = value;
+          _selectedOpv = null;
+        });
+        _saveFiltros(opv: '', suc: value);
+      },
+    );
+  }
+
+  String _resolveSucursalSelection(List<SucursalModel> sucursales) {
+    final current = _suc.trim().toUpperCase();
+    if (!_isAdmin) return current;
+
+    final options = _buildSucursalOptions(sucursales);
+    if (options.isEmpty) return current;
+    if (options.any((item) => item.suc == current)) return current;
+
+    final fallback = options.first.suc;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() {
+        _suc = fallback;
+        _selectedOpv = null;
+      });
+      _saveFiltros(opv: '', suc: fallback);
+    });
+    return fallback;
+  }
+
+  List<_SucursalOption> _buildSucursalOptions(List<SucursalModel> sucursales) {
+    final options = <_SucursalOption>[];
+    for (final sucursal in sucursales) {
+      final suc = sucursal.suc.trim().toUpperCase();
+      if (suc.isEmpty) continue;
+      final desc = (sucursal.desc ?? '').trim();
+      final label = desc.isEmpty ? suc : '$suc - $desc';
+      options.add(_SucursalOption(suc: suc, label: label));
+    }
+    options.sort((a, b) => a.label.toLowerCase().compareTo(b.label.toLowerCase()));
+    return options;
+  }
+
   Widget _buildLayout({
+    required String introText,
+    required Widget sucField,
+    required bool sucReady,
     required Widget opvField,
     required String? selectedOpv,
   }) {
-    final sucReady = _suc.trim().isNotEmpty;
     final opvReady = (selectedOpv ?? '').trim().isNotEmpty;
 
     return ListView(
@@ -138,23 +297,15 @@ class _CajaGeneralPageState extends ConsumerState<CajaGeneralPage> {
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 8),
-        const Text(
-          'La sucursal se toma del usuario logueado. Seleccione OPV y fecha.',
-        ),
+        Text(introText),
         const SizedBox(height: 14),
-        TextFormField(
-          enabled: false,
-          initialValue: _suc,
-          decoration: const InputDecoration(
-            labelText: 'Sucursal (SUC)',
-            border: OutlineInputBorder(),
-            isDense: true,
-          ),
-        ),
+        sucField,
         if (!sucReady) ...[
           const SizedBox(height: 6),
           Text(
-            'No se pudo resolver la sucursal del usuario autenticado.',
+            _isAdmin
+                ? 'No se pudo resolver una sucursal disponible desde DAT_SUC.'
+                : 'No se pudo resolver la sucursal del usuario autenticado.',
             style: TextStyle(color: Colors.red),
           ),
         ],
@@ -183,12 +334,12 @@ class _CajaGeneralPageState extends ConsumerState<CajaGeneralPage> {
                   ? null
                   : () => _goEntregaOpv(selectedOpv),
               icon: const Icon(Icons.point_of_sale),
-                label: const Text('Entrega de OPV'),
+              label: const Text('Entrega de OPV'),
             ),
             OutlinedButton.icon(
               onPressed: sucReady ? _goResumenGlobal : null,
               icon: const Icon(Icons.query_stats),
-                label: const Text('Resumen Global Dia'),
+              label: const Text('Resumen Global Dia'),
             ),
           ],
         ),
@@ -213,6 +364,16 @@ class _CajaGeneralPageState extends ConsumerState<CajaGeneralPage> {
         .toString()
         .trim()
         .toUpperCase();
+    final username = (payload['username'] ?? payload['USERNAME'] ?? '')
+        .toString()
+        .trim()
+        .toUpperCase();
+    final roleId = int.tryParse(
+      (payload['roleId'] ?? payload['ROLEID'] ?? payload['IDROL'] ?? '')
+          .toString()
+          .trim(),
+    );
+    final isAdmin = roleId == 1 || username == 'ADMIN';
     final tokenOpv = (payload['opv'] ?? payload['OPV'] ?? payload['username'] ?? '')
         .toString()
         .trim()
@@ -220,6 +381,7 @@ class _CajaGeneralPageState extends ConsumerState<CajaGeneralPage> {
 
     setState(() {
       _suc = suc;
+      _isAdmin = isAdmin;
       _tokenOpv = tokenOpv.isEmpty ? null : tokenOpv;
       if ((_selectedOpv ?? '').trim().isEmpty &&
           (_tokenOpv ?? '').trim().isNotEmpty) {
@@ -227,7 +389,7 @@ class _CajaGeneralPageState extends ConsumerState<CajaGeneralPage> {
       }
       _contextReady = true;
     });
-    _saveFiltros(opv: _selectedOpv ?? '');
+    _saveFiltros(opv: _selectedOpv ?? '', suc: suc);
   }
 
   List<_OpvOption> _buildOpvOptions(List<UserModel> users, String suc) {
@@ -364,9 +526,10 @@ class _CajaGeneralPageState extends ConsumerState<CajaGeneralPage> {
     );
   }
 
-  void _saveFiltros({required String opv}) {
+  void _saveFiltros({required String opv, String? suc}) {
+    final resolvedSuc = (suc ?? _suc).trim().toUpperCase();
     ref.read(cajaGeneralFiltrosProvider.notifier).state = CajaGeneralFiltros(
-          suc: _suc,
+          suc: resolvedSuc,
           fecha: _fecha,
           opv: opv,
           tipo: _operationTipo,
@@ -392,5 +555,15 @@ class _OpvOption {
   });
 
   final String opv;
+  final String label;
+}
+
+class _SucursalOption {
+  const _SucursalOption({
+    required this.suc,
+    required this.label,
+  });
+
+  final String suc;
   final String label;
 }

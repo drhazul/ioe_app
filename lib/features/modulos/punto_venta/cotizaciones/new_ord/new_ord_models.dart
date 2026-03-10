@@ -1,6 +1,7 @@
 class CreateOrdFromQuoteLineRequest {
   CreateOrdFromQuoteLineRequest({
     required this.idfol,
+    required this.ticketId,
     required this.art,
     required this.descArt,
     required this.ctd,
@@ -15,6 +16,7 @@ class CreateOrdFromQuoteLineRequest {
   });
 
   final String idfol;
+  final String ticketId;
   final String art;
   final String descArt;
   final double ctd;
@@ -29,6 +31,7 @@ class CreateOrdFromQuoteLineRequest {
 
   Map<String, dynamic> toJson() => {
         'idfol': idfol,
+        'ticketId': ticketId,
         'art': art,
         'descArt': descArt,
         'ctd': ctd,
@@ -146,16 +149,19 @@ class NewOrdDialogResult {
 class DeleteOrdFromQuoteLineRequest {
   DeleteOrdFromQuoteLineRequest({
     required this.iord,
+    required this.ticketId,
     this.idfol,
     this.art,
   });
 
   final String iord;
+  final String ticketId;
   final String? idfol;
   final String? art;
 
   Map<String, dynamic> toJson() => {
         'iord': iord,
+        'ticketId': ticketId,
         'idfol': idfol,
         'art': art,
       };

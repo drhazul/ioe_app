@@ -134,7 +134,10 @@ class DevolucionesApi {
 
   bool _isVisiblePanelEstado(String? value) {
     final estado = (value ?? '').trim().toUpperCase();
-    return estado == 'PENDIENTE' || estado == 'EDITANDO' || estado == 'PAGADO';
+    return estado == 'PENDIENTE' ||
+        estado == 'EDITANDO' ||
+        estado == 'PAGADO' ||
+        estado == 'ANULADO';
   }
 }
 

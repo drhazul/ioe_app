@@ -104,6 +104,7 @@ class _DevolucionesPageState extends ConsumerState<DevolucionesPage> {
                   rows: items,
                   selected: _selected,
                   onSelect: _handleRowSelect,
+                  onAnular: (item) => _confirmAnular(item),
                 ),
               ],
             ),
@@ -211,6 +212,53 @@ class _DevolucionesPageState extends ConsumerState<DevolucionesPage> {
   bool _isEstadoPagado(String? value) {
     final estado = (value ?? '').trim().toUpperCase();
     return estado == 'PAGADO' || estado == 'TRANSMITIR';
+  }
+
+  bool _isEstadoPendiente(String? value) {
+    final estado = (value ?? '').trim().toUpperCase();
+    return estado == 'PENDIENTE';
+  }
+
+  Future<void> _confirmAnular(DevolucionPanelItem item) async {
+    if (!_isEstadoPendiente(item.esta)) return;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Anular devolución'),
+        content: Text(
+          '¿Deseas cambiar a ANULADO la devolución ${item.idfol}?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Anular'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    try {
+      await ref.read(devolucionesApiProvider).updateEstado(
+            idfol: item.idfol,
+            esta: 'ANULADO',
+          );
+      if (!mounted) return;
+      setState(() => _selected = null);
+      ref.invalidate(devolucionesPanelProvider(_query));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            apiErrorMessage(e, fallback: 'No se pudo anular la devolución'),
+          ),
+        ),
+      );
+    }
   }
 
   Future<void> _handleRowSelect(DevolucionPanelItem item) async {
@@ -523,11 +571,13 @@ class _PanelTable extends StatelessWidget {
     required this.rows,
     required this.selected,
     required this.onSelect,
+    required this.onAnular,
   });
 
   final List<DevolucionPanelItem> rows;
   final DevolucionPanelItem? selected;
   final ValueChanged<DevolucionPanelItem> onSelect;
+  final ValueChanged<DevolucionPanelItem> onAnular;
 
   @override
   Widget build(BuildContext context) {
@@ -549,6 +599,7 @@ class _PanelTable extends StatelessWidget {
                 SizedBox(width: 140, child: Text('Estado', style: TextStyle(fontWeight: FontWeight.w600))),
                 SizedBox(width: 120, child: Text('Importe', style: TextStyle(fontWeight: FontWeight.w600))),
                 SizedBox(width: 220, child: Text('Cliente', style: TextStyle(fontWeight: FontWeight.w600))),
+                SizedBox(width: 44, child: Text('')),
               ],
             ),
           ),
@@ -561,6 +612,7 @@ class _PanelTable extends StatelessWidget {
               itemBuilder: (_, index) {
                 final item = rows[index];
                 final selectedRow = selected?.idfol == item.idfol;
+                final canAnular = _isEstadoPendiente(item.esta);
                 return InkWell(
                   onTap: () => onSelect(item),
                   child: Container(
@@ -583,6 +635,16 @@ class _PanelTable extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
+                        SizedBox(
+                          width: 44,
+                          child: IconButton(
+                            tooltip: canAnular
+                                ? 'Anular'
+                                : 'Disponible solo en PENDIENTE',
+                            onPressed: canAnular ? () => onAnular(item) : null,
+                            icon: const Icon(Icons.delete_outline, size: 18),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -598,6 +660,11 @@ class _PanelTable extends StatelessWidget {
   String _money(double? value) {
     if (value == null) return '-';
     return '\$${value.toStringAsFixed(2)}';
+  }
+
+  bool _isEstadoPendiente(String? value) {
+    final estado = (value ?? '').trim().toUpperCase();
+    return estado == 'PENDIENTE';
   }
 }
 

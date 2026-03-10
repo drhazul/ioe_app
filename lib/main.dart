@@ -14,6 +14,7 @@ Future<void> main() async {
   // evita warnings de AssetManifest.json cuando el manifest no está disponible.
   if (kReleaseMode) {
     await dotenv.load(fileName: 'assets/.env');
+
   }
 
   // Health check to validate backend connectivity early and provide

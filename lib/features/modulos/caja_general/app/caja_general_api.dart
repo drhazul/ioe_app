@@ -96,6 +96,7 @@ class CajaGeneralApi {
     required String opv,
     String? ter,
     String? user,
+    String? authPassword,
   }) async {
     final res = await dio.post(
       '/caja-general/opv/reactivar',
@@ -105,6 +106,8 @@ class CajaGeneralApi {
         'opv': opv.trim(),
         if ((ter ?? '').trim().isNotEmpty) 'ter': ter!.trim(),
         if ((user ?? '').trim().isNotEmpty) 'user': user!.trim(),
+        if ((authPassword ?? '').trim().isNotEmpty)
+          'authPassword': authPassword!.trim(),
       },
     );
     return _toMap(res.data);
@@ -142,6 +145,32 @@ class CajaGeneralApi {
       },
     );
     return _toMap(res.data);
+  }
+
+  Future<List<CajaGeneralFormaDetalle>> fetchDetalleFormaOpv({
+    required String suc,
+    required DateTime fecha,
+    required String opv,
+    required String tipo,
+    required String form,
+  }) async {
+    final res = await dio.get(
+      '/caja-general/opv/forma-detalle',
+      queryParameters: {
+        'suc': suc.trim(),
+        'fcn': _formatSqlDate(fecha),
+        'opv': opv.trim(),
+        'tipo': tipo.trim().toUpperCase(),
+        'form': form.trim().toUpperCase(),
+      },
+    );
+    final data = _toMap(res.data);
+    final itemsRaw = data['items'];
+    if (itemsRaw is! List) return const [];
+    return itemsRaw
+        .whereType<Map>()
+        .map((row) => CajaGeneralFormaDetalle.fromJson(Map<String, dynamic>.from(row)))
+        .toList(growable: false);
   }
 
   String _formatSqlDate(DateTime value) {

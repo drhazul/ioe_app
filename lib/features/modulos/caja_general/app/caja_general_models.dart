@@ -144,6 +144,35 @@ class CajaGeneralFormaPago {
   }
 }
 
+class CajaGeneralFormaDetalle {
+  CajaGeneralFormaDetalle({
+    required this.opv,
+    required this.form,
+    required this.idfol,
+    required this.impt,
+    required this.aut,
+    required this.esta,
+  });
+
+  final String opv;
+  final String form;
+  final String idfol;
+  final double impt;
+  final String aut;
+  final String esta;
+
+  factory CajaGeneralFormaDetalle.fromJson(Map<String, dynamic> json) {
+    return CajaGeneralFormaDetalle(
+      opv: (json['OPV'] ?? json['opv'] ?? '').toString().trim(),
+      form: (json['FORM'] ?? json['form'] ?? '').toString().trim(),
+      idfol: (json['IDFOL'] ?? json['idfol'] ?? '').toString().trim(),
+      impt: _asDouble(json['IMPT'] ?? json['impt']) ?? 0,
+      aut: (json['AUT'] ?? json['aut'] ?? '').toString().trim(),
+      esta: (json['ESTA'] ?? json['esta'] ?? '').toString().trim(),
+    );
+  }
+}
+
 class CajaGeneralTransaccion {
   CajaGeneralTransaccion({
     required this.aut,

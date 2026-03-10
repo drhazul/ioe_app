@@ -31,24 +31,17 @@ class CotizacionesApi {
       return visible;
     }
 
-    final searchedId = _normalize(normalizedSearch);
-    final alreadyIncluded = visible.any((item) => _normalize(item.idfol) == searchedId);
-    if (alreadyIncluded) {
-      return visible;
-    }
-    if (!_looksLikeIdFolSearch(normalizedSearch)) {
-      return visible;
-    }
-
-    final fallbackItem = await _fetchByIdForSearch(
-      idfol: normalizedSearch,
+    final visibleIds = visible.map((item) => _normalize(item.idfol)).toSet();
+    final crossUserMatches = await _fetchCrossUserSearchMatches(
       suc: normalizedSuc,
+      currentOpv: normalizedOpv,
+      search: normalizedSearch,
+      excludedIds: visibleIds,
     );
-    if (fallbackItem == null) {
+    if (crossUserMatches.isEmpty) {
       return visible;
     }
-
-    return [fallbackItem, ...visible];
+    return [...visible, ...crossUserMatches];
   }
 
   Future<PvCtrFolAsvrModel> fetchCotizacion(String idfol) async {
@@ -111,29 +104,31 @@ class CotizacionesApi {
         .toList();
   }
 
-  Future<PvCtrFolAsvrModel?> _fetchByIdForSearch({
-    required String idfol,
+  Future<List<PvCtrFolAsvrModel>> _fetchCrossUserSearchMatches({
     required String suc,
+    required String currentOpv,
+    required String search,
+    required Set<String> excludedIds,
   }) async {
-    final id = idfol.trim().toUpperCase();
-    if (id.isEmpty) return null;
-
-    try {
-      final item = await fetchCotizacion(id);
-      if (!_isSearchOverrideEstado(item.esta) || !_isVisibleAut(item.aut)) {
-        return null;
+    final opvCriterion = _looksLikeOpvSearch(search);
+    final parsed = await _fetchCotizacionesRaw(
+      suc: suc,
+      opv: opvCriterion ? search.trim() : '',
+      search: opvCriterion ? '' : search,
+    );
+    final currentOpvNormalized = _normalize(currentOpv);
+    return parsed.where((item) {
+      final idNormalized = _normalize(item.idfol);
+      if (excludedIds.contains(idNormalized)) return false;
+      if (!_matchesExactFilter(item.suc, suc)) return false;
+      if (!opvCriterion &&
+          currentOpvNormalized.isNotEmpty &&
+          _normalize(item.opv) == currentOpvNormalized) {
+        return false;
       }
-      if (suc.isNotEmpty && _normalize(item.suc) != _normalize(suc)) {
-        return null;
-      }
-      return item;
-    } on DioException catch (e) {
-      final statusCode = e.response?.statusCode ?? 0;
-      if (statusCode == 400 || statusCode == 404) {
-        return null;
-      }
-      rethrow;
-    }
+      if (!_isCrossUserSearchAllowed(item)) return false;
+      return _matchesSearchCriterion(item, search);
+    }).toList();
   }
 
   bool _isVisiblePanelItem(PvCtrFolAsvrModel item) {
@@ -144,7 +139,8 @@ class CotizacionesApi {
     final estado = _normalize(value);
     return estado == 'PENDIENTE' ||
         estado == 'EDITANDO' ||
-        estado == 'PAGADO';
+        estado == 'PAGADO' ||
+        estado == 'ANULADO';
   }
 
   bool _isVisibleAut(String? value) {
@@ -152,9 +148,31 @@ class CotizacionesApi {
     return aut == 'VF' || aut == 'CA' || aut == 'CP';
   }
 
-  bool _isSearchOverrideEstado(String? value) {
-    final estado = _normalize(value);
-    return estado == 'PENDIENTE';
+  bool _isCrossUserSearchAllowed(PvCtrFolAsvrModel item) {
+    final aut = _normalize(item.aut);
+    final estado = _normalize(item.esta);
+    return aut == 'CP' && estado == 'PENDIENTE';
+  }
+
+  bool _matchesSearchCriterion(PvCtrFolAsvrModel item, String search) {
+    final term = search.trim();
+    if (term.isEmpty) return true;
+    final normalizedTerm = _normalize(term);
+
+    if (_looksLikeOpvSearch(term)) {
+      return _normalize(item.opv) == normalizedTerm;
+    }
+    if (_looksLikeIdFolSearch(term)) {
+      return _normalize(item.idfol) == normalizedTerm ||
+          _normalize(item.idfolinicial) == normalizedTerm;
+    }
+    if (_looksLikeClientSearch(term)) {
+      return _normalizeNumericText(item.clien?.toString()) ==
+          _normalizeNumericText(term);
+    }
+
+    final razon = (item.razonSocialReceptor ?? '').trim().toLowerCase();
+    return razon.contains(term.toLowerCase());
   }
 
   bool _matchesExactFilter(String? rowValue, String filterValue) {
@@ -168,6 +186,29 @@ class CotizacionesApi {
     final hasValidChars = RegExp(r'^[A-Za-z0-9_-]+$').hasMatch(text);
     final hasDigit = RegExp(r'\d').hasMatch(text);
     return hasValidChars && hasDigit;
+  }
+
+  bool _looksLikeClientSearch(String value) {
+    final text = value.trim();
+    if (!RegExp(r'^\d+$').hasMatch(text)) return false;
+    return text.length != 4;
+  }
+
+  bool _looksLikeOpvSearch(String value) {
+    final text = value.trim();
+    if (text.contains(' ')) return false;
+    return RegExp(r'^\d{4}$').hasMatch(text);
+  }
+
+  String _normalizeNumericText(String? value) {
+    final text = (value ?? '').trim();
+    if (text.isEmpty) return '';
+    final parsed = num.tryParse(text);
+    if (parsed == null) return text;
+    if (parsed == parsed.roundToDouble()) {
+      return parsed.toInt().toString();
+    }
+    return parsed.toString();
   }
 
   String _normalize(String? value) {

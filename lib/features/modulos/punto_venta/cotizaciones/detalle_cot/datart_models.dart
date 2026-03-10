@@ -6,6 +6,7 @@ class DatArtModel {
     this.des,
     this.stock,
     this.pvta,
+    this.bloq,
   });
 
   final String suc;
@@ -14,6 +15,7 @@ class DatArtModel {
   final String? des;
   final double? stock;
   final double? pvta;
+  final double? bloq;
 
   factory DatArtModel.fromJson(Map<String, dynamic> json) {
     return DatArtModel(
@@ -23,6 +25,7 @@ class DatArtModel {
       des: json['DES']?.toString(),
       stock: _asDouble(json['STOCK']),
       pvta: _asDouble(json['PVTA']),
+      bloq: _asDouble(json['BLOQ'] ?? json['bloq']),
     );
   }
 

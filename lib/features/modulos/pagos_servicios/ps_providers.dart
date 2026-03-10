@@ -19,7 +19,7 @@ final psFoliosProvider = FutureProvider.autoDispose<List<PsFolioItem>>((ref) asy
     esta: 'ALL',
     search: query.search,
   );
-  const estadosPermitidos = {'PENDIENTE', 'EDITANDO', 'PAGADO'};
+  const estadosPermitidos = {'PENDIENTE', 'EDITANDO', 'PAGADO', 'ANULADO'};
   final opvNorm = query.opv.trim().toUpperCase();
   return folios
       .where(

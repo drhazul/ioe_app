@@ -51,6 +51,9 @@ class _EntregaOpvPageState extends ConsumerState<EntregaOpvPage> {
       tipo: _operationTipo,
     );
     final resumenAsync = ref.watch(cajaGeneralEntregaOpvProvider(filtros));
+    final isClosedForRefresh =
+        (resumenAsync.asData?.value.header?.esta ?? '').trim().toUpperCase() ==
+            'CERRADO';
 
     return Scaffold(
       appBar: AppBar(
@@ -58,7 +61,7 @@ class _EntregaOpvPageState extends ConsumerState<EntregaOpvPage> {
         actions: [
           IconButton(
             tooltip: 'Refrescar',
-            onPressed: _submitting
+            onPressed: _submitting || isClosedForRefresh
                 ? null
                 : () => ref.invalidate(cajaGeneralEntregaOpvProvider(filtros)),
             icon: const Icon(Icons.refresh),
@@ -220,7 +223,15 @@ class _EntregaOpvPageState extends ConsumerState<EntregaOpvPage> {
                     final difd = row.impt - row.impr - currentImpe;
                     return DataRow(
                       cells: [
-                        DataCell(Text(row.form)),
+                        DataCell(
+                          Tooltip(
+                            message: 'Doble clic para ver detalle',
+                            child: InkWell(
+                              onDoubleTap: () => _showDetalleFormaDialog(row.form),
+                              child: Text(row.form),
+                            ),
+                          ),
+                        ),
                         DataCell(Text(_money(row.impt))),
                         DataCell(Text(_money(row.impr))),
                         DataCell(
@@ -324,6 +335,134 @@ class _EntregaOpvPageState extends ConsumerState<EntregaOpvPage> {
     );
   }
 
+  Future<void> _showDetalleFormaDialog(String form) async {
+    final normalizedForm = form.trim().toUpperCase();
+    if (normalizedForm.isEmpty) return;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Detalle por forma: $normalizedForm'),
+        content: SizedBox(
+          width: 860,
+          child: FutureBuilder<List<CajaGeneralFormaDetalle>>(
+            future: ref.read(cajaGeneralApiProvider).fetchDetalleFormaOpv(
+                  suc: widget.suc,
+                  fecha: widget.fecha,
+                  opv: widget.opv,
+                  tipo: _operationTipo,
+                  form: normalizedForm,
+                ),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const SizedBox(
+                  height: 180,
+                  child: Center(child: CircularProgressIndicator()),
+                );
+              }
+
+              if (snapshot.hasError) {
+                return SizedBox(
+                  height: 120,
+                  child: Center(
+                    child: Text(
+                      apiErrorMessage(
+                        snapshot.error ?? 'No se pudo cargar detalle por forma',
+                      ),
+                      style: TextStyle(color: Colors.red.shade700),
+                    ),
+                  ),
+                );
+              }
+
+              final items = snapshot.data ?? const <CajaGeneralFormaDetalle>[];
+              if (items.isEmpty) {
+                return const SizedBox(
+                  height: 120,
+                  child: Center(
+                    child: Text('Sin transacciones para esta forma de pago.'),
+                  ),
+                );
+              }
+
+              final total = items.fold<double>(0, (sum, item) => sum + item.impt);
+
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Registros: ${items.length}'),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    height: 360,
+                    child: SingleChildScrollView(
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: DataTable(
+                          columns: const [
+                            DataColumn(label: Text('OPV')),
+                            DataColumn(label: Text('FORM')),
+                            DataColumn(label: Text('IDFOL')),
+                            DataColumn(label: Text('AUT')),
+                            DataColumn(label: Text('ESTA')),
+                            DataColumn(label: Text('IMPT'), numeric: true),
+                          ],
+                          rows: [
+                            ...items.map(
+                              (item) => DataRow(
+                                cells: [
+                                  DataCell(Text(item.opv)),
+                                  DataCell(Text(item.form)),
+                                  DataCell(Text(item.idfol)),
+                                  DataCell(Text(item.aut)),
+                                  DataCell(Text(item.esta)),
+                                  DataCell(Text(_money(item.impt))),
+                                ],
+                              ),
+                            ),
+                            DataRow(
+                              cells: [
+                                const DataCell(
+                                  Text(
+                                    'TOTAL',
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.w700),
+                                  ),
+                                ),
+                                const DataCell(Text('')),
+                                const DataCell(Text('')),
+                                const DataCell(Text('')),
+                                const DataCell(Text('')),
+                                DataCell(
+                                  Text(
+                                    _money(total),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cerrar'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _cerrarEntrega(CajaGeneralOpvResumen resumen) async {
     setState(() => _submitting = true);
     try {
@@ -371,10 +510,19 @@ class _EntregaOpvPageState extends ConsumerState<EntregaOpvPage> {
   Future<void> _reactivarEntrega() async {
     setState(() => _submitting = true);
     try {
+      String? authPassword;
+      if (!_isToday(widget.fecha)) {
+        authPassword = await _showSupervisorAuthDialog();
+        if (authPassword == null || authPassword.trim().isEmpty) {
+          return;
+        }
+      }
+
       await ref.read(cajaGeneralApiProvider).reactivarEntregaOpv(
             suc: widget.suc,
             fecha: widget.fecha,
             opv: widget.opv,
+            authPassword: authPassword,
           );
       if (!mounted) return;
       ref.invalidate(
@@ -400,6 +548,68 @@ class _EntregaOpvPageState extends ConsumerState<EntregaOpvPage> {
         setState(() => _submitting = false);
       }
     }
+  }
+
+  Future<String?> _showSupervisorAuthDialog() async {
+    final controller = TextEditingController();
+    String? validationError;
+    bool obscure = true;
+    final result = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (dialogContext, setDialogState) {
+            void submit() {
+              final value = controller.text.trim();
+              if (value.isEmpty) {
+                setDialogState(() {
+                  validationError = 'Capture contraseña de supervisor';
+                });
+                return;
+              }
+              Navigator.of(dialogContext).pop(value);
+            }
+
+            return AlertDialog(
+              title: const Text('Autorización supervisor'),
+              content: SizedBox(
+                width: 360,
+                child: TextField(
+                  controller: controller,
+                  autofocus: true,
+                  obscureText: obscure,
+                  onSubmitted: (_) => submit(),
+                  decoration: InputDecoration(
+                    labelText: 'Contraseña supervisor',
+                    errorText: validationError,
+                    suffixIcon: IconButton(
+                      tooltip:
+                          obscure ? 'Mostrar contraseña' : 'Ocultar contraseña',
+                      onPressed: () => setDialogState(() => obscure = !obscure),
+                      icon: Icon(
+                        obscure ? Icons.visibility : Icons.visibility_off,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancelar'),
+                ),
+                FilledButton(
+                  onPressed: submit,
+                  child: const Text('Autorizar'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    controller.dispose();
+    return result;
   }
 
   Future<void> _generarReporte() async {
@@ -637,6 +847,13 @@ class _EntregaOpvPageState extends ConsumerState<EntregaOpvPage> {
     final m = value.month.toString().padLeft(2, '0');
     final d = value.day.toString().padLeft(2, '0');
     return '$y-$m-$d';
+  }
+
+  bool _isToday(DateTime value) {
+    final now = DateTime.now();
+    return value.year == now.year &&
+        value.month == now.month &&
+        value.day == now.day;
   }
 
   String _money(double value) => '\$${value.toStringAsFixed(2)}';

@@ -291,6 +291,9 @@ autenticacion, datos maestros, inventarios, control de cuentas y punto de venta.
 - `PATCH /pvticketlog/:id/precio` con `PVTA` y `AUTH_PASSWORD` cuando aplica.
 - `POST /pvticketlog/precio/authorize` para validar contraseña `SUPERPV` cuando backend exige autorizacion.
 - El flujo actualiza `PVTA/PVTAT` del renglón y mantiene sincronizacion local-remota de la cotizacion.
+- Detalle cotización UX (2026-03-10): en el bloque superior se agregó captura rápida por `UPC` (EAN13); la UI sanitiza a dígitos, toma los primeros 12 y busca coincidencia exacta por `SUC` en `DAT_ART` para insertar directo al ticket con `CTD=1` y `PVTA` del artículo.
+- Detalle cotización UX (2026-03-10): en la grilla DAT_ART el botón `Agregar` se movió al inicio del renglón.
+- Detalle cotización UX (2026-03-10): la columna `DES` en consulta DAT_ART y en detalle de ticket usa texto seleccionable con tooltip para visualizar/copiar la descripción completa.
 
 ## Flujo de cierre de cotizacion (PV)
 - Pantalla: `PagoCotizacionPage` en `lib/features/modulos/punto_venta/cotizaciones/pago/pago_cotizacion_page.dart`.
@@ -363,7 +366,9 @@ autenticacion, datos maestros, inventarios, control de cuentas y punto de venta.
 - Panel cotizaciones UI (2026-03): la tabla usa columnas de ancho dinamico segun contenido y scroll horizontal para mejorar visualizacion de datos largos.
 - Panel cotizaciones UI (2026-03): se agregan columnas `CLIEN` y `Razon social receptor`.
 - Panel cotizaciones busqueda (2026-03): el input de busqueda permite localizar por `IDFOL`, `CLIEN` y `RazonSocialReceptor`.
-- Panel cotizaciones seguridad (2026-03): la lista normal conserva filtro estricto por `SUC/OPV`; solo la busqueda explicita por folio (`IDFOL`) puede mostrar folios de otro OPV cuando cumplen `ESTA = 'PENDIENTE'` y `AUT in ('CP','CA','VF')`.
+- Panel cotizaciones busqueda OPV (2026-03-10): si `Buscar` recibe un valor con formato OPV (4 dígitos), la búsqueda cruzada permite traer folios de otros OPV solo cuando cumplen `AUT='CP'` y `ESTA='PENDIENTE'`.
+- Panel cotizaciones seguridad (2026-03): la lista normal conserva filtro estricto por `SUC/OPV`; en búsqueda cruzada (folio/cliente/razón social/OPV) solo se permiten folios de otros OPV con `AUT='CP'` y `ESTA='PENDIENTE'`.
+- Paneles PV (2026-03-10): en cotizaciones/devoluciones/pago de servicios, la papelera no elimina físicamente; ahora cambia `ESTA='ANULADO'` por `PATCH /pvctrfolasvr/:idfol` y solo se habilita cuando `ESTA='PENDIENTE'`.
 - Al cierre exitoso, app habilita un boton `Imprimir ticket` debajo de `Finalizar cierre`.
 - Al presionar `Imprimir ticket`, app muestra dialogo de ancho 58mm/80mm y abre la vista previa PDF.
 - En ticket de cotización (2026-03), si hay formas no `EFECTIVO`, la impresión agrega al final un voucher `SOPORTE RECEPCION PAGO` por cada forma no efectivo.
@@ -431,6 +436,7 @@ autenticacion, datos maestros, inventarios, control de cuentas y punto de venta.
 - pago usa preview backend para totales/IVA con `RQFAC` del folio origen (switch visible solo lectura).
 - trazabilidad UI (2026-03): en `/punto-venta/devoluciones/:idfolDev/pago`, la tarjeta de contexto oculta `AUT dev`, `AUT origen`, `Tipo` y `Líneas seleccionadas`.
 - en pago no se permite agregar, editar ni eliminar formas de pago.
+- en pago devolución (2026-03-10): las formas se recargan siempre desde `preview.formasSugeridas` (folio origen) para devolver por el mismo concepto en no efectivo y conservar `aut/ref` para el cierre backend.
 - al finalizar devolución, el folio queda en `ESTA='PAGADO'`.
 - política de fecha de finalización devolución (2026-03): backend reutiliza una fecha de proceso actual única al cerrar para `FACT_IDFOLDEV` (`FCN/FCNR`), `PV_CTR_FOL_FORM(_SVR).FCN`, `PV_CTR_FOL_ASVR.FCNM`, `PV_TICKET_LOG.UPDATED_AT` y movimientos contables relacionados.
 - cuando el folio está en `PAGADO`, el botón regresar cambia a candado; al presionarlo actualiza `ESTA='TRANSMITIR'` y vuelve al panel.

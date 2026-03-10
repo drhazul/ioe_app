@@ -34,11 +34,13 @@ class DetalleCotPage extends ConsumerStatefulWidget {
 class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
   final _searchCtrl = TextEditingController();
   final _searchFocus = FocusNode();
+  final _quickUpcCtrl = TextEditingController();
+  final _quickUpcFocus = FocusNode();
   final _sphCtrl = TextEditingController();
   final _cylCtrl = TextEditingController();
   final _adicCtrl = TextEditingController();
-  String _searchBy = 'UPC';
-  String _appliedSearchBy = 'UPC';
+  String _searchBy = 'DES';
+  String _appliedSearchBy = 'DES';
   String _searchTerm = '';
   double? _selectedDepa;
   double? _selectedSubd;
@@ -56,17 +58,21 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
   bool _didMergeRemote = false;
   bool _syncingPending = false;
   bool _openingCierre = false;
+  bool _addingByQuickUpc = false;
+  bool _didRequestInitialQuickUpcFocus = false;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _requestSearchFocus());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _requestQuickUpcFocus());
   }
 
   @override
   void dispose() {
     _searchCtrl.dispose();
     _searchFocus.dispose();
+    _quickUpcCtrl.dispose();
+    _quickUpcFocus.dispose();
     _sphCtrl.dispose();
     _cylCtrl.dispose();
     _adicCtrl.dispose();
@@ -103,6 +109,10 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
     CotizacionLocalState localState,
   ) {
     final isEstadoPagado = _isEstadoPagado(cot.esta);
+    if (!isEstadoPagado && !_didRequestInitialQuickUpcFocus) {
+      _didRequestInitialQuickUpcFocus = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _requestQuickUpcFocus());
+    }
     final clientesAsync = ref.watch(clientesListProvider);
     final razonSocial = cot.clien == null
         ? '-'
@@ -197,9 +207,23 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isWide = constraints.maxWidth >= 1100;
+        final rightPanelListHeight = isWide
+            ? (constraints.maxHeight - 240).clamp(260.0, 2000.0).toDouble()
+            : 240.0;
+        final leftPanelListHeight = isWide
+            ? (constraints.maxHeight - 330).clamp(220.0, 2000.0).toDouble()
+            : 240.0;
         final leftPanel = _LeftPanel(
           localState: localState,
           readOnly: isReadOnly,
+          listHeight: leftPanelListHeight,
+          quickCapture: _QuickUpcPanel(
+            controller: _quickUpcCtrl,
+            focusNode: _quickUpcFocus,
+            enabled: !isReadOnly,
+            loading: _addingByQuickUpc,
+            onSubmit: () => _addByQuickUpc(cot.suc ?? ''),
+          ),
           onRemove: _removeLocalItem,
           onEditQty: _editQuantity,
           onEditPrice: _editPrice,
@@ -208,6 +232,7 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
         final rightPanel = _RightPanel(
           datArtAsync: datArtAsync,
           hasSearchCriteria: hasSearchCriteria,
+          listHeight: rightPanelListHeight,
           readOnly: isReadOnly,
           onAdd: _addFromDatArt,
         );
@@ -217,7 +242,7 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
             searchCtrl: _searchCtrl,
             searchFocus: _searchFocus,
             searchBy: _searchBy,
-            onSearchByChanged: (value) => setState(() => _searchBy = value ?? 'UPC'),
+            onSearchByChanged: (value) => setState(() => _searchBy = value ?? 'DES'),
             depaAsync: depaAsync,
             subdAsync: subdAsync,
             clasAsync: clasAsync,
@@ -267,7 +292,6 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
             enabled: !isReadOnly,
           ),
         );
-
         return ListView(
           padding: const EdgeInsets.all(16),
           children: [
@@ -310,8 +334,19 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
     final sph = _parseNumber(_sphCtrl.text);
     final cyl = _parseNumber(_cylCtrl.text);
     final adic = _parseNumber(_adicCtrl.text);
+    final normalizedSearchTerm = _searchBy == 'UPC'
+        ? _normalizeUpcSearchTerm(_searchCtrl.text)
+        : _searchCtrl.text.trim();
+    if (_searchBy == 'UPC' &&
+        normalizedSearchTerm.isNotEmpty &&
+        normalizedSearchTerm != _searchCtrl.text.trim()) {
+      _searchCtrl.text = normalizedSearchTerm;
+      _searchCtrl.selection = TextSelection.fromPosition(
+        TextPosition(offset: _searchCtrl.text.length),
+      );
+    }
     setState(() {
-      _searchTerm = _searchCtrl.text.trim();
+      _searchTerm = normalizedSearchTerm;
       _appliedSearchBy = _searchBy;
       _appliedDepa = _selectedDepa;
       _appliedSubd = _selectedSubd;
@@ -330,8 +365,8 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
     _cylCtrl.clear();
     _adicCtrl.clear();
     setState(() {
-      _searchBy = 'UPC';
-      _appliedSearchBy = 'UPC';
+      _searchBy = 'DES';
+      _appliedSearchBy = 'DES';
       _searchTerm = '';
       _selectedDepa = null;
       _selectedSubd = null;
@@ -356,8 +391,107 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
     return double.tryParse(normalized);
   }
 
+  String _normalizeUpcSearchTerm(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return '';
+    final digits = trimmed.replaceAll(RegExp(r'\D'), '');
+    if (digits.length < 12) {
+      return trimmed;
+    }
+    return digits.substring(0, 12);
+  }
+
+  String? _extractUpcFirst12(String raw) {
+    final digits = raw.replaceAll(RegExp(r'\D'), '');
+    if (digits.length < 12) return null;
+    return digits.substring(0, 12);
+  }
+
+  String _normalizeCatalogUpc(String? raw) {
+    final digits = (raw ?? '').replaceAll(RegExp(r'\D'), '');
+    if (digits.length < 12) return digits;
+    return digits.substring(0, 12);
+  }
+
+  Future<void> _addByQuickUpc(String suc) async {
+    if (_addingByQuickUpc) return;
+    final normalizedSuc = suc.trim();
+    if (normalizedSuc.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se encontró sucursal para buscar UPC.')),
+      );
+      _requestQuickUpcFocus();
+      return;
+    }
+
+    final upc12 = _extractUpcFirst12(_quickUpcCtrl.text);
+    if (upc12 == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Capture un código EAN13 válido (12+ dígitos).')),
+      );
+      _requestQuickUpcFocus();
+      return;
+    }
+
+    setState(() => _addingByQuickUpc = true);
+    try {
+      final items = await ref.read(datArtApiProvider).fetchArticulos(
+            suc: normalizedSuc,
+            upc: upc12,
+            limit: 120,
+            view: 'lite',
+          );
+      DatArtModel? exactMatch;
+      for (final item in items) {
+        if (_normalizeCatalogUpc(item.upc) == upc12) {
+          exactMatch = item;
+          break;
+        }
+      }
+      if (exactMatch == null) {
+        await _showQuickUpcNotFoundDialog();
+        return;
+      }
+      await _addFromDatArt(exactMatch);
+      _quickUpcCtrl.clear();
+    } catch (e) {
+      if (!mounted) return;
+      final msg = apiErrorMessage(
+        e,
+        fallback: 'No se pudo buscar o agregar por UPC',
+      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    } finally {
+      if (mounted) {
+        setState(() => _addingByQuickUpc = false);
+        _requestQuickUpcFocus();
+      } else {
+        _addingByQuickUpc = false;
+      }
+    }
+  }
+
+  Future<void> _showQuickUpcNotFoundDialog() async {
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          content: const Text('El articulo no existe valide su codigo'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Aceptar'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> _removeLocalItem(CotizacionLocalItem item) async {
-    ref.read(cotizacionLocalProvider(widget.idfol).notifier).removeItem(item.id);
     if (item.syncStatus == SyncStatus.synced) {
       try {
         await ref.read(pvTicketLogApiProvider).remove(item.id);
@@ -368,8 +502,10 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
             SnackBar(content: Text('No se pudo eliminar del ticket log: $e')),
           );
         }
+        return;
       }
     }
+    ref.read(cotizacionLocalProvider(widget.idfol).notifier).removeItem(item.id);
   }
 
   Future<void> _markPendiente() async {
@@ -415,6 +551,17 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
   }
 
   Future<void> _editQuantity(CotizacionLocalItem item) async {
+    if (_hasOrdAssigned(item)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No se permite modificar CTD cuando el artículo ya tiene ORD asignada.'),
+          ),
+        );
+      }
+      return;
+    }
+
     final nextQty = await _showQuantityDialog(item.ctd);
     if (nextQty == null) return;
     await ref.read(cotizacionLocalProvider(widget.idfol).notifier).updateItem(
@@ -452,6 +599,17 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
   }
 
   Future<void> _editPrice(CotizacionLocalItem item) async {
+    if (_hasOrdAssigned(item)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No se permite modificar PVTA cuando el artículo ya tiene ORD asignada.'),
+          ),
+        );
+      }
+      return;
+    }
+
     var targetItem = item;
     if (targetItem.syncStatus != SyncStatus.synced) {
       await _syncItem(targetItem);
@@ -545,7 +703,36 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
     PvCtrFolAsvrModel cot,
     String razonSocial,
   ) async {
-    final art = (item.art ?? '').trim();
+    var targetItem = item;
+    if (targetItem.syncStatus != SyncStatus.synced) {
+      await _syncItem(targetItem);
+      targetItem = ref
+          .read(cotizacionLocalProvider(widget.idfol))
+          .items
+          .firstWhere((e) => e.id == item.id, orElse: () => targetItem);
+      if (targetItem.syncStatus != SyncStatus.synced) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('No se puede crear ORD hasta sincronizar el renglón seleccionado.'),
+            ),
+          );
+        }
+        return;
+      }
+    }
+
+    final ticketId = targetItem.id.trim();
+    if (ticketId.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No se encontró el ID del renglón seleccionado')),
+        );
+      }
+      return;
+    }
+
+    final art = (targetItem.art ?? '').trim();
     if (art.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -555,7 +742,7 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
       return;
     }
 
-    if (!_isAllowedOrdQty(item.ctd)) {
+    if (!_isAllowedOrdQty(targetItem.ctd)) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -567,7 +754,7 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
     }
 
     final clien = cot.clien ?? 0;
-    final ordExistente = (item.ord ?? '').trim();
+    final ordExistente = (targetItem.ord ?? '').trim();
     Map<String, dynamic>? existingHeader;
     if (ordExistente.isNotEmpty) {
       try {
@@ -580,7 +767,7 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
     final initialTipo = _extractOrdTipo(existingHeader) ?? kOrdTipoTallado;
     final initialFechaEntrega = _extractDateField(existingHeader, 'FCNM');
     final initialComad = _extractStringField(existingHeader, 'COMAD');
-    final initialDescArt = _extractStringField(existingHeader, 'DESCART') ?? item.des ?? '';
+    final initialDescArt = _extractStringField(existingHeader, 'DESCART') ?? targetItem.des ?? '';
 
     if (!mounted) return;
 
@@ -590,7 +777,7 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
         idfol: widget.idfol,
         art: art,
         descArt: initialDescArt,
-        ctd: item.ctd,
+        ctd: targetItem.ctd,
         clien: clien,
         ncliente: razonSocial,
         estado: cot.esta ?? '',
@@ -617,11 +804,12 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
         final response = await ref.read(newOrdApiProvider).deleteFromQuoteLine(
               DeleteOrdFromQuoteLineRequest(
                 iord: ordExistente,
+                ticketId: ticketId,
                 idfol: widget.idfol,
                 art: art,
               ),
             );
-        await _clearOrdFromItem(item);
+        await _clearOrdFromItem(targetItem);
         final message = response.message.trim().isNotEmpty
             ? response.message.trim()
             : 'ORD eliminada correctamente';
@@ -640,9 +828,10 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
 
     final request = CreateOrdFromQuoteLineRequest(
       idfol: widget.idfol,
+      ticketId: ticketId,
       art: art,
       descArt: dialogResult.descArt,
-      ctd: item.ctd,
+      ctd: targetItem.ctd,
       clien: clien,
       estado: cot.esta ?? '',
       tipo: dialogResult.tipo,
@@ -657,7 +846,7 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
       final response = await ref.read(newOrdApiProvider).createFromQuoteLine(request);
       final iord = (response.iord ?? '').trim();
       if (iord.isNotEmpty) {
-        await _applyOrdToItem(item, iord);
+        await _applyOrdToItem(targetItem, iord);
       }
 
       final message = response.message.trim().isNotEmpty
@@ -736,6 +925,10 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
     return (qty - 1).abs() < epsilon || (qty - 0.5).abs() < epsilon;
   }
 
+  bool _hasOrdAssigned(CotizacionLocalItem item) {
+    return (item.ord ?? '').trim().isNotEmpty;
+  }
+
   String _ordErrorMessage(Object error) {
     if (error is DioException) {
       final data = error.response?.data;
@@ -761,6 +954,9 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
         }
         if (code == 'ORD_NOT_FOUND') {
           return 'La ORD seleccionada no existe.';
+        }
+        if (code == 'TICKET_LINE_NOT_FOUND') {
+          return 'No se encontró el renglón seleccionado en el ticket.';
         }
       }
     }
@@ -1138,12 +1334,15 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
       await _markPendiente();
     }
     await _syncItem(item);
-    _requestSearchFocus();
+    _requestQuickUpcFocus();
   }
 
-  void _requestSearchFocus() {
+  void _requestQuickUpcFocus() {
     if (!mounted) return;
-    _searchFocus.requestFocus();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_quickUpcFocus.canRequestFocus) return;
+      FocusScope.of(context).requestFocus(_quickUpcFocus);
+    });
   }
 
   String _generateUuid() {
@@ -1310,6 +1509,8 @@ class _LeftPanel extends StatelessWidget {
   const _LeftPanel({
     required this.localState,
     required this.readOnly,
+    required this.listHeight,
+    this.quickCapture,
     required this.onRemove,
     required this.onEditQty,
     required this.onEditPrice,
@@ -1318,6 +1519,8 @@ class _LeftPanel extends StatelessWidget {
 
   final CotizacionLocalState localState;
   final bool readOnly;
+  final double listHeight;
+  final Widget? quickCapture;
   final Future<void> Function(CotizacionLocalItem item) onRemove;
   final Future<void> Function(CotizacionLocalItem item) onEditQty;
   final Future<void> Function(CotizacionLocalItem item) onEditPrice;
@@ -1328,10 +1531,7 @@ class _LeftPanel extends StatelessWidget {
     final headerStyle = Theme.of(context).textTheme.titleSmall;
     final totalText = _formatMoney(localState.total);
     final sortedItems = [...localState.items]..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-    const rowsVisible = 10;
     const rowHeight = 34.0;
-    const separatorHeight = 1.0;
-    const listHeight = rowsVisible * rowHeight + (rowsVisible - 1) * separatorHeight;
     return Card(
       elevation: 0,
       child: Padding(
@@ -1339,6 +1539,10 @@ class _LeftPanel extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (quickCapture != null) ...[
+              quickCapture!,
+              const SizedBox(height: 12),
+            ],
             Text('Total compra', style: headerStyle),
             const SizedBox(height: 8),
             Text('Pzs totales: ${_formatQty(localState.totalPiezas)}'),
@@ -1368,21 +1572,22 @@ class _LeftPanel extends StatelessWidget {
                   separatorBuilder: (_, _) => const Divider(height: 1),
                   itemBuilder: (_, index) {
                     final item = sortedItems[index];
+                    final hasOrd = (item.ord ?? '').trim().isNotEmpty;
                     final pvtaText = item.pvta == null ? '-' : _formatMoney(item.pvta!);
                     final pvtatText = item.pvta == null ? '-' : _formatMoney(item.pvtat);
                     return SizedBox(
                       height: rowHeight,
                       child: _TableRow(
                         children: [
-                          _TableCell(width: 220, child: Text(item.des ?? '-', overflow: TextOverflow.ellipsis)),
+                          _TableCell(width: 220, child: _SelectableDescriptionText(item.des ?? '-')),
                           _TableCell(
                             width: 60,
                             child: MouseRegion(
-                              cursor: readOnly
+                              cursor: readOnly || hasOrd
                                   ? SystemMouseCursors.basic
                                   : SystemMouseCursors.click,
                               child: GestureDetector(
-                                onDoubleTap: readOnly ? null : () => onEditQty(item),
+                                onDoubleTap: readOnly || hasOrd ? null : () => onEditQty(item),
                                 child: Text(item.ctd.toStringAsFixed(2)),
                               ),
                             ),
@@ -1390,13 +1595,15 @@ class _LeftPanel extends StatelessWidget {
                           _TableCell(
                             width: 80,
                             child: MouseRegion(
-                              cursor: readOnly
+                              cursor: readOnly || hasOrd
                                   ? SystemMouseCursors.basic
                                   : SystemMouseCursors.click,
                               child: GestureDetector(
-                                onDoubleTap: readOnly ? null : () => onEditPrice(item),
+                                onDoubleTap: readOnly || hasOrd ? null : () => onEditPrice(item),
                                 child: Tooltip(
-                                  message: 'Doble clic para editar precio',
+                                  message: hasOrd
+                                      ? 'No editable: ORD asignada'
+                                      : 'Doble clic para editar precio',
                                   child: Text(pvtaText),
                                 ),
                               ),
@@ -1452,12 +1659,14 @@ class _RightPanel extends StatelessWidget {
   const _RightPanel({
     required this.datArtAsync,
     required this.hasSearchCriteria,
+    required this.listHeight,
     required this.readOnly,
     required this.onAdd,
   });
 
   final AsyncValue<List<DatArtModel>> datArtAsync;
   final bool hasSearchCriteria;
+  final double listHeight;
   final bool readOnly;
   final ValueChanged<DatArtModel> onAdd;
 
@@ -1471,12 +1680,12 @@ class _RightPanel extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _TableHeader(
-              columns: const ['ART', 'UPC', 'DES', 'STOCK', 'PVTA', ''],
-              widths: const [80, 100, 240, 80, 70, 36],
+              columns: const ['', 'ART', 'UPC', 'DES', 'STOCK', 'PVTA'],
+              widths: const [36, 80, 100, 240, 80, 70],
             ),
             const Divider(height: 1),
             SizedBox(
-              height: 240,
+              height: listHeight,
               child: !hasSearchCriteria
                   ? const Padding(
                       padding: EdgeInsets.all(12),
@@ -1494,29 +1703,38 @@ class _RightPanel extends StatelessWidget {
                     itemCount: items.length,
                     separatorBuilder: (_, _) => const Divider(height: 1),
                     itemBuilder: (_, index) {
+                      const rowHeight = 30.0;
                       final item = items[index];
-                      return _TableRow(
-                        children: [
-                          _TableCell(width: 80, child: Text(item.art)),
-                          _TableCell(width: 100, child: Text(item.upc)),
-                          _TableCell(
-                            width: 260,
-                            child: Text(item.des ?? '-', overflow: TextOverflow.ellipsis),
-                          ),
-                          _TableCell(
-                            width: 80,
-                            child: Text(item.stock?.toStringAsFixed(2) ?? '-'),
-                          ),
-                          _TableCell(
-                            width: 70,
-                            child: Text(item.pvta == null ? '-' : '\$${item.pvta!.toStringAsFixed(2)}'),
-                          ),
-                          IconButton(
-                            tooltip: 'Agregar',
-                            icon: const Icon(Icons.add_circle_outline, size: 18),
-                            onPressed: readOnly ? null : () => onAdd(item),
-                          ),
-                        ],
+                      final stock = item.stock?.toStringAsFixed(2) ?? '-';
+                      final pvta = item.pvta == null ? '-' : '\$${item.pvta!.toStringAsFixed(2)}';
+                      return SizedBox(
+                        height: rowHeight,
+                        child: _TableRow(
+                          children: [
+                            _TableCell(
+                              width: 36,
+                              child: IconButton(
+                                tooltip: 'Agregar',
+                                icon: const Icon(Icons.add_circle_outline, size: 18),
+                                onPressed: readOnly ? null : () => onAdd(item),
+                              ),
+                            ),
+                            _TableCell(width: 80, child: _SelectableDescriptionText(item.art)),
+                            _TableCell(width: 100, child: _SelectableDescriptionText(item.upc)),
+                            _TableCell(
+                              width: 240,
+                              child: _SelectableDescriptionText(item.des ?? '-'),
+                            ),
+                            _TableCell(
+                              width: 80,
+                              child: _SelectableDescriptionText(stock),
+                            ),
+                            _TableCell(
+                              width: 70,
+                              child: _SelectableDescriptionText(pvta),
+                            ),
+                          ],
+                        ),
                       );
                     },
                   );
@@ -1531,6 +1749,68 @@ class _RightPanel extends StatelessWidget {
             const SizedBox(height: 8),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _QuickUpcPanel extends StatelessWidget {
+  const _QuickUpcPanel({
+    required this.controller,
+    required this.focusNode,
+    required this.onSubmit,
+    required this.enabled,
+    required this.loading,
+  });
+
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final VoidCallback onSubmit;
+  final bool enabled;
+  final bool loading;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.black12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Digite o Escanea',
+            style: TextStyle(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 6),
+          TextField(
+            controller: controller,
+            focusNode: focusNode,
+            enabled: enabled && !loading,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => onSubmit(),
+            decoration: InputDecoration(
+              border: const OutlineInputBorder(),
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              hintText: 'EAN13 (Enter para agregar)',
+              suffixIcon: loading
+                  ? const Padding(
+                      padding: EdgeInsets.all(8),
+                      child: SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    )
+                  : null,
+            ),
+            style: const TextStyle(fontSize: 12),
+          ),
+        ],
       ),
     );
   }
@@ -1735,7 +2015,7 @@ class _SearchFilters extends StatelessWidget {
                     isDense: true,
                     contentPadding: _filterPadding,
                     constraints: BoxConstraints.tightFor(height: _filterHeight),
-                    hintText: 'Digite o Escane',
+                    hintText: 'Coloque Buqueda',
                     hintStyle: TextStyle(fontSize: _filterFontSize),
                   ),
                 ),
@@ -2013,6 +2293,28 @@ class _JrqDropdown<T> extends StatelessWidget {
   }
 }
 
+class _SelectableDescriptionText extends StatelessWidget {
+  const _SelectableDescriptionText(this.value);
+
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = value.trim().isEmpty ? '-' : value.trim();
+    return Tooltip(
+      message: text,
+      waitDuration: const Duration(milliseconds: 250),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: SelectableText(
+          text,
+          maxLines: 1,
+        ),
+      ),
+    );
+  }
+}
+
 class _TableHeader extends StatelessWidget {
   const _TableHeader({required this.columns, required this.widths});
 
@@ -2058,7 +2360,7 @@ class _TableCell extends StatelessWidget {
     return SizedBox(
       width: width,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
         child: DefaultTextStyle.merge(
           style: const TextStyle(fontSize: _SearchFilters._filterFontSize),
           child: child,

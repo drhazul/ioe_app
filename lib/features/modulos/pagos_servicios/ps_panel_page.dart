@@ -114,6 +114,7 @@ class _PsPanelPageState extends ConsumerState<PsPanelPage> {
                     }
                     context.go('/ps/$idfol');
                   },
+                  onAnular: (item) => _confirmAnular(item),
                 ),
               ],
             ),
@@ -215,6 +216,47 @@ class _PsPanelPageState extends ConsumerState<PsPanelPage> {
     }
   }
 
+  Future<void> _confirmAnular(PsFolioItem item) async {
+    if (!_isEstadoPendiente(item.esta)) return;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Anular folio PS'),
+        content: Text('¿Deseas cambiar a ANULADO el folio ${item.idfol}?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Anular'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    try {
+      await ref.read(psApiProvider).updateEstado(
+            idFol: item.idfol,
+            esta: 'ANULADO',
+          );
+      if (!mounted) return;
+      setState(() => _selected = null);
+      ref.invalidate(psFoliosProvider);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            apiErrorMessage(e, fallback: 'No se pudo anular el folio PS'),
+          ),
+        ),
+      );
+    }
+  }
+
   Future<void> _loadUserContext() async {
     final storage = ref.read(storageProvider);
     final token = await storage.getAccessToken();
@@ -263,6 +305,10 @@ class _PsPanelPageState extends ConsumerState<PsPanelPage> {
     if (value is int) return value;
     if (value is num) return value.toInt();
     return int.tryParse(value?.toString() ?? '');
+  }
+
+  bool _isEstadoPendiente(String? value) {
+    return (value ?? '').trim().toUpperCase() == 'PENDIENTE';
   }
 }
 
@@ -377,11 +423,13 @@ class _PsPanelTable extends StatelessWidget {
     required this.rows,
     required this.selected,
     required this.onSelect,
+    required this.onAnular,
   });
 
   final List<PsFolioItem> rows;
   final PsFolioItem? selected;
   final ValueChanged<PsFolioItem> onSelect;
+  final ValueChanged<PsFolioItem> onAnular;
 
   @override
   Widget build(BuildContext context) {
@@ -403,6 +451,7 @@ class _PsPanelTable extends StatelessWidget {
                 SizedBox(width: 120, child: Text('ORIGEN_AUT', style: TextStyle(fontWeight: FontWeight.w600))),
                 SizedBox(width: 120, child: Text('IMPT', style: TextStyle(fontWeight: FontWeight.w600))),
                 SizedBox(width: 260, child: Text('Cliente', style: TextStyle(fontWeight: FontWeight.w600))),
+                SizedBox(width: 44, child: Text('')),
               ],
             ),
           ),
@@ -415,6 +464,7 @@ class _PsPanelTable extends StatelessWidget {
               itemBuilder: (_, index) {
                 final item = rows[index];
                 final selectedRow = selected?.idfol == item.idfol;
+                final canAnular = _isEstadoPendiente(item.esta);
                 return InkWell(
                   onTap: () => onSelect(item),
                   child: Container(
@@ -437,6 +487,16 @@ class _PsPanelTable extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
+                        SizedBox(
+                          width: 44,
+                          child: IconButton(
+                            tooltip: canAnular
+                                ? 'Anular'
+                                : 'Disponible solo en PENDIENTE',
+                            onPressed: canAnular ? () => onAnular(item) : null,
+                            icon: const Icon(Icons.delete_outline, size: 18),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -452,6 +512,10 @@ class _PsPanelTable extends StatelessWidget {
   String _money(double? value) {
     if (value == null) return '-';
     return '\$${value.toStringAsFixed(2)}';
+  }
+
+  bool _isEstadoPendiente(String? value) {
+    return (value ?? '').trim().toUpperCase() == 'PENDIENTE';
   }
 }
 

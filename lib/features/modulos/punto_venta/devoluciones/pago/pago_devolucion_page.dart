@@ -37,7 +37,7 @@ class _PagoDevolucionPageState extends ConsumerState<PagoDevolucionPage> {
   @override
   void initState() {
     super.initState();
-    _loadPreview(initial: true);
+    _loadPreview();
   }
 
   @override
@@ -59,7 +59,7 @@ class _PagoDevolucionPageState extends ConsumerState<PagoDevolucionPage> {
         title: const Text('Pago devolución'),
         actions: [
           IconButton(
-            onPressed: _loading ? null : () => _loadPreview(initial: false),
+            onPressed: _loading ? null : _loadPreview,
             icon: const Icon(Icons.refresh),
             tooltip: 'Recalcular',
           ),
@@ -238,7 +238,7 @@ class _PagoDevolucionPageState extends ConsumerState<PagoDevolucionPage> {
     );
   }
 
-  Future<void> _loadPreview({required bool initial}) async {
+  Future<void> _loadPreview() async {
     setState(() {
       _loading = true;
       _error = null;
@@ -254,15 +254,13 @@ class _PagoDevolucionPageState extends ConsumerState<PagoDevolucionPage> {
         _rqfac = preview.totals.rqfac;
         _estadoDev = preview.context.estaDev;
         _printEnabled = _isEstadoPrintable(preview.context.estaDev);
-        if (initial || _formas.isEmpty) {
-          _formas
-            ..clear()
-            ..addAll(
-              preview.formasSugeridas.map(
-                (item) => item.copyWith(id: _nextId()),
-              ),
-            );
-        }
+        _formas
+          ..clear()
+          ..addAll(
+            preview.formasSugeridas.map(
+              (item) => item.copyWith(id: _nextId()),
+            ),
+          );
       });
     } catch (e) {
       if (!mounted) return;
@@ -1336,6 +1334,11 @@ class _FormasCard extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 2),
+            const Text(
+              'Las formas se toman del folio origen (incluyendo no efectivo) para devolver por el mismo concepto.',
+              style: TextStyle(fontSize: 11, color: Colors.black54),
             ),
             const SizedBox(height: 8),
             if (formas.isEmpty)

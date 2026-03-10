@@ -103,6 +103,9 @@
 - La actualizacion remota se hace via `PATCH /pvticketlog/:id/precio` enviando `PVTA` y, cuando aplica, `AUTH_PASSWORD`.
 - La prevalidacion de contraseña se realiza con `POST /pvticketlog/precio/authorize` cuando backend exige autorizacion.
 - La app mantiene sincronizacion local/remota del renglón y refresca providers de ticket al aplicar el cambio.
+- Detalle cotizacion UX (2026-03-10): en el bloque superior se agrega captura rápida por `UPC` (EAN13). La UI sanitiza a dígitos, toma los primeros 12 y busca coincidencia exacta por `SUC` en `DAT_ART` para insertar directo en ticket con `CTD=1` y `PVTA` del artículo.
+- Detalle cotizacion UX (2026-03-10): en la grilla DAT_ART el botón `Agregar` se movió al inicio del renglón.
+- Detalle cotizacion UX (2026-03-10): la columna `DES` en consulta DAT_ART y en detalle de ticket usa texto seleccionable con tooltip para visualizar/copiar la descripción completa.
 
 ## Punto de venta: cierre de cotizacion (implementado)
 - Ruta UI: `/punto-venta/cotizaciones/:idfol/pago`.
@@ -147,7 +150,9 @@
 - Panel cotizaciones UI (2026-03): la grilla migra a columnas de ancho dinamico por contenido (con scroll horizontal) para evitar truncado de datos.
 - Panel cotizaciones UI (2026-03): se agregan columnas `CLIEN` y `Razon social receptor` en la visualizacion principal.
 - Panel cotizaciones busqueda (2026-03): el campo `Buscar cotizacion` permite buscar en el mismo input por `IDFOL`, `CLIEN` y `RazonSocialReceptor`.
-- Panel cotizaciones seguridad (2026-03): la lista normal mantiene filtro estricto por `SUC/OPV` del contexto; solo en busqueda por folio (`IDFOL`) se permite mostrar folio de otro OPV cuando cumple `ESTA = 'PENDIENTE'` y `AUT in ('CP','CA','VF')`.
+- Panel cotizaciones busqueda OPV (2026-03-10): si `Buscar` recibe un valor con formato OPV (4 dígitos), la búsqueda cruzada permite traer folios de otros OPV solo cuando cumplen `AUT='CP'` y `ESTA='PENDIENTE'`.
+- Panel cotizaciones seguridad (2026-03): la lista normal mantiene filtro estricto por `SUC/OPV` del contexto; en búsqueda cruzada (folio/cliente/razón social/OPV) solo se permiten folios de otros OPV con `AUT='CP'` y `ESTA='PENDIENTE'`.
+- Paneles PV (2026-03-10): en cotizaciones/devoluciones/pago de servicios, el botón de papelera ya no elimina registro; actualiza `ESTA='ANULADO'` por `PATCH /pvctrfolasvr/:idfol` y solo se habilita cuando `ESTA='PENDIENTE'`.
 - Vista previa PDF de cierre (ticket 58/80mm): cabecera sucursal (`DAT_SUC`), detalle de articulos (`PV_TICKET_LOG`), totales+formas+cambio, pie transaccional (`OPV/OPVM`, `IDFOL`, `FCNM`, cliente) y ORDs con control (`ORD + UPC`) + codigo de barras `CODE39` + tabla con bordes del detalle.
 - Ticket cotizaciones voucher (2026-03): si el cierre incluye formas no `EFECTIVO`, la impresión agrega al final un voucher `SOPORTE RECEPCION PAGO` por cada forma no efectivo (`FORM/IMPD/AUT o REF/AUT` + datos de cliente/folio).
 - Ticket cotizaciones voucher (2026-03): el voucher incluye espacio en blanco para firma y renglón `Firma cliente` debajo de `FCN`.
@@ -237,6 +242,7 @@
 - pago recalcula preview usando `RQFAC` derivado del folio origen (solo lectura en UI, sin edición manual del switch).
 - trazabilidad UI adicional (2026-03): en `/punto-venta/devoluciones/:idfolDev/pago`, el card de contexto oculta `AUT dev`, `AUT origen`, `Tipo` y `Líneas seleccionadas`.
 - en pago no se permite agregar, editar ni eliminar formas de pago.
+- en pago devolución (2026-03-10): las formas se rehidratan siempre desde `preview.formasSugeridas` (folio origen) para devolver por el mismo concepto en formas no efectivo y conservar `aut/ref` para el cierre backend.
 - al finalizar devolución, backend deja el folio en `ESTA='PAGADO'`; en esa condición la navegación de regreso muestra icono candado.
 - Política de fecha de finalización devolución (2026-03): backend usa una fecha de proceso actual única al cerrar para `FACT_IDFOLDEV` (`FCN/FCNR`), `PV_CTR_FOL_FORM(_SVR).FCN`, `PV_CTR_FOL_ASVR.FCNM`, `PV_TICKET_LOG.UPDATED_AT` y movimientos contables asociados.
 - al presionar candado en pago, frontend actualiza `ESTA='TRANSMITIR'` via `PATCH /pvctrfolasvr/:idfol` y regresa al panel.

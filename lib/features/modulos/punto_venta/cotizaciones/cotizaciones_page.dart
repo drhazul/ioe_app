@@ -180,20 +180,34 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
   }
 
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref, PvCtrFolAsvrModel model) async {
+    if (!_isEstadoPendiente(model.esta)) return;
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Eliminar cotización'),
-        content: Text('¿Deseas eliminar la cotización ${model.idfol}?'),
+        title: const Text('Anular cotización'),
+        content: Text(
+          '¿Deseas cambiar a ANULADO la cotización ${model.idfol}?',
+        ),
         actions: [
           TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancelar')),
-          FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Eliminar')),
+          FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Anular')),
         ],
       ),
     );
     if (confirm != true) return;
-    await ref.read(cotizacionesApiProvider).deleteCotizacion(model.idfol);
-    ref.invalidate(cotizacionesListProvider);
+    try {
+      await ref.read(cotizacionesApiProvider).updateCotizacion(
+            model.idfol,
+            const {'ESTA': 'ANULADO'},
+          );
+      ref.invalidate(cotizacionesListProvider);
+      ref.invalidate(cotizacionProvider(model.idfol));
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo anular la cotización: $e')),
+      );
+    }
   }
 
   Future<void> _confirmCreate(BuildContext context, WidgetRef ref) async {
@@ -366,6 +380,10 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
     if (value is num) return value.toInt();
     return int.tryParse(value?.toString() ?? '');
   }
+
+  bool _isEstadoPendiente(String? value) {
+    return (value ?? '').trim().toUpperCase() == 'PENDIENTE';
+  }
 }
 
 class _TopFilters extends ConsumerWidget {
@@ -439,7 +457,7 @@ class _TopFilters extends ConsumerWidget {
               child: TextField(
                 controller: searchCtrl,
                 decoration: const InputDecoration(
-                  labelText: 'Buscar folio / CLIEN / razón social',
+                  labelText: 'Buscar folio / CLIEN / razón social / OPV',
                   isDense: true,
                   border: OutlineInputBorder(),
                 ),
@@ -546,8 +564,10 @@ class _CotizacionesTable extends StatelessWidget {
                     DataCell(_cellText(_formatMoney(c.impt), align: TextAlign.right)),
                     DataCell(
                       IconButton(
-                        tooltip: 'Eliminar',
-                        onPressed: () => onDelete(c),
+                        tooltip: _isEstadoPendiente(c.esta)
+                            ? 'Anular'
+                            : 'Disponible solo en PENDIENTE',
+                        onPressed: _isEstadoPendiente(c.esta) ? () => onDelete(c) : null,
                         icon: const Icon(Icons.delete_outline, size: 18),
                       ),
                     ),
@@ -581,6 +601,10 @@ class _CotizacionesTable extends StatelessWidget {
   String _formatMoney(double? value) {
     if (value == null) return '-';
     return '\$${value.toStringAsFixed(2)}';
+  }
+
+  bool _isEstadoPendiente(String? value) {
+    return (value ?? '').trim().toUpperCase() == 'PENDIENTE';
   }
 }
 
