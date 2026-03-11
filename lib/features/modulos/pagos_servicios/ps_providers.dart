@@ -41,10 +41,13 @@ final psDetalleProvider =
       return api.fetchDetalle(idFol.trim());
     });
 
-final psAdeudosProvider =
-    FutureProvider.autoDispose.family<PsAdeudosResponse, int>((ref, client) async {
+final psAdeudosProvider = FutureProvider.autoDispose
+    .family<PsAdeudosResponse, PsAdeudosQuery>((ref, query) async {
       final api = ref.read(psApiProvider);
-      return api.fetchAdeudosCliente(client);
+      return api.fetchAdeudosCliente(
+        query.client,
+        folio: query.folio,
+      );
     });
 
 final psPagoSummaryProvider =

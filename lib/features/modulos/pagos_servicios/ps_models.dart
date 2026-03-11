@@ -33,6 +33,36 @@ class PsPanelQuery {
   int get hashCode => Object.hash(suc, opv, search);
 }
 
+class PsAdeudosQuery {
+  const PsAdeudosQuery({
+    required this.client,
+    this.folio = '',
+  });
+
+  final int client;
+  final String folio;
+
+  PsAdeudosQuery copyWith({
+    int? client,
+    String? folio,
+  }) {
+    return PsAdeudosQuery(
+      client: client ?? this.client,
+      folio: folio ?? this.folio,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is PsAdeudosQuery &&
+        other.client == client &&
+        other.folio == folio;
+  }
+
+  @override
+  int get hashCode => Object.hash(client, folio);
+}
+
 class PsFolioItem {
   PsFolioItem({
     required this.idfol,

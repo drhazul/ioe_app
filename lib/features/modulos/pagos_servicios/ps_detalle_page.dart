@@ -19,6 +19,10 @@ class _PsDetallePageState extends ConsumerState<PsDetallePage> {
   bool _showAdeudos = false;
   bool _updatingCliente = false;
   bool _processingServicio = false;
+  final TextEditingController _adeudoFolioCtrl = TextEditingController();
+  String _adeudoFolioApplied = '';
+  int _adeudosPage = 0;
+  static const int _kAdeudosPageSize = 30;
 
   @override
   void initState() {
@@ -29,6 +33,12 @@ class _PsDetallePageState extends ConsumerState<PsDetallePage> {
       ref.invalidate(psPagoSummaryProvider(widget.idFol));
       ref.read(psSelectedArtProvider.notifier).state = null;
     });
+  }
+
+  @override
+  void dispose() {
+    _adeudoFolioCtrl.dispose();
+    super.dispose();
   }
 
   @override
@@ -106,7 +116,14 @@ class _PsDetallePageState extends ConsumerState<PsDetallePage> {
           final canUseAdeudos = client > 1;
           final hasTicketLines = detail.ticket.isNotEmpty;
           final adeudosAsync = (_showAdeudos && canUseAdeudos && hasAdeudoService && !blockedByStatus)
-              ? ref.watch(psAdeudosProvider(client))
+              ? ref.watch(
+                  psAdeudosProvider(
+                    PsAdeudosQuery(
+                      client: client,
+                      folio: _adeudoFolioApplied,
+                    ),
+                  ),
+                )
               : null;
 
           final topLine = _TopActionsLine(
@@ -119,7 +136,10 @@ class _PsDetallePageState extends ConsumerState<PsDetallePage> {
             selectingCliente: _updatingCliente,
             blockedByStatus: blockedByStatus,
             onSelectCliente: () => _seleccionarCliente(header, detail.ticket),
-            onToggleAdeudos: () => setState(() => _showAdeudos = !_showAdeudos),
+            onToggleAdeudos: () => setState(() {
+              _showAdeudos = !_showAdeudos;
+              _adeudosPage = 0;
+            }),
             onAddService: _agregarServicio,
           );
 
@@ -141,6 +161,13 @@ class _PsDetallePageState extends ConsumerState<PsDetallePage> {
                   adeudosAsync: adeudosAsync,
                   selectedArt: selectedArt,
                   editable: editable,
+                  folioController: _adeudoFolioCtrl,
+                  appliedFolio: _adeudoFolioApplied,
+                  page: _adeudosPage,
+                  pageSize: _kAdeudosPageSize,
+                  onPageChanged: (value) => setState(() => _adeudosPage = value),
+                  onApplyFolioFilter: _applyAdeudoFolioFilter,
+                  onClearFolioFilter: _clearAdeudoFolioFilter,
                   onAssign: _asignarReferenciaAdeudo,
                   onViewDetalle: _mostrarRegistrosAdeudo,
                 ),
@@ -179,6 +206,13 @@ class _PsDetallePageState extends ConsumerState<PsDetallePage> {
                         adeudosAsync: adeudosAsync,
                         selectedArt: selectedArt,
                         editable: editable,
+                        folioController: _adeudoFolioCtrl,
+                        appliedFolio: _adeudoFolioApplied,
+                        page: _adeudosPage,
+                        pageSize: _kAdeudosPageSize,
+                        onPageChanged: (value) => setState(() => _adeudosPage = value),
+                        onApplyFolioFilter: _applyAdeudoFolioFilter,
+                        onClearFolioFilter: _clearAdeudoFolioFilter,
                         onAssign: _asignarReferenciaAdeudo,
                         onViewDetalle: _mostrarRegistrosAdeudo,
                       ),
@@ -322,7 +356,12 @@ class _PsDetallePageState extends ConsumerState<PsDetallePage> {
       ref.invalidate(psPagoSummaryProvider(widget.idFol));
       ref.invalidate(psFoliosProvider);
       if (!mounted) return;
-      setState(() => _showAdeudos = false);
+      _adeudoFolioCtrl.clear();
+      setState(() {
+        _showAdeudos = false;
+        _adeudoFolioApplied = '';
+        _adeudosPage = 0;
+      });
     } catch (e) {
       if (!mounted) return;
       _showError(apiErrorMessage(e, fallback: 'No se pudo actualizar cliente del folio'));
@@ -522,6 +561,29 @@ class _PsDetallePageState extends ConsumerState<PsDetallePage> {
     } finally {
       if (mounted) setState(() => _processingServicio = false);
     }
+  }
+
+  void _applyAdeudoFolioFilter() {
+    final next = _adeudoFolioCtrl.text.trim();
+    if (next == _adeudoFolioApplied) {
+      if (_adeudosPage != 0) {
+        setState(() => _adeudosPage = 0);
+      }
+      return;
+    }
+    setState(() {
+      _adeudoFolioApplied = next;
+      _adeudosPage = 0;
+    });
+  }
+
+  void _clearAdeudoFolioFilter() {
+    _adeudoFolioCtrl.clear();
+    if (_adeudoFolioApplied.isEmpty && _adeudosPage == 0) return;
+    setState(() {
+      _adeudoFolioApplied = '';
+      _adeudosPage = 0;
+    });
   }
 
   String _resolveAdeudoFolio(Map<String, dynamic> row) {
@@ -939,6 +1001,13 @@ class _AdeudosSection extends StatelessWidget {
     required this.adeudosAsync,
     required this.selectedArt,
     required this.editable,
+    required this.folioController,
+    required this.appliedFolio,
+    required this.page,
+    required this.pageSize,
+    required this.onPageChanged,
+    required this.onApplyFolioFilter,
+    required this.onClearFolioFilter,
     required this.onAssign,
     required this.onViewDetalle,
   });
@@ -946,6 +1015,13 @@ class _AdeudosSection extends StatelessWidget {
   final AsyncValue<PsAdeudosResponse>? adeudosAsync;
   final String? selectedArt;
   final bool editable;
+  final TextEditingController folioController;
+  final String appliedFolio;
+  final int page;
+  final int pageSize;
+  final ValueChanged<int> onPageChanged;
+  final VoidCallback onApplyFolioFilter;
+  final VoidCallback onClearFolioFilter;
   final ValueChanged<Map<String, dynamic>> onAssign;
   final ValueChanged<Map<String, dynamic>> onViewDetalle;
 
@@ -958,7 +1034,59 @@ class _AdeudosSection extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Adeudos (subres)', style: TextStyle(fontWeight: FontWeight.w700)),
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Adeudos pendientes',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+                if (appliedFolio.trim().isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      'Filtro: ${appliedFolio.trim()}',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: folioController,
+              onSubmitted: (_) => onApplyFolioFilter(),
+              decoration: const InputDecoration(
+                labelText: 'Buscar folio',
+                hintText: 'Ej: DF16-20260310-VF-0008',
+                isDense: true,
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                FilledButton.icon(
+                  onPressed: onApplyFolioFilter,
+                  icon: const Icon(Icons.filter_alt_outlined),
+                  label: const Text('Filtrar'),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  onPressed: onClearFolioFilter,
+                  icon: const Icon(Icons.filter_alt_off_outlined),
+                  label: const Text('Limpiar'),
+                ),
+              ],
+            ),
             const SizedBox(height: 8),
             if (adeudosAsync == null)
               const Text('No hay cliente para consultar adeudos')
@@ -968,41 +1096,122 @@ class _AdeudosSection extends StatelessWidget {
                 error: (e, _) => Text('Error: $e'),
                 data: (data) {
                   final rows = data.adeudosRes.isNotEmpty ? data.adeudosRes : data.adeudosR;
+                  final pendientes = data.adeudosRes.isNotEmpty
+                      ? data.adeudosRes.length
+                      : rows.where((row) => _isNegative(row)).length;
                   if (rows.isEmpty) {
-                    return const Text('Sin adeudos disponibles');
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Pendientes: $pendientes'),
+                        const SizedBox(height: 6),
+                        const Text('Sin adeudos disponibles'),
+                      ],
+                    );
                   }
+                  final effectivePageSize = pageSize <= 0 ? 30 : pageSize;
+                  final totalRows = rows.length;
+                  final totalPages = totalRows == 0
+                      ? 1
+                      : ((totalRows + effectivePageSize - 1) ~/ effectivePageSize);
+                  int currentPage = page;
+                  if (currentPage < 0) currentPage = 0;
+                  if (currentPage >= totalPages) currentPage = totalPages - 1;
+                  final start = totalRows == 0 ? 0 : currentPage * effectivePageSize;
+                  int end = start + effectivePageSize;
+                  if (end > totalRows) end = totalRows;
+                  final rowsToShow = totalRows == 0
+                      ? <Map<String, dynamic>>[]
+                      : rows.sublist(start, end);
+                  final hasRowsHidden = totalRows > effectivePageSize;
+
                   return Column(
-                    children: rows.take(30).map((row) {
-                      final folio = _firstText(row, const ['IDFOL', 'idfol', 'NDOC', 'ndoc', 'ORD', 'ord']);
-                      final relacion = _firstText(row, const ['RELACION', 'relacion']);
-                      final adeudo = _firstText(row, const ['ADEUDO', 'adeudo']);
-                      return ListTile(
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        title: Text('Folio: ${folio.isEmpty ? '-' : folio} | Relación: ${relacion.isEmpty ? '-' : relacion}'),
-                        subtitle: Text('Adeudo: ${adeudo.isEmpty ? '-' : adeudo}'),
-                        trailing: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 260),
-                          child: Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            alignment: WrapAlignment.end,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Pendientes: $pendientes'),
+                      if (hasRowsHidden)
+                        Padding(
+                          padding: EdgeInsets.only(top: 4),
+                          child: Text(
+                            'Mostrando ${start + 1} - $end de $totalRows (página ${currentPage + 1} de $totalPages).',
+                            style: const TextStyle(fontSize: 12, color: Colors.black54),
+                          ),
+                        ),
+                      if (hasRowsHidden)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
                             children: [
-                              OutlinedButton(
-                                onPressed: folio.isEmpty ? null : () => onViewDetalle(row),
-                                child: const Text('Ver registros'),
-                              ),
-                              OutlinedButton(
-                                onPressed: editable && (selectedArt ?? '').trim().isNotEmpty
-                                    ? () => onAssign(row)
+                              OutlinedButton.icon(
+                                onPressed: currentPage > 0
+                                    ? () => onPageChanged(currentPage - 1)
                                     : null,
-                                child: const Text('Asignar referencia'),
+                                icon: const Icon(Icons.chevron_left),
+                                label: const Text('Anterior'),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                '${currentPage + 1} / $totalPages',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              OutlinedButton.icon(
+                                onPressed: currentPage < (totalPages - 1)
+                                    ? () => onPageChanged(currentPage + 1)
+                                    : null,
+                                icon: const Icon(Icons.chevron_right),
+                                label: const Text('Siguiente'),
                               ),
                             ],
                           ),
                         ),
-                      );
-                    }).toList(),
+                      const SizedBox(height: 6),
+                      Column(
+                        children: rowsToShow.map((row) {
+                          final folio = _firstText(row, const ['IDFOL', 'idfol', 'NDOC', 'ndoc', 'ORD', 'ord']);
+                          final relacion = _firstText(
+                            row,
+                            const ['RELACION', 'relacion', 'Relacion'],
+                          );
+                          final adeudo = _firstText(row, const ['ADEUDO', 'adeudo', 'SumaDeIMPT', 'sumaDeImpt']);
+                          final fcnm = _firstText(row, const ['FCNM', 'fcnm']);
+                          final origenAut = _firstText(row, const ['ORIGEN_AUT', 'origen_aut']);
+                          return ListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            title: Text('Folio: ${folio.isEmpty ? '-' : folio} | Relación: ${relacion.isEmpty ? '-' : relacion}'),
+                            subtitle: Text(
+                              'Adeudo: ${adeudo.isEmpty ? '-' : adeudo}'
+                              '${fcnm.isEmpty ? '' : ' | FCNM: $fcnm'}'
+                              '${origenAut.isEmpty ? '' : ' | ORIGEN: $origenAut'}',
+                            ),
+                            trailing: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 260),
+                              child: Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                alignment: WrapAlignment.end,
+                                children: [
+                                  OutlinedButton(
+                                    onPressed: folio.isEmpty ? null : () => onViewDetalle(row),
+                                    child: const Text('Ver registros'),
+                                  ),
+                                  OutlinedButton(
+                                    onPressed: editable && (selectedArt ?? '').trim().isNotEmpty
+                                        ? () => onAssign(row)
+                                        : null,
+                                    child: const Text('Asignar referencia'),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ],
                   );
                 },
               ),
@@ -1018,6 +1227,15 @@ class _AdeudosSection extends StatelessWidget {
       if (value.isNotEmpty) return value;
     }
     return '';
+  }
+
+  bool _isNegative(Map<String, dynamic> row) {
+    final raw = _firstText(row, const ['ADEUDO', 'adeudo', 'SumaDeIMPT', 'sumaDeImpt']);
+    if (raw.isEmpty) return false;
+    final normalized = raw.replaceAll(',', '');
+    final value = double.tryParse(normalized);
+    if (value == null) return false;
+    return value < 0;
   }
 }
 

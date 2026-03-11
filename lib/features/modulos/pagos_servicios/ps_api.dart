@@ -75,8 +75,16 @@ class PsApi {
     return Map<String, dynamic>.from(res.data as Map);
   }
 
-  Future<PsAdeudosResponse> fetchAdeudosCliente(int client) async {
-    final res = await dio.get('/ps/clientes/$client/adeudos');
+  Future<PsAdeudosResponse> fetchAdeudosCliente(
+    int client, {
+    String? folio,
+  }) async {
+    final res = await dio.get(
+      '/ps/clientes/$client/adeudos',
+      queryParameters: {
+        if ((folio ?? '').trim().isNotEmpty) 'folio': folio!.trim(),
+      },
+    );
     return PsAdeudosResponse.fromJson(Map<String, dynamic>.from(res.data as Map));
   }
 

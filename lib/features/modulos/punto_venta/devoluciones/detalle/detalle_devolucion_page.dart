@@ -557,6 +557,13 @@ class _LinesTable extends StatelessWidget {
                 SizedBox(
                   width: 100,
                   child: Text(
+                    'PZS DISPO PARA DEV',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                SizedBox(
+                  width: 100,
+                  child: Text(
                     'CTDD',
                     style: TextStyle(fontWeight: FontWeight.w600),
                   ),
@@ -612,6 +619,13 @@ class _LinesTable extends StatelessWidget {
                             color: line.ordBloqueante ? Colors.red.shade700 : null,
                             fontWeight: line.ordBloqueante ? FontWeight.w700 : null,
                           ),
+                        ),
+                      ),
+                      SizedBox(
+                        width: 100,
+                        child: Text(
+                          line.difd.toStringAsFixed(3),
+                          style: const TextStyle(fontWeight: FontWeight.w600),
                         ),
                       ),
                       SizedBox(
