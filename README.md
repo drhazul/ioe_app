@@ -72,6 +72,7 @@ autenticacion, datos maestros, inventarios, control de cuentas y punto de venta.
 - MB51/MB52:
 - `/dat-mb51/search`, `/dat-mb52/resumen`, `/dat-almacen`, `/dat-cmov`.
 - tablas/fuentes: `DAT_MB51`, `DAT_ART`, `DAT_ALMACEN`, `DAT_CMOV`.
+- compatibilidad backend MB51 (2026-03): el script `ioe-api/sql/mb51transmicion.sql` convierte estados legacy de transmisión a `TRANSMITIR` en `PV_CTR_FOL_ASVR`; la app mantiene los mismos endpoints/payload.
 - Control de cuentas:
 - `/ctrl-ctas/config`, `/ctrl-ctas/catalog/ctas`, `/ctrl-ctas/catalog/clientes`,
   `/ctrl-ctas/catalog/opvs`, `/ctrl-ctas/consulta/resumen-cliente`,

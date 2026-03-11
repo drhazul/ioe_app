@@ -404,14 +404,15 @@ class _PagoCotizacionPageState extends ConsumerState<PagoCotizacionPage> {
         ref.invalidate(pvTicketLogListProvider(currentIdfol));
       }
       final latestState = ref.read(pagoCotizacionControllerProvider(widget.idfol));
-      final cierrePagado = _isEstadoPagado(latestState.context?.esta);
+      final estadoActual = (latestState.context?.esta ?? '').trim().toUpperCase();
+      final cierrePagado = _isEstadoPagado(estadoActual);
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             cierrePagado
-                ? 'Cierre completado. Total ${_money(result.totales.total)} | Cambio ${_money(result.cambio)}. Estado PAGADO confirmado. Puede imprimir ticket.'
-                : 'Cierre completado. Total ${_money(result.totales.total)} | Cambio ${_money(result.cambio)}. Recargue para confirmar estado PAGADO.',
+                ? 'Cierre completado. Total ${_money(result.totales.total)} | Cambio ${_money(result.cambio)}. Estado ${estadoActual.isEmpty ? 'PAGADO/TRANSMITIR' : estadoActual} confirmado. Puede imprimir ticket.'
+                : 'Cierre completado. Total ${_money(result.totales.total)} | Cambio ${_money(result.cambio)}. Recargue para confirmar estado operativo.',
           ),
         ),
       );
@@ -434,7 +435,7 @@ class _PagoCotizacionPageState extends ConsumerState<PagoCotizacionPage> {
         final currentIdfol = state.visibleIdfol;
         await ref.read(pagoCotizacionApiProvider).updateEstado(
               idfol: currentIdfol,
-              esta: 'TRANSMITIR',
+              esta: 'MB51PROCES',
             );
         ref.invalidate(cotizacionProvider(widget.idfol));
         if (currentIdfol != widget.idfol) {
@@ -448,7 +449,7 @@ class _PagoCotizacionPageState extends ConsumerState<PagoCotizacionPage> {
         final msg = apiErrorMessage(
           e,
           fallback:
-              'No se pudo actualizar la cotización a TRANSMITIR al regresar',
+              'No se pudo actualizar la cotización a MB51PROCES al regresar',
         );
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
       }
@@ -464,7 +465,9 @@ class _PagoCotizacionPageState extends ConsumerState<PagoCotizacionPage> {
 
   bool _isEstadoPagado(String? value) {
     final estado = (value ?? '').trim().toUpperCase();
-    return estado == 'PAGADO' || estado == 'TRANSMITIR';
+    return estado == 'PAGADO' ||
+        estado == 'MB51PROCES' ||
+        estado == 'TRANSMITIR';
   }
 
   Future<void> _imprimirTicket(BuildContext context) async {

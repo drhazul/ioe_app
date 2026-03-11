@@ -53,6 +53,7 @@
 - MB51/MB52:
 - `/dat-mb51/search`, `/dat-mb52/resumen`, `/dat-almacen`, `/dat-cmov`.
 - tablas/fuentes: `DAT_MB51`, `DAT_ALMACEN`, `DAT_CMOV`, `DAT_ART`.
+- compatibilidad backend MB51 (2026-03): el script `ioe-api/sql/mb51transmicion.sql` homologa estados legacy de transmisión a `TRANSMITIR` en `PV_CTR_FOL_ASVR`; evita errores por constraint y no cambia contrato API consumido por app.
 - Control de cuentas:
 - `/ctrl-ctas/config`, `/ctrl-ctas/catalog/*`, `/ctrl-ctas/consulta/*`.
 - tablas/fuentes: `DAT_CTRL_CTAS`, `DAT_CAT_CTAS`, `FACT_CLIENT_SHP`, `PV_OPV`, `USR_MOD_SUC`.

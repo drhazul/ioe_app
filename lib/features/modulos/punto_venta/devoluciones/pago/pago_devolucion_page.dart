@@ -276,12 +276,16 @@ class _PagoDevolucionPageState extends ConsumerState<PagoDevolucionPage> {
 
   bool _isEstadoPrintable(String? value) {
     final estado = (value ?? '').trim().toUpperCase();
-    return estado.contains('TRANSMITIR') || estado.contains('PAGADO');
+    return estado.contains('TRANSMITIR') ||
+        estado.contains('PAGADO') ||
+        estado.contains('MB51PROCES');
   }
 
   bool _isEstadoPagado(String? value) {
     final estado = (value ?? '').trim().toUpperCase();
-    return estado == 'PAGADO' || estado == 'TRANSMITIR';
+    return estado == 'PAGADO' ||
+        estado == 'MB51PROCES' ||
+        estado == 'TRANSMITIR';
   }
 
   Future<void> _onBackPressed({required bool isEstadoPagado}) async {
@@ -289,17 +293,17 @@ class _PagoDevolucionPageState extends ConsumerState<PagoDevolucionPage> {
       try {
         await ref.read(devolucionesApiProvider).updateEstado(
               idfol: widget.idfolDev,
-              esta: 'TRANSMITIR',
+              esta: 'MB51PROCES',
             );
         if (!mounted) return;
         ref.invalidate(devolucionesPanelProvider);
-        setState(() => _estadoDev = 'TRANSMITIR');
+        setState(() => _estadoDev = 'MB51PROCES');
         context.go('/punto-venta/devoluciones');
       } catch (e) {
         if (!mounted) return;
         final msg = apiErrorMessage(
           e,
-          fallback: 'No se pudo actualizar la devolución a TRANSMITIR al regresar',
+          fallback: 'No se pudo actualizar la devolución a MB51PROCES al regresar',
         );
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
       }
@@ -347,15 +351,18 @@ class _PagoDevolucionPageState extends ConsumerState<PagoDevolucionPage> {
       final resolvedIdfolDev = res.idfolDev.trim().isEmpty
           ? widget.idfolDev
           : res.idfolDev.trim();
+      final estadoFinal = (res.status).trim().toUpperCase().isEmpty
+          ? 'PAGADO'
+          : res.status.trim().toUpperCase();
       if (!mounted) return;
       setState(() {
         _printEnabled = true;
-        _estadoDev = 'PAGADO';
+        _estadoDev = estadoFinal;
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Devolución finalizada ($resolvedIdfolDev) - estado PAGADO confirmado. Ya puede imprimir ticket.',
+            'Devolución finalizada ($resolvedIdfolDev) - estado $estadoFinal confirmado. Ya puede imprimir ticket.',
           ),
         ),
       );
