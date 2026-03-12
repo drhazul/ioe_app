@@ -72,7 +72,7 @@ autenticacion, datos maestros, inventarios, control de cuentas y punto de venta.
 - MB51/MB52:
 - `/dat-mb51/search`, `/dat-mb52/resumen`, `/dat-almacen`, `/dat-cmov`.
 - tablas/fuentes: `DAT_MB51`, `DAT_ART`, `DAT_ALMACEN`, `DAT_CMOV`.
-- compatibilidad backend MB51 (2026-03): el script `ioe-api/sql/mb51transmicion.sql` convierte estados legacy de transmisión a `TRANSMITIR` en `PV_CTR_FOL_ASVR`; la app mantiene los mismos endpoints/payload.
+- compatibilidad backend MB51 (2026-03): el script `ioe-api/sql/mb51transmicion.sql` habilita `MB51PROCES`/`ANULADO` en homologación de `ESTA`, conserva `TRANSMITIR` para PS y define `sp_mb51_transmitir_folio` para MB51 + stock sin cambiar endpoints/payload consumidos por app.
 - Control de cuentas:
 - `/ctrl-ctas/config`, `/ctrl-ctas/catalog/ctas`, `/ctrl-ctas/catalog/clientes`,
   `/ctrl-ctas/catalog/opvs`, `/ctrl-ctas/consulta/resumen-cliente`,
@@ -328,6 +328,7 @@ autenticacion, datos maestros, inventarios, control de cuentas y punto de venta.
 - Reglas UI de formas de pago:
 - El dropdown de formas en pago usa `GET /dat-form` (tabla `DAT_FORM`) y respeta `ESTADO` para visibilidad.
 - En cierre `CA`, el selector del modal lista `EFECTIVO` y `CREDITO`.
+- `CREDITO` no se puede combinar con otras formas de pago en el mismo cierre.
 - `Autorizacion / referencia` y el boton `Generar/Asignar referencia` solo aplican para `TARJETA`, `CHEQUE`, `TRANSFERENCIA` y `DEPOSITO 3RO`.
 - La referencia no se captura manualmente: se crea/asigna en `REF_DETALLE` y se usa `IDREF` como `aut` de la forma.
 - Si existen referencias en `CAPTURADO` o `PROCESADO` que no se usan en el payload final, backend rechaza el cierre hasta eliminarlas.
@@ -350,7 +351,7 @@ autenticacion, datos maestros, inventarios, control de cuentas y punto de venta.
 - Ajuste UI adicional: se oculto en pantalla el label/valor `IVA integrado sucursal` del resumen.
 - Ajuste funcional: cada entrada/reentrada a la pagina de pago vuelve a ejecutar inicializacion y preview para recalcular importes segun `tipotran`, `rqfac` y parametros de IVA backend.
 - Persistencia funcional: el switch `RQFAC` guarda inmediatamente en `PV_CTR_FOL_ASVR.REQF` (via `PATCH /pvctrfolasvr/:idfol`) para conservar seleccion al salir/entrar.
-- Foliado visible: tras `POST /pv/cotizaciones/:idfol/cierre`, la pantalla adopta el `IDFOL` actual devuelto por backend (`SUC-YYYYMMDD-CA|VF-####`) para AppBar, impresión y salida a `TRANSMITIR`; la ruta sigue siendo compatible por `IDFOLINICIAL`.
+- Foliado visible: tras `POST /pv/cotizaciones/:idfol/cierre`, la pantalla adopta el `IDFOL` actual devuelto por backend (`SUC-YYYYMMDD-CA|VF-####`) para AppBar, impresión y salida a `MB51PROCES`; la ruta sigue siendo compatible por `IDFOLINICIAL`.
 - Apertura de pago desde detalle: el query `rqfac` se arma desde `GET /pv/cotizaciones/:idfol/cierre/context` para evitar valores stale del folio cargado previamente.
 - Validacion UI previa: al finalizar, la app revisa `GET /pv/refdetalle?idfol=:idfol` y bloquea cierre si detecta referencias `CAPTURADO/PROCESADO` no utilizadas.
 - Si detecta referencias sin uso en esa validacion previa, la app navega directo a `/punto-venta/cotizaciones/:idfol/ref-detalle` con la referencia encontrada seleccionada para gestionar su uso/eliminacion.
@@ -358,10 +359,11 @@ autenticacion, datos maestros, inventarios, control de cuentas y punto de venta.
 - Ajuste tecnico: controles `Radio` migrados a `RadioGroup` en dialogos de seleccion (cliente y referencias) para compatibilidad con Flutter >= 3.32.
 - Regla funcional CA: cuando `tipotran=CA`, app fuerza `rqfac=false` y persiste `REQF=0` en `PV_CTR_FOL_ASVR` antes del preview para recalcular importes sin factura.
 - Al cierre exitoso, backend deja la cotizacion en `PV_CTR_FOL_ASVR.ESTA='PAGADO'` y app no redirige de inmediato.
+- Al cierre exitoso, backend ejecuta `dbo.sp_mb51_transmitir_folio` para insertar renglones en `DAT_MB51` y ajustar `DAT_ART.STOCK` por resumen de `ART+SUC`; `ESTA` permanece en `PAGADO`.
 - política de fecha de finalización cotización (2026-03): backend registra fecha de proceso actual al cerrar en `PV_CTR_FOL_FORM(_SVR).FCN`, `PV_CTR_FOL_ASVR.FCNM` y movimientos contables de `CREDITO/DEUDOR`.
-- En estado `PAGADO`, el boton regresar en pago cambia a icono de candado y, al presionarlo, actualiza `ESTA='TRANSMITIR'` para regresar al panel.
+- En estado `PAGADO`, el boton regresar en pago cambia a icono de candado y, al presionarlo, actualiza `ESTA='MB51PROCES'` para regresar al panel.
 - Si una cotizacion en panel tiene `ESTA='PAGADO'`, la seleccion abre directo la pantalla de pago en lugar del detalle.
-- El panel de cotizaciones muestra registros con estado `PENDIENTE`, `EDITANDO` y `PAGADO` usando filtro por `ESTA` (sin condicionar por `AUT`); `TRANSMITIR` se conserva para salida operativa y ya no aparece en el panel.
+- El panel de cotizaciones muestra registros con estado `PENDIENTE`, `EDITANDO` y `PAGADO` usando filtro por `ESTA` (sin condicionar por `AUT`); `MB51PROCES` se conserva para salida operativa y ya no aparece en el panel.
 - Optimizacion panel (2026-03): la lista de cotizaciones consulta `GET /pvctrfolasvr` con filtros `suc`, `opv` y `search` en backend; la pantalla espera cargar contexto JWT antes de disparar la consulta para evitar carga masiva sin criterios.
 - Compatibilidad de consulta (2026-03): la app ya no envia query param `_` en `GET /pvctrfolasvr` para evitar rechazo `400` cuando backend aplica validacion estricta de query.
 - Panel cotizaciones UI (2026-03): la tabla usa columnas de ancho dinamico segun contenido y scroll horizontal para mejorar visualizacion de datos largos.
@@ -391,10 +393,10 @@ autenticacion, datos maestros, inventarios, control de cuentas y punto de venta.
 - Ajuste ticket: `MultiPage` usa margen izquierdo explicito de `2mm` para asegurar desplazamiento real del contenido en 58/80mm.
 - Ajuste ticket: en 80mm se recalibro la altura dinamica con estimacion mas conservadora (lineas/tablas/buffer por ORDs) para evitar hoja extra; 58mm queda sin cambios de logica.
 - Tablas involucradas en el cierre (via API):
-- `PV_CTR_FOL_ASVR` (estado e importe final: `ESTA='PAGADO'` al finalizar y `ESTA='TRANSMITIR'` al regresar al panel, `IMPT`, `AUT='CA'|'VF'`)
+- `PV_CTR_FOL_ASVR` (estado e importe final: `ESTA='PAGADO'` al finalizar y `ESTA='MB51PROCES'` al regresar al panel, `IMPT`, `AUT='CA'|'VF'`)
 - `PV_CTR_FOL_ASVR` conserva `IDFOLINICIAL` y cambia `IDFOL` visible al cerrar (`CP -> CA/VF`), mientras backend/UI mantienen compatibilidad por ambos identificadores.
 - `PV_TICKET_LOG` (base de calculo `SUM(CTD * PVTA)`)
-- `PV_CTR_FOL_FORM` (formas definitivas y cambio; en este flujo backend guarda en `IMPD` el total final de la cotizacion y deja `IMPA=0`)
+- `PV_CTR_FOL_FORM` (formas definitivas y cambio; en este flujo backend guarda `IMPD` por forma aplicada: `IMPP-IMPC`, y deja `IMPA=0`)
 - `PV_CTR_FOL_FORM_SVR` / `PV_CTR_FOL_FORM` (formas definitivas segun disponibilidad de tabla)
 - `PV_CTR_ORDS` (al cierre backend cambia `ESTATUS=2` para el folio)
 - `DAT_SUC` (`IVA_INTEGRADO` para regla de total)
@@ -439,10 +441,12 @@ autenticacion, datos maestros, inventarios, control de cuentas y punto de venta.
 - en pago no se permite agregar, editar ni eliminar formas de pago.
 - en pago devolución (2026-03-10): las formas se recargan siempre desde `preview.formasSugeridas` (folio origen) para devolver por el mismo concepto en no efectivo y conservar `aut/ref` para el cierre backend.
 - al finalizar devolución, el folio queda en `ESTA='PAGADO'`.
+- al finalizar devolución, backend ejecuta `dbo.sp_mb51_transmitir_folio` para insertar renglones en `DAT_MB51` y ajustar `DAT_ART.STOCK` por resumen de `ART+SUC`; `ESTA` permanece en `PAGADO`.
+- facturación devolución VF (2026-03-11): backend ya no ejecuta sincronización fiscal automática en `POST /pv/devoluciones/:idfolDev/pago/finalizar`; este cierre no inserta/actualiza `FAC_SVR_SHAP` ni `FACT_TICKET_SHP`.
 - política de fecha de finalización devolución (2026-03): backend reutiliza una fecha de proceso actual única al cerrar para `FACT_IDFOLDEV` (`FCN/FCNR`), `PV_CTR_FOL_FORM(_SVR).FCN`, `PV_CTR_FOL_ASVR.FCNM`, `PV_TICKET_LOG.UPDATED_AT` y movimientos contables relacionados.
-- cuando el folio está en `PAGADO`, el botón regresar cambia a candado; al presionarlo actualiza `ESTA='TRANSMITIR'` y vuelve al panel.
+- cuando el folio está en `PAGADO`, el botón regresar cambia a candado; al presionarlo actualiza `ESTA='MB51PROCES'` y vuelve al panel.
 - al volver al panel desde pago/candado, frontend invalida el provider del panel y recarga la consulta.
-- el panel de devoluciones muestra únicamente estados `PENDIENTE`, `EDITANDO` y `PAGADO`; `TRANSMITIR` sigue existiendo para salida operativa, pero queda fuera del panel.
+- el panel de devoluciones muestra únicamente estados `PENDIENTE`, `EDITANDO` y `PAGADO`; `MB51PROCES` sigue existiendo para salida operativa, pero queda fuera del panel.
 - desde panel, si el folio está en `PAGADO`, la selección abre directo la ruta de pago (sin mostrar selección/detalle).
 - desde panel, si el folio no está en `PAGADO` pero ya tiene artículos seleccionados (`linesSelected > 0` o alguna línea con `CTDD > 0`), la selección abre directo `/punto-venta/devoluciones/:idfolDev/detalle`; sin selección previa, abre `/punto-venta/devoluciones/:idfolDev`.
 - al finalizar se habilita `Imprimir ticket`; al presionarlo abre selector 58mm/80mm y la vista previa PDF con `GET /pv/devoluciones/:idfolDev/print-preview`.

@@ -27,6 +27,8 @@ const Set<String> _formasConReferencia = {
 bool _formRequiereReferenciaTipo(String form) =>
     _formasConReferencia.contains(form.toUpperCase().trim());
 
+bool _isCreditoForm(String form) => form.toUpperCase().trim() == 'CREDITO';
+
 // Ajustes de tipografia para etiquetas/importes en resumenes.
 const double _kResumenTituloSize = 16;
 const double _kResumenLabelSize = 15;
@@ -300,6 +302,17 @@ class _PagoCotizacionPageState extends ConsumerState<PagoCotizacionPage> {
     PagoCotizacionState state, {
     required List<String> formasDisponibles,
   }) async {
+    if (state.formas.any((item) => _isCreditoForm(item.form))) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'La forma CREDITO no se puede combinar con otras formas de pago.',
+          ),
+        ),
+      );
+      return;
+    }
+
     final total = state.totales?.total ?? 0;
     if (total > 0 && (state.sumPagos + 0.0001) >= total) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1285,6 +1298,25 @@ class _PagoCotizacionPageState extends ConsumerState<PagoCotizacionPage> {
   }) async {
     final formas = [...formasDisponibles];
     final initialFormNorm = (initial?.form ?? '').trim().toUpperCase();
+    final editingCredito = _isCreditoForm(initialFormNorm);
+    final hasCreditoEnOtras = existing.any((item) => _isCreditoForm(item.form));
+    final hasNoCreditoEnOtras = existing.any((item) => !_isCreditoForm(item.form));
+
+    if (!editingCredito && hasCreditoEnOtras) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'La forma CREDITO no se puede combinar con otras formas de pago.',
+          ),
+        ),
+      );
+      return null;
+    }
+
+    if (!editingCredito && hasNoCreditoEnOtras) {
+      formas.removeWhere(_isCreditoForm);
+    }
+
     if (initialFormNorm.isNotEmpty && !formas.contains(initialFormNorm)) {
       formas.insert(0, initialFormNorm);
     }
@@ -1808,6 +1840,15 @@ class _FormaDialogState extends State<_FormaDialog> {
       _setError(
         'El importe no puede ser mayor al restante por pagar (${_money(widget.maxRefImpt)})',
       );
+      return;
+    }
+    final selectedIsCredito = _isCreditoForm(_form);
+    final hasCreditoEnOtras = widget.existing.any(
+      (item) => _isCreditoForm(item.form),
+    );
+    if ((selectedIsCredito && widget.existing.isNotEmpty) ||
+        (!selectedIsCredito && hasCreditoEnOtras)) {
+      _setError('La forma CREDITO no se puede combinar con otras formas de pago');
       return;
     }
 

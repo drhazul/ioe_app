@@ -207,11 +207,20 @@ class PagoCotizacionController extends StateNotifier<PagoCotizacionState> {
   }
 
   void addForma({required String form, required double impp, String? aut}) {
+    final normalizedForm = form.trim().toUpperCase();
+    final creditoError = _validateCreditoCombination(
+      form: normalizedForm,
+      existing: state.formas,
+    );
+    if (creditoError != null) {
+      state = state.copyWith(error: creditoError);
+      return;
+    }
     final total = state.totales?.total ?? 0.0;
     final faltante = _round2(
       total > state.sumPagos ? total - state.sumPagos : 0.0,
     );
-    final isEfectivo = form.trim().toUpperCase() == 'EFECTIVO';
+    final isEfectivo = normalizedForm == 'EFECTIVO';
     if (total > 0 && (state.sumPagos + 0.0001) >= total) {
       state = state.copyWith(
         error:
@@ -231,7 +240,7 @@ class PagoCotizacionController extends StateNotifier<PagoCotizacionState> {
       ...state.formas,
       PagoCierreFormaDraft(
         id: _nextId(),
-        form: form.toUpperCase().trim(),
+        form: normalizedForm,
         impp: impp,
         aut: aut?.trim().isEmpty ?? true ? null : aut!.trim(),
       ),
@@ -245,12 +254,20 @@ class PagoCotizacionController extends StateNotifier<PagoCotizacionState> {
     required double impp,
     String? aut,
   }) {
+    final normalizedForm = form.trim().toUpperCase();
+    final otrasFormas = state.formas.where((item) => item.id != id).toList();
+    final creditoError = _validateCreditoCombination(
+      form: normalizedForm,
+      existing: otrasFormas,
+    );
+    if (creditoError != null) {
+      state = state.copyWith(error: creditoError);
+      return;
+    }
     final total = state.totales?.total ?? 0.0;
-    final sumOtros = state.formas
-        .where((item) => item.id != id)
-        .fold(0.0, (acc, item) => acc + item.impp);
+    final sumOtros = otrasFormas.fold(0.0, (acc, item) => acc + item.impp);
     final faltante = _round2(total > sumOtros ? total - sumOtros : 0.0);
-    final isEfectivo = form.trim().toUpperCase() == 'EFECTIVO';
+    final isEfectivo = normalizedForm == 'EFECTIVO';
     if (!isEfectivo && total > 0 && impp - faltante > 0.0001) {
       state = state.copyWith(
         error:
@@ -262,7 +279,7 @@ class PagoCotizacionController extends StateNotifier<PagoCotizacionState> {
     final next = state.formas.map((item) {
       if (item.id != id) return item;
       return item.copyWith(
-        form: form.toUpperCase().trim(),
+        form: normalizedForm,
         impp: impp,
         aut: aut?.trim().isEmpty ?? true ? null : aut!.trim(),
       );
@@ -281,6 +298,13 @@ class PagoCotizacionController extends StateNotifier<PagoCotizacionState> {
     }
     if (state.formas.isEmpty) {
       throw Exception('Debe agregar al menos una forma de pago');
+    }
+    final creditoCount = state.formas.where((item) => _isCredito(item.form)).length;
+    if (creditoCount > 0 && state.formas.length > 1) {
+      throw Exception('La forma CREDITO no se puede combinar con otras formas de pago');
+    }
+    if (creditoCount > 1) {
+      throw Exception('La forma CREDITO solo puede registrarse una vez');
     }
 
     state = state.copyWith(submitting: true, error: null);
@@ -351,6 +375,24 @@ class PagoCotizacionController extends StateNotifier<PagoCotizacionState> {
     return text == 'CA' ? 'CA' : 'VF';
   }
 
+  String? _validateCreditoCombination({
+    required String form,
+    required List<PagoCierreFormaDraft> existing,
+  }) {
+    final normalized = form.trim().toUpperCase();
+    if (_isCredito(normalized)) {
+      if (existing.isNotEmpty) {
+        return 'La forma CREDITO no se puede combinar con otras formas de pago';
+      }
+      return null;
+    }
+    final hasCredito = existing.any((item) => _isCredito(item.form));
+    if (hasCredito) {
+      return 'La forma CREDITO no se puede combinar con otras formas de pago';
+    }
+    return null;
+  }
+
   String _nextId() {
     final now = DateTime.now().microsecondsSinceEpoch;
     // En Flutter Web, `1 << 32` puede evaluarse a 0; usar literal evita RangeError.
@@ -363,3 +405,5 @@ double _round2(double value) =>
     (value.isFinite ? (value * 100).roundToDouble() / 100 : 0.0);
 
 String _money(double value) => '\$${value.toStringAsFixed(2)}';
+
+bool _isCredito(String form) => form.trim().toUpperCase() == 'CREDITO';
