@@ -25,7 +25,11 @@ class DatArtApi {
     int? page,
     int? limit,
   }) async {
-    final query = <String, dynamic>{'suc': suc};
+    final query = <String, dynamic>{
+      'suc': suc.trim().toUpperCase(),
+      'sucExact': true,
+      'bloqNe': -1,
+    };
     final artTrim = (art ?? '').trim();
     final upcTrim = (upc ?? '').trim();
     final desTrim = (des ?? '').trim();
@@ -46,15 +50,8 @@ class DatArtApi {
     if (limit != null) query['limit'] = limit;
     if (view != null && view.trim().isNotEmpty) query['view'] = view.trim();
     final res = await dio.get('/datart', queryParameters: query);
-    final sucNormalized = suc.trim().toUpperCase();
     final list = (res.data as List<dynamic>)
         .map((e) => DatArtModel.fromJson(Map<String, dynamic>.from(e as Map)))
-        .where((item) {
-          final itemSuc = item.suc.trim().toUpperCase();
-          if (itemSuc != sucNormalized) return false;
-          final bloqInt = item.bloq?.toInt();
-          return bloqInt != -1;
-        })
         .toList(growable: false);
     return list;
   }

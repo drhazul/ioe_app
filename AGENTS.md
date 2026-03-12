@@ -107,6 +107,7 @@
 - Detalle cotizacion UX (2026-03-10): en el bloque superior se agrega captura rápida por `UPC` (EAN13). La UI sanitiza a dígitos, toma los primeros 12 y busca coincidencia exacta por `SUC` en `DAT_ART` para insertar directo en ticket con `CTD=1` y `PVTA` del artículo.
 - Detalle cotizacion UX (2026-03-10): en la grilla DAT_ART el botón `Agregar` se movió al inicio del renglón.
 - Detalle cotizacion UX (2026-03-10): la columna `DES` en consulta DAT_ART y en detalle de ticket usa texto seleccionable con tooltip para visualizar/copiar la descripción completa.
+- Detalle cotizacion DAT_ART (2026-03-12): la consulta de artículos de sucursal en `detalle_cot` ahora se hace server-side con `GET /datart?suc=<SUC>&sucExact=true&bloqNe=-1`, alineada al criterio SQL `SUC=@SUC AND BLOQ<>-1` (ya no filtrado local de `BLOQ` en frontend).
 
 ## Punto de venta: cierre de cotizacion (implementado)
 - Ruta UI: `/punto-venta/cotizaciones/:idfol/pago`.

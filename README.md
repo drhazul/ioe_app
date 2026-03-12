@@ -295,6 +295,7 @@ autenticacion, datos maestros, inventarios, control de cuentas y punto de venta.
 - Detalle cotización UX (2026-03-10): en el bloque superior se agregó captura rápida por `UPC` (EAN13); la UI sanitiza a dígitos, toma los primeros 12 y busca coincidencia exacta por `SUC` en `DAT_ART` para insertar directo al ticket con `CTD=1` y `PVTA` del artículo.
 - Detalle cotización UX (2026-03-10): en la grilla DAT_ART el botón `Agregar` se movió al inicio del renglón.
 - Detalle cotización UX (2026-03-10): la columna `DES` en consulta DAT_ART y en detalle de ticket usa texto seleccionable con tooltip para visualizar/copiar la descripción completa.
+- Detalle cotización DAT_ART (2026-03-12): el módulo `detalle_cot` ahora consulta artículos de sucursal con `GET /datart?suc=<SUC>&sucExact=true&bloqNe=-1` para ejecutar el filtro en backend (`SUC=@SUC AND BLOQ<>-1`) en lugar de depender de filtrado local.
 
 ## Flujo de cierre de cotizacion (PV)
 - Pantalla: `PagoCotizacionPage` en `lib/features/modulos/punto_venta/cotizaciones/pago/pago_cotizacion_page.dart`.
