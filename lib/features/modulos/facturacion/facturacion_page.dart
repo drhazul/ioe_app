@@ -60,6 +60,24 @@ class FacturacionPage extends ConsumerWidget {
                       OutlinedButton(
                         onPressed: () async {
                           final api = ref.read(facturacionApiProvider);
+                          final result = await api.refrescarEstado(idFol);
+                          if (context.mounted) {
+                            final local = result['local'];
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Estado actualizado: ${local?['ESTATUS'] ?? '-'} / ${local?['CFDI_STATUS'] ?? '-'}',
+                                ),
+                              ),
+                            );
+                            ref.invalidate(facturasPendientesProvider);
+                          }
+                        },
+                        child: const Text('REFRESCAR ESTADO'),
+                      ),
+                      OutlinedButton(
+                        onPressed: () async {
+                          final api = ref.read(facturacionApiProvider);
                           final result = await api.reenviarEmail(idFol);
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(

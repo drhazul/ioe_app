@@ -24,6 +24,11 @@ class FacturacionApi {
     return Map<String, dynamic>.from(res.data as Map);
   }
 
+  Future<Map<String, dynamic>> refrescarEstado(int idFol) async {
+    final res = await dio.post('/facturacion/$idFol/refrescar-estado', data: const {});
+    return Map<String, dynamic>.from(res.data as Map);
+  }
+
   Future<Map<String, dynamic>> reenviarEmail(int idFol, {String? email}) async {
     final res = await dio.post('/facturacion/$idFol/reenviar-email', data: {
       if ((email ?? '').trim().isNotEmpty) 'email': email!.trim(),
