@@ -24,9 +24,24 @@ class _CajaGeneralPageState extends ConsumerState<CajaGeneralPage> {
   static const _operationTipo = 'GLOBAL';
   String _suc = '';
   bool _isAdmin = false;
+  bool _isJefeContabilidad = false;
   String? _tokenOpv;
+  String? _tokenUsername;
   String? _selectedOpv;
   bool _contextReady = false;
+
+  bool get _canSelectSucursal => _isAdmin || _isJefeContabilidad;
+  bool get _canSelectOpv => !_isJefeContabilidad;
+  bool get _canOpenEntregaOpv => !_isJefeContabilidad;
+  String get _introText {
+    if (_isJefeContabilidad) {
+      return 'Seleccione sucursal y fecha. OPV y entrega OPV bloqueados por rol.';
+    }
+    if (_canSelectSucursal) {
+      return 'Seleccione sucursal, OPV y fecha.';
+    }
+    return 'La sucursal se toma del usuario logueado. Seleccione OPV y fecha.';
+  }
 
   @override
   void initState() {
@@ -47,12 +62,12 @@ class _CajaGeneralPageState extends ConsumerState<CajaGeneralPage> {
     }
 
     final usersAsync = ref.watch(usersListProvider);
-    final sucursalesAsync = _isAdmin
+    final sucursalesAsync = _canSelectSucursal
         ? ref.watch(sucursalesListProvider)
         : const AsyncData<List<SucursalModel>>(<SucursalModel>[]);
 
     final loadingUsers = usersAsync.isLoading;
-    final loadingSucursales = _isAdmin && sucursalesAsync.isLoading;
+    final loadingSucursales = _canSelectSucursal && sucursalesAsync.isLoading;
 
     return Scaffold(
       appBar: AppBar(
@@ -68,48 +83,61 @@ class _CajaGeneralPageState extends ConsumerState<CajaGeneralPage> {
     AsyncValue<List<UserModel>> usersAsync,
     AsyncValue<List<SucursalModel>> sucursalesAsync,
   ) {
-    final sucursalesError = _isAdmin ? sucursalesAsync.asError?.error : null;
-    final sucursales = _isAdmin
+    final sucursalesError = _canSelectSucursal ? sucursalesAsync.asError?.error : null;
+    final sucursales = _canSelectSucursal
         ? (sucursalesAsync.asData?.value ?? const <SucursalModel>[])
         : const <SucursalModel>[];
     final sucursalesOptions = _buildSucursalOptions(sucursales);
     final suc = _resolveSucursalSelection(sucursales);
-    final sucReady = _isAdmin
+    final sucReady = _canSelectSucursal
         ? sucursalesError == null &&
             sucursalesOptions.isNotEmpty &&
             suc.trim().isNotEmpty
         : suc.trim().isNotEmpty;
 
     if (usersAsync.hasError) {
+      final blockedOpvField = TextFormField(
+        enabled: false,
+        initialValue: '',
+        decoration: const InputDecoration(
+          labelText: 'OPV',
+          border: OutlineInputBorder(),
+          isDense: true,
+          helperText: 'Bloqueado para rol JEFE DE CONTABILIDAD.',
+        ),
+      );
       return _buildLayout(
-        introText: _isAdmin
-            ? 'Seleccione sucursal, OPV y fecha.'
-            : 'La sucursal se toma del usuario logueado. Seleccione OPV y fecha.',
+        introText: _introText,
         sucField: _buildSucursalField(
           sucursales: sucursales,
           selectedSuc: suc,
           loadError: sucursalesError,
         ),
         sucReady: sucReady,
-        opvField: TextFormField(
-          enabled: false,
-          initialValue: '',
-          decoration: InputDecoration(
-            labelText: 'OPV',
-            border: const OutlineInputBorder(),
-            isDense: true,
-            helperText: 'No se pudieron cargar OPV: ${usersAsync.error}',
-          ),
-        ),
+        opvField: _canSelectOpv
+            ? TextFormField(
+                enabled: false,
+                initialValue: '',
+                decoration: InputDecoration(
+                  labelText: 'OPV',
+                  border: const OutlineInputBorder(),
+                  isDense: true,
+                  helperText: 'No se pudieron cargar OPV: ${usersAsync.error}',
+                ),
+              )
+            : blockedOpvField,
         selectedOpv: null,
+        canOpenEntregaOpv: _canOpenEntregaOpv,
       );
     }
 
     final users = usersAsync.asData?.value ?? const <UserModel>[];
-    final options = _buildOpvOptions(users, suc);
-    final selectedOpv = _resolveSelectedOpv(options);
+    _syncRoleFlags(users);
 
-    if (selectedOpv != _selectedOpv) {
+    final options = _canSelectOpv ? _buildOpvOptions(users, suc) : const <_OpvOption>[];
+    final selectedOpv = _canSelectOpv ? _resolveSelectedOpv(options) : null;
+
+    if (_canSelectOpv && selectedOpv != _selectedOpv) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         setState(() => _selectedOpv = selectedOpv);
@@ -117,48 +145,57 @@ class _CajaGeneralPageState extends ConsumerState<CajaGeneralPage> {
       });
     }
 
-    final opvField = options.isEmpty
-        ? TextFormField(
+    final opvField = _canSelectOpv
+        ? (options.isEmpty
+            ? TextFormField(
+                enabled: false,
+                initialValue: '',
+                decoration: const InputDecoration(
+                  labelText: 'OPV',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                  helperText:
+                      'No hay usuarios OPV/SUPERVISOR activos en la sucursal seleccionada.',
+                ),
+              )
+            : DropdownButtonFormField<String>(
+                key: ValueKey(
+                  'cg-opv-$suc-${selectedOpv ?? ''}-$options.length',
+                ),
+                initialValue: selectedOpv,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: 'OPV',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+                items: options
+                    .map(
+                      (option) => DropdownMenuItem<String>(
+                        value: option.opv,
+                        child: Text(option.label),
+                      ),
+                    )
+                    .toList(growable: false),
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() => _selectedOpv = value);
+                  _saveFiltros(opv: value, suc: suc);
+                },
+              ))
+        : TextFormField(
             enabled: false,
             initialValue: '',
             decoration: const InputDecoration(
               labelText: 'OPV',
               border: OutlineInputBorder(),
               isDense: true,
-              helperText:
-                  'No hay usuarios OPV/SUPERVISOR activos en la sucursal seleccionada.',
+              helperText: 'Bloqueado para rol JEFE DE CONTABILIDAD.',
             ),
-          )
-        : DropdownButtonFormField<String>(
-            key: ValueKey(
-              'cg-opv-$suc-${selectedOpv ?? ''}-$options.length',
-            ),
-            initialValue: selectedOpv,
-            isExpanded: true,
-            decoration: const InputDecoration(
-              labelText: 'OPV',
-              border: OutlineInputBorder(),
-              isDense: true,
-            ),
-            items: options
-                .map(
-                  (option) => DropdownMenuItem<String>(
-                    value: option.opv,
-                    child: Text(option.label),
-                  ),
-                )
-                .toList(growable: false),
-            onChanged: (value) {
-              if (value == null) return;
-              setState(() => _selectedOpv = value);
-              _saveFiltros(opv: value, suc: suc);
-            },
           );
 
     return _buildLayout(
-      introText: _isAdmin
-          ? 'Seleccione sucursal, OPV y fecha.'
-          : 'La sucursal se toma del usuario logueado. Seleccione OPV y fecha.',
+      introText: _introText,
       sucField: _buildSucursalField(
         sucursales: sucursales,
         selectedSuc: suc,
@@ -167,6 +204,7 @@ class _CajaGeneralPageState extends ConsumerState<CajaGeneralPage> {
       sucReady: sucReady,
       opvField: opvField,
       selectedOpv: selectedOpv,
+      canOpenEntregaOpv: _canOpenEntregaOpv,
     );
   }
 
@@ -175,7 +213,7 @@ class _CajaGeneralPageState extends ConsumerState<CajaGeneralPage> {
     required String selectedSuc,
     required Object? loadError,
   }) {
-    if (!_isAdmin) {
+    if (!_canSelectSucursal) {
       return TextFormField(
         enabled: false,
         initialValue: selectedSuc,
@@ -249,7 +287,7 @@ class _CajaGeneralPageState extends ConsumerState<CajaGeneralPage> {
 
   String _resolveSucursalSelection(List<SucursalModel> sucursales) {
     final current = _suc.trim().toUpperCase();
-    if (!_isAdmin) return current;
+    if (!_canSelectSucursal) return current;
 
     final options = _buildSucursalOptions(sucursales);
     if (options.isEmpty) return current;
@@ -286,8 +324,10 @@ class _CajaGeneralPageState extends ConsumerState<CajaGeneralPage> {
     required bool sucReady,
     required Widget opvField,
     required String? selectedOpv,
+    required bool canOpenEntregaOpv,
   }) {
     final opvReady = (selectedOpv ?? '').trim().isNotEmpty;
+    final entregaReady = canOpenEntregaOpv && sucReady && opvReady;
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -303,7 +343,7 @@ class _CajaGeneralPageState extends ConsumerState<CajaGeneralPage> {
         if (!sucReady) ...[
           const SizedBox(height: 6),
           Text(
-            _isAdmin
+            _canSelectSucursal
                 ? 'No se pudo resolver una sucursal disponible desde DAT_SUC.'
                 : 'No se pudo resolver la sucursal del usuario autenticado.',
             style: TextStyle(color: Colors.red),
@@ -330,7 +370,7 @@ class _CajaGeneralPageState extends ConsumerState<CajaGeneralPage> {
           runSpacing: 8,
           children: [
             FilledButton.icon(
-              onPressed: (!sucReady || !opvReady)
+              onPressed: !entregaReady
                   ? null
                   : () => _goEntregaOpv(selectedOpv),
               icon: const Icon(Icons.point_of_sale),
@@ -368,12 +408,31 @@ class _CajaGeneralPageState extends ConsumerState<CajaGeneralPage> {
         .toString()
         .trim()
         .toUpperCase();
+    final roleCode = (payload['roleCode'] ??
+            payload['ROLECODE'] ??
+            payload['rolCodigo'] ??
+            payload['ROLCODIGO'] ??
+            '')
+        .toString()
+        .trim()
+        .toUpperCase();
+    final roleName = (payload['roleName'] ??
+            payload['ROLENAME'] ??
+            payload['rolNombre'] ??
+            payload['ROLNOMBRE'] ??
+            payload['role'] ??
+            payload['ROLE'] ??
+            '')
+        .toString()
+        .trim()
+        .toUpperCase();
     final roleId = int.tryParse(
       (payload['roleId'] ?? payload['ROLEID'] ?? payload['IDROL'] ?? '')
           .toString()
           .trim(),
     );
     final isAdmin = roleId == 1 || username == 'ADMIN';
+    final isJefeContabilidad = _isJefeContabilidadRole('$roleCode $roleName');
     final tokenOpv = (payload['opv'] ?? payload['OPV'] ?? payload['username'] ?? '')
         .toString()
         .trim()
@@ -382,14 +441,61 @@ class _CajaGeneralPageState extends ConsumerState<CajaGeneralPage> {
     setState(() {
       _suc = suc;
       _isAdmin = isAdmin;
+      _isJefeContabilidad = isJefeContabilidad;
+      _tokenUsername = username;
       _tokenOpv = tokenOpv.isEmpty ? null : tokenOpv;
-      if ((_selectedOpv ?? '').trim().isEmpty &&
+      if (!_isJefeContabilidad &&
+          (_selectedOpv ?? '').trim().isEmpty &&
           (_tokenOpv ?? '').trim().isNotEmpty) {
         _selectedOpv = _tokenOpv;
+      } else if (_isJefeContabilidad) {
+        _selectedOpv = null;
       }
       _contextReady = true;
     });
-    _saveFiltros(opv: _selectedOpv ?? '', suc: suc);
+    _saveFiltros(opv: _isJefeContabilidad ? '' : (_selectedOpv ?? ''), suc: suc);
+  }
+
+  void _syncRoleFlags(List<UserModel> users) {
+    final username = (_tokenUsername ?? '').trim().toUpperCase();
+    if (username.isEmpty || users.isEmpty) return;
+
+    UserModel? currentUser;
+    for (final user in users) {
+      if (user.username.trim().toUpperCase() == username) {
+        currentUser = user;
+        break;
+      }
+    }
+    if (currentUser == null) return;
+
+    final roleText =
+        '${currentUser.rolCodigo ?? ''} ${currentUser.rolNombre ?? ''}'.trim();
+    final isJefeByUser = _isJefeContabilidadRole(roleText);
+    if (isJefeByUser == _isJefeContabilidad) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() {
+        _isJefeContabilidad = isJefeByUser;
+        if (_isJefeContabilidad) {
+          _selectedOpv = null;
+        }
+      });
+      if (_isJefeContabilidad) {
+        _saveFiltros(opv: '', suc: _suc);
+      }
+    });
+  }
+
+  bool _isJefeContabilidadRole(String rawRole) {
+    final role = rawRole.trim().toUpperCase();
+    if (role.isEmpty) return false;
+    return role.contains('JEFE DE CONTABIL') ||
+        role.contains('JEFE CONTABIL') ||
+        role.contains('JEFECONTABIL') ||
+        role.contains('JEF_CONTA') ||
+        role.contains('JEFCONTA');
   }
 
   List<_OpvOption> _buildOpvOptions(List<UserModel> users, String suc) {

@@ -11,8 +11,9 @@ class CajaGeneralApi {
     required String suc,
     required DateTime fecha,
     required String opv,
+    String tipo = 'GLOBAL',
   }) async {
-    const tipoOperacion = 'GLOBAL';
+    final tipoOperacion = tipo.trim().toUpperCase();
     final res = await dio.get(
       '/caja-general/opv/resumen',
       queryParameters: {
@@ -28,8 +29,9 @@ class CajaGeneralApi {
   Future<CajaGeneralGlobalResumen> fetchResumenGlobal({
     required String suc,
     required DateTime fecha,
+    String tipo = 'GLOBAL',
   }) async {
-    const tipoOperacion = 'GLOBAL';
+    final tipoOperacion = tipo.trim().toUpperCase();
     final res = await dio.get(
       '/caja-general/global/resumen',
       queryParameters: {
@@ -44,8 +46,9 @@ class CajaGeneralApi {
   Future<List<CajaGeneralPendiente>> fetchPendientes({
     required String suc,
     required DateTime fecha,
+    String tipo = 'GLOBAL',
   }) async {
-    const tipoOperacion = 'GLOBAL';
+    final tipoOperacion = tipo.trim().toUpperCase();
     final res = await dio.get(
       '/caja-general/opv/pendientes',
       queryParameters: {
@@ -60,6 +63,34 @@ class CajaGeneralApi {
     return itemsRaw
         .whereType<Map>()
         .map((row) => CajaGeneralPendiente.fromJson(Map<String, dynamic>.from(row)))
+        .toList(growable: false);
+  }
+
+  Future<List<CajaGeneralPendienteTransaccion>> fetchPendienteTransacciones({
+    required String suc,
+    required DateTime fecha,
+    required String opv,
+    required String tipo,
+  }) async {
+    final res = await dio.get(
+      '/caja-general/opv/pendiente-transacciones',
+      queryParameters: {
+        'suc': suc.trim(),
+        'fcn': _formatSqlDate(fecha),
+        'opv': opv.trim(),
+        'tipo': tipo.trim().toUpperCase(),
+      },
+    );
+    final data = _toMap(res.data);
+    final itemsRaw = data['items'];
+    if (itemsRaw is! List) return const [];
+    return itemsRaw
+        .whereType<Map>()
+        .map(
+          (row) => CajaGeneralPendienteTransaccion.fromJson(
+            Map<String, dynamic>.from(row),
+          ),
+        )
         .toList(growable: false);
   }
 
@@ -142,6 +173,20 @@ class CajaGeneralApi {
         'suc': suc.trim(),
         'fcn': _formatSqlDate(fecha),
         'tipo': tipo.trim().toUpperCase(),
+      },
+    );
+    return _toMap(res.data);
+  }
+
+  Future<Map<String, dynamic>> fetchExcelGlobal({
+    required String suc,
+    required DateTime fecha,
+  }) async {
+    final res = await dio.get(
+      '/caja-general/global/excel',
+      queryParameters: {
+        'suc': suc.trim(),
+        'fcn': _formatSqlDate(fecha),
       },
     );
     return _toMap(res.data);

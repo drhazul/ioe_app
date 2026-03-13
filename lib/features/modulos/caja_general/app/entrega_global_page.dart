@@ -1,7 +1,9 @@
+import 'package:excel/excel.dart' as xls;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ioe_app/core/api_error.dart';
+import 'package:ioe_app/core/excel_exporter.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -26,17 +28,25 @@ class EntregaGlobalPage extends ConsumerStatefulWidget {
 }
 
 class _EntregaGlobalPageState extends ConsumerState<EntregaGlobalPage> {
+  static const String _uiTipo = 'GLOBAL';
   bool _loadingReporte = false;
+  bool _loadingExcel = false;
   String _reportTipo = 'GLOBAL';
+  String get _operationTipo => _normalizeTipo(widget.tipo);
+
+  @override
+  void initState() {
+    super.initState();
+    _reportTipo = _operationTipo;
+  }
 
   @override
   Widget build(BuildContext context) {
-    const operationTipo = 'GLOBAL';
     final filtros = CajaGeneralFiltros(
       suc: widget.suc,
       fecha: widget.fecha,
       opv: '',
-      tipo: operationTipo,
+      tipo: _uiTipo,
     );
     final resumenAsync = ref.watch(cajaGeneralResumenGlobalProvider(filtros));
 
@@ -46,7 +56,7 @@ class _EntregaGlobalPageState extends ConsumerState<EntregaGlobalPage> {
         actions: [
           IconButton(
             tooltip: 'Refrescar',
-            onPressed: _loadingReporte
+            onPressed: (_loadingReporte || _loadingExcel)
                 ? null
                 : () => ref.invalidate(cajaGeneralResumenGlobalProvider(filtros)),
             icon: const Icon(Icons.refresh),
@@ -73,7 +83,7 @@ class _EntregaGlobalPageState extends ConsumerState<EntregaGlobalPage> {
                     children: [
                       Text('SUC: ${widget.suc}'),
                       Text('FCN: ${_formatDate(widget.fecha)}'),
-                      const Text('TIPO OPERACION: GLOBAL'),
+                      Text('TIPO OPERACION: $_uiTipo'),
                       const SizedBox(height: 6),
                       Text(
                         hasPendings
@@ -86,6 +96,8 @@ class _EntregaGlobalPageState extends ConsumerState<EntregaGlobalPage> {
                           fontWeight: FontWeight.w700,
                         ),
                       ),
+                      const SizedBox(height: 10),
+                      _reportControls(),
                     ],
                   ),
                 ),
@@ -151,52 +163,7 @@ class _EntregaGlobalPageState extends ConsumerState<EntregaGlobalPage> {
                     .toList(growable: false),
               ),
               const SizedBox(height: 10),
-              _simpleTable(
-                title: 'OPV pendientes',
-                columns: const ['OPV', 'NOMBRE', 'TRN', 'TOTAL', 'ESTA'],
-                rows: resumen.pendientes
-                    .map(
-                      (row) => [
-                        row.opv,
-                        row.opvNombre,
-                        row.trn.toStringAsFixed(0),
-                        _money(row.total),
-                        row.estaEntrega,
-                      ],
-                    )
-                    .toList(growable: false),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: 220,
-                child: DropdownButtonFormField<String>(
-                  key: ValueKey('cg-global-report-tipo-$_reportTipo'),
-                  initialValue: _reportTipo,
-                  isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Tipo de reporte',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                  items: const [
-                    DropdownMenuItem(value: 'GLOBAL', child: Text('GLOBAL')),
-                    DropdownMenuItem(value: 'CA', child: Text('CA')),
-                    DropdownMenuItem(value: 'VF', child: Text('VF')),
-                  ],
-                  onChanged: _loadingReporte
-                      ? null
-                      : (value) {
-                          if (value == null) return;
-                          setState(() => _reportTipo = value);
-                        },
-                ),
-              ),
-              const SizedBox(height: 12),
-              FilledButton.icon(
-                onPressed: _loadingReporte ? null : _generarReporteGlobal,
-                icon: const Icon(Icons.picture_as_pdf),
-                label: const Text('Generar reporte global'),
-              ),
+              _pendientesTable(resumen.pendientes),
             ],
           );
         },
@@ -235,6 +202,323 @@ class _EntregaGlobalPageState extends ConsumerState<EntregaGlobalPage> {
         setState(() => _loadingReporte = false);
       }
     }
+  }
+
+  Future<void> _exportarExcelGlobal() async {
+    if (_loadingExcel) return;
+    setState(() => _loadingExcel = true);
+    try {
+      final data = await ref.read(cajaGeneralApiProvider).fetchExcelGlobal(
+            suc: widget.suc,
+            fecha: widget.fecha,
+          );
+      final bytes = _buildExcelGlobalBytes(data);
+      if (!mounted) return;
+      if (bytes == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Sin datos para exportar a Excel.')),
+        );
+        return;
+      }
+
+      final fileName = _buildExcelFilename();
+      final saved = await getExcelExporter().save(bytes, fileName);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            saved
+                ? 'Exportacion Excel lista: $fileName'
+                : 'Exportacion Excel cancelada.',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(apiErrorMessage(error))),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _loadingExcel = false);
+      }
+    }
+  }
+
+  Widget _reportControls() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isNarrow = constraints.maxWidth < 780;
+        final tipoControl = SizedBox(
+          width: isNarrow ? double.infinity : 260,
+          child: DropdownButtonFormField<String>(
+            key: ValueKey('cg-global-report-tipo-$_reportTipo'),
+            initialValue: _reportTipo,
+            isExpanded: true,
+            decoration: const InputDecoration(
+              labelText: 'Tipo de reporte',
+              border: OutlineInputBorder(),
+              isDense: true,
+            ),
+            items: const [
+              DropdownMenuItem(value: 'GLOBAL', child: Text('GLOBAL')),
+              DropdownMenuItem(value: 'CA', child: Text('CA')),
+              DropdownMenuItem(value: 'VF', child: Text('VF')),
+            ],
+            onChanged: (_loadingReporte || _loadingExcel)
+                ? null
+                : (value) {
+                    if (value == null) return;
+                    setState(() => _reportTipo = value);
+                  },
+          ),
+        );
+
+        final generarButton = FilledButton.icon(
+          onPressed: (_loadingReporte || _loadingExcel)
+              ? null
+              : _generarReporteGlobal,
+          icon: const Icon(Icons.picture_as_pdf),
+          label: const Text('Generar reporte global'),
+        );
+        final excelButton = FilledButton.icon(
+          onPressed: (_loadingReporte || _loadingExcel)
+              ? null
+              : _exportarExcelGlobal,
+          icon: const Icon(Icons.table_view),
+          label: Text(
+            _loadingExcel ? 'Exportando...' : 'Exportar Excel',
+          ),
+        );
+
+        if (isNarrow) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              tipoControl,
+              const SizedBox(height: 12),
+              generarButton,
+              const SizedBox(height: 12),
+              excelButton,
+            ],
+          );
+        }
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            tipoControl,
+            const SizedBox(width: 12),
+            generarButton,
+            const SizedBox(width: 12),
+            excelButton,
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _pendientesTable(List<CajaGeneralPendiente> pendientes) {
+    final theme = Theme.of(context);
+    return Card(
+      elevation: 0,
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'OPV pendientes',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: DataTable(
+                columns: const [
+                  DataColumn(label: Text('OPV')),
+                  DataColumn(label: Text('NOMBRE')),
+                  DataColumn(label: Text('TRN')),
+                  DataColumn(label: Text('TOTAL')),
+                  DataColumn(label: Text('ESTA')),
+                ],
+                rows: [
+                  if (pendientes.isEmpty)
+                    const DataRow(
+                      cells: [
+                        DataCell(Text('-')),
+                        DataCell(Text('Sin OPV pendientes')),
+                        DataCell(Text('0')),
+                        DataCell(Text('\$0.00')),
+                        DataCell(Text('-')),
+                      ],
+                    ),
+                  ...pendientes.map(
+                    (row) => DataRow(
+                      cells: [
+                        DataCell(
+                          Tooltip(
+                            message:
+                                'Doble clic para ver transacciones de la entrega pendiente',
+                            child: InkWell(
+                              onDoubleTap: () =>
+                                  _showPendienteTransaccionesDialog(row),
+                              child: Text(
+                                row.opv,
+                                style: TextStyle(
+                                  color: theme.colorScheme.primary,
+                                  decoration: TextDecoration.underline,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        DataCell(Text(row.opvNombre)),
+                        DataCell(Text(row.trn.toStringAsFixed(0))),
+                        DataCell(Text(_money(row.total))),
+                        DataCell(Text(row.estaEntrega)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showPendienteTransaccionesDialog(
+    CajaGeneralPendiente pendiente,
+  ) async {
+    final opv = pendiente.opv.trim().toUpperCase();
+    if (opv.isEmpty) return;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Transacciones pendientes OPV: $opv'),
+        content: SizedBox(
+          width: 980,
+          child: FutureBuilder<List<CajaGeneralPendienteTransaccion>>(
+            future: ref.read(cajaGeneralApiProvider).fetchPendienteTransacciones(
+                  suc: widget.suc,
+                  fecha: widget.fecha,
+                  opv: opv,
+                  tipo: _uiTipo,
+                ),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const SizedBox(
+                  height: 180,
+                  child: Center(child: CircularProgressIndicator()),
+                );
+              }
+
+              if (snapshot.hasError) {
+                return SizedBox(
+                  height: 120,
+                  child: Center(
+                    child: Text(
+                      apiErrorMessage(
+                        snapshot.error ??
+                            'No se pudo consultar transacciones pendientes',
+                      ),
+                      style: TextStyle(color: Colors.red.shade700),
+                    ),
+                  ),
+                );
+              }
+
+              final items =
+                  snapshot.data ?? const <CajaGeneralPendienteTransaccion>[];
+              if (items.isEmpty) {
+                return const SizedBox(
+                  height: 120,
+                  child: Center(
+                    child: Text('Sin transacciones pendientes para este OPV.'),
+                  ),
+                );
+              }
+
+              final total = items.fold<double>(0, (sum, item) => sum + item.total);
+
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Registros: ${items.length} | Total: ${_money(total)}'),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    height: 380,
+                    child: SingleChildScrollView(
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: DataTable(
+                          columns: const [
+                            DataColumn(label: Text('IDFOL')),
+                            DataColumn(label: Text('AUT')),
+                            DataColumn(label: Text('DESC')),
+                            DataColumn(label: Text('ESTA')),
+                            DataColumn(label: Text('TOTAL'), numeric: true),
+                            DataColumn(label: Text('FCNM')),
+                          ],
+                          rows: [
+                            ...items.map(
+                              (item) => DataRow(
+                                cells: [
+                                  DataCell(Text(item.idfol)),
+                                  DataCell(Text(item.aut)),
+                                  DataCell(Text(item.autDesc)),
+                                  DataCell(Text(item.esta)),
+                                  DataCell(Text(_money(item.total))),
+                                  DataCell(Text(_formatDateTime(item.fcnm))),
+                                ],
+                              ),
+                            ),
+                            DataRow(
+                              cells: [
+                                const DataCell(
+                                  Text(
+                                    'TOTAL',
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.w700),
+                                  ),
+                                ),
+                                const DataCell(Text('')),
+                                const DataCell(Text('')),
+                                const DataCell(Text('')),
+                                DataCell(
+                                  Text(
+                                    _money(total),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                                const DataCell(Text('')),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cerrar'),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _simpleTable({
@@ -434,6 +718,156 @@ class _EntregaGlobalPageState extends ConsumerState<EntregaGlobalPage> {
         .toList(growable: false);
   }
 
+  Uint8List? _buildExcelGlobalBytes(Map<String, dynamic> data) {
+    final formsGlobal = _asMapList(data['formsGlobal']);
+    final formsVf = _asMapList(data['formsVf']);
+    final formsCa = _asMapList(data['formsCa']);
+    final detalle = _asMapList(data['detalleTransacciones']);
+
+    if (formsGlobal.isEmpty &&
+        formsVf.isEmpty &&
+        formsCa.isEmpty &&
+        detalle.isEmpty) {
+      return null;
+    }
+
+    final excel = xls.Excel.createExcel();
+    final resumenSheet = excel['RESUMEN DIA'];
+    _appendResumenGlobalSection(
+      resumenSheet,
+      title: 'Formas global',
+      rows: formsGlobal,
+    );
+    resumenSheet.appendRow([_excelValue('')]);
+    _appendResumenTipoSection(
+      resumenSheet,
+      title: 'Formas VF',
+      rows: formsVf,
+    );
+    resumenSheet.appendRow([_excelValue('')]);
+    _appendResumenTipoSection(
+      resumenSheet,
+      title: 'Formas CA',
+      rows: formsCa,
+    );
+
+    final detalleSheet = excel['DETALLE TRANSACCIONES'];
+    detalleSheet.appendRow([
+      _excelValue('SUC'),
+      _excelValue('FCN'),
+      _excelValue('ORIGEN_AUT'),
+      _excelValue('IDFOL'),
+      _excelValue('OPVM'),
+      _excelValue('CLIEN'),
+      _excelValue('RazonSocialReceptor'),
+      _excelValue('FORM'),
+      _excelValue('IMPD'),
+      _excelValue('AUT'),
+    ]);
+    for (final row in detalle) {
+      detalleSheet.appendRow([
+        _excelValue(_asText(row['SUC'])),
+        _excelValue(_formatExcelDate(row['FCN'])),
+        _excelValue(_asText(row['ORIGEN_AUT'])),
+        _excelValue(_asText(row['IDFOL'])),
+        _excelValue(_asText(row['OPVM'])),
+        _excelValue(_asText(row['CLIEN'])),
+        _excelValue(_asText(row['RazonSocialReceptor'])),
+        _excelValue(_asText(row['FORM'])),
+        _excelValue(_money(_asNumber(row['IMPD']))),
+        _excelValue(_asText(row['AUT'])),
+      ]);
+    }
+
+    if (excel.tables.containsKey('Sheet1')) {
+      excel.delete('Sheet1');
+    }
+    excel.setDefaultSheet('RESUMEN DIA');
+    final encoded = excel.encode();
+    if (encoded == null || encoded.isEmpty) return null;
+    return Uint8List.fromList(encoded);
+  }
+
+  void _appendResumenGlobalSection(
+    xls.Sheet sheet, {
+    required String title,
+    required List<Map<String, dynamic>> rows,
+  }) {
+    sheet.appendRow([_excelValue(title)]);
+    sheet.appendRow([
+      _excelValue('FORM'),
+      _excelValue('IMPT'),
+      _excelValue('IMPR'),
+      _excelValue('IMPE'),
+      _excelValue('DIFD'),
+    ]);
+    for (final row in rows) {
+      sheet.appendRow([
+        _excelValue(_asText(row['FORM'])),
+        _excelValue(_money(_asNumber(row['IMPT']))),
+        _excelValue(_money(_asNumber(row['IMPR']))),
+        _excelValue(_money(_asNumber(row['IMPE']))),
+        _excelValue(_money(_asNumber(row['DIFD']))),
+      ]);
+    }
+    sheet.appendRow([
+      _excelValue('TOTALES'),
+      _excelValue(_money(_sumRows(rows, 'IMPT'))),
+      _excelValue(_money(_sumRows(rows, 'IMPR'))),
+      _excelValue(_money(_sumRows(rows, 'IMPE'))),
+      _excelValue(_money(_sumRows(rows, 'DIFD'))),
+    ]);
+  }
+
+  void _appendResumenTipoSection(
+    xls.Sheet sheet, {
+    required String title,
+    required List<Map<String, dynamic>> rows,
+  }) {
+    sheet.appendRow([_excelValue(title)]);
+    sheet.appendRow([
+      _excelValue('FORM'),
+      _excelValue('IMPT'),
+    ]);
+    for (final row in rows) {
+      sheet.appendRow([
+        _excelValue(_asText(row['FORM'])),
+        _excelValue(_money(_asNumber(row['IMPT']))),
+      ]);
+    }
+    sheet.appendRow([
+      _excelValue('TOTALES'),
+      _excelValue(_money(_sumRows(rows, 'IMPT'))),
+    ]);
+  }
+
+  xls.CellValue _excelValue(dynamic value) {
+    if (value == null) return xls.TextCellValue('');
+    if (value is xls.CellValue) return value;
+    if (value is int) return xls.IntCellValue(value);
+    if (value is double) return xls.DoubleCellValue(value);
+    if (value is num) return xls.DoubleCellValue(value.toDouble());
+    if (value is bool) return xls.BoolCellValue(value);
+    return xls.TextCellValue(value.toString());
+  }
+
+  double _sumRows(List<Map<String, dynamic>> rows, String key) {
+    return rows.fold<double>(0, (sum, row) => sum + _asNumber(row[key]));
+  }
+
+  String _buildExcelFilename() {
+    final reportDate = _formatDate(widget.fecha);
+    return 'cg_global_${widget.suc}_$reportDate.xlsx';
+  }
+
+  String _formatExcelDate(dynamic value) {
+    final text = _asText(value);
+    if (text.isEmpty) return '';
+    final parsed = DateTime.tryParse(text);
+    if (parsed == null) return text;
+    return _formatDate(parsed);
+  }
+
   String _asText(dynamic value) => (value ?? '').toString().trim();
 
   double _asNumber(dynamic value) {
@@ -453,6 +887,27 @@ class _EntregaGlobalPageState extends ConsumerState<EntregaGlobalPage> {
     final m = value.month.toString().padLeft(2, '0');
     final d = value.day.toString().padLeft(2, '0');
     return '$y-$m-$d';
+  }
+
+  String _normalizeTipo(String raw) {
+    final tipo = raw.trim().toUpperCase();
+    if (tipo == 'CA' || tipo == 'VF' || tipo == 'GLOBAL') return tipo;
+    return 'GLOBAL';
+  }
+
+  String _formatDateTime(String raw) {
+    final text = raw.trim();
+    if (text.isEmpty) return '';
+    final parsed = DateTime.tryParse(text);
+    if (parsed == null) return text;
+
+    final y = parsed.year.toString().padLeft(4, '0');
+    final m = parsed.month.toString().padLeft(2, '0');
+    final d = parsed.day.toString().padLeft(2, '0');
+    final hh = parsed.hour.toString().padLeft(2, '0');
+    final mm = parsed.minute.toString().padLeft(2, '0');
+    final ss = parsed.second.toString().padLeft(2, '0');
+    return '$y-$m-$d $hh:$mm:$ss';
   }
 
   String _money(double value) => '\$${value.toStringAsFixed(2)}';

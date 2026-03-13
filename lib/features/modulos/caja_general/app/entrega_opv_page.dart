@@ -29,10 +29,16 @@ class EntregaOpvPage extends ConsumerStatefulWidget {
 }
 
 class _EntregaOpvPageState extends ConsumerState<EntregaOpvPage> {
-  static const _operationTipo = 'GLOBAL';
   bool _submitting = false;
   String _reportTipo = 'GLOBAL';
   final Map<String, TextEditingController> _impeControllers = {};
+  String get _operationTipo => _normalizeTipo(widget.tipo);
+
+  @override
+  void initState() {
+    super.initState();
+    _reportTipo = _operationTipo;
+  }
 
   @override
   void dispose() {
@@ -48,7 +54,7 @@ class _EntregaOpvPageState extends ConsumerState<EntregaOpvPage> {
       suc: widget.suc,
       fecha: widget.fecha,
       opv: widget.opv,
-      tipo: _operationTipo,
+      tipo: _reportTipo,
     );
     final resumenAsync = ref.watch(cajaGeneralEntregaOpvProvider(filtros));
     final isClosedForRefresh =
@@ -85,7 +91,7 @@ class _EntregaOpvPageState extends ConsumerState<EntregaOpvPage> {
                 suc: widget.suc,
                 opv: widget.opv,
                 fecha: widget.fecha,
-                tipo: _operationTipo,
+                tipo: _reportTipo,
                 header: header,
                 validation: resumen.validation,
               ),
@@ -350,7 +356,7 @@ class _EntregaOpvPageState extends ConsumerState<EntregaOpvPage> {
                   suc: widget.suc,
                   fecha: widget.fecha,
                   opv: widget.opv,
-                  tipo: _operationTipo,
+                  tipo: _reportTipo,
                   form: normalizedForm,
                 ),
             builder: (context, snapshot) {
@@ -488,7 +494,7 @@ class _EntregaOpvPageState extends ConsumerState<EntregaOpvPage> {
             suc: widget.suc,
             fecha: widget.fecha,
             opv: widget.opv,
-            tipo: _operationTipo,
+            tipo: _reportTipo,
           ),
         ),
       );
@@ -531,7 +537,7 @@ class _EntregaOpvPageState extends ConsumerState<EntregaOpvPage> {
             suc: widget.suc,
             fecha: widget.fecha,
             opv: widget.opv,
-            tipo: _operationTipo,
+            tipo: _reportTipo,
           ),
         ),
       );
@@ -840,6 +846,12 @@ class _EntregaOpvPageState extends ConsumerState<EntregaOpvPage> {
   double _asNumber(dynamic value) {
     if (value is num) return value.toDouble();
     return double.tryParse((value ?? '').toString().trim()) ?? 0;
+  }
+
+  String _normalizeTipo(String raw) {
+    final tipo = raw.trim().toUpperCase();
+    if (tipo == 'CA' || tipo == 'VF' || tipo == 'GLOBAL') return tipo;
+    return 'GLOBAL';
   }
 
   String _formatDate(DateTime value) {

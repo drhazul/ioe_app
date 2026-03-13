@@ -26,6 +26,7 @@ final cajaGeneralEntregaOpvProvider =
       suc: filtros.suc,
       fecha: filtros.fecha,
       opv: filtros.opv,
+      tipo: filtros.tipo,
     );
   },
 );
@@ -37,6 +38,7 @@ final cajaGeneralResumenGlobalProvider =
     return api.fetchResumenGlobal(
       suc: filtros.suc,
       fecha: filtros.fecha,
+      tipo: filtros.tipo,
     );
   },
 );

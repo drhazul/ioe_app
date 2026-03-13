@@ -277,6 +277,38 @@ class CajaGeneralPendiente {
   }
 }
 
+class CajaGeneralPendienteTransaccion {
+  CajaGeneralPendienteTransaccion({
+    required this.opv,
+    required this.idfol,
+    required this.aut,
+    required this.autDesc,
+    required this.esta,
+    required this.total,
+    required this.fcnm,
+  });
+
+  final String opv;
+  final String idfol;
+  final String aut;
+  final String autDesc;
+  final String esta;
+  final double total;
+  final String fcnm;
+
+  factory CajaGeneralPendienteTransaccion.fromJson(Map<String, dynamic> json) {
+    return CajaGeneralPendienteTransaccion(
+      opv: (json['OPV'] ?? json['opv'] ?? '').toString().trim(),
+      idfol: (json['IDFOL'] ?? json['idfol'] ?? '').toString().trim(),
+      aut: (json['AUT'] ?? json['aut'] ?? '').toString().trim(),
+      autDesc: (json['AUT_DESC'] ?? json['autDesc'] ?? '').toString().trim(),
+      esta: (json['ESTA'] ?? json['esta'] ?? '').toString().trim(),
+      total: _asDouble(json['TOTAL'] ?? json['total']) ?? 0,
+      fcnm: (json['FCNM'] ?? json['fcnm'] ?? '').toString().trim(),
+    );
+  }
+}
+
 class CajaGeneralOpvResumen {
   CajaGeneralOpvResumen({
     required this.validation,
