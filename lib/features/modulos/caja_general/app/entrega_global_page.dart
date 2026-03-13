@@ -32,6 +32,12 @@ class _EntregaGlobalPageState extends ConsumerState<EntregaGlobalPage> {
   bool _loadingReporte = false;
   bool _loadingExcel = false;
   String _reportTipo = 'GLOBAL';
+  late final xls.CellStyle _excelCurrencyCellStyle = xls.CellStyle(
+    numberFormat: xls.NumFormat.custom(
+      formatCode: r'"$"#,##0.00;[Red]-"$"#,##0.00',
+    ),
+    horizontalAlign: xls.HorizontalAlign.Right,
+  );
   String get _operationTipo => _normalizeTipo(widget.tipo);
 
   @override
@@ -752,31 +758,38 @@ class _EntregaGlobalPageState extends ConsumerState<EntregaGlobalPage> {
     );
 
     final detalleSheet = excel['DETALLE TRANSACCIONES'];
-    detalleSheet.appendRow([
-      _excelValue('SUC'),
-      _excelValue('FCN'),
-      _excelValue('ORIGEN_AUT'),
-      _excelValue('IDFOL'),
-      _excelValue('OPVM'),
-      _excelValue('CLIEN'),
-      _excelValue('RazonSocialReceptor'),
-      _excelValue('FORM'),
-      _excelValue('IMPD'),
-      _excelValue('AUT'),
+    _appendExcelRow(detalleSheet, const [
+      'SUC',
+      'FCN',
+      'ORIGEN_AUT',
+      'IDFOL',
+      'REQF',
+      'OPVM',
+      'CLIEN',
+      'RazonSocialReceptor',
+      'FORM',
+      'IMPD',
+      'AUT',
     ]);
     for (final row in detalle) {
-      detalleSheet.appendRow([
-        _excelValue(_asText(row['SUC'])),
-        _excelValue(_formatExcelDate(row['FCN'])),
-        _excelValue(_asText(row['ORIGEN_AUT'])),
-        _excelValue(_asText(row['IDFOL'])),
-        _excelValue(_asText(row['OPVM'])),
-        _excelValue(_asText(row['CLIEN'])),
-        _excelValue(_asText(row['RazonSocialReceptor'])),
-        _excelValue(_asText(row['FORM'])),
-        _excelValue(_money(_asNumber(row['IMPD']))),
-        _excelValue(_asText(row['AUT'])),
+      final detalleRowIndex = _appendExcelRow(detalleSheet, [
+        _asText(row['SUC']),
+        _formatExcelDate(row['FCN']),
+        _asText(row['ORIGEN_AUT']),
+        _asText(row['IDFOL']),
+        _asText(row['REQF']),
+        _asText(row['OPVM']),
+        _asText(row['CLIEN']),
+        _asText(row['RazonSocialReceptor']),
+        _asText(row['FORM']),
+        _asNumber(row['IMPD']),
+        _asText(row['AUT']),
       ]);
+      _applyCurrencyStyleToColumns(
+        detalleSheet,
+        rowIndex: detalleRowIndex,
+        columnIndexes: const [9],
+      );
     }
 
     if (excel.tables.containsKey('Sheet1')) {
@@ -793,30 +806,34 @@ class _EntregaGlobalPageState extends ConsumerState<EntregaGlobalPage> {
     required String title,
     required List<Map<String, dynamic>> rows,
   }) {
-    sheet.appendRow([_excelValue(title)]);
-    sheet.appendRow([
-      _excelValue('FORM'),
-      _excelValue('IMPT'),
-      _excelValue('IMPR'),
-      _excelValue('IMPE'),
-      _excelValue('DIFD'),
-    ]);
+    _appendExcelRow(sheet, [title]);
+    _appendExcelRow(sheet, const ['FORM', 'IMPT', 'IMPR', 'IMPE', 'DIFD']);
     for (final row in rows) {
-      sheet.appendRow([
-        _excelValue(_asText(row['FORM'])),
-        _excelValue(_money(_asNumber(row['IMPT']))),
-        _excelValue(_money(_asNumber(row['IMPR']))),
-        _excelValue(_money(_asNumber(row['IMPE']))),
-        _excelValue(_money(_asNumber(row['DIFD']))),
+      final dataRowIndex = _appendExcelRow(sheet, [
+        _asText(row['FORM']),
+        _asNumber(row['IMPT']),
+        _asNumber(row['IMPR']),
+        _asNumber(row['IMPE']),
+        _asNumber(row['DIFD']),
       ]);
+      _applyCurrencyStyleToColumns(
+        sheet,
+        rowIndex: dataRowIndex,
+        columnIndexes: const [1, 2, 3, 4],
+      );
     }
-    sheet.appendRow([
-      _excelValue('TOTALES'),
-      _excelValue(_money(_sumRows(rows, 'IMPT'))),
-      _excelValue(_money(_sumRows(rows, 'IMPR'))),
-      _excelValue(_money(_sumRows(rows, 'IMPE'))),
-      _excelValue(_money(_sumRows(rows, 'DIFD'))),
+    final totalRowIndex = _appendExcelRow(sheet, [
+      'TOTALES',
+      _sumRows(rows, 'IMPT'),
+      _sumRows(rows, 'IMPR'),
+      _sumRows(rows, 'IMPE'),
+      _sumRows(rows, 'DIFD'),
     ]);
+    _applyCurrencyStyleToColumns(
+      sheet,
+      rowIndex: totalRowIndex,
+      columnIndexes: const [1, 2, 3, 4],
+    );
   }
 
   void _appendResumenTipoSection(
@@ -824,21 +841,50 @@ class _EntregaGlobalPageState extends ConsumerState<EntregaGlobalPage> {
     required String title,
     required List<Map<String, dynamic>> rows,
   }) {
-    sheet.appendRow([_excelValue(title)]);
-    sheet.appendRow([
-      _excelValue('FORM'),
-      _excelValue('IMPT'),
-    ]);
+    _appendExcelRow(sheet, [title]);
+    _appendExcelRow(sheet, const ['FORM', 'IMPT']);
     for (final row in rows) {
-      sheet.appendRow([
-        _excelValue(_asText(row['FORM'])),
-        _excelValue(_money(_asNumber(row['IMPT']))),
+      final dataRowIndex = _appendExcelRow(sheet, [
+        _asText(row['FORM']),
+        _asNumber(row['IMPT']),
       ]);
+      _applyCurrencyStyleToColumns(
+        sheet,
+        rowIndex: dataRowIndex,
+        columnIndexes: const [1],
+      );
     }
-    sheet.appendRow([
-      _excelValue('TOTALES'),
-      _excelValue(_money(_sumRows(rows, 'IMPT'))),
+    final totalRowIndex = _appendExcelRow(sheet, [
+      'TOTALES',
+      _sumRows(rows, 'IMPT'),
     ]);
+    _applyCurrencyStyleToColumns(
+      sheet,
+      rowIndex: totalRowIndex,
+      columnIndexes: const [1],
+    );
+  }
+
+  int _appendExcelRow(xls.Sheet sheet, List<dynamic> values) {
+    final rowIndex = sheet.maxRows;
+    sheet.appendRow(values.map(_excelValue).toList(growable: false));
+    return rowIndex;
+  }
+
+  void _applyCurrencyStyleToColumns(
+    xls.Sheet sheet, {
+    required int rowIndex,
+    required List<int> columnIndexes,
+  }) {
+    for (final columnIndex in columnIndexes) {
+      final cell = sheet.cell(
+        xls.CellIndex.indexByColumnRow(
+          columnIndex: columnIndex,
+          rowIndex: rowIndex,
+        ),
+      );
+      cell.cellStyle = _excelCurrencyCellStyle;
+    }
   }
 
   xls.CellValue _excelValue(dynamic value) {
@@ -877,9 +923,9 @@ class _EntregaGlobalPageState extends ConsumerState<EntregaGlobalPage> {
 
   bool _asBool(dynamic value) {
     if (value is bool) return value;
-    if (value is num) return value > 0;
+    if (value is num) return value != 0;
     final text = (value ?? '').toString().trim().toLowerCase();
-    return text == 'true' || text == '1' || text == 'yes';
+    return text == 'true' || text == '1' || text == '-1' || text == 'yes';
   }
 
   String _formatDate(DateTime value) {

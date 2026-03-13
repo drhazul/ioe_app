@@ -483,6 +483,18 @@ autenticacion, datos maestros, inventarios, control de cuentas y punto de venta.
 - reintenta en 401 con refresh (si aplica).
 - `router.dart` redirige segun `AuthState`.
 
+## Reglas de autorizacion por sucursal (UI/API)
+- Para modulos multi-sucursal, la UI debe respetar sucursales autorizadas por backend via `USR_MOD_SUC` y no forzar siempre `user.suc`.
+- Modulos con regla activa:
+- Inventarios (`DAT_JAA_ALM`).
+- Control de cuentas (`DAT_CONS_CTAS`, `DAT_CTRL_CTAS`, `DAT_CTRL_CUENTAS`).
+- Caja general (`DAT_FORM_ENTR_OPV`, `DAT_RES_ENTRE_CAJ`, `PV_ENTREGA_CG`).
+- Si el usuario no-admin tiene sucursales vinculadas para el modulo, debe poder visualizar/procesar informacion de esas sucursales vinculadas.
+- Compatibilidad legacy: si backend no encuentra filas activas en `USR_MOD_SUC` para el modulo, la app usa fallback a `user.suc`.
+- La API es la fuente final de autorizacion; frontend solo refleja el contexto permitido y muestra error si backend rechaza.
+- Caja general Excel: la hoja `DETALLE TRANSACCIONES` muestra `REQF` en la exportacion global y conserva el valor original (`-1/0/1`).
+- Caja general Excel: los importes de `RESUMEN DIA` y `DETALLE TRANSACCIONES` se exportan como numericos con formato moneda (no texto).
+
 ## Tecnologias
 - Flutter / Dart
 - flutter_riverpod

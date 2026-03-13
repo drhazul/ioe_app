@@ -504,6 +504,19 @@
 - La exportacion en `CtrlCtasResumenClientePage` debe mostrar modal de progreso no cerrable manualmente, con avance por etapas, y cerrarse solo al finalizar o en error.
 - En `CtrlCtasResumenClientePage` el filtro `!= 0` inicia desactivado por defecto en resumen cliente, resumen transaccion y detalle de transaccion para mostrar todos los registros; el usuario puede activarlo desde los controles del panel.
 
+## Regla transversal UI/API: autorizacion por sucursal con USR_MOD_SUC
+- En modulos multi-sucursal, la UI no debe asumir `user.suc` como unica sucursal operable para usuarios no-admin.
+- Si backend expone sucursales autorizadas por `USR_MOD_SUC` para el modulo, la UI debe permitir consultar/procesar en todas esas sucursales vinculadas.
+- El control de seguridad final siempre es backend; frontend solo habilita/oculta opciones segun contexto autorizado.
+- Compatibilidad legacy: cuando backend no devuelve sucursales por `USR_MOD_SUC`, la UI puede operar con la sucursal del contexto (`user.suc`) para no romper flujos existentes.
+
+## Caja General: autorizacion por sucursal
+- Para `caja-general`, considerar autorizadas las sucursales vinculadas al usuario en `USR_MOD_SUC` para modulos `DAT_FORM_ENTR_OPV`, `DAT_RES_ENTRE_CAJ` y `PV_ENTREGA_CG`.
+- No bloquear visualizacion/proceso por comparar exclusivamente contra `user.suc`; la UI debe respetar la sucursal seleccionada cuando backend la autoriza.
+- Mantener manejo de error cuando backend rechace una sucursal fuera de la interseccion autorizada.
+- Exportacion Excel global: la hoja `DETALLE TRANSACCIONES` incluye la columna `REQF` (dato entregado por backend desde `PV_CTR_FOL_ASVR.REQF`) y muestra el valor original (`-1/0/1`), sin convertirlo a booleano.
+- Exportacion Excel global: los importes de `RESUMEN DIA` y `DETALLE TRANSACCIONES` deben escribirse como valores numericos y con formato moneda en Excel (no como texto).
+
 ## Documentacion viva obligatoria
 - Cada nueva implementacion que cambie modulos, rutas, providers, endpoints, tablas, campos o consultas debe actualizar en el mismo trabajo:
 - `C:\Users\PCDESARROLLO\Proyectos\ioe_app\AGENTS.md`

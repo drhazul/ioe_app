@@ -62,7 +62,7 @@ class PagoCotizacionApi {
   Future<void> updateRqfac({required String idfol, required bool rqfac}) async {
     await dio.patch(
       '/pvctrfolasvr/$idfol',
-      data: <String, dynamic>{'REQF': rqfac ? -1 : 0},
+      data: <String, dynamic>{'REQF': rqfac ? 1 : 0},
     );
   }
 
