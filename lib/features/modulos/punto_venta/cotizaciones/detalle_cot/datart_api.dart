@@ -25,8 +25,9 @@ class DatArtApi {
     int? page,
     int? limit,
   }) async {
+    final sucNormalized = suc.trim().toUpperCase();
     final query = <String, dynamic>{
-      'suc': suc.trim().toUpperCase(),
+      'suc': sucNormalized,
       'sucExact': true,
       'bloqNe': -1,
     };
@@ -50,9 +51,24 @@ class DatArtApi {
     if (limit != null) query['limit'] = limit;
     if (view != null && view.trim().isNotEmpty) query['view'] = view.trim();
     final res = await dio.get('/datart', queryParameters: query);
-    final list = (res.data as List<dynamic>)
+    var list = (res.data as List<dynamic>)
         .map((e) => DatArtModel.fromJson(Map<String, dynamic>.from(e as Map)))
         .toList(growable: false);
+    if (list.isEmpty) {
+      // Backward compatibility: algunos backends legacy aplican BLOQ<>-1 de forma
+      // estricta y excluyen BLOQ=NULL; reintenta sin bloqNe y filtra localmente.
+      final fallbackQuery = <String, dynamic>{...query}..remove('bloqNe');
+      final fallbackRes = await dio.get('/datart', queryParameters: fallbackQuery);
+      list = (fallbackRes.data as List<dynamic>)
+          .map((e) => DatArtModel.fromJson(Map<String, dynamic>.from(e as Map)))
+          .where((item) {
+            final itemSuc = item.suc.trim().toUpperCase();
+            if (itemSuc != sucNormalized) return false;
+            final bloqInt = item.bloq?.toInt();
+            return bloqInt != -1;
+          })
+          .toList(growable: false);
+    }
     return list;
   }
 }
