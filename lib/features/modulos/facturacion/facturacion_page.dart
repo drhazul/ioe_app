@@ -60,6 +60,18 @@ class FacturacionPage extends ConsumerWidget {
                       OutlinedButton(
                         onPressed: () async {
                           final api = ref.read(facturacionApiProvider);
+                          final result = await api.reenviarEmail(idFol);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Reenvío email: ${result['ok'] == true ? 'OK' : 'ERROR'}')),
+                            );
+                          }
+                        },
+                        child: const Text('REENVIAR XML/PDF'),
+                      ),
+                      OutlinedButton(
+                        onPressed: () async {
+                          final api = ref.read(facturacionApiProvider);
                           final result = await api.cancelar(idFol, motivo: 'Cancelación manual desde IOE');
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
