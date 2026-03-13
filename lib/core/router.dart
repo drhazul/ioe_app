@@ -58,6 +58,7 @@ import '../features/modulos/retiros/retiro_detalle_page.dart';
 import '../features/modulos/retiros/retiro_efectivo_page.dart';
 import '../features/modulos/reloj_checador/app/reloj_checador_app_page.dart';
 import '../features/modulos/reloj_checador/consultas/reloj_checador_consultas_page.dart';
+import '../features/modulos/facturacion/facturacion_page.dart';
 import '../features/modulos/estado_cajon/app/estado_cajon_page.dart';
 import '../features/modulos/caja_general/app/caja_general_page.dart';
 import '../features/modulos/caja_general/app/entrega_opv_page.dart';
@@ -590,6 +591,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'reloj-checador/consultas',
             builder: (c, s) => const RelojChecadorConsultasPage(),
+          ),
+          GoRoute(
+            path: 'facturacion',
+            builder: (c, s) => const FacturacionPage(),
           ),
         ],
       ),
