@@ -57,6 +57,19 @@ class FacturacionPage extends ConsumerWidget {
                         },
                         child: const Text('REALIZAR FACTURA'),
                       ),
+                      OutlinedButton(
+                        onPressed: () async {
+                          final api = ref.read(facturacionApiProvider);
+                          final result = await api.cancelar(idFol, motivo: 'Cancelación manual desde IOE');
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('${result['message'] ?? 'Cancelado'}')),
+                            );
+                            ref.invalidate(facturasPendientesProvider);
+                          }
+                        },
+                        child: const Text('CANCELAR'),
+                      ),
                     ],
                   ),
                 ),
