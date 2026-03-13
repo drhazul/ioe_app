@@ -41,10 +41,17 @@ final dioProvider = Provider<Dio>((ref) {
 
         final token = await authController.ensureValidAccessToken();
         if (token == null || token.isEmpty) {
-          options.headers.remove('Authorization');
-        } else {
-          options.headers['Authorization'] = 'Bearer $token';
+          _finishTrackedProtectedRequest(options, authController);
+          return handler.reject(
+            DioException(
+              requestOptions: options,
+              type: DioExceptionType.cancel,
+              error: 'AUTH_REQUIRED',
+              message: 'No hay sesión activa para la solicitud protegida.',
+            ),
+          );
         }
+        options.headers['Authorization'] = 'Bearer $token';
         handler.next(options);
       },
       onResponse: (response, handler) {
@@ -56,16 +63,18 @@ final dioProvider = Provider<Dio>((ref) {
 
         // Log network/connection errors to help debugging (prints visible in console)
         // err is a DioException on modern dio versions
-        try {
-          final method = err.requestOptions.method;
-          final status = err.response?.statusCode;
-          final body = _compactErrorBody(err.response?.data);
-          // ignore: avoid_print
-          print(
-            'Dio onError: type=${err.type} method=$method status=$status '
-            'uri=${err.requestOptions.uri} error=${err.error} body=$body',
-          );
-        } catch (_) {}
+        if (!_isExpectedAuthRequiredCancel(err)) {
+          try {
+            final method = err.requestOptions.method;
+            final status = err.response?.statusCode;
+            final body = _compactErrorBody(err.response?.data);
+            // ignore: avoid_print
+            print(
+              'Dio onError: type=${err.type} method=$method status=$status '
+              'uri=${err.requestOptions.uri} error=${err.error} body=$body',
+            );
+          } catch (_) {}
+        }
 
         // Intento de refresh token en 401 (excepto si ya se intentó o es /auth/refresh)
         final status = err.response?.statusCode;
@@ -106,6 +115,10 @@ bool _isBusinessUnauthorizedPath(String path) {
   // These endpoints may intentionally return 401 for business authorization
   // (not auth token expiry), so do not trigger token refresh/retry.
   return normalized.contains('/pv/devoluciones/crear');
+}
+
+bool _isExpectedAuthRequiredCancel(DioException err) {
+  return err.type == DioExceptionType.cancel && err.error == 'AUTH_REQUIRED';
 }
 
 void _finishTrackedProtectedRequest(

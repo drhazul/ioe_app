@@ -60,6 +60,12 @@
 - compatibilidad histórica ctrl-ctas (2026-03): backend ejecuta SQL directo en `/ctrl-ctas/consulta/*`, normaliza `FCND`, completa faltantes de fecha con `1900-01-01` y `2100-12-31`, e incluye filas legacy con `SUC` nulo/vacío bajo filtro de sucursal.
 - Punto de venta:
 - Clientes `/factclientshp` -> `FACT_CLIENT_SHP`.
+- Facturación `/facturacion/*` -> `FAC_SVR_SHAP`, `FACT_TICKET_SHP`, `FACT_CLIENT_SHP`, `DAT_SUC`.
+- Facturación compat (2026-03-13): frontend usa `IDFOL` textual y codifica el path parameter; backend soporta `FAC_SVR_SHAP` sin columna `AUT` con fallback a `TIPOVTA` para evitar `500` en `/facturacion/pendientes`.
+- Facturación pendientes paginada (2026-03-13): frontend consulta `GET /facturacion/pendientes` con `page`, `pageSize`, `suc`, `estatus`, `razonSocialReceptor`, `rfcReceptor`, `clien`, `idFol`, `tipoFact`.
+- Facturación pendientes paginada (2026-03-13): los filtros aplican server-side sobre toda la consulta y la respuesta incluye `data`, `total`, `page`, `pageSize`, `totalPages`.
+- Facturación pendientes paginada (2026-03-13): la grilla muestra contador absoluto de renglón y botones de desplazamiento por páginas.
+- Facturación filtros UI (2026-03-13): la captura de criterios ya no aplica consulta por tecla; la pantalla usa botones `APLICAR FILTROS` y `LIMPIAR FILTROS` para evitar desincronización entre consulta y paginación.
 - Panel clientes UI (2026-03): en alta de cliente, el modal predetermina `RfcEmisor`/`RegimenFiscalReceptor`/`UsoCfdi` con `SELECCIONAR` (en payload `RegimenFiscalReceptor=0` por tipo numérico) y `EmailReceptor` con `COLOCAR`; agrega botón `CANCELAR` y, al guardar, cierra el modal y recarga el panel.
 - Cotizaciones `/pvctrfolasvr` -> `PV_CTR_FOL_ASVR`.
 - Devoluciones `/pv/devoluciones/*` -> `PV_CTR_FOL_ASVR`, `PV_DEV_DET_TMP`, `PV_TICKET_LOG`, `PV_CTR_FOL_FORM(_SVR)`, `PV_CTR_ORDS`, `FAC_SVR_SHAP`, `FACT_IDFOLDEV`, `DAT_CTRL_CTAS`.
@@ -505,3 +511,4 @@
 - `C:\Users\PCDESARROLLO\Proyectos\ioe-api\AGENTS.md`
 - `C:\Users\PCDESARROLLO\Proyectos\ioe-api\README.md`
 - No cerrar una tarea funcional sin dejar trazabilidad documental sincronizada entre app y api.
+

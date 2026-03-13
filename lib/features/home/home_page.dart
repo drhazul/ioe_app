@@ -11,6 +11,8 @@ class HomePage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final auth = ref.watch(authControllerProvider);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('IOE - Home'),
@@ -25,6 +27,30 @@ class HomePage extends ConsumerWidget {
         onRefresh: () async => ref.refresh(homeModulesProvider.future),
         child: Builder(
           builder: (context) {
+            if (auth.isLoading) {
+              return ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: const [
+                  Padding(
+                    padding: EdgeInsets.all(32),
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                ],
+              );
+            }
+
+            if (!auth.isAuthenticated) {
+              return ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: const [
+                  Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Text('Sesión no activa. Redirigiendo a login...'),
+                  ),
+                ],
+              );
+            }
+
             final modulesAsync = ref.watch(homeModulesProvider);
 
             return modulesAsync.when(

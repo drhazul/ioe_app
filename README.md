@@ -89,6 +89,11 @@ autenticacion, datos maestros, inventarios, control de cuentas y punto de venta.
 - En la vista de resumen, el filtro `!= 0` inicia desactivado por defecto (cliente, transaccion y detalle) para mostrar todos los registros; puede activarse desde la barra de controles de cada panel.
 - Punto de venta:
 - `/factclientshp` -> `FACT_CLIENT_SHP`.
+- Facturación `/facturacion/*` -> `FAC_SVR_SHAP`, `FACT_TICKET_SHP`, `FACT_CLIENT_SHP`, `DAT_SUC`.
+- Facturación compat (2026-03-13): la UI consume `IDFOL` como texto (no `int`) y codifica el parámetro de ruta; backend tolera esquemas `FAC_SVR_SHAP` legacy sin columna `AUT` (fallback `TIPOVTA`/`NULL`) para evitar `500` en `/facturacion/pendientes`.
+- Facturación pendientes paginada (2026-03-13): la UI consume `GET /facturacion/pendientes` con `page`, `pageSize`, `suc`, `estatus`, `razonSocialReceptor`, `rfcReceptor`, `clien`, `idFol`, `tipoFact`.
+- Facturación pendientes paginada (2026-03-13): filtros y orden por `FCN` se aplican en backend sobre todo el dataset; la UI muestra contador absoluto de registros y navegación entre páginas.
+- Facturación filtros UI (2026-03-13): los criterios se aplican de forma manual con botón `APLICAR FILTROS`; `LIMPIAR FILTROS` restablece criterios, página y consulta.
 - Panel clientes UI (2026-03): en alta de cliente, el modal usa valores predeterminados `SELECCIONAR` para `RfcEmisor`/`RegimenFiscalReceptor`/`UsoCfdi` (en payload `RegimenFiscalReceptor=0` por tipo numérico) y `COLOCAR` para `EmailReceptor`; incluye botón `CANCELAR` y, después de `Guardar registro`, cierra el modal y refresca la consulta del panel.
 - `/pvctrfolasvr` -> `PV_CTR_FOL_ASVR`.
 - `/pv/devoluciones/*` -> `PV_CTR_FOL_ASVR`, `PV_DEV_DET_TMP`, `PV_TICKET_LOG`, `PV_CTR_FOL_FORM(_SVR)`, `PV_CTR_ORDS`, `FAC_SVR_SHAP`, `FACT_IDFOLDEV`, `DAT_CTRL_CTAS`.
