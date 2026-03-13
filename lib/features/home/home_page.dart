@@ -329,6 +329,11 @@ class _ModuleRow extends StatelessWidget {
     if (moduloCode == 'PV_CAJAS') {
       return '/punto-venta';
     }
+    if (moduloCode == 'FACTURACION' ||
+        moduloCode == 'PV_FACTURACION' ||
+        moduloCode == 'FACT_IOE') {
+      return '/facturacion';
+    }
     if (moduloCode == 'PV_PAGO_SERVICIOS' ||
         moduloCode == 'PV_PAGOS_SERVICIOS' ||
         moduloCode == 'DAT_PNL_PS' ||
@@ -385,6 +390,9 @@ class _ModuleRow extends StatelessWidget {
     }
     if (name.contains('pago') && name.contains('servicio')) {
       return '/ps';
+    }
+    if (name.contains('factur')) {
+      return '/facturacion';
     }
     if (name.contains('cambio') &&
         name.contains('forma') &&
