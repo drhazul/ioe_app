@@ -155,16 +155,34 @@ class _ClienteFormBodyState extends ConsumerState<ClienteFormBody> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    final rfcEmisor = (_rfcEmisor ?? _selectDefault).trim();
+    final usoCfdi = (_usoCfdi ?? _selectDefault).trim();
+    final regimenFiscal = _regimenFiscal ?? _regimenDefault;
+
+    if (_isSelectPlaceholder(rfcEmisor) ||
+        _isSelectPlaceholder(usoCfdi) ||
+        regimenFiscal <= 0) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Completa datos fiscales obligatorios: RfcEmisor, UsoCfdi y RegimenFiscalReceptor.',
+          ),
+        ),
+      );
+      return;
+    }
+
     setState(() => _saving = true);
 
     final payload = <String, dynamic>{
       'RAZONSOCIALRECEPTOR': _razonCtrl.text.trim().toUpperCase(),
       'RFCRECEPTOR': _rfcCtrl.text.trim().toUpperCase(),
       'EMAILRECEPTOR': _emailCtrl.text.trim().isEmpty ? _emailDefault : _emailCtrl.text.trim(),
-      'RFCEMISOR': (_rfcEmisor ?? _selectDefault).trim(),
-      'USOCFDI': (_usoCfdi ?? _selectDefault).trim(),
+      'RFCEMISOR': rfcEmisor,
+      'USOCFDI': usoCfdi,
       'CODIGOPOSTALRECEPTOR': _codigoPostalCtrl.text.trim().toUpperCase(),
-      'REGIMENFISCALRECEPTOR': _regimenFiscal ?? _regimenDefault,
+      'REGIMENFISCALRECEPTOR': regimenFiscal,
       'DOMI': _domiCtrl.text.trim().isEmpty ? null : _domiCtrl.text.trim(),
       'NCEL': _ncelCtrl.text.trim().isEmpty ? null : _ncelCtrl.text.trim(),
       'OPTICA': _aliasCtrl.text.trim().isEmpty ? null : _aliasCtrl.text.trim().toUpperCase(),
@@ -199,6 +217,11 @@ class _ClienteFormBodyState extends ConsumerState<ClienteFormBody> {
   void _cancel() {
     if (_saving || !mounted) return;
     context.pop(false);
+  }
+
+  bool _isSelectPlaceholder(String? value) {
+    final v = (value ?? '').trim().toUpperCase();
+    return v.isEmpty || v == _selectDefault;
   }
 
   String? _validateRfc(String? value) {
@@ -387,7 +410,7 @@ class _ClienteFormBodyState extends ConsumerState<ClienteFormBody> {
                                       _rfcEmisor = v ?? _selectDefault;
                                     }),
                             decoration: const InputDecoration(border: OutlineInputBorder(), isDense: true),
-                            validator: (v) => v == null || v.trim().isEmpty ? 'Requerido' : null,
+                            validator: (v) => _isSelectPlaceholder(v) ? 'Requerido' : null,
                           );
                         },
                         loading: () => const _LoadingField(),
@@ -435,7 +458,8 @@ class _ClienteFormBodyState extends ConsumerState<ClienteFormBody> {
                                       _regimenFiscal = v ?? _regimenDefault;
                                     }),
                             decoration: const InputDecoration(border: OutlineInputBorder(), isDense: true),
-                            validator: (v) => v == null ? 'Requerido' : null,
+                            validator: (v) =>
+                                v == null || v <= 0 ? 'Requerido' : null,
                           );
                         },
                         loading: () => const _LoadingField(),
@@ -473,7 +497,7 @@ class _ClienteFormBodyState extends ConsumerState<ClienteFormBody> {
                                       _usoCfdi = v ?? _selectDefault;
                                     }),
                             decoration: const InputDecoration(border: OutlineInputBorder(), isDense: true),
-                            validator: (v) => v == null || v.trim().isEmpty ? 'Requerido' : null,
+                            validator: (v) => _isSelectPlaceholder(v) ? 'Requerido' : null,
                           );
                         },
                         loading: () => const _LoadingField(),

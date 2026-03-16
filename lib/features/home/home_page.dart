@@ -355,10 +355,14 @@ class _ModuleRow extends StatelessWidget {
     if (moduloCode == 'PV_CAJAS') {
       return '/punto-venta';
     }
-    if (moduloCode == 'FACTURACION' ||
+    if (moduloCode == 'FACTURA' ||
+        moduloCode == 'FACTURACION' ||
         moduloCode == 'PV_FACTURACION' ||
         moduloCode == 'FACT_IOE') {
       return '/facturacion';
+    }
+    if (moduloCode == 'FACTURA_VIEW') {
+      return '/facturacion-view';
     }
     if (moduloCode == 'PV_PAGO_SERVICIOS' ||
         moduloCode == 'PV_PAGOS_SERVICIOS' ||
@@ -418,6 +422,11 @@ class _ModuleRow extends StatelessWidget {
       return '/ps';
     }
     if (name.contains('factur')) {
+      if (name.contains('view') ||
+          name.contains('vista') ||
+          name.contains('consulta')) {
+        return '/facturacion-view';
+      }
       return '/facturacion';
     }
     if (name.contains('cambio') &&

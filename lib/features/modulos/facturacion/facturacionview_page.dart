@@ -1,21 +1,15 @@
 import 'dart:convert';
 import 'dart:math' as math;
 
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:ioe_app/core/auth/auth_controller.dart';
+import 'package:ioe_app/features/home/home_providers.dart';
 import 'package:ioe_app/features/masterdata/sucursales/sucursales_models.dart';
 import 'package:ioe_app/features/masterdata/sucursales/sucursales_providers.dart';
-import 'package:ioe_app/features/modulos/punto_venta/clientes/datcatreg_models.dart';
-import 'package:ioe_app/features/modulos/punto_venta/clientes/datcatreg_providers.dart';
-import 'package:ioe_app/features/modulos/punto_venta/clientes/datcatuso_models.dart';
-import 'package:ioe_app/features/modulos/punto_venta/clientes/datcatuso_providers.dart';
 import 'package:printing/printing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'facturacion_providers.dart';
+import 'facturacionview_providers.dart';
 
 enum _FacturacionColumn {
   selector,
@@ -34,33 +28,19 @@ enum _FacturacionColumn {
   tipoFact,
 }
 
-class _EmitirOutcome {
-  const _EmitirOutcome({
-    required this.ok,
-    required this.message,
-    required this.pdfOpened,
-  });
-
-  final bool ok;
-  final String message;
-  final bool pdfOpened;
-}
-
-class FacturacionPage extends ConsumerStatefulWidget {
-  const FacturacionPage({super.key});
+class FacturacionViewPage extends ConsumerStatefulWidget {
+  const FacturacionViewPage({super.key});
 
   @override
-  ConsumerState<FacturacionPage> createState() => _FacturacionPageState();
+  ConsumerState<FacturacionViewPage> createState() => _FacturacionViewPageState();
 }
 
-class _FacturacionPageState extends ConsumerState<FacturacionPage> {
+class _FacturacionViewPageState extends ConsumerState<FacturacionViewPage> {
   // Configuración visual para ajuste en runtime.
   static const double _kMinFontScale = 0.80;
   static const double _kMaxFontScale = 1.40;
   static const double _kDefaultFontScale = 1.00;
   static const int _kFontScaleDivisions = 60;
-  static const String _kClienteSelectDefault = 'SELECCIONAR';
-  static const int _kClienteRegimenDefault = 0;
   static const double _kMinColumnGap = 2;
   static const double _kMaxColumnGap = 24;
   static const double _kMinGenericColumnWidth = 56;
@@ -425,17 +405,8 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
     final providerRef = ref;
     final facturacionTheme = _buildFacturacionTheme(context);
     final appBar = AppBar(
-      title: const Text('Facturación (Sandbox)'),
+      title: const Text('Facturación (Vista facturados)'),
       actions: [
-        TextButton.icon(
-          onPressed: () => context.push('/facturacion-view'),
-          icon: const Icon(Icons.receipt_long, size: 18),
-          label: const Text('REGISTROS FACTURADOS'),
-          style: TextButton.styleFrom(
-            foregroundColor: Colors.white,
-            textStyle: Theme.of(context).textTheme.labelLarge,
-          ),
-        ),
         Padding(
           padding: const EdgeInsets.only(right: 10),
           child: TextButton.icon(
@@ -468,6 +439,15 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
       );
     }
 
+    final modulos = providerRef.watch(homeModulesProvider).maybeWhen(
+          data: (data) => data.modulos,
+          orElse: () => const [],
+        );
+    final canManageFacturacion = _canManageFacturacionActions(
+      roleId: auth.roleId,
+      modules: modulos,
+    );
+
     final pendientesAsync = providerRef.watch(facturasPendientesProvider);
 
     return Theme(
@@ -476,7 +456,7 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
         appBar: appBar,
         body: pendientesAsync.when(
         data: (pageData) {
-          final rows = _sortRowsByFcnDesc(pageData.data);
+          final rows = pageData.data;
           final page = pageData.page;
           final pageSize = pageData.pageSize;
           final total = pageData.total;
@@ -534,7 +514,7 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
                     providerRef,
                     selectedIdFol,
                     selectedRow,
-                    selectedForUnificacion,
+                    canManageActions: canManageFacturacion,
                   ),
                   const SizedBox(height: 12),
                   _buildPaginationBar(
@@ -548,7 +528,9 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
                   const SizedBox(height: 12),
                   const Expanded(
                     child: Center(
-                      child: Text('Sin registros con estatus PENDIENTE'),
+                      child: Text(
+                        'Sin registros FACTURADO / CANCELACION PENDIENTE',
+                      ),
                     ),
                   ),
                 ],
@@ -565,7 +547,7 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
                   ref,
                   selectedIdFol,
                   selectedRow,
-                  selectedForUnificacion,
+                  canManageActions: canManageFacturacion,
                 ),
                 const SizedBox(height: 12),
                 _buildPaginationBar(
@@ -881,7 +863,9 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
     WidgetRef ref,
     String? selectedIdFol,
     Map<String, dynamic>? selectedRow,
-    Set<String> selectedIdFolsForUnificacion,
+    {
+    required bool canManageActions,
+    }
   ) {
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -892,7 +876,7 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
           ref,
           selectedIdFol,
           selectedRow,
-          selectedIdFolsForUnificacion,
+          canManageActions: canManageActions,
         );
 
         if (compact) {
@@ -1626,7 +1610,7 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
     ref.read(facturacionFilterSucProvider.notifier).state =
         ref.read(facturacionDraftFilterSucProvider);
     ref.read(facturacionFilterEstatusProvider.notifier).state =
-        'PENDIENTE';
+        facturacionViewEstatusFacturadoCancelPendiente;
     ref.read(facturacionFilterRazonSocialProvider.notifier).state =
         ref.read(facturacionDraftFilterRazonSocialProvider);
     ref.read(facturacionFilterRfcReceptorProvider.notifier).state =
@@ -1645,7 +1629,8 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
 
   void _clearFilters(WidgetRef ref) {
     ref.read(facturacionDraftFilterSucProvider.notifier).state = '';
-    ref.read(facturacionDraftFilterEstatusProvider.notifier).state = 'PENDIENTE';
+    ref.read(facturacionDraftFilterEstatusProvider.notifier).state =
+        facturacionViewEstatusFacturadoCancelPendiente;
     ref.read(facturacionDraftFilterRazonSocialProvider.notifier).state = '';
     ref.read(facturacionDraftFilterRfcReceptorProvider.notifier).state = '';
     ref.read(facturacionDraftFilterClienProvider.notifier).state = '';
@@ -1653,7 +1638,8 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
     ref.read(facturacionDraftFilterTipoFactProvider.notifier).state = '';
 
     ref.read(facturacionFilterSucProvider.notifier).state = '';
-    ref.read(facturacionFilterEstatusProvider.notifier).state = 'PENDIENTE';
+    ref.read(facturacionFilterEstatusProvider.notifier).state =
+        facturacionViewEstatusFacturadoCancelPendiente;
     ref.read(facturacionFilterRazonSocialProvider.notifier).state = '';
     ref.read(facturacionFilterRfcReceptorProvider.notifier).state = '';
     ref.read(facturacionFilterClienProvider.notifier).state = '';
@@ -1771,14 +1757,15 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
                     isExpanded: true,
                     items: const [
                       DropdownMenuItem(
-                        value: 'PENDIENTE',
-                        child: Text('PENDIENTE'),
+                        value: facturacionViewEstatusFacturadoCancelPendiente,
+                        child: Text('FACTURADO + CANC. PEND.'),
                       ),
                     ],
                     onChanged: (value) {
                       ref
                           .read(facturacionDraftFilterEstatusProvider.notifier)
-                          .state = value ?? 'PENDIENTE';
+                          .state =
+                              value ?? facturacionViewEstatusFacturadoCancelPendiente;
                     },
                     decoration: inputDecoration.copyWith(labelText: 'ESTATUS'),
                   ),
@@ -1869,25 +1856,19 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
     WidgetRef ref,
     String? selectedIdFol,
     Map<String, dynamic>? selectedRow,
-    Set<String> selectedIdFolsForUnificacion,
+    {
+    required bool canManageActions,
+    }
   ) {
     final selectedStatus = selectedRow == null
         ? '-'
         : _pickText(selectedRow, const ['ESTATUS', 'estatus']);
-    final selectedCfdiStatus = selectedRow == null
+    final selectedCancelStatus = selectedRow == null
         ? '-'
-        : _pickText(selectedRow, const ['CFDI_STATUS', 'cfdi_status']);
-    final selectedCfdiError = selectedRow == null
-        ? '-'
-        : _pickText(selectedRow, const ['CFDI_ERROR_MSG', 'cfdi_error_msg']);
-    final selectedIds = selectedIdFolsForUnificacion.toList()..sort();
-    final canUnificar = selectedIds.length >= 2;
-    final canReversar =
-        selectedRow != null && _isRowReversibleForUnificacion(selectedRow);
-    final grupoReversar = selectedRow == null
-        ? ''
-        : _pickText(selectedRow, const ['GRUPMASI', 'grupmasi']);
-
+        : _pickText(selectedRow, const [
+            'CFDI_CANCEL_STATUS',
+            'cfdi_cancel_status',
+          ]);
     return DecoratedBox(
       decoration: BoxDecoration(
         color: const Color(0xFFF7F7F7),
@@ -1905,46 +1886,45 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
                   : 'Registro seleccionado: $selectedIdFol | Estatus: $selectedStatus',
             ),
             Text(
-              'CFDI_STATUS: $selectedCfdiStatus',
+              'CFDI_CANCEL_STATUS: $selectedCancelStatus',
               style: Theme.of(context).textTheme.bodySmall,
             ),
-            if (selectedCfdiError != '-' && selectedCfdiError.isNotEmpty)
+            if (!canManageActions)
               Text(
-                'CFDI_ERROR_MSG: $selectedCfdiError',
-                style: Theme.of(context).textTheme.bodySmall,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                'Modo consulta: solo visualización de CFDI (PDF/XML).',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: const Color(0xFFB71C1C),
+                      fontWeight: FontWeight.w600,
+                    ),
               ),
-            const SizedBox(height: 4),
-            Text(
-              'Seleccionados para unificación: ${selectedIds.length}',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
             const SizedBox(height: 10),
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children: [
-                FilledButton.tonal(
-                  onPressed:
-                      canUnificar ? () => _onUnificarSeleccion(ref, selectedIds) : null,
-                  child: const Text('UNIFICAR'),
-                ),
-                OutlinedButton(
-                  onPressed: canReversar
-                      ? () => _onReversarUnificacion(
-                            ref,
-                            selectedIdFol ?? '',
-                            grupoReversar,
-                          )
-                      : null,
-                  child: const Text('REVERSAR UNIFICACIÓN'),
-                ),
                 OutlinedButton(
                   onPressed: selectedIdFol == null
                       ? null
-                      : () => _onValidar(ref, selectedIdFol),
-                  child: const Text('Validar'),
+                      : () => _onVisualizarPdfXml(ref, selectedIdFol),
+                  child: const Text('VISUALIZAR PDF/XML'),
+                ),
+                OutlinedButton(
+                  onPressed: (!canManageActions || selectedIdFol == null)
+                      ? null
+                      : () => _onRefrescarEstado(ref, selectedIdFol),
+                  child: const Text('REFRESCAR ESTADO'),
+                ),
+                OutlinedButton(
+                  onPressed: (!canManageActions || selectedIdFol == null)
+                      ? null
+                      : () => _onReenviarEmail(ref, selectedIdFol),
+                  child: const Text('REENVIAR XML/PDF'),
+                ),
+                OutlinedButton(
+                  onPressed: (!canManageActions || selectedIdFol == null)
+                      ? null
+                      : () => _onCancelar(ref, selectedIdFol),
+                  child: const Text('CANCELAR'),
                 ),
               ],
             ),
@@ -2116,1379 +2096,35 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
     return estatus == 'PENDIENTE';
   }
 
-  bool _isRowReversibleForUnificacion(Map<String, dynamic> row) {
-    final idFol = _pickText(row, const ['IDFOL', 'idfol']).toUpperCase();
-    final grup = _pickText(row, const ['GRUPMASI', 'grupmasi']).toUpperCase();
-    final estatus = _pickText(row, const ['ESTATUS', 'estatus']).toUpperCase();
-    if (idFol == '-' || grup == '-' || grup.isEmpty) return false;
-    if (!grup.startsWith('U')) return false;
-    if (idFol != grup) return false;
-    if (estatus == 'ANULADO') return false;
-    return true;
+  bool _canManageFacturacionActions({
+    required int? roleId,
+    required List<dynamic> modules,
+  }) {
+    if ((roleId ?? 0) == 1) return true;
+    final codes = modules
+        .map((item) => _asCleanText((item as dynamic).codigo).toUpperCase())
+        .where((code) => code.isNotEmpty)
+        .toSet();
+    return codes.contains('FACTURA') ||
+        codes.contains('FACTURACION') ||
+        codes.contains('PV_FACTURACION') ||
+        codes.contains('FACT_IOE');
   }
 
-  List<String> _toStringList(dynamic raw) {
-    if (raw is List) {
-      return raw
-          .map((item) {
-            if (item is Map) {
-              final map = Map<String, dynamic>.from(item);
-              return _firstNonEmptyText([
-                map['message'],
-                map['msg'],
-                map['value'],
-                map['text'],
-              ]);
-            }
-            return _asCleanText(item);
-          })
-          .where((text) => text.isNotEmpty)
-          .toList();
+  String _normalizeBase64Payload(String raw) {
+    var value = raw.trim();
+    final commaIndex = value.indexOf(',');
+    if (value.startsWith('data:') && commaIndex >= 0) {
+      value = value.substring(commaIndex + 1);
     }
-
-    final text = _asCleanText(raw);
-    if (text.isEmpty) return const <String>[];
-    try {
-      final parsed = jsonDecode(text);
-      if (parsed is List) {
-        return _toStringList(parsed);
-      }
-    } catch (_) {
-      return <String>[text];
-    }
-    return <String>[text];
+    return value.replaceAll(RegExp(r'\s+'), '');
   }
 
-  Future<void> _onUnificarSeleccion(
-    WidgetRef ref,
-    List<String> selectedIdFols,
-  ) async {
-    final ids = selectedIdFols
-        .map((id) => id.trim().toUpperCase())
-        .where((id) => id.isNotEmpty && id != '-')
-        .toList();
-
-    if (ids.length < 2) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Selecciona al menos 2 tickets para unificar.'),
-        ),
-      );
-      return;
-    }
-
-    if (!mounted) return;
+  Future<bool> _openPdfFromBase64(String rawBase64, String idFol) async {
+    final normalized = _normalizeBase64Payload(rawBase64);
+    if (normalized.isEmpty) return false;
     try {
-      final api = ref.read(facturacionApiProvider);
-      final preview = await api.previewUnificacion(ids);
-      if (!mounted) return;
-
-      final valid = _asBool(preview['valid'] ?? preview['VALIDO']);
-      final bloqueos = _toStringList(
-        preview['bloqueos'] ?? preview['BLOQUEOS_JSON'],
-      );
-      final message = _asCleanText(preview['message'] ?? preview['MENSAJE']);
-
-      if (!valid) {
-        await showDialog<void>(
-          context: context,
-          builder: (dialogContext) {
-            return AlertDialog(
-              title: const Text('No se puede unificar'),
-              content: SizedBox(
-                width: 540,
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        message.isEmpty
-                            ? 'La selección no cumple las reglas de negocio.'
-                            : message,
-                      ),
-                      if (bloqueos.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        for (final bloque in bloqueos)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 4),
-                            child: Text('• $bloque'),
-                          ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-              actions: [
-                FilledButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: const Text('CERRAR'),
-                ),
-              ],
-            );
-          },
-        );
-        return;
-      }
-
-      final comentarioCtrl = TextEditingController();
-      var confirmar = false;
-      var comentarioUnificacion = '';
-      try {
-        await showDialog<void>(
-          context: context,
-          builder: (dialogContext) {
-            return StatefulBuilder(
-              builder: (dialogContext, setDialogState) {
-                return AlertDialog(
-                  title: const Text('Confirmar unificación'),
-                  content: SizedBox(
-                    width: 640,
-                    child: SingleChildScrollView(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Tickets seleccionados: ${ids.length}'),
-                          Text('Total: ${_formatMoney(preview['total'])}'),
-                          Text(
-                            'CLIEN: ${_formatClienteNumero(preview['clien'])}',
-                          ),
-                          Text(
-                            'Forma pago: ${_asCleanText(preview['formaPago'])}',
-                          ),
-                          Text('TIPOVTA: ${_asCleanText(preview['tipoVta'])}'),
-                          Text(
-                            'RFC receptor: ${_asCleanText(preview['rfcReceptor'])}',
-                          ),
-                          Text(
-                            'Razón social: ${_asCleanText(preview['razonSocialReceptor'])}',
-                          ),
-                          const SizedBox(height: 12),
-                          TextField(
-                            controller: comentarioCtrl,
-                            maxLength: 500,
-                            maxLines: 3,
-                            decoration: const InputDecoration(
-                              border: OutlineInputBorder(),
-                              labelText: 'Comentario (opcional)',
-                            ),
-                            onChanged: (_) => setDialogState(() {}),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  actions: [
-                    OutlinedButton(
-                      onPressed: () => Navigator.of(dialogContext).pop(),
-                      child: const Text('CANCELAR'),
-                    ),
-                    FilledButton(
-                      onPressed: () {
-                        comentarioUnificacion = comentarioCtrl.text.trim();
-                        confirmar = true;
-                        Navigator.of(dialogContext).pop();
-                      },
-                      child: const Text('UNIFICAR'),
-                    ),
-                  ],
-                );
-              },
-            );
-          },
-        );
-      } finally {
-        comentarioCtrl.dispose();
-      }
-
-      if (!confirmar) return;
-      if (!mounted) return;
-
-      final result = await api.crearUnificacion(
-        ids,
-        comentario: comentarioUnificacion,
-      );
-      if (!mounted) return;
-
-      final grupoId = _asCleanText(result['grupoId']);
-      final idFolUnificado = _asCleanText(result['idFolUnificado']);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Unificación aplicada. Grupo: ${grupoId.isEmpty ? '-' : grupoId} | Folio: ${idFolUnificado.isEmpty ? '-' : idFolUnificado}',
-          ),
-        ),
-      );
-
-      ref.read(selectedFacturasUnificacionProvider.notifier).state = <String>{};
-      ref.read(selectedFacturaIdFolProvider.notifier).state =
-          idFolUnificado.isEmpty ? null : idFolUnificado;
-      ref.invalidate(facturasPendientesProvider);
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(_formatActionError('No se pudo unificar', e)),
-        ),
-      );
-    }
-  }
-
-  Future<void> _onReversarUnificacion(
-    WidgetRef ref,
-    String selectedIdFol,
-    String grupoIdRaw,
-  ) async {
-    final grupoId = grupoIdRaw.trim().toUpperCase();
-    if (grupoId.isEmpty || !grupoId.startsWith('U')) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'El folio seleccionado no corresponde a una unificación reversible.',
-          ),
-        ),
-      );
-      return;
-    }
-
-    final motivoCtrl = TextEditingController();
-    var motivoError = '';
-    var confirmar = false;
-
-    try {
-      await showDialog<void>(
-        context: context,
-        builder: (dialogContext) {
-          return StatefulBuilder(
-            builder: (dialogContext, setDialogState) {
-              return AlertDialog(
-                title: const Text('Reversar unificación'),
-                content: SizedBox(
-                  width: 560,
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Folio seleccionado: $selectedIdFol'),
-                        Text('Grupo: $grupoId'),
-                        const SizedBox(height: 8),
-                        TextField(
-                          controller: motivoCtrl,
-                          maxLength: 500,
-                          maxLines: 4,
-                          decoration: const InputDecoration(
-                            border: OutlineInputBorder(),
-                            labelText: 'Motivo (obligatorio)',
-                          ),
-                          onChanged: (_) {
-                            if (motivoError.isEmpty) return;
-                            setDialogState(() {
-                              motivoError = '';
-                            });
-                          },
-                        ),
-                        if (motivoError.isNotEmpty)
-                          Text(
-                            motivoError,
-                            style: const TextStyle(color: Color(0xFFB71C1C)),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-                actions: [
-                  OutlinedButton(
-                    onPressed: () => Navigator.of(dialogContext).pop(),
-                    child: const Text('CANCELAR'),
-                  ),
-                  FilledButton(
-                    onPressed: () {
-                      final motivo = motivoCtrl.text.trim();
-                      if (motivo.isEmpty) {
-                        setDialogState(() {
-                          motivoError = 'Captura un motivo para continuar.';
-                        });
-                        return;
-                      }
-                      confirmar = true;
-                      Navigator.of(dialogContext).pop();
-                    },
-                    child: const Text('REVERSAR'),
-                  ),
-                ],
-              );
-            },
-          );
-        },
-      );
-
-      if (!confirmar) return;
-      if (!mounted) return;
-
-      final api = ref.read(facturacionApiProvider);
-      final result = await api.reversarUnificacion(
-        grupoId,
-        motivo: motivoCtrl.text.trim(),
-      );
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Reversa aplicada. Grupo: ${_asCleanText(result['grupoId'])}',
-          ),
-        ),
-      );
-      ref.read(selectedFacturasUnificacionProvider.notifier).state = <String>{};
-      ref.read(selectedFacturaIdFolProvider.notifier).state = null;
-      ref.invalidate(facturasPendientesProvider);
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            _formatActionError('No se pudo reversar la unificación', e),
-          ),
-        ),
-      );
-    } finally {
-      motivoCtrl.dispose();
-    }
-  }
-
-  Future<void> _onValidar(WidgetRef ref, String idFol) async {
-    if (!mounted) return;
-    try {
-      final api = ref.read(facturacionApiProvider);
-      final result = await api.validar(idFol);
-      if (!mounted) return;
-      await _showDetalleValidacionDialog(
-        idFol: idFol,
-        result: result,
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_formatActionError('No se pudo validar', e))),
-      );
-    }
-  }
-
-  Future<void> _showDetalleValidacionDialog({
-    required String idFol,
-    required Map<String, dynamic> result,
-  }) async {
-    if (!mounted) return;
-    final api = ref.read(facturacionApiProvider);
-    final validaciones = result['validaciones'] is Map
-        ? Map<String, dynamic>.from(result['validaciones'] as Map)
-        : const <String, dynamic>{};
-    final totalesDetalle = result['totalesDetalle'] is Map
-        ? Map<String, dynamic>.from(result['totalesDetalle'] as Map)
-        : const <String, dynamic>{};
-    final totales = result['totales'] is Map
-        ? Map<String, dynamic>.from(result['totales'] as Map)
-        : const <String, dynamic>{};
-    final rows = (result['detalleArticulos'] is List)
-        ? (result['detalleArticulos'] as List)
-              .whereType<Map>()
-              .map((row) => Map<String, dynamic>.from(row))
-              .toList()
-        : const <Map<String, dynamic>>[];
-
-    final importeCuadra = _asBool(validaciones['importeCuadra']);
-    final clienteFiscalCompleto = _asBool(validaciones['clienteFiscalCompleto']);
-    final rfcGenerico = _asBool(validaciones['rfcGenerico']);
-    final camposFiscalesFaltantes =
-        (validaciones['camposFiscalesFaltantes'] is List)
-            ? (validaciones['camposFiscalesFaltantes'] as List)
-                .map((e) => '$e'.trim())
-                .where((e) => e.isNotEmpty)
-                .toList()
-            : const <String>[];
-    final totalDetalle = _formatMoney(
-      totalesDetalle['total'] ??
-          rows.fold<double>(
-            0,
-            (acc, row) => acc + (_asDouble(row['Total']) ?? 0),
-          ),
-    );
-    final totalCabecera = _formatMoney(
-      totales['cabecera'] ?? totales['cabeceraOriginal'],
-    );
-    final diferencia = _formatMoney(totales['diferencia']);
-    final clienteMap = _safeMap(result['cliente']);
-    final headerMap = _safeMap(result['header']);
-    final sucursalMap = _safeMap(result['sucursal']);
-    final clienteId = _resolveClienteId(clienteMap);
-    final rfcReceptor = _firstNonEmptyText([
-      clienteMap['RFCRECEPTOR'],
-      clienteMap['RfcReceptor'],
-      headerMap['RfcReceptor'],
-      headerMap['RFCRECEPTOR'],
-    ], fallback: '-');
-    final razonSocial = _firstNonEmptyText([
-      clienteMap['RAZONSOCIALRECEPTOR'],
-      clienteMap['RazonSocialReceptor'],
-      headerMap['RazonSocialReceptor'],
-      headerMap['RAZONSOCIALRECEPTOR'],
-    ], fallback: '-');
-    final regimenFiscal = _firstNonEmptyText([
-      clienteMap['REGIMENFISCALRECEPTOR'],
-      clienteMap['RegimenFiscalReceptor'],
-      clienteMap['RegimenFiscalReceptorSAT'],
-    ], fallback: '-');
-    final usoCfdi = _firstNonEmptyText([
-      clienteMap['USOCFDI'],
-      clienteMap['UsoCfdi'],
-      headerMap['UsoCfdi'],
-      headerMap['USOCFDI'],
-    ], fallback: '-');
-    final codigoPostal = _firstNonEmptyText([
-      clienteMap['CODIGOPOSTALRECEPTOR'],
-      clienteMap['CodigoPostalReceptor'],
-    ], fallback: '-');
-    final emailReceptor = _firstNonEmptyText([
-      clienteMap['EMAILRECEPTOR'],
-      clienteMap['EmailReceptor'],
-    ], fallback: '-');
-    final rfcEmisor = _firstNonEmptyText([
-      clienteMap['RFCEMISOR'],
-      clienteMap['RfcEmisor'],
-      headerMap['RfcEmisor'],
-      headerMap['RFCEMISOR'],
-      sucursalMap['RFC'],
-    ], fallback: '-');
-    final canFacturar = importeCuadra &&
-        clienteFiscalCompleto &&
-        camposFiscalesFaltantes.isEmpty &&
-        rows.isNotEmpty;
-    var facturando = false;
-    var accionMsg = '';
-    var accionError = false;
-
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) {
-        final media = MediaQuery.of(dialogContext).size;
-        final maxWidth = math.min(media.width - 32, 1200.0);
-        final maxHeight = media.height * 0.85;
-        return StatefulBuilder(
-          builder: (dialogContext, setDialogState) {
-            return Dialog(
-              insetPadding: const EdgeInsets.all(16),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: maxWidth,
-                  maxHeight: maxHeight,
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Vista detalle factura',
-                          style:
-                              Theme.of(dialogContext).textTheme.titleLarge?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                        ),
-                      ),
-                      DefaultTextStyle(
-                        style: Theme.of(dialogContext).textTheme.bodyMedium ??
-                            const TextStyle(),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text('Cabecera: $totalCabecera'),
-                            Text('Detalle: $totalDetalle'),
-                            Text('Diferencia: $diferencia'),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text('IDFOL: $idFol'),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      _buildValidationBadge(
-                        'Importe cuadra',
-                        importeCuadra,
-                      ),
-                      _buildValidationBadge(
-                        'Cliente fiscal completo',
-                        clienteFiscalCompleto,
-                      ),
-                      _buildValidationBadge(
-                        'Conceptos: ${rows.length}',
-                        rows.isNotEmpty,
-                      ),
-                    ],
-                  ),
-                  if (camposFiscalesFaltantes.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      'Campos fiscales obligatorios incompletos'
-                      '${rfcGenerico ? ' (RFC genérico)' : ''}: '
-                      '${camposFiscalesFaltantes.join(', ')}',
-                      style: Theme.of(dialogContext).textTheme.bodySmall?.copyWith(
-                            color: const Color(0xFFB71C1C),
-                            fontWeight: FontWeight.w600,
-                          ),
-                    ),
-                  ],
-                  const SizedBox(height: 10),
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF7F7F7),
-                      border: Border.all(color: Colors.black12),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(10),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Text(
-                                'Datos fiscales del cliente',
-                                style: Theme.of(dialogContext)
-                                    .textTheme
-                                    .titleSmall
-                                    ?.copyWith(fontWeight: FontWeight.w700),
-                              ),
-                              const SizedBox(width: 8),
-                              if (clienteId != null)
-                                Text(
-                                  'IDC: $clienteId',
-                                  style:
-                                      Theme.of(dialogContext).textTheme.bodySmall,
-                                ),
-                              const Spacer(),
-                              OutlinedButton(
-                                onPressed: () async {
-                                  final updated =
-                                      await _showEditarClienteFiscalDialog(
-                                    context: dialogContext,
-                                    idFol: idFol,
-                                    cliente: clienteMap,
-                                    header: headerMap,
-                                    sucursal: sucursalMap,
-                                  );
-                                  if (!updated || !dialogContext.mounted) return;
-                                  Navigator.of(dialogContext).pop();
-                                  final refreshed = await api.validar(idFol);
-                                  if (!mounted) return;
-                                  await _showDetalleValidacionDialog(
-                                    idFol: idFol,
-                                    result: refreshed,
-                                  );
-                                },
-                                child: const Text('EDITAR'),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 10,
-                            runSpacing: 8,
-                            children: [
-                              Text('RfcReceptor: $rfcReceptor'),
-                              Text('RazonSocial: $razonSocial'),
-                              Text('Regimen: $regimenFiscal'),
-                              Text('UsoCfdi: $usoCfdi'),
-                              Text('CodigoPostal: $codigoPostal'),
-                              Text('Email: $emailReceptor'),
-                              Text('RfcEmisor: $rfcEmisor'),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Expanded(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.black12),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: rows.isEmpty
-                          ? const Center(
-                              child: Text('Sin artículos relacionados al folio.'),
-                            )
-                          : SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: SingleChildScrollView(
-                                child: DataTable(
-                                  columnSpacing: 14,
-                                  headingRowHeight: 40,
-                                  dataRowMinHeight: 36,
-                                  dataRowMaxHeight: 42,
-                                  columns: const [
-                                    DataColumn(label: Text('IDFOL')),
-                                    DataColumn(label: Text('UPC')),
-                                    DataColumn(label: Text('Descripcion')),
-                                    DataColumn(label: Text('ClaveProdServ')),
-                                    DataColumn(label: Text('Unidad')),
-                                    DataColumn(label: Text('Cantidad')),
-                                    DataColumn(label: Text('ValorUnitario')),
-                                    DataColumn(label: Text('PVTAT')),
-                                    DataColumn(label: Text('Impuesto')),
-                                    DataColumn(label: Text('Total')),
-                                  ],
-                                  rows: rows.map((row) {
-                                    return DataRow(
-                                      cells: [
-                                        DataCell(
-                                          Text(
-                                            _pickText(row, const ['IDFOL']),
-                                          ),
-                                        ),
-                                        DataCell(
-                                          Text(
-                                            _pickText(row, const ['UPC']),
-                                          ),
-                                        ),
-                                        DataCell(
-                                          ConstrainedBox(
-                                            constraints:
-                                                const BoxConstraints(maxWidth: 260),
-                                            child: Text(
-                                              _pickText(row, const ['Descripcion']),
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                        ),
-                                        DataCell(
-                                          Text(
-                                            _pickText(
-                                              row,
-                                              const ['ClaveProdServ'],
-                                            ),
-                                          ),
-                                        ),
-                                        DataCell(
-                                          Text(
-                                            _pickText(row, const ['Unidad']),
-                                          ),
-                                        ),
-                                        DataCell(
-                                          Align(
-                                            alignment: Alignment.centerRight,
-                                            child: Text(
-                                              _formatCantidad(row['Cantidad']),
-                                            ),
-                                          ),
-                                        ),
-                                        DataCell(
-                                          Align(
-                                            alignment: Alignment.centerRight,
-                                            child: Text(
-                                              _formatMoney(row['ValorUnitario']),
-                                            ),
-                                          ),
-                                        ),
-                                        DataCell(
-                                          Align(
-                                            alignment: Alignment.centerRight,
-                                            child: Text(
-                                              _formatMoney(row['PVTAT']),
-                                            ),
-                                          ),
-                                        ),
-                                        DataCell(
-                                          Align(
-                                            alignment: Alignment.centerRight,
-                                            child: Text(
-                                              _formatMoney(row['Impuesto']),
-                                            ),
-                                          ),
-                                        ),
-                                        DataCell(
-                                          Align(
-                                            alignment: Alignment.centerRight,
-                                            child: Text(
-                                              _formatMoney(row['Total']),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    );
-                                  }).toList(),
-                                ),
-                              ),
-                            ),
-                    ),
-                  ),
-                      const SizedBox(height: 10),
-                      if (accionMsg.isNotEmpty)
-                        Text(
-                          accionMsg,
-                          style: TextStyle(
-                            color: accionError
-                                ? const Color(0xFFB71C1C)
-                                : const Color(0xFF1B5E20),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      const SizedBox(height: 12),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: Wrap(
-                          spacing: 8,
-                          children: [
-                            OutlinedButton(
-                              onPressed: facturando
-                                  ? null
-                                  : () => Navigator.of(dialogContext).pop(),
-                              child: const Text('CERRAR'),
-                            ),
-                            FilledButton(
-                              onPressed: (!canFacturar || facturando)
-                                  ? null
-                                  : () async {
-                                      setDialogState(() {
-                                        facturando = true;
-                                        accionMsg = '';
-                                        accionError = false;
-                                      });
-
-                                      try {
-                                        final emit = await _emitirFacturaAndOpenPdf(
-                                          ref,
-                                          idFol,
-                                        );
-                                        if (!dialogContext.mounted) return;
-                                        setDialogState(() {
-                                          facturando = false;
-                                          accionMsg = emit.message;
-                                          accionError = !emit.ok;
-                                        });
-
-                                        if (!emit.ok) return;
-
-                                        Navigator.of(dialogContext).pop();
-                                        if (!mounted) return;
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(content: Text(emit.message)),
-                                        );
-                                        if (!emit.pdfOpened) {
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            const SnackBar(
-                                              content: Text(
-                                                'Factura emitida, pero no se recibió PDF para vista previa.',
-                                              ),
-                                            ),
-                                          );
-                                        }
-                                      } catch (e) {
-                                        if (!dialogContext.mounted) return;
-                                        setDialogState(() {
-                                          facturando = false;
-                                          accionMsg = _formatActionError(
-                                            'No se pudo emitir',
-                                            e,
-                                          );
-                                          accionError = true;
-                                        });
-                                      }
-                                    },
-                              child: Text(
-                                facturando
-                                    ? 'FACTURANDO...'
-                                    : 'REALIZAR FACTURA',
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Future<bool> _showEditarClienteFiscalDialog({
-    required BuildContext context,
-    required String idFol,
-    required Map<String, dynamic> cliente,
-    required Map<String, dynamic> header,
-    required Map<String, dynamic> sucursal,
-  }) async {
-    final api = ref.read(facturacionApiProvider);
-    final clienteId = _resolveClienteId(cliente);
-    if (clienteId == null || clienteId.trim().isEmpty) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'No se identificó IDC del cliente para edición en este folio.',
-            ),
-          ),
-        );
-      }
-      return false;
-    }
-
-    List<DatCatRegModel> regimenes = const [];
-    List<DatCatUsoModel> usos = const [];
-    List<SucursalModel> sucursales = const [];
-    try {
-      regimenes = await ref.read(datCatRegListProvider.future);
-    } catch (_) {}
-    try {
-      usos = await ref.read(datCatUsoListProvider.future);
-    } catch (_) {}
-    try {
-      sucursales = await ref.read(sucursalesListProvider.future);
-    } catch (_) {}
-
-    final razonCtrl = TextEditingController(
-      text: _firstNonEmptyText([
-        cliente['RAZONSOCIALRECEPTOR'],
-        cliente['RazonSocialReceptor'],
-        header['RazonSocialReceptor'],
-        header['RAZONSOCIALRECEPTOR'],
-      ]),
-    );
-    final rfcCtrl = TextEditingController(
-      text: _firstNonEmptyText([
-        cliente['RFCRECEPTOR'],
-        cliente['RfcReceptor'],
-        header['RfcReceptor'],
-        header['RFCRECEPTOR'],
-      ]).toUpperCase(),
-    );
-    final emailCtrl = TextEditingController(
-      text: _firstNonEmptyText([
-        cliente['EMAILRECEPTOR'],
-        cliente['EmailReceptor'],
-      ]),
-    );
-    final codigoPostalCtrl = TextEditingController(
-      text: _firstNonEmptyText([
-        cliente['CODIGOPOSTALRECEPTOR'],
-        cliente['CodigoPostalReceptor'],
-      ]),
-    );
-    final domicilioCtrl = TextEditingController(
-      text: _firstNonEmptyText([cliente['DOMI'], cliente['Domicilio']]),
-    );
-    final ncelCtrl = TextEditingController(
-      text: _firstNonEmptyText([cliente['NCEL'], cliente['Ncel']]),
-    );
-    final formKey = GlobalKey<FormState>();
-    var saving = false;
-    var info = '';
-    var isError = false;
-
-    var usoCfdiValue = _firstNonEmptyText(
-      [
-        cliente['USOCFDI'],
-        cliente['UsoCfdi'],
-        header['UsoCfdi'],
-        header['USOCFDI'],
-      ],
-      fallback: _kClienteSelectDefault,
-    );
-    if (usoCfdiValue.isEmpty) usoCfdiValue = _kClienteSelectDefault;
-
-    var regimenValue = _firstIntValue([
-      cliente['REGIMENFISCALRECEPTOR'],
-      cliente['RegimenFiscalReceptor'],
-      cliente['RegimenFiscalReceptorSAT'],
-    ]);
-
-    var rfcEmisorValue = _firstNonEmptyText(
-      [
-        cliente['RFCEMISOR'],
-        cliente['RfcEmisor'],
-        header['RfcEmisor'],
-        header['RFCEMISOR'],
-        sucursal['RFC'],
-      ],
-      fallback: _kClienteSelectDefault,
-    );
-    if (rfcEmisorValue.isEmpty) rfcEmisorValue = _kClienteSelectDefault;
-
-    final inputFormatter = FilteringTextInputFormatter.allow(
-      RegExp(r'[a-zA-Z0-9@._\-\s&Ññ]'),
-    );
-
-    if (!context.mounted) return false;
-
-    try {
-      final updated = await showDialog<bool>(
-        context: context,
-        builder: (dialogContext) {
-          return StatefulBuilder(
-            builder: (dialogContext, setDialogState) {
-              final usoItems = <DropdownMenuItem<String>>[
-                _clienteMenuItem<String>(
-                  _kClienteSelectDefault,
-                  _kClienteSelectDefault,
-                  0,
-                ),
-                for (var i = 0; i < usos.length; i++)
-                  _clienteMenuItem<String>(
-                    usos[i].usoCfdi,
-                    '${usos[i].usoCfdi} - ${usos[i].descripcion ?? ''}',
-                    i + 1,
-                  ),
-              ];
-              if (usoCfdiValue != _kClienteSelectDefault &&
-                  usoItems.every((item) => item.value != usoCfdiValue)) {
-                usoItems.add(
-                  _clienteMenuItem<String>(
-                    usoCfdiValue,
-                    '$usoCfdiValue - valor actual',
-                    usoItems.length + 1,
-                  ),
-                );
-              }
-
-              final regimenItems = <DropdownMenuItem<int>>[
-                _clienteMenuItem<int>(
-                  _kClienteRegimenDefault,
-                  _kClienteSelectDefault,
-                  0,
-                ),
-                for (var i = 0; i < regimenes.length; i++)
-                  _clienteMenuItem<int>(
-                    regimenes[i].codigo,
-                    '${regimenes[i].codigo} - ${regimenes[i].descripcion ?? ''}',
-                    i + 1,
-                  ),
-              ];
-              if (regimenValue > 0 &&
-                  regimenItems.every((item) => item.value != regimenValue)) {
-                regimenItems.add(
-                  _clienteMenuItem<int>(
-                    regimenValue,
-                    '$regimenValue - valor actual',
-                    regimenItems.length + 1,
-                  ),
-                );
-              }
-
-              final rfcByLabel = <String, String>{};
-              for (final s in sucursales) {
-                final rfc = _asCleanText(s.rfc).toUpperCase();
-                if (rfc.isEmpty || rfcByLabel.containsKey(rfc)) continue;
-                final baseLabel = _asCleanText(s.encar).isNotEmpty
-                    ? _asCleanText(s.encar)
-                    : _asCleanText(s.desc).isNotEmpty
-                        ? _asCleanText(s.desc)
-                        : s.suc;
-                rfcByLabel[rfc] = '$baseLabel - $rfc';
-              }
-              final rfcItems = <DropdownMenuItem<String>>[
-                _clienteMenuItem<String>(
-                  _kClienteSelectDefault,
-                  _kClienteSelectDefault,
-                  0,
-                ),
-              ];
-              var idx = 1;
-              for (final entry in rfcByLabel.entries) {
-                rfcItems.add(_clienteMenuItem<String>(entry.key, entry.value, idx));
-                idx++;
-              }
-              if (rfcEmisorValue != _kClienteSelectDefault &&
-                  rfcItems.every((item) => item.value != rfcEmisorValue)) {
-                rfcItems.add(
-                  _clienteMenuItem<String>(
-                    rfcEmisorValue,
-                    '$rfcEmisorValue - valor actual',
-                    rfcItems.length + 1,
-                  ),
-                );
-              }
-
-              Future<void> onSave() async {
-                if (!(formKey.currentState?.validate() ?? false)) return;
-                setDialogState(() {
-                  saving = true;
-                  info = '';
-                });
-                final payload = <String, dynamic>{
-                  'RAZONSOCIALRECEPTOR': razonCtrl.text.trim().toUpperCase(),
-                  'RFCRECEPTOR': rfcCtrl.text.trim().toUpperCase(),
-                  'EMAILRECEPTOR': emailCtrl.text.trim(),
-                  'RFCEMISOR': rfcEmisorValue.trim(),
-                  'USOCFDI': usoCfdiValue.trim(),
-                  'CODIGOPOSTALRECEPTOR': codigoPostalCtrl.text.trim().toUpperCase(),
-                  'REGIMENFISCALRECEPTOR': regimenValue,
-                  'DOMI': domicilioCtrl.text.trim().isEmpty
-                      ? null
-                      : domicilioCtrl.text.trim(),
-                  'NCEL': ncelCtrl.text.trim().isEmpty ? null : ncelCtrl.text.trim(),
-                  if (_asCleanText(cliente['SUC']).isNotEmpty)
-                    'SUC': _asCleanText(cliente['SUC']),
-                };
-                try {
-                  await api.actualizarClienteFiscal(clienteId, payload);
-                  if (!dialogContext.mounted) return;
-                  Navigator.of(dialogContext).pop(true);
-                } catch (e) {
-                  if (!dialogContext.mounted) return;
-                  setDialogState(() {
-                    saving = false;
-                    info = _formatActionError('No se pudo guardar cliente', e);
-                    isError = true;
-                  });
-                }
-              }
-
-              return Dialog(
-                insetPadding: const EdgeInsets.all(16),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 980, maxHeight: 720),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Form(
-                      key: formKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Edición de datos fiscales del cliente',
-                            style: Theme.of(dialogContext)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(fontWeight: FontWeight.w700),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'IDFOL: $idFol | IDC: $clienteId',
-                            style: Theme.of(dialogContext).textTheme.bodySmall,
-                          ),
-                          const SizedBox(height: 12),
-                          Expanded(
-                            child: SingleChildScrollView(
-                              child: Wrap(
-                                spacing: 12,
-                                runSpacing: 10,
-                                children: [
-                                  _buildClienteEditorField(
-                                    context: dialogContext,
-                                    label: 'RfcReceptor *',
-                                    child: TextFormField(
-                                      controller: rfcCtrl,
-                                      enabled: !saving,
-                                      textCapitalization:
-                                          TextCapitalization.characters,
-                                      inputFormatters: [inputFormatter],
-                                      decoration: const InputDecoration(
-                                        border: OutlineInputBorder(),
-                                        isDense: true,
-                                      ),
-                                      validator: _validateClienteRfc,
-                                    ),
-                                  ),
-                                  _buildClienteEditorField(
-                                    context: dialogContext,
-                                    label: 'RazonSocialReceptor *',
-                                    width: 360,
-                                    child: TextFormField(
-                                      controller: razonCtrl,
-                                      enabled: !saving,
-                                      textCapitalization:
-                                          TextCapitalization.characters,
-                                      inputFormatters: [inputFormatter],
-                                      decoration: const InputDecoration(
-                                        border: OutlineInputBorder(),
-                                        isDense: true,
-                                      ),
-                                      validator: _validateRequiredField,
-                                    ),
-                                  ),
-                                  _buildClienteEditorField(
-                                    context: dialogContext,
-                                    label: 'EmailReceptor *',
-                                    width: 280,
-                                    child: TextFormField(
-                                      controller: emailCtrl,
-                                      enabled: !saving,
-                                      decoration: const InputDecoration(
-                                        border: OutlineInputBorder(),
-                                        isDense: true,
-                                      ),
-                                      validator: _validateRequiredField,
-                                    ),
-                                  ),
-                                  _buildClienteEditorField(
-                                    context: dialogContext,
-                                    label: 'RegimenFiscalReceptor *',
-                                    width: 300,
-                                    child: DropdownButtonFormField<int>(
-                                      initialValue: regimenItems.any(
-                                        (item) => item.value == regimenValue,
-                                      )
-                                          ? regimenValue
-                                          : _kClienteRegimenDefault,
-                                      isExpanded: true,
-                                      items: regimenItems,
-                                      style: const TextStyle(fontSize: 11),
-                                      onChanged: saving
-                                          ? null
-                                          : (value) => setDialogState(() {
-                                                regimenValue = value ??
-                                                    _kClienteRegimenDefault;
-                                              }),
-                                      decoration: const InputDecoration(
-                                        border: OutlineInputBorder(),
-                                        isDense: true,
-                                      ),
-                                      validator: (value) =>
-                                          (value ?? 0) <= 0 ? 'Requerido' : null,
-                                    ),
-                                  ),
-                                  _buildClienteEditorField(
-                                    context: dialogContext,
-                                    label: 'UsoCfdi *',
-                                    width: 300,
-                                    child: DropdownButtonFormField<String>(
-                                      initialValue: usoItems.any(
-                                        (item) => item.value == usoCfdiValue,
-                                      )
-                                          ? usoCfdiValue
-                                          : _kClienteSelectDefault,
-                                      isExpanded: true,
-                                      items: usoItems,
-                                      style: const TextStyle(fontSize: 11),
-                                      onChanged: saving
-                                          ? null
-                                          : (value) => setDialogState(() {
-                                                usoCfdiValue = value ??
-                                                    _kClienteSelectDefault;
-                                              }),
-                                      decoration: const InputDecoration(
-                                        border: OutlineInputBorder(),
-                                        isDense: true,
-                                      ),
-                                      validator: (value) {
-                                        final v = _asCleanText(value);
-                                        if (v.isEmpty ||
-                                            v == _kClienteSelectDefault) {
-                                          return 'Requerido';
-                                        }
-                                        return null;
-                                      },
-                                    ),
-                                  ),
-                                  _buildClienteEditorField(
-                                    context: dialogContext,
-                                    label: 'CodigoPostalReceptor *',
-                                    child: TextFormField(
-                                      controller: codigoPostalCtrl,
-                                      enabled: !saving,
-                                      textCapitalization:
-                                          TextCapitalization.characters,
-                                      inputFormatters: [inputFormatter],
-                                      decoration: const InputDecoration(
-                                        border: OutlineInputBorder(),
-                                        isDense: true,
-                                      ),
-                                      validator: _validateRequiredField,
-                                    ),
-                                  ),
-                                  _buildClienteEditorField(
-                                    context: dialogContext,
-                                    label: 'RfcEmisor *',
-                                    width: 300,
-                                    child: DropdownButtonFormField<String>(
-                                      initialValue: rfcItems.any(
-                                        (item) => item.value == rfcEmisorValue,
-                                      )
-                                          ? rfcEmisorValue
-                                          : _kClienteSelectDefault,
-                                      isExpanded: true,
-                                      items: rfcItems,
-                                      style: const TextStyle(fontSize: 11),
-                                      onChanged: saving
-                                          ? null
-                                          : (value) => setDialogState(() {
-                                                rfcEmisorValue = value ??
-                                                    _kClienteSelectDefault;
-                                              }),
-                                      decoration: const InputDecoration(
-                                        border: OutlineInputBorder(),
-                                        isDense: true,
-                                      ),
-                                      validator: (value) {
-                                        final v = _asCleanText(value);
-                                        if (v.isEmpty ||
-                                            v == _kClienteSelectDefault) {
-                                          return 'Requerido';
-                                        }
-                                        return null;
-                                      },
-                                    ),
-                                  ),
-                                  _buildClienteEditorField(
-                                    context: dialogContext,
-                                    label: 'Domicilio',
-                                    width: 360,
-                                    child: TextFormField(
-                                      controller: domicilioCtrl,
-                                      enabled: !saving,
-                                      decoration: const InputDecoration(
-                                        border: OutlineInputBorder(),
-                                        isDense: true,
-                                      ),
-                                    ),
-                                  ),
-                                  _buildClienteEditorField(
-                                    context: dialogContext,
-                                    label: 'Tel o Cel',
-                                    width: 180,
-                                    child: TextFormField(
-                                      controller: ncelCtrl,
-                                      enabled: !saving,
-                                      keyboardType: TextInputType.phone,
-                                      inputFormatters: [
-                                        FilteringTextInputFormatter.digitsOnly,
-                                        LengthLimitingTextInputFormatter(10),
-                                      ],
-                                      decoration: const InputDecoration(
-                                        border: OutlineInputBorder(),
-                                        isDense: true,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          if (info.isNotEmpty) ...[
-                            const SizedBox(height: 8),
-                            Text(
-                              info,
-                              style: TextStyle(
-                                color: isError
-                                    ? const Color(0xFFB71C1C)
-                                    : const Color(0xFF1B5E20),
-                              ),
-                            ),
-                          ],
-                          const SizedBox(height: 12),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: Wrap(
-                              spacing: 8,
-                              children: [
-                                OutlinedButton(
-                                  onPressed: saving
-                                      ? null
-                                      : () => Navigator.of(dialogContext).pop(false),
-                                  child: const Text('CANCELAR'),
-                                ),
-                                FilledButton(
-                                  onPressed: saving ? null : onSave,
-                                  child: Text(
-                                    saving
-                                        ? 'GUARDANDO...'
-                                        : 'GUARDAR DATOS CLIENTE',
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            },
-          );
-        },
-      );
-      return updated == true;
-    } finally {
-      razonCtrl.dispose();
-      rfcCtrl.dispose();
-      emailCtrl.dispose();
-      codigoPostalCtrl.dispose();
-      domicilioCtrl.dispose();
-      ncelCtrl.dispose();
-    }
-  }
-
-  Widget _buildValidationBadge(String label, bool isOk) {
-    final bg = isOk ? const Color(0xFFE8F5E9) : const Color(0xFFFFEBEE);
-    final fg = isOk ? const Color(0xFF1B5E20) : const Color(0xFFB71C1C);
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: bg,
-        border: Border.all(color: fg.withValues(alpha: 0.35)),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: fg,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<_EmitirOutcome> _emitirFacturaAndOpenPdf(
-    WidgetRef ref,
-    String idFol,
-  ) async {
-    final api = ref.read(facturacionApiProvider);
-    final result = await api.emitir(idFol);
-    ref.invalidate(facturasPendientesProvider);
-
-    final ok = _asBool(result['ok']);
-    final successMsg = '${result['message'] ?? ''}'.trim();
-    final message = ok
-        ? (successMsg.isNotEmpty ? successMsg : 'Factura emitida correctamente')
-        : _extractEmitirErrorMessage(result);
-
-    var pdfOpened = false;
-    if (ok) {
-      pdfOpened = await _openPdfPreviewFromEmitResult(result, idFol);
-    }
-
-    return _EmitirOutcome(
-      ok: ok,
-      message: message,
-      pdfOpened: pdfOpened,
-    );
-  }
-
-  Future<bool> _openPdfPreviewFromEmitResult(
-    Map<String, dynamic> result,
-    String idFol,
-  ) async {
-    final pdfBase64 = _extractPdfBase64FromEmitResult(result);
-    if (pdfBase64.isEmpty) return false;
-
-    try {
-      final bytes = base64Decode(base64.normalize(pdfBase64));
+      final bytes = base64Decode(base64.normalize(normalized));
       if (bytes.isEmpty) return false;
       await Printing.layoutPdf(
         name: 'CFDI_$idFol.pdf',
@@ -3500,34 +2136,201 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
     }
   }
 
-  String _extractPdfBase64FromEmitResult(Map<String, dynamic> result) {
-    final facturifyMap = _safeMap(result['facturify']);
-    final facturifyDataMap = _safeMap(facturifyMap['data']);
-    final facturifyNestedDataMap = _safeMap(facturifyDataMap['data']);
-
-    final candidates = <dynamic>[
-      result['pdf'],
-      result['pdfBase64'],
-      result['CFDI_PDF_BASE64'],
-      facturifyMap['pdf'],
-      facturifyMap['CFDI_PDF'],
-      facturifyDataMap['pdf'],
-      facturifyDataMap['CFDI_PDF'],
-      facturifyNestedDataMap['pdf'],
-      facturifyNestedDataMap['CFDI_PDF'],
-    ];
-
-    for (final candidate in candidates) {
-      var text = _asCleanText(candidate);
-      if (text.isEmpty) continue;
-      final lower = text.toLowerCase();
-      if (lower.startsWith('data:application/pdf;base64,')) {
-        text = text.substring(text.indexOf(',') + 1);
-      }
-      text = text.replaceAll(RegExp(r'\s+'), '');
-      if (text.isNotEmpty) return text;
+  Future<void> _showXmlDialogFromBase64(
+    BuildContext dialogContext,
+    String rawBase64,
+    String idFol,
+  ) async {
+    final normalized = _normalizeBase64Payload(rawBase64);
+    if (normalized.isEmpty) return;
+    String xmlText = '';
+    try {
+      final bytes = base64Decode(base64.normalize(normalized));
+      xmlText = utf8.decode(bytes, allowMalformed: true);
+    } catch (_) {
+      xmlText = '';
     }
-    return '';
+    if (xmlText.trim().isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo visualizar XML del CFDI.')),
+      );
+      return;
+    }
+
+    await showDialog<void>(
+      context: dialogContext,
+      builder: (xmlContext) {
+        return Dialog(
+          insetPadding: const EdgeInsets.all(16),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 980, maxHeight: 700),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'XML CFDI - $idFol',
+                    style: Theme.of(xmlContext)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 10),
+                  Expanded(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.black12),
+                        borderRadius: BorderRadius.circular(8),
+                        color: const Color(0xFFFDFDFD),
+                      ),
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.all(12),
+                        child: SelectableText(
+                          xmlText,
+                          style: const TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 12,
+                            height: 1.35,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: FilledButton(
+                      onPressed: () => Navigator.of(xmlContext).pop(),
+                      child: const Text('CERRAR'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _onVisualizarPdfXml(WidgetRef ref, String idFol) async {
+    if (!mounted) return;
+    final api = ref.read(facturacionApiProvider);
+    Map<String, dynamic> result;
+    try {
+      result = await api.obtenerArtefactos(idFol);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo obtener PDF/XML: $e')),
+      );
+      return;
+    }
+    if (!mounted) return;
+
+    final pdfBase64 = _asCleanText(result['pdfBase64']);
+    final xmlBase64 = _asCleanText(result['xmlBase64']);
+    final hasPdf = pdfBase64.isNotEmpty;
+    final hasXml = xmlBase64.isNotEmpty;
+
+    if (!hasPdf && !hasXml) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No hay PDF/XML disponibles para este folio.')),
+      );
+      return;
+    }
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Visualización CFDI'),
+          content: Text('Folio: $idFol\nSelecciona el archivo a visualizar.'),
+          actions: [
+            if (hasXml)
+              OutlinedButton(
+                onPressed: () async {
+                  await _showXmlDialogFromBase64(dialogContext, xmlBase64, idFol);
+                },
+                child: const Text('VER XML'),
+              ),
+            if (hasPdf)
+              FilledButton(
+                onPressed: () async {
+                  final ok = await _openPdfFromBase64(pdfBase64, idFol);
+                  if (!ok && mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('No se pudo abrir PDF del CFDI.')),
+                    );
+                  }
+                },
+                child: const Text('VER PDF'),
+              ),
+            OutlinedButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('CERRAR'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _onRefrescarEstado(WidgetRef ref, String idFol) async {
+    if (!mounted) return;
+    final api = ref.read(facturacionApiProvider);
+    final result = await api.refrescarEstado(idFol);
+    if (!mounted) return;
+    final local = result['local'];
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Estado actualizado: ${local?['ESTATUS'] ?? '-'} / ${local?['CFDI_STATUS'] ?? '-'}',
+        ),
+      ),
+    );
+    ref.invalidate(facturasPendientesProvider);
+  }
+
+  Future<void> _onReenviarEmail(WidgetRef ref, String idFol) async {
+    if (!mounted) return;
+    final api = ref.read(facturacionApiProvider);
+    final result = await api.reenviarEmail(idFol);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Reenvío email: ${result['ok'] == true ? 'OK' : 'ERROR'}'),
+      ),
+    );
+  }
+
+  Future<void> _onCancelar(WidgetRef ref, String idFol) async {
+    if (!mounted) return;
+    final api = ref.read(facturacionApiProvider);
+    final result = await api.cancelar(
+      idFol,
+      motivo: 'Cancelación manual desde IOE',
+    );
+    if (!mounted) return;
+    final ok = _asBool(result['ok']);
+    final message = _asCleanText(result['message']);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message.isNotEmpty
+              ? message
+              : (ok
+                  ? 'Cancelación solicitada.'
+                  : 'No se pudo cancelar CFDI.'),
+        ),
+        backgroundColor: ok ? null : const Color(0xFFB71C1C),
+      ),
+    );
+    if (ok) {
+      ref.invalidate(facturasPendientesProvider);
+    }
   }
 
   Widget _headerCell(
@@ -3588,115 +2391,10 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
     );
   }
 
-  Map<String, dynamic> _safeMap(dynamic value) {
-    if (value is Map) return Map<String, dynamic>.from(value);
-    return <String, dynamic>{};
-  }
-
   String _asCleanText(dynamic value) {
     final text = '$value'.trim();
     if (text.isEmpty || text.toLowerCase() == 'null') return '';
     return text;
-  }
-
-  String _firstNonEmptyText(
-    List<dynamic> values, {
-    String fallback = '',
-  }) {
-    for (final value in values) {
-      final text = _asCleanText(value);
-      if (text.isNotEmpty) return text;
-    }
-    return fallback;
-  }
-
-  int _firstIntValue(
-    List<dynamic> values, {
-    int fallback = _kClienteRegimenDefault,
-  }) {
-    for (final value in values) {
-      final parsed = _asDouble(value);
-      if (parsed == null) continue;
-      return parsed.toInt();
-    }
-    return fallback;
-  }
-
-  String? _resolveClienteId(Map<String, dynamic> cliente) {
-    final candidate = _firstNonEmptyText([
-      cliente['IDC'],
-      cliente['idc'],
-    ]);
-    if (candidate.isEmpty) return null;
-    final numeric = num.tryParse(candidate);
-    if (numeric == null) return candidate;
-    if (numeric % 1 == 0) return numeric.toInt().toString();
-    return numeric.toString();
-  }
-
-  String? _validateRequiredField(String? value) {
-    final v = (value ?? '').trim().toUpperCase();
-    if (v.isEmpty || v == _kClienteSelectDefault || v == 'COLOCAR') {
-      return 'Requerido';
-    }
-    return null;
-  }
-
-  String? _validateClienteRfc(String? value) {
-    final v = (value ?? '').trim().toUpperCase();
-    if (v.isEmpty) return 'Requerido';
-    if (v == 'XAXX010101000' || v == 'XEXX010101000') return null;
-    final moral = RegExp(
-      r'^[A-Z&Ñ]{3}\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])[A-Z0-9]{3}$',
-    );
-    final fisica = RegExp(
-      r'^[A-Z&Ñ]{4}\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])[A-Z0-9]{3}$',
-    );
-    if (moral.hasMatch(v) || fisica.hasMatch(v)) return null;
-    return 'RFC inválido';
-  }
-
-  DropdownMenuItem<T> _clienteMenuItem<T>(T value, String label, int index) {
-    final bg = index.isEven
-        ? Colors.grey.withValues(alpha: 0.08)
-        : Colors.transparent;
-    return DropdownMenuItem<T>(
-      value: value,
-      child: Container(
-        width: double.infinity,
-        color: bg,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        child: Text(
-          label,
-          style: const TextStyle(fontSize: 11),
-          overflow: TextOverflow.ellipsis,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildClienteEditorField({
-    required BuildContext context,
-    required String label,
-    required Widget child,
-    double width = 220,
-  }) {
-    return SizedBox(
-      width: width,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-          ),
-          const SizedBox(height: 4),
-          child,
-        ],
-      ),
-    );
   }
 
   dynamic _pickValue(Map<String, dynamic> row, List<String> keys) {
@@ -3754,14 +2452,6 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
     return '\$${value.toStringAsFixed(2)}';
   }
 
-  String _formatCantidad(dynamic rawValue) {
-    final value = _asDouble(rawValue);
-    if (value == null) return _pickText({'v': rawValue}, const ['v']);
-    final intValue = value.toInt();
-    if (value == intValue.toDouble()) return '$intValue';
-    return value.toStringAsFixed(2);
-  }
-
   String _formatClienteNumero(dynamic rawValue) {
     if (rawValue == null) return '-';
     final text = _asCleanText(rawValue);
@@ -3813,122 +2503,6 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
     return text == '1' || text == 'true' || text == 'si' || text == 'yes';
   }
 
-  double? _asDouble(dynamic value) {
-    if (value == null) return null;
-    if (value is num) return value.toDouble();
-    return double.tryParse('$value'.replaceAll(',', '').trim());
-  }
-
-  String _formatActionError(String prefix, Object error) {
-    if (error is DioException) {
-      final data = error.response?.data;
-      if (data is Map) {
-        final raw = data['message'];
-        if (raw is List && raw.isNotEmpty) {
-          return '$prefix: ${raw.first}';
-        }
-        if (raw != null) {
-          return '$prefix: $raw';
-        }
-      }
-      if (data is String && data.trim().isNotEmpty) {
-        return '$prefix: $data';
-      }
-      if ((error.message ?? '').trim().isNotEmpty) {
-        return '$prefix: ${error.message}';
-      }
-    }
-    return '$prefix: $error';
-  }
-
-  String _extractEmitirErrorMessage(Map<String, dynamic> result) {
-    final errors = <String>[];
-
-    void collectErrors(dynamic rawErrors) {
-      if (rawErrors is! List) return;
-      for (final item in rawErrors) {
-        if (item is! Map) continue;
-        final map = Map<String, dynamic>.from(item);
-        final field = '${map['field'] ?? ''}'.trim();
-        final msg = '${map['message'] ?? ''}'.trim();
-        if (msg.isEmpty) continue;
-        errors.add(field.isEmpty ? msg : '$field: $msg');
-      }
-    }
-
-    collectErrors(result['errors']);
-    if (result['facturify'] is Map) {
-      final facturify = Map<String, dynamic>.from(result['facturify'] as Map);
-      collectErrors(facturify['errors']);
-      final facturifyMessage = '${facturify['message'] ?? ''}'.trim();
-      if (errors.isEmpty && facturifyMessage.isNotEmpty) {
-        errors.add(facturifyMessage);
-      }
-    }
-
-    if (errors.isNotEmpty) {
-      return 'No se pudo emitir: ${errors.join(' | ')}';
-    }
-
-    final direct = '${result['message'] ?? ''}'.trim();
-    if (direct.isNotEmpty) {
-      return direct;
-    }
-
-    final status = '${result['status'] ?? ''}'.trim();
-    if (status.isNotEmpty) {
-      return 'No se pudo emitir factura (status $status).';
-    }
-
-    return 'No se pudo emitir factura.';
-  }
-
-  List<Map<String, dynamic>> _sortRowsByFcnDesc(
-    List<Map<String, dynamic>> rows,
-  ) {
-    final sorted = [...rows];
-    sorted.sort((a, b) {
-      final aDate = _parseRowDateTime(_pickValue(a, const ['FCN', 'fcn']));
-      final bDate = _parseRowDateTime(_pickValue(b, const ['FCN', 'fcn']));
-
-      if (aDate != null && bDate != null) {
-        final cmp = bDate.compareTo(aDate);
-        if (cmp != 0) return cmp;
-      } else if (aDate == null && bDate != null) {
-        return 1;
-      } else if (aDate != null && bDate == null) {
-        return -1;
-      }
-
-      final aId = _pickText(a, const ['IDFOL', 'idfol']);
-      final bId = _pickText(b, const ['IDFOL', 'idfol']);
-      return bId.compareTo(aId);
-    });
-    return sorted;
-  }
-
-  DateTime? _parseRowDateTime(dynamic rawValue) {
-    if (rawValue == null) return null;
-    if (rawValue is DateTime) return rawValue;
-
-    final text = '$rawValue'.trim();
-    if (text.isEmpty || text.toLowerCase() == 'null') return null;
-
-    final iso = DateTime.tryParse(text);
-    if (iso != null) return iso;
-
-    final dmy = RegExp(r'^(\d{1,2})/(\d{1,2})/(\d{4})$').firstMatch(text);
-    if (dmy != null) {
-      final day = int.tryParse(dmy.group(1) ?? '');
-      final month = int.tryParse(dmy.group(2) ?? '');
-      final year = int.tryParse(dmy.group(3) ?? '');
-      if (day != null && month != null && year != null) {
-        return DateTime(year, month, day);
-      }
-    }
-    return null;
-  }
-
   Map<String, dynamic>? _findRowById(
     List<Map<String, dynamic>> rows,
     String idFol,
@@ -3941,3 +2515,5 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
     return null;
   }
 }
+
+

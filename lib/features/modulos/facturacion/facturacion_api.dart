@@ -77,6 +77,19 @@ class FacturacionApi {
   final Dio dio;
 
   String _folioPath(String idFol) => Uri.encodeComponent(idFol.trim());
+  Map<String, dynamic> _asMap(dynamic value) =>
+      Map<String, dynamic>.from((value as Map?) ?? const <String, dynamic>{});
+
+  List<String> _normalizeIdFols(List<String> idFols) {
+    final out = <String>[];
+    for (final raw in idFols) {
+      final id = raw.trim().toUpperCase();
+      if (id.isEmpty) continue;
+      if (out.contains(id)) continue;
+      out.add(id);
+    }
+    return out;
+  }
 
   Future<FacturacionPendientesPage> fetchPendientes({
     required int page,
@@ -126,31 +139,87 @@ class FacturacionApi {
 
   Future<Map<String, dynamic>> validar(String idFol) async {
     final res = await dio.get('/facturacion/${_folioPath(idFol)}/validar');
-    return Map<String, dynamic>.from(res.data as Map);
+    return _asMap(res.data);
   }
 
   Future<Map<String, dynamic>> emitir(String idFol) async {
     final res = await dio.post('/facturacion/${_folioPath(idFol)}/emitir', data: const {});
-    return Map<String, dynamic>.from(res.data as Map);
+    return _asMap(res.data);
+  }
+
+  Future<Map<String, dynamic>> actualizarClienteFiscal(
+    String idCliente,
+    Map<String, dynamic> payload,
+  ) async {
+    final res = await dio.patch(
+      '/factclientshp/${Uri.encodeComponent(idCliente.trim())}',
+      data: Map<String, dynamic>.from(payload),
+    );
+    return _asMap(res.data);
   }
 
   Future<Map<String, dynamic>> refrescarEstado(String idFol) async {
     final res = await dio.post('/facturacion/${_folioPath(idFol)}/refrescar-estado', data: const {});
-    return Map<String, dynamic>.from(res.data as Map);
+    return _asMap(res.data);
   }
 
   Future<Map<String, dynamic>> reenviarEmail(String idFol, {String? email}) async {
     final res = await dio.post('/facturacion/${_folioPath(idFol)}/reenviar-email', data: {
       if ((email ?? '').trim().isNotEmpty) 'email': email!.trim(),
     });
-    return Map<String, dynamic>.from(res.data as Map);
+    return _asMap(res.data);
   }
 
   Future<Map<String, dynamic>> cancelar(String idFol, {String? motivo}) async {
     final res = await dio.post('/facturacion/${_folioPath(idFol)}/cancelar', data: {
       if ((motivo ?? '').trim().isNotEmpty) 'motivo': motivo!.trim(),
     });
-    return Map<String, dynamic>.from(res.data as Map);
+    return _asMap(res.data);
+  }
+
+  Future<Map<String, dynamic>> obtenerArtefactos(String idFol) async {
+    final res = await dio.get('/facturacion/${_folioPath(idFol)}/artifacts');
+    return _asMap(res.data);
+  }
+
+  Future<Map<String, dynamic>> previewUnificacion(List<String> idFols) async {
+    final ids = _normalizeIdFols(idFols);
+    final res = await dio.post(
+      '/facturacion/unificaciones/preview',
+      data: <String, dynamic>{'idFols': ids},
+    );
+    return _asMap(res.data);
+  }
+
+  Future<Map<String, dynamic>> crearUnificacion(
+    List<String> idFols, {
+    String? comentario,
+  }) async {
+    final ids = _normalizeIdFols(idFols);
+    final res = await dio.post(
+      '/facturacion/unificaciones',
+      data: <String, dynamic>{
+        'idFols': ids,
+        if ((comentario ?? '').trim().isNotEmpty) 'comentario': comentario!.trim(),
+      },
+    );
+    return _asMap(res.data);
+  }
+
+  Future<Map<String, dynamic>> reversarUnificacion(
+    String grupoId, {
+    required String motivo,
+  }) async {
+    final res = await dio.post(
+      '/facturacion/unificaciones/${_folioPath(grupoId)}/reversa',
+      data: <String, dynamic>{'motivo': motivo.trim()},
+    );
+    return _asMap(res.data);
+  }
+
+  Future<Map<String, dynamic>> detalleUnificacion(String grupoId) async {
+    final res = await dio.get('/facturacion/unificaciones/${_folioPath(grupoId)}');
+    return _asMap(res.data);
   }
 }
 

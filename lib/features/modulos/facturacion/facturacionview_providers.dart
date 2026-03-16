@@ -3,6 +3,9 @@ import 'package:ioe_app/core/auth/auth_controller.dart';
 import 'package:ioe_app/core/dio_provider.dart';
 import 'facturacion_api.dart';
 
+const facturacionViewEstatusFacturadoCancelPendiente =
+    'FACTURADO Y CANCELACION PENDIENTE';
+
 final facturacionApiProvider = Provider<FacturacionApi>(
   (ref) => FacturacionApi(ref.read(dioProvider)),
 );
@@ -27,7 +30,7 @@ final facturasPendientesProvider = FutureProvider<FacturacionPendientesPage>(
           page: ref.watch(facturacionPageProvider),
           pageSize: ref.watch(facturacionPageSizeProvider),
           suc: ref.watch(facturacionFilterSucProvider),
-          estatus: 'PENDIENTE',
+          estatus: ref.watch(facturacionFilterEstatusProvider),
           razonSocialReceptor: ref.watch(facturacionFilterRazonSocialProvider),
           rfcReceptor: ref.watch(facturacionFilterRfcReceptorProvider),
           clien: ref.watch(facturacionFilterClienProvider),
@@ -43,7 +46,7 @@ final selectedFacturasUnificacionProvider =
 
 final facturacionFilterSucProvider = StateProvider<String>((ref) => '');
 final facturacionFilterEstatusProvider =
-    StateProvider<String>((ref) => 'PENDIENTE');
+    StateProvider<String>((ref) => facturacionViewEstatusFacturadoCancelPendiente);
 final facturacionFilterRazonSocialProvider = StateProvider<String>((ref) => '');
 final facturacionFilterRfcReceptorProvider = StateProvider<String>((ref) => '');
 final facturacionFilterClienProvider = StateProvider<String>((ref) => '');
@@ -52,7 +55,7 @@ final facturacionFilterTipoFactProvider = StateProvider<String>((ref) => '');
 
 final facturacionDraftFilterSucProvider = StateProvider<String>((ref) => '');
 final facturacionDraftFilterEstatusProvider =
-    StateProvider<String>((ref) => 'PENDIENTE');
+    StateProvider<String>((ref) => facturacionViewEstatusFacturadoCancelPendiente);
 final facturacionDraftFilterRazonSocialProvider =
     StateProvider<String>((ref) => '');
 final facturacionDraftFilterRfcReceptorProvider =

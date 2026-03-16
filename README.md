@@ -94,6 +94,15 @@ autenticacion, datos maestros, inventarios, control de cuentas y punto de venta.
 - Facturación pendientes paginada (2026-03-13): la UI consume `GET /facturacion/pendientes` con `page`, `pageSize`, `suc`, `estatus`, `razonSocialReceptor`, `rfcReceptor`, `clien`, `idFol`, `tipoFact`.
 - Facturación pendientes paginada (2026-03-13): filtros y orden por `FCN` se aplican en backend sobre todo el dataset; la UI muestra contador absoluto de registros y navegación entre páginas.
 - Facturación filtros UI (2026-03-13): los criterios se aplican de forma manual con botón `APLICAR FILTROS`; `LIMPIAR FILTROS` restablece criterios, página y consulta.
+- Facturación tabla UI (2026-03-15): la grilla principal incluye barra de scroll horizontal visible para recorrer todas las columnas y se ajustó la alineación encabezado/valor para evitar desfase visual.
+- Facturación tabla UI (2026-03-15): la columna `IMPT` se muestra con formato monetario fijo a 2 decimales.
+- Facturación tabla UI (2026-03-15): se agrega separación entre celdas/encabezados para evitar que los títulos se vean pegados (`IMPT` vs `F. Pago`) al desplazar horizontal.
+- Facturación configuración visual (2026-03-15): la pantalla agrega botón `Configurar` que abre modal para ajustar escala global y tamaños de fuente por componente (AppBar, títulos, labels, body, botones, header/celda de tabla).
+- Facturación anchos persistentes (2026-03-15): el modal permite ajustar ancho por columna y separación entre campos; los valores se guardan en `SharedPreferences` (cache local del navegador en web).
+- Facturación resize directo (2026-03-15): el encabezado de la grilla incorpora separadores arrastrables entre columnas para redimensionar en vivo y persistir al soltar.
+- Facturación validar detalle (2026-03-14): al seleccionar un folio y presionar `Validar`, la UI abre un modal emergente `Vista detalle factura` con artículos del folio (`IDFOL`, `UPC`, `Descripcion`, `ClaveProdServ`, `Unidad`, `Cantidad`, `ValorUnitario`, `PVTAT`, `Impuesto`, `Total`) y `Total factura`.
+- Facturación validar importes (2026-03-14): el modal muestra `Cabecera`, `Detalle` y `Diferencia` con redondeo a 2 decimales para depurar descuadres por precisión.
+- Facturación conciliación de centavos (2026-03-15): backend alinea `IMPT` de cabecera contra el total derivado de `FACT_TICKET_SHP` durante sincronización VF, por lo que nuevos folios en facturación deben mostrarse sin diferencia de centavos en el modal de validación.
 - Panel clientes UI (2026-03): en alta de cliente, el modal usa valores predeterminados `SELECCIONAR` para `RfcEmisor`/`RegimenFiscalReceptor`/`UsoCfdi` (en payload `RegimenFiscalReceptor=0` por tipo numérico) y `COLOCAR` para `EmailReceptor`; incluye botón `CANCELAR` y, después de `Guardar registro`, cierra el modal y refresca la consulta del panel.
 - `/pvctrfolasvr` -> `PV_CTR_FOL_ASVR`.
 - `/pv/devoluciones/*` -> `PV_CTR_FOL_ASVR`, `PV_DEV_DET_TMP`, `PV_TICKET_LOG`, `PV_CTR_FOL_FORM(_SVR)`, `PV_CTR_ORDS`, `FAC_SVR_SHAP`, `FACT_IDFOLDEV`, `DAT_CTRL_CTAS`.
@@ -494,6 +503,14 @@ autenticacion, datos maestros, inventarios, control de cuentas y punto de venta.
 - La API es la fuente final de autorizacion; frontend solo refleja el contexto permitido y muestra error si backend rechaza.
 - Caja general Excel: la hoja `DETALLE TRANSACCIONES` muestra `REQF` en la exportacion global y conserva el valor original (`-1/0/1`).
 - Caja general Excel: los importes de `RESUMEN DIA` y `DETALLE TRANSACCIONES` se exportan como numericos con formato moneda (no texto).
+
+## Regla principal FACTURA / FACTURA_VIEW (rutas y consultas)
+- Toda nueva ruta, endpoint o consulta de facturación debe aplicar esta regla desde diseño.
+- Enrutamiento UI:
+- `/facturacion` requiere módulo front `FACTURA` (compatibilidad: `FACTURACION`, `PV_FACTURACION`, `FACT_IOE`).
+- `/facturacion-view` requiere módulo front `FACTURA_VIEW`.
+- Admin (rol/nivel administrativo configurado; incluye usuario `ADMIN`) mantiene bypass total en frontend y backend para consultar/editar/eliminar.
+- Facturación no depende de `USR_MOD_SUC`; no se requiere alta de admin en `USR_MOD_SUC` para habilitar estos accesos.
 
 ## Tecnologias
 - Flutter / Dart

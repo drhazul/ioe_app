@@ -7,6 +7,8 @@ import 'package:go_router/go_router.dart';
 import '../features/login/login_page.dart';
 import '../features/login/force_change_password_page.dart';
 import '../features/home/home_page.dart';
+import '../features/home/home_models.dart';
+import '../features/home/home_providers.dart';
 import '../features/masterdata/masterdata_page.dart';
 import '../features/masterdata/access/access_page.dart';
 import '../features/masterdata/access/modulos_backend_page.dart';
@@ -59,6 +61,7 @@ import '../features/modulos/retiros/retiro_efectivo_page.dart';
 import '../features/modulos/reloj_checador/app/reloj_checador_app_page.dart';
 import '../features/modulos/reloj_checador/consultas/reloj_checador_consultas_page.dart';
 import '../features/modulos/facturacion/facturacion_page.dart';
+import '../features/modulos/facturacion/facturacionview_page.dart';
 import '../features/modulos/estado_cajon/app/estado_cajon_page.dart';
 import '../features/modulos/caja_general/app/caja_general_page.dart';
 import '../features/modulos/caja_general/app/entrega_opv_page.dart';
@@ -81,6 +84,7 @@ import 'auth/auth_controller.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final auth = ref.watch(authControllerProvider);
+  final homeModulesAsync = ref.watch(homeModulesProvider);
 
   List<GoRoute> accessRoutes() => [
     GoRoute(
@@ -119,6 +123,20 @@ final routerProvider = Provider<GoRouter>((ref) {
         return '/';
       }
       if (auth.isAuthenticated && loggingIn) return '/';
+
+      if (_isFacturacionRoute(state.matchedLocation)) {
+        final isAdmin = (auth.roleId ?? 0) == 1 ||
+            (auth.username ?? '').trim().toUpperCase() == 'ADMIN';
+        if (!isAdmin) {
+          if (homeModulesAsync.isLoading) return null;
+          if (homeModulesAsync.hasError) return '/';
+          final modules = homeModulesAsync.asData?.value.modulos ?? const <HomeModule>[];
+          if (!_hasFacturacionRouteAccess(state.matchedLocation, modules)) {
+            return '/';
+          }
+        }
+      }
+
       return null;
     },
     routes: [
@@ -596,11 +614,51 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'facturacion',
             builder: (c, s) => const FacturacionPage(),
           ),
+          GoRoute(
+            path: 'facturacion-view',
+            builder: (c, s) => const FacturacionViewPage(),
+          ),
         ],
       ),
     ],
   );
 });
+
+const Set<String> _facturaManageModuleCodes = <String>{
+  'FACTURA',
+  'FACTURACION',
+  'PV_FACTURACION',
+  'FACT_IOE',
+};
+
+const Set<String> _facturaViewModuleCodes = <String>{
+  'FACTURA_VIEW',
+};
+
+bool _isFacturacionRoute(String location) {
+  return location == '/facturacion' ||
+      location.startsWith('/facturacion/') ||
+      location == '/facturacion-view' ||
+      location.startsWith('/facturacion-view/');
+}
+
+bool _hasFacturacionRouteAccess(String location, List<HomeModule> modules) {
+  final codes = modules
+      .map((module) => module.codigo.trim().toUpperCase())
+      .where((code) => code.isNotEmpty)
+      .toSet();
+
+  if (location == '/facturacion-view' || location.startsWith('/facturacion-view/')) {
+    return codes.any(_facturaViewModuleCodes.contains) ||
+        codes.any(_facturaManageModuleCodes.contains);
+  }
+
+  if (location == '/facturacion' || location.startsWith('/facturacion/')) {
+    return codes.any(_facturaManageModuleCodes.contains);
+  }
+
+  return true;
+}
 
 /// Helper para refrescar go_router desde Riverpod (stream)
 class GoRouterRefreshStream extends ChangeNotifier {

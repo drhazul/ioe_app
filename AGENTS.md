@@ -66,6 +66,15 @@
 - Facturación pendientes paginada (2026-03-13): los filtros aplican server-side sobre toda la consulta y la respuesta incluye `data`, `total`, `page`, `pageSize`, `totalPages`.
 - Facturación pendientes paginada (2026-03-13): la grilla muestra contador absoluto de renglón y botones de desplazamiento por páginas.
 - Facturación filtros UI (2026-03-13): la captura de criterios ya no aplica consulta por tecla; la pantalla usa botones `APLICAR FILTROS` y `LIMPIAR FILTROS` para evitar desincronización entre consulta y paginación.
+- Facturación tabla UI (2026-03-15): la tabla principal habilita scrollbar horizontal visible para navegación de todas las columnas y se corrige alineación entre encabezados y valores.
+- Facturación tabla UI (2026-03-15): `IMPT` se renderiza con formato monetario de 2 decimales.
+- Facturación tabla UI (2026-03-15): se agrega `gap` horizontal entre celdas para evitar que encabezados contiguos se perciban unidos al hacer scroll (`IMPT` / `F. Pago`).
+- Facturación configuración visual (2026-03-15): la pantalla agrega botón `Configurar` que abre modal para ajustar escala global y tamaños de fuente por componente (AppBar, títulos, labels, body, botones y tabla) sin cambiar contrato API.
+- Facturación anchos persistentes (2026-03-15): el modal incluye controles de ancho por columna y separación entre campos; la configuración se persiste en `SharedPreferences` (cache local del navegador en web).
+- Facturación resize directo (2026-03-15): el header de la grilla agrega separadores arrastrables entre columnas para redimensionar en vivo y guardar al soltar.
+- Facturación validar detalle (2026-03-14): al presionar `Validar` sobre un folio seleccionado, la pantalla abre modal `Vista detalle factura` con renglones de `FACT_TICKET_SHP` (`IDFOL`, `UPC`, `Descripcion`, `ClaveProdServ`, `Unidad`, `Cantidad`, `ValorUnitario`, `PVTAT`, `Impuesto`, `Total`) y bloque de `Total factura`.
+- Facturación validar importes (2026-03-14): el modal de validación presenta `Cabecera`, `Detalle` y `Diferencia` redondeados a 2 decimales para análisis de discrepancias.
+- Facturación conciliación de centavos (2026-03-15): para nuevos folios VF, backend ajusta `FAC_SVR_SHAP.IMPT` desde el detalle de `FACT_TICKET_SHP`; la UI de validación debe reflejar `Diferencia` cero salvo datos históricos no saneados.
 - Panel clientes UI (2026-03): en alta de cliente, el modal predetermina `RfcEmisor`/`RegimenFiscalReceptor`/`UsoCfdi` con `SELECCIONAR` (en payload `RegimenFiscalReceptor=0` por tipo numérico) y `EmailReceptor` con `COLOCAR`; agrega botón `CANCELAR` y, al guardar, cierra el modal y recarga el panel.
 - Cotizaciones `/pvctrfolasvr` -> `PV_CTR_FOL_ASVR`.
 - Devoluciones `/pv/devoluciones/*` -> `PV_CTR_FOL_ASVR`, `PV_DEV_DET_TMP`, `PV_TICKET_LOG`, `PV_CTR_FOL_FORM(_SVR)`, `PV_CTR_ORDS`, `FAC_SVR_SHAP`, `FACT_IDFOLDEV`, `DAT_CTRL_CTAS`.
@@ -509,6 +518,14 @@
 - Si backend expone sucursales autorizadas por `USR_MOD_SUC` para el modulo, la UI debe permitir consultar/procesar en todas esas sucursales vinculadas.
 - El control de seguridad final siempre es backend; frontend solo habilita/oculta opciones segun contexto autorizado.
 - Compatibilidad legacy: cuando backend no devuelve sucursales por `USR_MOD_SUC`, la UI puede operar con la sucursal del contexto (`user.suc`) para no romper flujos existentes.
+
+## Regla principal FACTURA / FACTURA_VIEW (obligatoria)
+- Esta regla es base para crear rutas, endpoints y consultas de facturación.
+- Enrutamiento:
+- `/facturacion` requiere módulo `FACTURA` (compat: `FACTURACION`, `PV_FACTURACION`, `FACT_IOE`).
+- `/facturacion-view` requiere módulo `FACTURA_VIEW`.
+- Admin (rol/nivel administrativo configurado; incluye usuario `ADMIN`) tiene bypass total en front y back para consultar/editar/eliminar en facturación.
+- Facturación no usa `USR_MOD_SUC` como control de autorización; no se requiere registro de admin en `USR_MOD_SUC`.
 
 ## Caja General: autorizacion por sucursal
 - Para `caja-general`, considerar autorizadas las sucursales vinculadas al usuario en `USR_MOD_SUC` para modulos `DAT_FORM_ENTR_OPV`, `DAT_RES_ENTRE_CAJ` y `PV_ENTREGA_CG`.
