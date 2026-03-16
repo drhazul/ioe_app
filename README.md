@@ -103,6 +103,7 @@ autenticacion, datos maestros, inventarios, control de cuentas y punto de venta.
 - Facturación validar detalle (2026-03-14): al seleccionar un folio y presionar `Validar`, la UI abre un modal emergente `Vista detalle factura` con artículos del folio (`IDFOL`, `UPC`, `Descripcion`, `ClaveProdServ`, `Unidad`, `Cantidad`, `ValorUnitario`, `PVTAT`, `Impuesto`, `Total`) y `Total factura`.
 - Facturación validar importes (2026-03-14): el modal muestra `Cabecera`, `Detalle` y `Diferencia` con redondeo a 2 decimales para depurar descuadres por precisión.
 - Facturación conciliación de centavos (2026-03-15): backend alinea `IMPT` de cabecera contra el total derivado de `FACT_TICKET_SHP` durante sincronización VF, por lo que nuevos folios en facturación deben mostrarse sin diferencia de centavos en el modal de validación.
+- Facturación unificación sucursal JWT (2026-03-16): backend dejó de forzar `user.suc` en `preview/create` de unificación para usuarios con permisos de gestión (`FACTURA`/compat), evitando bloqueos falsos de "folios fuera de la sucursal autorizada".
 - Panel clientes UI (2026-03): en alta de cliente, el modal usa valores predeterminados `SELECCIONAR` para `RfcEmisor`/`RegimenFiscalReceptor`/`UsoCfdi` (en payload `RegimenFiscalReceptor=0` por tipo numérico) y `COLOCAR` para `EmailReceptor`; incluye botón `CANCELAR` y, después de `Guardar registro`, cierra el modal y refresca la consulta del panel.
 - `/pvctrfolasvr` -> `PV_CTR_FOL_ASVR`.
 - `/pv/devoluciones/*` -> `PV_CTR_FOL_ASVR`, `PV_DEV_DET_TMP`, `PV_TICKET_LOG`, `PV_CTR_FOL_FORM(_SVR)`, `PV_CTR_ORDS`, `FAC_SVR_SHAP`, `FACT_IDFOLDEV`, `DAT_CTRL_CTAS`.
@@ -511,6 +512,7 @@ autenticacion, datos maestros, inventarios, control de cuentas y punto de venta.
 - `/facturacion-view` requiere módulo front `FACTURA_VIEW`.
 - Admin (rol/nivel administrativo configurado; incluye usuario `ADMIN`) mantiene bypass total en frontend y backend para consultar/editar/eliminar.
 - Facturación no depende de `USR_MOD_SUC`; no se requiere alta de admin en `USR_MOD_SUC` para habilitar estos accesos.
+- En unificación de facturación (`/facturacion/unificaciones/*`), no se debe restringir gestión por `user.suc` del JWT cuando el usuario ya cuenta con permisos de gestión.
 
 ## Tecnologias
 - Flutter / Dart

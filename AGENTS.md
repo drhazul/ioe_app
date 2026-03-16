@@ -75,6 +75,7 @@
 - Facturación validar detalle (2026-03-14): al presionar `Validar` sobre un folio seleccionado, la pantalla abre modal `Vista detalle factura` con renglones de `FACT_TICKET_SHP` (`IDFOL`, `UPC`, `Descripcion`, `ClaveProdServ`, `Unidad`, `Cantidad`, `ValorUnitario`, `PVTAT`, `Impuesto`, `Total`) y bloque de `Total factura`.
 - Facturación validar importes (2026-03-14): el modal de validación presenta `Cabecera`, `Detalle` y `Diferencia` redondeados a 2 decimales para análisis de discrepancias.
 - Facturación conciliación de centavos (2026-03-15): para nuevos folios VF, backend ajusta `FAC_SVR_SHAP.IMPT` desde el detalle de `FACT_TICKET_SHP`; la UI de validación debe reflejar `Diferencia` cero salvo datos históricos no saneados.
+- Facturación unificación sucursal JWT (2026-03-16): backend no fuerza `user.suc` en `preview/create` de unificación para usuarios con permisos de gestión (`FACTURA`/compat), evitando bloqueos falsos de "folios fuera de la sucursal autorizada".
 - Panel clientes UI (2026-03): en alta de cliente, el modal predetermina `RfcEmisor`/`RegimenFiscalReceptor`/`UsoCfdi` con `SELECCIONAR` (en payload `RegimenFiscalReceptor=0` por tipo numérico) y `EmailReceptor` con `COLOCAR`; agrega botón `CANCELAR` y, al guardar, cierra el modal y recarga el panel.
 - Cotizaciones `/pvctrfolasvr` -> `PV_CTR_FOL_ASVR`.
 - Devoluciones `/pv/devoluciones/*` -> `PV_CTR_FOL_ASVR`, `PV_DEV_DET_TMP`, `PV_TICKET_LOG`, `PV_CTR_FOL_FORM(_SVR)`, `PV_CTR_ORDS`, `FAC_SVR_SHAP`, `FACT_IDFOLDEV`, `DAT_CTRL_CTAS`.
@@ -526,6 +527,7 @@
 - `/facturacion-view` requiere módulo `FACTURA_VIEW`.
 - Admin (rol/nivel administrativo configurado; incluye usuario `ADMIN`) tiene bypass total en front y back para consultar/editar/eliminar en facturación.
 - Facturación no usa `USR_MOD_SUC` como control de autorización; no se requiere registro de admin en `USR_MOD_SUC`.
+- En unificación de facturación (`/facturacion/unificaciones/*`), no se debe forzar restricción operativa por `user.suc` del JWT cuando ya existe permiso de gestión.
 
 ## Caja General: autorizacion por sucursal
 - Para `caja-general`, considerar autorizadas las sucursales vinculadas al usuario en `USR_MOD_SUC` para modulos `DAT_FORM_ENTR_OPV`, `DAT_RES_ENTRE_CAJ` y `PV_ENTREGA_CG`.
