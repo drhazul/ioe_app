@@ -481,6 +481,7 @@ class DevolucionPagoFinalizarResponse {
     required this.status,
     required this.aut,
     required this.totals,
+    this.facturacionSync,
   });
 
   final bool ok;
@@ -490,6 +491,7 @@ class DevolucionPagoFinalizarResponse {
   final String status;
   final String aut;
   final DevolucionPagoTotales totals;
+  final DevolucionFacturacionSync? facturacionSync;
 
   factory DevolucionPagoFinalizarResponse.fromJson(Map<String, dynamic> json) {
     return DevolucionPagoFinalizarResponse(
@@ -502,6 +504,43 @@ class DevolucionPagoFinalizarResponse {
       totals: DevolucionPagoTotales.fromJson(
         Map<String, dynamic>.from((json['totals'] as Map?) ?? const {}),
       ),
+      facturacionSync: (json['facturacionSync'] is Map)
+          ? DevolucionFacturacionSync.fromJson(
+              Map<String, dynamic>.from(json['facturacionSync'] as Map),
+            )
+          : null,
+    );
+  }
+}
+
+class DevolucionFacturacionSync {
+  DevolucionFacturacionSync({
+    required this.idfol,
+    required this.syncApplied,
+    this.estatus,
+    this.impt,
+    this.detailRows,
+    this.evento,
+  });
+
+  final String idfol;
+  final bool syncApplied;
+  final String? estatus;
+  final double? impt;
+  final int? detailRows;
+  final String? evento;
+
+  factory DevolucionFacturacionSync.fromJson(Map<String, dynamic> json) {
+    return DevolucionFacturacionSync(
+      idfol:
+          _asText(json['idfol']) ?? _asText(json['IDFOL']) ?? _asText(json['idFol']) ?? '',
+      syncApplied: json['syncApplied'] == true ||
+          json['SYNC_APPLIED'] == 1 ||
+          json['SYNC_APPLIED'] == true,
+      estatus: _asText(json['estatus']) ?? _asText(json['ESTATUS']),
+      impt: _asDouble(json['impt']) ?? _asDouble(json['IMPT']),
+      detailRows: _asInt(json['detailRows']) ?? _asInt(json['DETAIL_ROWS']),
+      evento: _asText(json['evento']) ?? _asText(json['EVENTO']),
     );
   }
 }

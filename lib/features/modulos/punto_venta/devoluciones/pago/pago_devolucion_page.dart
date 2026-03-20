@@ -354,6 +354,12 @@ class _PagoDevolucionPageState extends ConsumerState<PagoDevolucionPage> {
       final estadoFinal = (res.status).trim().toUpperCase().isEmpty
           ? 'PAGADO'
           : res.status.trim().toUpperCase();
+      final sync = res.facturacionSync;
+      final syncMessage = sync == null
+          ? ''
+          : sync.syncApplied
+              ? ' Facturación sincronizada para ${sync.idfol}${(sync.estatus ?? '').trim().isNotEmpty ? ' (${sync.estatus})' : ''}.'
+              : ' Facturación sin registro activo para ${sync.idfol}.';
       if (!mounted) return;
       setState(() {
         _printEnabled = true;
@@ -362,7 +368,7 @@ class _PagoDevolucionPageState extends ConsumerState<PagoDevolucionPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Devolución finalizada ($resolvedIdfolDev) - estado $estadoFinal confirmado. Ya puede imprimir ticket.',
+            'Devolución finalizada ($resolvedIdfolDev) - estado $estadoFinal confirmado.$syncMessage Pago aplicado según la forma del ticket origen. Ya puede imprimir ticket.',
           ),
         ),
       );
@@ -1344,7 +1350,7 @@ class _FormasCard extends StatelessWidget {
             ),
             const SizedBox(height: 2),
             const Text(
-              'Las formas se toman del folio origen (incluyendo no efectivo) para devolver por el mismo concepto.',
+              'Las formas se toman del folio origen (incluyendo no efectivo) para devolver por el mismo concepto. Esta sección no es editable.',
               style: TextStyle(fontSize: 11, color: Colors.black54),
             ),
             const SizedBox(height: 8),

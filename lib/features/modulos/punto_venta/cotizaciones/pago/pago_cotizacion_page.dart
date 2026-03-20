@@ -815,7 +815,6 @@ class _PagoCotizacionPageState extends ConsumerState<PagoCotizacionPage> {
     if (nonCashFormas.isEmpty) return doc;
 
     final header = data.header;
-    final totals = data.totals;
     final footer = data.footer;
 
     final widthPt = _mmToPt(widthMm);
@@ -847,7 +846,6 @@ class _PagoCotizacionPageState extends ConsumerState<PagoCotizacionPage> {
               clienteId: footer.clienteId?.toString(),
               tra: null,
               fecha: forma.fcn ?? footer.fcnm,
-              totalOperacion: totals.total,
               baseFontSize: baseFontSize,
               smallFontSize: smallFontSize,
             ),
@@ -933,12 +931,11 @@ class _PagoCotizacionPageState extends ConsumerState<PagoCotizacionPage> {
     required String? clienteId,
     required String? tra,
     required DateTime? fecha,
-    required double totalOperacion,
     required double baseFontSize,
     required double smallFontSize,
   }) {
     final form = forma.form.trim().isEmpty ? '-' : forma.form.trim().toUpperCase();
-    final impd = _money(totalOperacion);
+    final impd = _money(forma.impp);
     final autRef = (forma.aut ?? '').trim().isEmpty ? '-' : forma.aut!.trim();
     final clienteNom = (clienteNombre ?? '').trim().isEmpty ? '-' : clienteNombre!.trim();
     final clienteCodigo = (clienteId ?? '').trim().isEmpty ? '-' : clienteId!.trim();

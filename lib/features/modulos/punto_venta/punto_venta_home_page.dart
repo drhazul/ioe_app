@@ -132,6 +132,7 @@ class PuntoVentaHomePage extends StatelessWidget {
             subtitle: 'Ultimas ventas y reimpresiones',
             icon: Icons.print,
             tone: const Color(0xFF1C2E4A),
+            route: '/punto-venta/reimpresion-ticket',
           ),
         ],
       ),

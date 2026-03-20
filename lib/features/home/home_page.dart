@@ -364,6 +364,9 @@ class _ModuleRow extends StatelessWidget {
     if (moduloCode == 'FACTURA_VIEW') {
       return '/facturacion-view';
     }
+    if (moduloCode == 'REG_SINREQF') {
+      return '/facturacion-sreqf';
+    }
     if (moduloCode == 'PV_PAGO_SERVICIOS' ||
         moduloCode == 'PV_PAGOS_SERVICIOS' ||
         moduloCode == 'DAT_PNL_PS' ||
@@ -428,6 +431,9 @@ class _ModuleRow extends StatelessWidget {
         return '/facturacion-view';
       }
       return '/facturacion';
+    }
+    if (name.contains('reqf') && name.contains('folio')) {
+      return '/facturacion-sreqf';
     }
     if (name.contains('cambio') &&
         name.contains('forma') &&

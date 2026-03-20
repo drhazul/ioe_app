@@ -62,6 +62,7 @@ import '../features/modulos/reloj_checador/app/reloj_checador_app_page.dart';
 import '../features/modulos/reloj_checador/consultas/reloj_checador_consultas_page.dart';
 import '../features/modulos/facturacion/facturacion_page.dart';
 import '../features/modulos/facturacion/facturacionview_page.dart';
+import '../features/modulos/facturacion/facturacion_sreqf_page.dart';
 import '../features/modulos/estado_cajon/app/estado_cajon_page.dart';
 import '../features/modulos/caja_general/app/caja_general_page.dart';
 import '../features/modulos/caja_general/app/entrega_opv_page.dart';
@@ -79,6 +80,7 @@ import '../features/modulos/punto_venta/devoluciones/devoluciones_page.dart';
 import '../features/modulos/punto_venta/devoluciones/detalle/detalle_devolucion_page.dart';
 import '../features/modulos/punto_venta/devoluciones/detalle/detalle_devolucion_resumen_page.dart';
 import '../features/modulos/punto_venta/devoluciones/pago/pago_devolucion_page.dart';
+import '../features/modulos/punto_venta/reimprticket/reimpresion_page.dart';
 
 import 'auth/auth_controller.dart';
 
@@ -600,6 +602,10 @@ final routerProvider = Provider<GoRouter>((ref) {
                   ),
                 ],
               ),
+              GoRoute(
+                path: 'reimpresion-ticket',
+                builder: (c, s) => const ReimpresionPage(),
+              ),
             ],
           ),
           GoRoute(
@@ -618,6 +624,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'facturacion-view',
             builder: (c, s) => const FacturacionViewPage(),
           ),
+          GoRoute(
+            path: 'facturacion-sreqf',
+            builder: (c, s) => const FacturacionSREQFPage(),
+          ),
         ],
       ),
     ],
@@ -635,11 +645,17 @@ const Set<String> _facturaViewModuleCodes = <String>{
   'FACTURA_VIEW',
 };
 
+const Set<String> _facturaReqfModuleCodes = <String>{
+  'REG_SINREQF',
+};
+
 bool _isFacturacionRoute(String location) {
   return location == '/facturacion' ||
       location.startsWith('/facturacion/') ||
       location == '/facturacion-view' ||
-      location.startsWith('/facturacion-view/');
+      location.startsWith('/facturacion-view/') ||
+      location == '/facturacion-sreqf' ||
+      location.startsWith('/facturacion-sreqf/');
 }
 
 bool _hasFacturacionRouteAccess(String location, List<HomeModule> modules) {
@@ -655,6 +671,12 @@ bool _hasFacturacionRouteAccess(String location, List<HomeModule> modules) {
 
   if (location == '/facturacion' || location.startsWith('/facturacion/')) {
     return codes.any(_facturaManageModuleCodes.contains);
+  }
+
+  if (location == '/facturacion-sreqf' ||
+      location.startsWith('/facturacion-sreqf/')) {
+    return codes.any(_facturaReqfModuleCodes.contains) ||
+        codes.any(_facturaManageModuleCodes.contains);
   }
 
   return true;

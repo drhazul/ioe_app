@@ -76,6 +76,7 @@
 - Facturación validar importes (2026-03-14): el modal de validación presenta `Cabecera`, `Detalle` y `Diferencia` redondeados a 2 decimales para análisis de discrepancias.
 - Facturación conciliación de centavos (2026-03-15): para nuevos folios VF, backend ajusta `FAC_SVR_SHAP.IMPT` desde el detalle de `FACT_TICKET_SHP`; la UI de validación debe reflejar `Diferencia` cero salvo datos históricos no saneados.
 - Facturación unificación sucursal JWT (2026-03-16): backend no fuerza `user.suc` en `preview/create` de unificación para usuarios con permisos de gestión (`FACTURA`/compat), evitando bloqueos falsos de "folios fuera de la sucursal autorizada".
+- REQF sin facturar (2026-03-16): la ruta `/facturacion-sreqf` (módulo `REG_SINREQF`) consulta `GET /facturacion/reqf/folios`; backend delimita sucursales no-admin por `USR_MOD_SUC` y la UI no debe forzar `SUC` inicial desde JWT.
 - Panel clientes UI (2026-03): en alta de cliente, el modal predetermina `RfcEmisor`/`RegimenFiscalReceptor`/`UsoCfdi` con `SELECCIONAR` (en payload `RegimenFiscalReceptor=0` por tipo numérico) y `EmailReceptor` con `COLOCAR`; agrega botón `CANCELAR` y, al guardar, cierra el modal y recarga el panel.
 - Cotizaciones `/pvctrfolasvr` -> `PV_CTR_FOL_ASVR`.
 - Devoluciones `/pv/devoluciones/*` -> `PV_CTR_FOL_ASVR`, `PV_DEV_DET_TMP`, `PV_TICKET_LOG`, `PV_CTR_FOL_FORM(_SVR)`, `PV_CTR_ORDS`, `FAC_SVR_SHAP`, `FACT_IDFOLDEV`, `DAT_CTRL_CTAS`.
@@ -263,8 +264,11 @@
 - trazabilidad UI adicional (2026-03): en `/punto-venta/devoluciones/:idfolDev/pago`, el card de contexto oculta `AUT dev`, `AUT origen`, `Tipo` y `Líneas seleccionadas`.
 - en pago no se permite agregar, editar ni eliminar formas de pago.
 - en pago devolución (2026-03-10): las formas se rehidratan siempre desde `preview.formasSugeridas` (folio origen) para devolver por el mismo concepto en formas no efectivo y conservar `aut/ref` para el cierre backend.
+- forma devolución = forma origen (2026-03-20): backend valida en cierre que devoluciones no `CREDITO/DEUDOR` se paguen en la misma forma del ticket origen (ej. `EFECTIVO`->`EFECTIVO`, `TRANSFERENCIA`->`TRANSFERENCIA`); la UI mantiene el bloque de formas en solo lectura.
 - al finalizar devolución, backend deja el folio en `ESTA='PAGADO'`; en esa condición la navegación de regreso muestra icono candado.
-- facturación devolución VF (2026-03-11): backend ya no ejecuta sincronización fiscal automática en `POST /pv/devoluciones/:idfolDev/pago/finalizar`; este cierre no inserta/actualiza `FAC_SVR_SHAP` ni `FACT_TICKET_SHP`.
+- facturación devolución VF (2026-03-20): al finalizar `POST /pv/devoluciones/:idfolDev/pago/finalizar`, backend sincroniza facturación del folio origen con `sp_fact_sync_folio_vf` y recalcula `FAC_SVR_SHAP/FACT_TICKET_SHP` con base en `CTD-CTDDF` (devolución total: `ESTATUS='VTA DEV'`, `IMPT=0`; parcial: disminuye `IMPT`).
+- saneamiento DVF facturación (2026-03-20): al finalizar devolución, backend depura registros residuales del folio devolución en `FAC_SVR_SHAP/FACT_TICKET_SHP` para evitar filas no deseadas en módulo facturación.
+- respuesta finalización devolución (2026-03-20): la API agrega objeto `facturacionSync` y la pantalla de pago muestra en snackbar si la sincronización de facturación se aplicó para el folio origen.
 - Política de fecha de finalización devolución (2026-03): backend usa una fecha de proceso actual única al cerrar para `FACT_IDFOLDEV` (`FCN/FCNR`), `PV_CTR_FOL_FORM(_SVR).FCN`, `PV_CTR_FOL_ASVR.FCNM`, `PV_TICKET_LOG.UPDATED_AT` y movimientos contables asociados.
 - al presionar candado en pago, frontend actualiza `ESTA='MB51PROCES'` via `PATCH /pvctrfolasvr/:idfol` y regresa al panel.
 - al regresar a panel desde pago/candado, frontend invalida el provider del panel para forzar recarga inmediata de la consulta.
@@ -526,7 +530,8 @@
 - `/facturacion` requiere módulo `FACTURA` (compat: `FACTURACION`, `PV_FACTURACION`, `FACT_IOE`).
 - `/facturacion-view` requiere módulo `FACTURA_VIEW`.
 - Admin (rol/nivel administrativo configurado; incluye usuario `ADMIN`) tiene bypass total en front y back para consultar/editar/eliminar en facturación.
-- Facturación no usa `USR_MOD_SUC` como control de autorización; no se requiere registro de admin en `USR_MOD_SUC`.
+- Facturación no usa `USR_MOD_SUC` como control de autorización en flujo base (`/facturacion`, `/facturacion-view`, unificación); no se requiere registro de admin en `USR_MOD_SUC`.
+- Excepción: `REG_SINREQF` sí usa `USR_MOD_SUC` para alcance de sucursales no-admin.
 - En unificación de facturación (`/facturacion/unificaciones/*`), no se debe forzar restricción operativa por `user.suc` del JWT cuando ya existe permiso de gestión.
 
 ## Caja General: autorizacion por sucursal
