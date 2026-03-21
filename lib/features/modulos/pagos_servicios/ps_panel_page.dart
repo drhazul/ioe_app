@@ -24,6 +24,7 @@ class _PsPanelPageState extends ConsumerState<PsPanelPage> {
   final _opvCtrl = TextEditingController();
 
   int? _roleId;
+  String? _username;
   String? _userSuc;
   String? _userOpv;
   bool _contextReady = false;
@@ -51,7 +52,7 @@ class _PsPanelPageState extends ConsumerState<PsPanelPage> {
       );
     }
 
-    final isAdmin = (_roleId ?? 0) == 1;
+    final isAdmin = _isAdmin;
     final foliosAsync = ref.watch(psFoliosProvider);
 
     return Scaffold(
@@ -127,7 +128,7 @@ class _PsPanelPageState extends ConsumerState<PsPanelPage> {
   }
 
   void _applyFilters() {
-    final isAdmin = (_roleId ?? 0) == 1;
+    final isAdmin = _isAdmin;
     final suc = isAdmin
         ? _sucCtrl.text.trim()
         : (_userSuc ?? _sucCtrl.text).trim();
@@ -142,7 +143,7 @@ class _PsPanelPageState extends ConsumerState<PsPanelPage> {
   }
 
   void _clearFilters() {
-    final isAdmin = (_roleId ?? 0) == 1;
+    final isAdmin = _isAdmin;
     setState(() {
       _searchCtrl.clear();
       if (isAdmin) {
@@ -174,7 +175,7 @@ class _PsPanelPageState extends ConsumerState<PsPanelPage> {
     if (confirmed != true) return;
     if (!mounted) return;
 
-    final isAdmin = (_roleId ?? 0) == 1;
+    final isAdmin = _isAdmin;
     final suc = isAdmin ? _sucCtrl.text.trim() : (_userSuc ?? '').trim();
     final opv = (_userOpv ?? _opvCtrl.text).trim();
     final ter = getTerminalName().trim();
@@ -270,11 +271,15 @@ class _PsPanelPageState extends ConsumerState<PsPanelPage> {
     if (!mounted) return;
 
     final roleId = _asInt(payload['roleId']) ?? 0;
+    final username = (payload['username'] ?? payload['USERNAME'] ?? '')
+        .toString()
+        .trim();
     final suc = (payload['suc'] ?? payload['SUC'] ?? '').toString().trim();
     final opv = (payload['opv'] ?? payload['OPV'] ?? payload['username'] ?? '').toString().trim();
+    final isAdmin = roleId == 1 || username.toUpperCase() == 'ADMIN';
 
     final query = PsPanelQuery(
-      suc: roleId == 1 ? _sucCtrl.text.trim() : suc,
+      suc: isAdmin ? _sucCtrl.text.trim() : suc,
       opv: opv,
       search: '',
     );
@@ -282,6 +287,7 @@ class _PsPanelPageState extends ConsumerState<PsPanelPage> {
     ref.read(psPanelQueryProvider.notifier).state = query;
     setState(() {
       _roleId = roleId;
+      _username = username;
       _userSuc = suc;
       _userOpv = opv;
       if (suc.isNotEmpty) _sucCtrl.text = suc;
@@ -305,6 +311,11 @@ class _PsPanelPageState extends ConsumerState<PsPanelPage> {
     if (value is int) return value;
     if (value is num) return value.toInt();
     return int.tryParse(value?.toString() ?? '');
+  }
+
+  bool get _isAdmin {
+    if ((_roleId ?? 0) == 1) return true;
+    return (_username ?? '').trim().toUpperCase() == 'ADMIN';
   }
 
   bool _isEstadoPendiente(String? value) {

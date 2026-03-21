@@ -25,6 +25,7 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
   final _sucCtrl = TextEditingController();
   PvCtrFolAsvrModel? _selected;
   int? _roleId;
+  String? _username;
   String? _userSuc;
   String? _userOpv;
   bool _contextReady = false;
@@ -53,7 +54,7 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
     }
 
     final cotizacionesAsync = ref.watch(cotizacionesListProvider);
-    final isAdmin = (_roleId ?? 0) == 1;
+    final isAdmin = _isAdmin;
     final hasUserSuc = (_userSuc ?? '').trim().isNotEmpty;
     final hasUserOpv = (_userOpv ?? '').trim().isNotEmpty;
 
@@ -138,7 +139,7 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
   }
 
   void _applyFilters() {
-    final isAdmin = (_roleId ?? 0) == 1;
+    final isAdmin = _isAdmin;
     final suc = isAdmin
         ? _sucCtrl.text.trim()
         : (_userSuc ?? _sucCtrl.text).trim();
@@ -156,7 +157,7 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
   }
 
   void _clearFilters() {
-    final isAdmin = (_roleId ?? 0) == 1;
+    final isAdmin = _isAdmin;
     setState(() {
       _searchCtrl.clear();
       if (isAdmin) {
@@ -343,6 +344,9 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
     if (!mounted) return;
 
     final roleId = _asInt(payload['roleId']) ?? 0;
+    final username = (payload['username'] ?? payload['USERNAME'] ?? '')
+        .toString()
+        .trim();
     final suc = (payload['suc'] ?? payload['SUC'] ?? '').toString().trim();
     final opv = (payload['opv'] ?? payload['OPV'] ?? payload['username'] ?? '')
         .toString()
@@ -355,6 +359,7 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
     ref.read(cotizacionesPanelQueryProvider.notifier).state = query;
     setState(() {
       _roleId = roleId;
+      _username = username;
       _userSuc = suc;
       _userOpv = opv;
       if (opv.isNotEmpty) _opvCtrl.text = opv;
@@ -379,6 +384,11 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
     if (value is int) return value;
     if (value is num) return value.toInt();
     return int.tryParse(value?.toString() ?? '');
+  }
+
+  bool get _isAdmin {
+    if ((_roleId ?? 0) == 1) return true;
+    return (_username ?? '').trim().toUpperCase() == 'ADMIN';
   }
 
   bool _isEstadoPendiente(String? value) {

@@ -527,13 +527,6 @@ class _PsDetallePageState extends ConsumerState<PsDetallePage> {
       return;
     }
 
-    final detail = ref.read(psDetalleProvider(widget.idFol)).valueOrNull;
-    final origen = (detail?.header.origenAut ?? '').trim().toUpperCase();
-    if (origen == 'VF') {
-      _showError('No se permite mezclar origen VF con referencias de gasto (CA) en la misma transacción.');
-      return;
-    }
-
     try {
       await ref.read(psApiProvider).setReferenceGasto(
             idFol: widget.idFol,

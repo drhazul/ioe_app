@@ -185,6 +185,7 @@ autenticacion, datos maestros, inventarios, control de cuentas y punto de venta.
 - Reglas UI:
 - flujo panel -> detalle -> pago, con captura de `PVTA` por línea y asignación de referencia por `ART` seleccionado.
 - botón `Seleccione Cliente` abre modal y actualiza cliente del folio por `PUT /ps/folios/:idFol/cliente`; queda bloqueado cuando el ticket ya tiene líneas.
+- `Seleccione Cliente` usa `GET /factclientshp` con filtro local por `header.suc`; en modo admin multi-sucursal el backend no debe limitar la lista a `user.suc`.
 - en detalle, el backend valida `PVTA` por adeudo usando `DAT_CTRL_CTAS` (misma fuente de adeudos) y no permite captura sin `ORD`.
 - en detalle, el resumen de adeudos usa `DAT_CTRL_CTAS` agrupado por `CLIENT + IDFOL` con filtro `SUM(IMPT) <> 0`.
 - en detalle, `Procesar servicio` se movió al AppBar.
@@ -217,6 +218,7 @@ autenticacion, datos maestros, inventarios, control de cuentas y punto de venta.
 - adeudos PS (2026-03): cuando `adeudosRes` llega vacío, la UI usa `adeudosR` para no ocultar resultados válidos de `DAT_CTRL_CTAS`.
 - Referencia de error corregido (2026-03-03): al asignar adeudo en detalle PS se observó `400` con `No existe DAT_CTRL_CTAS_RES para validar referencia de folio`; backend se depuró para resolver la referencia directamente desde `DAT_CTRL_CTAS`.
 - Regla vigente (2026-03-03): al usar el mismo adeudo en otra línea del ticket PS, backend devuelve `400` con `La referencia ya fue asignada a otra linea del ticket`.
+- Regla origen PS (2026-03-21): la primera referencia ligada en detalle define `ORIGEN_AUT` del folio (`CA`/`VF`); si el ticket aún no tiene referencias, backend permite adoptar ese origen inicial. Cuando ya existen referencias, se conserva el origen y se bloquea la mezcla `CA`/`VF`.
 - Corrección backend (2026-03-03): la validación de referencia/importe en PS consolida adeudo por `IDFOL/NDOC + RELACION` antes de validar, evitando falsos `400 La referencia seleccionada no tiene adeudo pendiente` cuando un folio mezcla cargos y abonos en `DAT_CTRL_CTAS`.
 - Regla backend AD/AP/CR (2026-03-03): al editar `PVTA`, API bloquea importes por línea mayores a la deuda del folio referenciado y también bloquea sobreaplicación acumulada por `ORD` entre líneas `AD/AP/CR`.
 - Referencia de error corregido (2026-03-03): al agregar forma PS se observaba `No existe tabla PV_CTR_FOL_FORMTMP`; backend usa fallback a `PV_CTR_FOL_FORM` y la UI de pago PS usa flujo de formas basado en `DAT_FORM` como cotizaciones.
@@ -289,6 +291,7 @@ autenticacion, datos maestros, inventarios, control de cuentas y punto de venta.
 - primero se confirma la creacion de nueva cotizacion.
 - si se confirma, se abre modal de busqueda/seleccion de cliente.
 - La seleccion de cliente se limita a la sucursal del usuario logueado.
+- Compatibilidad admin multi-sucursal (2026-03-21): cuando `admin` cambia `SUC` en panel (cotizaciones/PS), la carga de clientes depende de `GET /factclientshp`; backend reconoce admin por `username='ADMIN'` y/o `ADMIN_ROLE_IDS`/`ADMIN_NIVELES` para no restringir el catálogo a `user.suc`.
 - Secuencia API:
 - `GET /factclientshp` para cargar clientes y filtrar por SUC.
 - `POST /pvctrfolasvr/auto` para crear folio.
@@ -390,6 +393,7 @@ autenticacion, datos maestros, inventarios, control de cuentas y punto de venta.
 - Panel cotizaciones busqueda OPV (2026-03-10): si `Buscar` recibe un valor con formato OPV (4 dígitos), la búsqueda cruzada permite traer folios de otros OPV solo cuando cumplen `AUT='CP'` y `ESTA='PENDIENTE'`.
 - Panel cotizaciones seguridad (2026-03): la lista normal conserva filtro estricto por `SUC/OPV`; en búsqueda cruzada (folio/cliente/razón social/OPV) solo se permiten folios de otros OPV con `AUT='CP'` y `ESTA='PENDIENTE'`.
 - Paneles PV (2026-03-10): en cotizaciones/devoluciones/pago de servicios, la papelera no elimina físicamente; ahora cambia `ESTA='ANULADO'` por `PATCH /pvctrfolasvr/:idfol` y solo se habilita cuando `ESTA='PENDIENTE'`.
+- Paneles PV (2026-03-21): los listados de cotizaciones/devoluciones/pago de servicios excluyen `ESTA='ANULADO'`; se muestran únicamente `PENDIENTE`, `EDITANDO` y `PAGADO`.
 - Al cierre exitoso, app habilita un boton `Imprimir ticket` debajo de `Finalizar cierre`.
 - Al presionar `Imprimir ticket`, app muestra dialogo de ancho 58mm/80mm y abre la vista previa PDF.
 - En ticket de cotización (2026-03), si hay formas no `EFECTIVO`, la impresión agrega al final un voucher `SOPORTE RECEPCION PAGO` por cada forma no efectivo.

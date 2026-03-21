@@ -90,6 +90,7 @@
 - PS adeudos UI (2026-03): si `adeudosRes` está vacío pero `adeudosR` trae datos, la lista usa `adeudosR` para mostrar resultados.
 - PS referencia de adeudo (2026-03): backend eliminó dependencia de `DAT_CTRL_CTAS_RES`; al asignar referencia de folio usa directamente el `IDFOL` elegido de la consulta de adeudos basada en `DAT_CTRL_CTAS`.
 - PS referencia de adeudo (2026-03): backend no permite reutilizar la misma referencia en múltiples líneas del mismo ticket.
+- PS origen de referencia (2026-03-21): en detalle PS, la primera referencia ligada define `ORIGEN_AUT` del folio (`CA`/`VF`); si no hay referencias previas, puede cambiar al origen de esa primera relación. Cuando ya existen referencias ligadas, se conserva el origen y se bloquea la mezcla.
 - PS cálculo de adeudo (2026-03-03): backend consolida `DAT_CTRL_CTAS` por `IDFOL/NDOC + RELACION` al validar referencia y `PVTA`, evitando falsos rechazos cuando el mismo folio tiene cargos y abonos.
 - PS regla AD/AP/CR (2026-03-03): backend bloquea `PVTA` por línea cuando supera la deuda del folio referenciado y valida consumo acumulado por `ORD` considerando todas las líneas `AD/AP/CR`.
 - PS pago UI (2026-03): en `/ps/:idFol/pago` el alta de forma se captura en modal emergente desde el bloque `Formas de pago`; las formas quedan en appstate local y no se insertan en DB hasta finalizar.
@@ -108,6 +109,7 @@
 ## Punto de venta: alta de cotizacion desde panel
 - En `CotizacionesPage`, al presionar `Agregar` primero se confirma la creacion y, al aceptar, se abre un segundo modal para buscar/seleccionar cliente.
 - El modal de cliente filtra por la sucursal del usuario logueado (SUC del contexto JWT).
+- Compatibilidad admin multi-sucursal (2026-03-21): cuando `admin` cambia `SUC` en panel (cotizaciones/PS), el modal de clientes depende de `GET /factclientshp`; backend reconoce admin por `username='ADMIN'` y/o `ADMIN_ROLE_IDS`/`ADMIN_NIVELES` para no limitar clientes a `user.suc` en esos casos.
 - Al crear (`POST /pvctrfolasvr/auto`) se asigna el cliente seleccionado con `PATCH /pvctrfolasvr/:idfol` enviando `CLIEN`.
 - Correccion de integracion (2026-02): para IDs de cliente mayores a `2,147,483,647`, backend mapea `PV_CTR_FOL_ASVR.CLIEN` como `float` (no `int`) para evitar `500 EPARAM` al asignar cliente en el alta.
 
@@ -173,6 +175,7 @@
 - Panel cotizaciones busqueda OPV (2026-03-10): si `Buscar` recibe un valor con formato OPV (4 dígitos), la búsqueda cruzada permite traer folios de otros OPV solo cuando cumplen `AUT='CP'` y `ESTA='PENDIENTE'`.
 - Panel cotizaciones seguridad (2026-03): la lista normal mantiene filtro estricto por `SUC/OPV` del contexto; en búsqueda cruzada (folio/cliente/razón social/OPV) solo se permiten folios de otros OPV con `AUT='CP'` y `ESTA='PENDIENTE'`.
 - Paneles PV (2026-03-10): en cotizaciones/devoluciones/pago de servicios, el botón de papelera ya no elimina registro; actualiza `ESTA='ANULADO'` por `PATCH /pvctrfolasvr/:idfol` y solo se habilita cuando `ESTA='PENDIENTE'`.
+- Paneles PV (2026-03-21): los listados de cotizaciones/devoluciones/pago de servicios excluyen `ESTA='ANULADO'`; solo muestran `PENDIENTE`, `EDITANDO` y `PAGADO`.
 - Vista previa PDF de cierre (ticket 58/80mm): cabecera sucursal (`DAT_SUC`), detalle de articulos (`PV_TICKET_LOG`), totales+formas+cambio, pie transaccional (`OPV/OPVM`, `IDFOL`, `FCNM`, cliente) y ORDs con control (`ORD + UPC`) + codigo de barras `CODE39` + tabla con bordes del detalle.
 - Ticket cotizaciones voucher (2026-03): si el cierre incluye formas no `EFECTIVO`, la impresión agrega al final un voucher `SOPORTE RECEPCION PAGO` por cada forma no efectivo (`FORM/IMPD/AUT o REF/AUT` + datos de cliente/folio).
 - Ticket cotizaciones voucher (2026-03): el voucher incluye espacio en blanco para firma y renglón `Firma cliente` debajo de `FCN`.
@@ -328,6 +331,7 @@
 - en detalle, `PVTA` se captura/edita por línea y el backend valida referencia y tope de adeudo.
 - en detalle, el resumen de adeudos del cliente se basa en `DAT_CTRL_CTAS` agrupado por `CLIENT, IDFOL` con `SUM(IMPT) <> 0`.
 - la referencia de adeudo/gasto se asigna a la línea seleccionada (`psSelectedArtProvider`).
+- en detalle, `Seleccione Cliente` usa `GET /factclientshp` + filtro por `header.suc`; para `admin` multisucursal, backend debe devolver catálogo sin forzar `user.suc` para evitar lista vacía al cambiar sucursal.
 - en detalle, `Procesar servicio` se ejecuta desde el AppBar (no dentro del bloque de acciones del body).
 - en detalle, si `ESTA IN ('PAGADO','TRANSMITIR')` la pantalla se bloquea (sin edición/selección) y solo permanecen activos el botón `Procesar servicio` y el regreso del AppBar.
 - en detalle, los servicios `AD/AP/CR` exigen cliente seleccionado (`CLIEN != 1`) antes de agregar línea.

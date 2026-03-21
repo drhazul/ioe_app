@@ -139,8 +139,7 @@ class CotizacionesApi {
     final estado = _normalize(value);
     return estado == 'PENDIENTE' ||
         estado == 'EDITANDO' ||
-        estado == 'PAGADO' ||
-        estado == 'ANULADO';
+        estado == 'PAGADO';
   }
 
   bool _isVisibleAut(String? value) {
