@@ -352,6 +352,28 @@ class _ModuleRow extends StatelessWidget {
     if (moduloCode == 'SYS_DAT_MAE') {
       return '/masterdata';
     }
+    if (moduloCode == 'DAT_JAO_ORD_ANULADAS' ||
+        moduloCode == 'DAT_JAO_ORD_ANULADO' ||
+        moduloCode == 'ORD_TRABAJO_ANULADAS' ||
+        moduloCode == 'ORD_TRABAJO_ANULADO' ||
+        moduloCode == 'DAT_JAO_ANULADAS') {
+      return '/taller/ordenes-trabajo/anulados';
+    }
+    if (moduloCode == 'DAT_JAO_ORD_ENTREGADAS' ||
+        moduloCode == 'DAT_JAO_ORD_ENTREGADA_CLIENTE' ||
+        moduloCode == 'ORD_TRABAJO_ENTREGADAS' ||
+        moduloCode == 'ORD_TRABAJO_ENTREGADA_CLIENTE' ||
+        moduloCode == 'DAT_JAO_ENTREGADAS_CLIENTE') {
+      return '/taller/ordenes-trabajo/entregadas';
+    }
+    if (moduloCode == 'DAT_JAO_ORD' ||
+        moduloCode == 'DAT_JAO_ORDS' ||
+        moduloCode == 'DAT_JAO_TALLER' ||
+        moduloCode == 'DAT_JAO_BISEL' ||
+        moduloCode == 'ORDENES_TRABAJO' ||
+        moduloCode == 'ORD_TRABAJO') {
+      return '/taller/ordenes-trabajo';
+    }
     if (moduloCode == 'PV_CAJAS') {
       return '/punto-venta';
     }
@@ -423,6 +445,22 @@ class _ModuleRow extends StatelessWidget {
     }
     if (name.contains('pago') && name.contains('servicio')) {
       return '/ps';
+    }
+    if (name.contains('orden') &&
+        name.contains('anulad') &&
+        name.contains('trabajo')) {
+      return '/taller/ordenes-trabajo/anulados';
+    }
+    if (name.contains('orden') &&
+        name.contains('entregad') &&
+        name.contains('cliente') &&
+        name.contains('trabajo')) {
+      return '/taller/ordenes-trabajo/entregadas';
+    }
+    if (name.contains('orden') &&
+        name.contains('trabajo') &&
+        name.contains('taller')) {
+      return '/taller/ordenes-trabajo';
     }
     if (name.contains('factur')) {
       if (name.contains('view') ||

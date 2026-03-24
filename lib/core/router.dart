@@ -60,6 +60,8 @@ import '../features/modulos/retiros/retiro_detalle_page.dart';
 import '../features/modulos/retiros/retiro_efectivo_page.dart';
 import '../features/modulos/reloj_checador/app/reloj_checador_app_page.dart';
 import '../features/modulos/reloj_checador/consultas/reloj_checador_consultas_page.dart';
+import '../features/modulos/taller/ordenes_trabajo/ordenes_trabajo_models.dart';
+import '../features/modulos/taller/ordenes_trabajo/ordenes_trabajo_page.dart';
 import '../features/modulos/facturacion/facturacion_page.dart';
 import '../features/modulos/facturacion/facturacionview_page.dart';
 import '../features/modulos/facturacion/facturacion_sreqf_page.dart';
@@ -627,6 +629,24 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'facturacion-sreqf',
             builder: (c, s) => const FacturacionSREQFPage(),
+          ),
+          GoRoute(
+            path: 'taller/ordenes-trabajo',
+            builder: (c, s) => const OrdenesTrabajoPage(
+              panelMode: OrdenesTrabajoPanelMode.operativo,
+            ),
+          ),
+          GoRoute(
+            path: 'taller/ordenes-trabajo/anulados',
+            builder: (c, s) => const OrdenesTrabajoPage(
+              panelMode: OrdenesTrabajoPanelMode.anulados,
+            ),
+          ),
+          GoRoute(
+            path: 'taller/ordenes-trabajo/entregadas',
+            builder: (c, s) => const OrdenesTrabajoPage(
+              panelMode: OrdenesTrabajoPanelMode.entregadas,
+            ),
           ),
         ],
       ),

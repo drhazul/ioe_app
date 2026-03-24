@@ -2500,6 +2500,16 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
     final importeCuadra = _asBool(validaciones['importeCuadra']);
     final clienteFiscalCompleto = _asBool(validaciones['clienteFiscalCompleto']);
     final rfcGenerico = _asBool(validaciones['rfcGenerico']);
+    final subtotalSatCuadra =
+        validaciones.containsKey('subtotalSatCuadra')
+            ? _asBool(validaciones['subtotalSatCuadra'])
+            : true;
+    final requiereAjusteSubtotalSat =
+        validaciones.containsKey('requiereAjusteSubtotalSat')
+            ? _asBool(validaciones['requiereAjusteSubtotalSat'])
+            : false;
+    final subtotalSatDiferencia =
+        _asDouble(validaciones['subtotalSatDiferencia']) ?? 0;
     final camposFiscalesFaltantes =
         (validaciones['camposFiscalesFaltantes'] is List)
             ? (validaciones['camposFiscalesFaltantes'] as List)
@@ -2629,11 +2639,29 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
                         clienteFiscalCompleto,
                       ),
                       _buildValidationBadge(
+                        requiereAjusteSubtotalSat
+                            ? 'Subtotal SAT ajustable'
+                            : 'Subtotal SAT listo',
+                        subtotalSatCuadra || requiereAjusteSubtotalSat,
+                      ),
+                      _buildValidationBadge(
                         'Conceptos: ${rows.length}',
                         rows.isNotEmpty,
                       ),
                     ],
                   ),
+                  if (requiereAjusteSubtotalSat) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'Se detectó precisión decimal en conceptos '
+                      '(diferencia SAT: ${subtotalSatDiferencia.toStringAsFixed(6)}). '
+                      'Al emitir, backend aplicará redondeo SAT en subtotal para prevenir CFDI40108.',
+                      style: Theme.of(dialogContext).textTheme.bodySmall?.copyWith(
+                            color: const Color(0xFF5D4037),
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                  ],
                   if (camposFiscalesFaltantes.isNotEmpty) ...[
                     const SizedBox(height: 8),
                     Text(

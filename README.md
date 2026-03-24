@@ -26,7 +26,7 @@ autenticacion, datos maestros, inventarios, control de cuentas y punto de venta.
 - `lib/features/masterdata/`: roles, deptos, puestos, usuarios, sucursales,
   datmodulos, accesos, `usr-mod-suc`, `cat-ctas`, `dat_form`.
 - `lib/features/modulos/`: inventarios, captura, catalogo `datart`, MB51, MB52,
-  control de cuentas y punto de venta.
+  control de cuentas, taller (ordenes de trabajo) y punto de venta.
 - `assets/`: `assets/.env`.
 - `test/`: pruebas de widget.
 
@@ -103,6 +103,7 @@ autenticacion, datos maestros, inventarios, control de cuentas y punto de venta.
 - Facturación validar detalle (2026-03-14): al seleccionar un folio y presionar `Validar`, la UI abre un modal emergente `Vista detalle factura` con artículos del folio (`IDFOL`, `UPC`, `Descripcion`, `ClaveProdServ`, `Unidad`, `Cantidad`, `ValorUnitario`, `PVTAT`, `Impuesto`, `Total`) y `Total factura`.
 - Facturación validar importes (2026-03-14): el modal muestra `Cabecera`, `Detalle` y `Diferencia` con redondeo a 2 decimales para depurar descuadres por precisión.
 - Facturación conciliación de centavos (2026-03-15): backend alinea `IMPT` de cabecera contra el total derivado de `FACT_TICKET_SHP` durante sincronización VF, por lo que nuevos folios en facturación deben mostrarse sin diferencia de centavos en el modal de validación.
+- Facturación prevención CFDI40108 (2026-03-23): el modal de validación muestra estado `Subtotal SAT` y, cuando backend reporta `requiereAjusteSubtotalSat`, informa que en `emitir` se aplica ajuste de redondeo SAT para evitar error de timbrado en folios `PENDIENTE`.
 - Facturación unificación sucursal JWT (2026-03-16): backend dejó de forzar `user.suc` en `preview/create` de unificación para usuarios con permisos de gestión (`FACTURA`/compat), evitando bloqueos falsos de "folios fuera de la sucursal autorizada".
 - REQF sin facturar (2026-03-16): la pantalla `/facturacion-sreqf` (módulo `REG_SINREQF`) consulta `GET /facturacion/reqf/folios`; backend aplica alcance no-admin por `USR_MOD_SUC` y frontend no fija `SUC` inicial por JWT para permitir ver todas las sucursales autorizadas.
 - Panel clientes UI (2026-03): en alta de cliente, el modal usa valores predeterminados `SELECCIONAR` para `RfcEmisor`/`RegimenFiscalReceptor`/`UsoCfdi` (en payload `RegimenFiscalReceptor=0` por tipo numérico) y `COLOCAR` para `EmailReceptor`; incluye botón `CANCELAR` y, después de `Guardar registro`, cierra el modal y refresca la consulta del panel.
@@ -114,11 +115,73 @@ autenticacion, datos maestros, inventarios, control de cuentas y punto de venta.
 - PS pago UI (2026-03): el modal de formas de pago excluye `CREDITO` y `DEUDOR`; para formas no `EFECTIVO` la referencia es solo lectura y se asigna reutilizando `ref_detalle_page.dart` de cotizaciones.
 - `/pvticketlog` -> `PV_TICKET_LOG`.
 - `/pvctrords` -> `PV_CTR_ORDS`, `PV_CTR_ORDS_DET`.
+- `/ordenes-trabajo/*` -> `PV_CTR_ORDS`, `PV_CTR_ORDS_DET`, `DAT_EST_ORD`, `DAT_MB51`, `DAT_CTRL_CTAS`.
 - `/refdetalle` -> `REF_DETALLE`.
 - `/pv/refdetalle` -> `REF_DETALLE` (crear/asignar/eliminar referencias ligadas al folio).
 - `/dat-form` -> `DAT_FORM` (CRUD de catalogo de formas de pago con estado activo/inactivo).
 - `/jrqdepa|jrqsubd|jrqclas|jrqscla|jrqscla2|jrqguia` ->
   `JRQ_DEPA`, `JRQ_SUBD`, `JRQ_CLAS`, `JRQ_SCLA`, `JRQ_SCLA2`, `JRQ_GUIA`.
+
+## Ordenes de Trabajo (nuevo flujo 2026-03-22)
+
+- Ruta:
+- `/taller/ordenes-trabajo`
+- Archivos frontend:
+- `lib/features/modulos/taller/ordenes_trabajo/ordenes_trabajo_page.dart`
+- `lib/features/modulos/taller/ordenes_trabajo/ordenes_trabajo_api.dart`
+- `lib/features/modulos/taller/ordenes_trabajo/ordenes_trabajo_models.dart`
+- `lib/features/modulos/taller/ordenes_trabajo/ordenes_trabajo_providers.dart`
+- Integración de navegación:
+- `lib/core/router.dart` registra `/taller/ordenes-trabajo`.
+- `lib/features/home/home_page.dart` resuelve códigos de módulo de taller (`DAT_JAO_ORD` y compatibles) hacia la nueva ruta.
+- Endpoints consumidos:
+- `GET /ordenes-trabajo`
+- `GET /ordenes-trabajo/:iord`
+- `GET /ordenes-trabajo/:iord/detalle`
+- `POST /ordenes-trabajo/:iord/autorizar|enviar|recibir|entregar|garantia|cambio-material|merma`
+- `POST /ordenes-trabajo/enviar/validar`
+- `POST /ordenes-trabajo/enviar/lote`
+- `GET /ordenes-trabajo/asignar/colaboradores`
+- `POST /ordenes-trabajo/asignar/validar`
+- `POST /ordenes-trabajo/asignar/lote`
+- `POST /ordenes-trabajo/trabajo-terminado/validar`
+- `POST /ordenes-trabajo/trabajo-terminado/lote`
+- `POST /ordenes-trabajo/regresar-incidencia/validar`
+- `POST /ordenes-trabajo/regresar-incidencia/lote` (`tipom` requerido desde catálogo `DAT_ORD_TMOV`)
+- `POST /ordenes-trabajo/regresar-tienda/validar`
+- `POST /ordenes-trabajo/regresar-tienda/lote`
+- `POST /ordenes-trabajo/asignar-laboratorio/lote`
+- `POST /ordenes-trabajo/recibir/validar`
+- `POST /ordenes-trabajo/recibir/lote`
+- `POST /ordenes-trabajo/entregar/validar`
+- `POST /ordenes-trabajo/entregar/lote`
+- `POST /ordenes-trabajo/scan/recibir`
+- `POST /ordenes-trabajo/scan/entregar`
+- Reglas UI:
+- filtros server-side con paginación y selección local en pantalla (sin flags persistidos en DB).
+- barra de acciones por ORD seleccionada para flujo operativo completo.
+- AppBar operativo compacto para reducir altura y ahorrar espacio en pantalla.
+- panel ORD UI (2026-03-24): la botonera principal sale del encabezado visible y se abre desde un popup `Opciones de Trabajo` en el AppBar.
+- panel ORD UI (2026-03-24): `Configuracion de Vista` se mueve al AppBar del lado derecho; el bloque de filtros conserva solo criterios y acciones de consulta.
+- etiqueta ORD legado (2026-03-24): `Imprimir etiqueta` genera una página por ORD seleccionada con tamaño fijo `76mm x 51mm`, reutilizando `ticket_ords_legacy_layout.dart`.
+- escaneo con captura manual (lector físico por Enter) y opción de cámara (`mobile_scanner`) para recepción/entrega.
+- `detalle` de cabecera/renglones disponible desde panel para trazabilidad rápida.
+- `Enviar` permanece habilitado sin selección: abre modal para digitar o escanear ORD, valida estatus `3 (NUEVA AUTORIZADA)` y agrega relación persistente en appstate (campos no editables, con eliminación por renglón).
+- en el modal de envío se elimina botón `Agregar ORD`; la captura manual agrega la ORD al presionar `Enter` en el campo `ORD`.
+- el modal de envío incluye `Cancelar` (limpia appstate y cierra), `Cerrar` (conserva appstate y cierra) y `Enviar` (confirma cambio a `ESTSEGU=5`, ejecuta lote, limpia appstate y refresca panel).
+- cuando existen renglones seleccionados en grilla, el botón cambia a `ENVIAR Seleccionados`, solicita confirmación del cambio a `ESTSEGU=5` y ejecuta el envío por lote.
+- `Scan recibir` y `Scan entregar` usan el mismo patrón modal de `Enviar` (captura/escaneo, lista relacionada en appstate, eliminar renglón, `Cancelar/Cerrar/Enviar`).
+- `Scan recibir` valida estado previo `ESTSEGU=5` y confirma transición por lote a `ESTSEGU=7`.
+- `Scan entregar` valida estado previo `ESTSEGU=10` y confirma transición por lote a `ESTSEGU=11`.
+- el flujo de recepción elimina selección de destino (`TALLER/ANALISTA`) y unifica operación desde `Scan recibir`.
+- `Asignar` usa modal equivalente a `Enviar`: valida `ESTSEGU=7`, permite seleccionar colaborador (`PV_OPV.IDOPV`, etiqueta `NOMB+APELM+APELP`, `NIVEL=41`, misma sucursal) y confirma cambio a `ESTSEGU=8`.
+- `Trabajo terminado` usa modal equivalente: valida `ESTSEGU=8` y confirma cambio a `ESTSEGU=9`.
+- `Regresar incidencia` usa modal equivalente: valida `ESTSEGU=9`, obliga seleccionar motivo desde `DAT_ORD_TMOV` y confirma cambio a `ESTSEGU=9.1` persistiendo `PV_CTR_ORDS.TIPOM`.
+- `Regresar a tienda` usa modal equivalente: valida `ESTSEGU=9` y confirma cambio a `ESTSEGU=10`.
+- `Asignar laboratorio` permite selección masiva en grilla para actualizar `LABOR` sobre ORDs de la misma sucursal.
+- la columna `Asignado` del panel muestra el nombre legible del colaborador (`NOMB + APELM + APELP`) en vez del `IDOPV`.
+- `Cambio material` y `Merma` ya no viven en el toolbar del panel operativo: se muestran dentro del modal de detalle únicamente cuando la ORD está en flujo `9.1` y según `TIPOM` (`1` muestra `Cambio material`, `2` muestra `Merma`).
+- `Garantia` deja de mostrarse en el panel operativo y queda reservada para el panel de entregadas con estado `11`.
 
 ## Estado de Cajón OPV (nuevo flujo 2026-03)
 

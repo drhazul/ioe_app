@@ -39,15 +39,17 @@ List<pw.Widget> buildTicketOrdsLegacySection({
   required double baseFontSize,
   required double smallFontSize,
   String emptyMessage = 'Sin ORDs ligadas',
+  bool showSectionTitle = true,
 }) {
   final widgets = <pw.Widget>[
-    pw.Text(
-      'ORDS',
-      style: pw.TextStyle(
-        fontSize: baseFontSize,
-        fontWeight: pw.FontWeight.bold,
+    if (showSectionTitle)
+      pw.Text(
+        'ORDS',
+        style: pw.TextStyle(
+          fontSize: baseFontSize,
+          fontWeight: pw.FontWeight.bold,
+        ),
       ),
-    ),
   ];
 
   if (ords.isEmpty) {
@@ -90,21 +92,21 @@ List<pw.Widget> buildTicketOrdsLegacySection({
             ),
           if (barcodeData.isNotEmpty)
             pw.Padding(
-              padding: const pw.EdgeInsets.only(top: 2, bottom: 3),
+              padding: const pw.EdgeInsets.only(top: 1.5, bottom: 2),
               child: pw.BarcodeWidget(
                 barcode: pw.Barcode.code39(),
                 data: barcodeData,
                 drawText: true,
                 textStyle: pw.TextStyle(fontSize: smallFontSize),
-                width: widthMm <= 58 ? _mmToPt(48) : _mmToPt(70),
-                height: widthMm <= 58 ? 30 : 36,
+                width: _mmToPt(widthMm <= 58 ? widthMm - 10 : widthMm - 12),
+                height: widthMm <= 58 ? 22 : (widthMm <= 76 ? 24 : 30),
               ),
             ),
           _buildOrdDetailsTable(
             details: ord.details,
             smallFontSize: smallFontSize,
           ),
-          pw.SizedBox(height: 2),
+          pw.SizedBox(height: 1.5),
         ],
       );
     }),
@@ -130,16 +132,16 @@ String _sanitizeCode39Data(String value) {
 
 pw.Widget _buildOrdCutLine({required double smallFontSize}) {
   return pw.Padding(
-    padding: const pw.EdgeInsets.only(top: 2, bottom: 2),
+    padding: const pw.EdgeInsets.only(top: 1.5, bottom: 1.5),
     child: pw.Row(
       children: [
         pw.Expanded(child: pw.Container(height: 0.8, color: PdfColors.grey700)),
         pw.Padding(
-          padding: const pw.EdgeInsets.symmetric(horizontal: 4),
+          padding: const pw.EdgeInsets.symmetric(horizontal: 3),
           child: pw.Text(
             '✂',
             style: pw.TextStyle(
-              fontSize: smallFontSize + 1,
+              fontSize: smallFontSize,
               fontWeight: pw.FontWeight.bold,
             ),
           ),
@@ -174,7 +176,7 @@ pw.Widget _buildOrdDetailsTable({
     required bool header,
   }) {
     return pw.Container(
-      padding: const pw.EdgeInsets.symmetric(vertical: 2, horizontal: 3),
+      padding: const pw.EdgeInsets.symmetric(vertical: 1.5, horizontal: 2),
       alignment: pw.Alignment.center,
       child: pw.Text(
         text,
@@ -187,7 +189,7 @@ pw.Widget _buildOrdDetailsTable({
   }
 
   return pw.Padding(
-    padding: const pw.EdgeInsets.only(top: 2, bottom: 2),
+    padding: const pw.EdgeInsets.only(top: 1.5, bottom: 1.5),
     child: pw.Table(
       border: pw.TableBorder.all(
         color: PdfColors.grey700,

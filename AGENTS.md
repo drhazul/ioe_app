@@ -75,6 +75,7 @@
 - Facturación validar detalle (2026-03-14): al presionar `Validar` sobre un folio seleccionado, la pantalla abre modal `Vista detalle factura` con renglones de `FACT_TICKET_SHP` (`IDFOL`, `UPC`, `Descripcion`, `ClaveProdServ`, `Unidad`, `Cantidad`, `ValorUnitario`, `PVTAT`, `Impuesto`, `Total`) y bloque de `Total factura`.
 - Facturación validar importes (2026-03-14): el modal de validación presenta `Cabecera`, `Detalle` y `Diferencia` redondeados a 2 decimales para análisis de discrepancias.
 - Facturación conciliación de centavos (2026-03-15): para nuevos folios VF, backend ajusta `FAC_SVR_SHAP.IMPT` desde el detalle de `FACT_TICKET_SHP`; la UI de validación debe reflejar `Diferencia` cero salvo datos históricos no saneados.
+- Facturación prevención CFDI40108 (2026-03-23): la UI muestra badge `Subtotal SAT` en validación y, cuando backend indica `requiereAjusteSubtotalSat`, presenta aviso de ajuste automático en `emitir` para prevenir errores SAT en folios `PENDIENTE`.
 - Facturación unificación sucursal JWT (2026-03-16): backend no fuerza `user.suc` en `preview/create` de unificación para usuarios con permisos de gestión (`FACTURA`/compat), evitando bloqueos falsos de "folios fuera de la sucursal autorizada".
 - REQF sin facturar (2026-03-16): la ruta `/facturacion-sreqf` (módulo `REG_SINREQF`) consulta `GET /facturacion/reqf/folios`; backend delimita sucursales no-admin por `USR_MOD_SUC` y la UI no debe forzar `SUC` inicial desde JWT.
 - Panel clientes UI (2026-03): en alta de cliente, el modal predetermina `RfcEmisor`/`RegimenFiscalReceptor`/`UsoCfdi` con `SELECCIONAR` (en payload `RegimenFiscalReceptor=0` por tipo numérico) y `EmailReceptor` con `COLOCAR`; agrega botón `CANCELAR` y, al guardar, cierra el modal y recarga el panel.
@@ -100,6 +101,7 @@
 - PS pago UI (2026-03): para formas no `EFECTIVO`, `Autorización / referencia` se muestra en solo lectura y se asigna reutilizando `ref_detalle_page.dart` de cotizaciones.
 - Tickets `/pvticketlog` -> `PV_TICKET_LOG`.
 - Ordenes `/pvctrords` -> `PV_CTR_ORDS`, `PV_CTR_ORDS_DET`.
+- Ordenes de trabajo `/ordenes-trabajo/*` -> `PV_CTR_ORDS`, `PV_CTR_ORDS_DET`, `DAT_EST_ORD`, `DAT_ORD_TMOV`, `DAT_MB51`, `DAT_CTRL_CTAS`.
 - Referencias `/refdetalle` -> `REF_DETALLE`.
 - Referencias PV `/pv/refdetalle` -> `REF_DETALLE` (crear/asignar/eliminar por `IDFOL`).
 - Catalogo formas `/dat-form` -> `DAT_FORM` (`IDFORM`, `ASPEL`, `FORM`, `NOM`, `ESTADO`).
@@ -464,6 +466,56 @@
 - Carga de documentos en MVP usa `file_picker` + base64 JSON (sin multipart).
 - Mounted checks:
 - En operaciones async de app/consultas se usan verificaciones `if (!mounted) return;` y actualizacion de estado segura.
+
+## Taller: Ordenes de Trabajo (implementado 2026-03-22)
+- Ruta UI:
+- `/taller/ordenes-trabajo`.
+- Archivos frontend:
+- `lib/features/modulos/taller/ordenes_trabajo/ordenes_trabajo_page.dart`
+- `lib/features/modulos/taller/ordenes_trabajo/ordenes_trabajo_api.dart`
+- `lib/features/modulos/taller/ordenes_trabajo/ordenes_trabajo_models.dart`
+- `lib/features/modulos/taller/ordenes_trabajo/ordenes_trabajo_providers.dart`
+- Integración en router/home:
+- `lib/core/router.dart` registra la ruta `/taller/ordenes-trabajo`.
+- `lib/features/home/home_page.dart` resuelve módulos de taller (`DAT_JAO_ORD`, `DAT_JAO_ORDS`, `DAT_JAO_TALLER`, `DAT_JAO_BISEL`) hacia la ruta.
+- Endpoints consumidos:
+- `GET /ordenes-trabajo`, `GET /ordenes-trabajo/:iord`, `GET /ordenes-trabajo/:iord/detalle`.
+- `POST /ordenes-trabajo/:iord/autorizar|enviar|recibir|entregar|garantia|cambio-material|merma`.
+- `POST /ordenes-trabajo/enviar/validar`, `POST /ordenes-trabajo/enviar/lote`.
+- `GET /ordenes-trabajo/asignar/colaboradores`, `POST /ordenes-trabajo/asignar/validar`, `POST /ordenes-trabajo/asignar/lote`.
+- `POST /ordenes-trabajo/trabajo-terminado/validar`, `POST /ordenes-trabajo/trabajo-terminado/lote`.
+- `POST /ordenes-trabajo/regresar-incidencia/validar`, `POST /ordenes-trabajo/regresar-incidencia/lote`.
+- `POST /ordenes-trabajo/regresar-tienda/validar`, `POST /ordenes-trabajo/regresar-tienda/lote`.
+- `POST /ordenes-trabajo/asignar-laboratorio/lote`.
+- `POST /ordenes-trabajo/recibir/validar`, `POST /ordenes-trabajo/recibir/lote`.
+- `POST /ordenes-trabajo/entregar/validar`, `POST /ordenes-trabajo/entregar/lote`.
+- `POST /ordenes-trabajo/scan/recibir`, `POST /ordenes-trabajo/scan/entregar`.
+- Reglas UI:
+- selección local por renglón (sin usar flags legacy `SEL`, `selCtrlOrd`, `selCtrOrdT`, `selEnt`).
+- filtros server-side con paginación y acciones transaccionales desde barra de comandos.
+- escaneo por lector físico (captura manual + Enter) y por cámara (`mobile_scanner`) con fallback manual.
+- AppBar operativo compacto (`toolbarHeight` mínimo + scroll horizontal de acciones) para ahorrar espacio vertical.
+- panel ORD UI (2026-03-24): la botonera del panel principal se mueve a una ventana emergente `Opciones de Trabajo` abierta desde AppBar para liberar ancho útil de trabajo.
+- panel ORD UI (2026-03-24): `Configuracion de Vista` se reubica al AppBar del lado derecho; el card de filtros ya no la muestra.
+- etiqueta ORD legado (2026-03-24): `Imprimir etiqueta` usa `lib/features/modulos/taller/etiqueta/ticket_ords_legacy_layout.dart` con formato fijo `76mm x 51mm`, una etiqueta por ORD seleccionada.
+- botón `Enviar` siempre habilitado para roles con permiso `ENVIAR`; si no hay selección abre modal para digitar/escanear ORD.
+- en modal de envío, cada ORD se valida contra backend en estatus `3 (NUEVA AUTORIZADA)` y se agrega a appstate persistente no editable (`IORD`, cliente, nombre cliente, artículo, descripción, cantidad); cada renglón se puede eliminar de la relación.
+- en modal de envío, se elimina botón `Agregar ORD`; la captura manual agrega la ORD al presionar `Enter` dentro del `TextField` de `ORD`.
+- en modal de envío, `Cancelar` limpia appstate y cierra sin refrescar; `Cerrar` conserva appstate y cierra sin refrescar.
+- en modal de envío, `Enviar` solicita confirmación para cambio a `ESTSEGU=5 (ENTREGADA A MAQ O BISEL)`; al confirmar, backend aplica lote, frontend limpia appstate y refresca panel.
+- cuando hay selección en grilla, el botón cambia a `ENVIAR Seleccionados`, confirma el mismo cambio a `ESTSEGU=5`, ejecuta lote y refresca consulta.
+- `Scan recibir` y `Scan entregar` usan el mismo patrón modal de `Enviar` (captura/escaneo, lista persistente, eliminar renglón, `Cancelar/Cerrar/Enviar`).
+- `Scan recibir` valida estatus previo `5 (ENTREGADA A MAQ O BISEL)` y cambia a `7 (RECIBIDA A TALLER)`.
+- `Scan entregar` valida estatus previo `10 (REGRESADO A TIENDA)` y cambia a `11 (ENTREGADA A CLIENTE)`.
+- se unifica recepción eliminando selección de destino en UI; el concepto de recibo se concentra en `Scan recibir`.
+- botón `Asignar` replica la mecánica modal de `Enviar`; valida estatus previo `7`, permite seleccionar colaborador (`PV_OPV.IDOPV` con etiqueta `NOMB+APELM+APELP`, `NIVEL=41`, misma `SUC`) y confirma cambio masivo a `ESTSEGU=8`.
+- botón `Trabajo terminado` replica la mecánica modal; valida estatus previo `8` y confirma cambio masivo a `ESTSEGU=9`.
+- botón `Regresar incidencia` replica la mecánica modal; valida estatus previo `9`, obliga seleccionar motivo desde `DAT_ORD_TMOV` y persiste `PV_CTR_ORDS.TIPOM` al confirmar cambio masivo a `ESTSEGU=9.1`.
+- botón `Regresar a tienda` replica la mecánica modal; valida estatus previo `9` y confirma cambio masivo a `ESTSEGU=10`.
+- botón `Asignar laboratorio` opera en lote sobre ORDs seleccionadas para asignar `LABOR` desde catálogo `DAT_LAB` (misma sucursal).
+- columna `Asignado` del panel muestra el label del colaborador (`PV_OPV.NOMB + APELM + APELP`) en lugar del `IDOPV` crudo.
+- los botones `Cambio material` y `Merma` se mueven al modal `DETALLE DE ORDEN DE TRABAJO`; solo aparecen cuando la ORD está en flujo `9.1` y se muestra el botón correspondiente según `TIPOM` (`1=CAMBIO DE ARTICULO`, `2=MERMA DE ART Y CAMBIO`).
+- el botón `Garantia` deja de mostrarse en el panel operativo; queda reservado para el panel de entregadas (`DAT_JAO_ORD_ENTREGADAS`, estado `11`).
 
 ## Conexiones y consultas
 - Base URL por `Env.apiBaseUrl`:
