@@ -6,26 +6,29 @@ import 'package:pdf/widgets.dart' as pw;
 class TallerEtiquetaOrdLegacy {
   const TallerEtiquetaOrdLegacy({
     required this.ord,
-    this.upc = '',
     this.description,
     this.tipo,
+    this.clientNumber,
+    this.clientName,
+    this.deliveryDate,
+    this.deliveryTime,
+    this.comment,
     this.details = const [],
   });
 
   final String ord;
-  final String upc;
   final String? description;
   final String? tipo;
+  final String? clientNumber;
+  final String? clientName;
+  final String? deliveryDate;
+  final String? deliveryTime;
+  final String? comment;
   final List<TallerEtiquetaOrdLegacyDetail> details;
 }
 
 class TallerEtiquetaOrdLegacyDetail {
-  const TallerEtiquetaOrdLegacyDetail({
-    this.job,
-    this.esf,
-    this.cil,
-    this.eje,
-  });
+  const TallerEtiquetaOrdLegacyDetail({this.job, this.esf, this.cil, this.eje});
 
   final String? job;
   final String? esf;
@@ -54,59 +57,84 @@ List<pw.Widget> buildTicketOrdsLegacySection({
 
   if (ords.isEmpty) {
     widgets.add(
-      pw.Text(
-        emptyMessage,
-        style: pw.TextStyle(fontSize: smallFontSize),
-      ),
+      pw.Text(emptyMessage, style: pw.TextStyle(fontSize: smallFontSize)),
     );
     return widgets;
   }
 
   widgets.addAll(
     ords.map((ord) {
-      final ordUpc = ord.upc.trim();
       final ordDesc = (ord.description ?? '').trim();
       final ordTipo = (ord.tipo ?? '').trim();
+      final clientNumber = (ord.clientNumber ?? '').trim();
+      final clientName = (ord.clientName ?? '').trim();
+      final deliveryDate = (ord.deliveryDate ?? '').trim();
+      final deliveryTime = (ord.deliveryTime ?? '').trim();
+      final comment = (ord.comment ?? '').trim();
       final barcodeData = _sanitizeCode39Data(ord.ord);
       return pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
-          _buildOrdCutLine(smallFontSize: smallFontSize),
           pw.Text(
             'ORD: ${ord.ord}',
-            style: pw.TextStyle(fontSize: baseFontSize),
-          ),
-          pw.Text(
-            'UPC: ${ordUpc.isEmpty ? '-' : ordUpc}',
-            style: pw.TextStyle(fontSize: smallFontSize),
+            style: pw.TextStyle(
+              fontSize: baseFontSize + 0.6,
+              fontWeight: pw.FontWeight.bold,
+            ),
           ),
           if (ordDesc.isNotEmpty)
             pw.Text(
               ordDesc,
-              style: pw.TextStyle(fontSize: smallFontSize),
+              style: pw.TextStyle(fontSize: baseFontSize - 0.2),
+              maxLines: 1,
             ),
           if (ordTipo.isNotEmpty)
             pw.Text(
               'TIPO: $ordTipo',
-              style: pw.TextStyle(fontSize: smallFontSize),
+              style: pw.TextStyle(fontSize: baseFontSize - 0.2),
+            ),
+          if (clientNumber.isNotEmpty || clientName.isNotEmpty)
+            _buildClientRow(
+              clientNumber: clientNumber,
+              clientName: clientName,
+              fontSize: smallFontSize + 0.3,
             ),
           if (barcodeData.isNotEmpty)
             pw.Padding(
-              padding: const pw.EdgeInsets.only(top: 1.5, bottom: 2),
-              child: pw.BarcodeWidget(
-                barcode: pw.Barcode.code39(),
-                data: barcodeData,
-                drawText: true,
-                textStyle: pw.TextStyle(fontSize: smallFontSize),
-                width: _mmToPt(widthMm <= 58 ? widthMm - 10 : widthMm - 12),
-                height: widthMm <= 58 ? 22 : (widthMm <= 76 ? 24 : 30),
+              padding: const pw.EdgeInsets.only(top: 1.2, bottom: 1.2),
+              child: pw.Center(
+                child: pw.BarcodeWidget(
+                  barcode: pw.Barcode.code39(),
+                  data: barcodeData,
+                  drawText: true,
+                  textStyle: pw.TextStyle(fontSize: smallFontSize + 0.1),
+                  width: _mmToPt(widthMm <= 58 ? widthMm - 8 : widthMm - 16),
+                  height: widthMm <= 58 ? 12 : (widthMm <= 76 ? 14 : 18),
+                ),
               ),
             ),
-          _buildOrdDetailsTable(
-            details: ord.details,
-            smallFontSize: smallFontSize,
+          pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Expanded(
+                flex: 7,
+                child: _buildOrdDetailsTable(
+                  details: ord.details,
+                  smallFontSize: smallFontSize - 0.2,
+                ),
+              ),
+              pw.SizedBox(width: 4),
+              pw.Expanded(
+                flex: 4,
+                child: _buildDateTimePanel(
+                  deliveryDate: deliveryDate,
+                  deliveryTime: deliveryTime,
+                  smallFontSize: smallFontSize - 0.1,
+                ),
+              ),
+            ],
           ),
-          pw.SizedBox(height: 1.5),
+          _buildCommentBox(comment: comment, smallFontSize: smallFontSize),
         ],
       );
     }),
@@ -130,28 +158,6 @@ String _sanitizeCode39Data(String value) {
   return sanitized.isEmpty ? '' : sanitized;
 }
 
-pw.Widget _buildOrdCutLine({required double smallFontSize}) {
-  return pw.Padding(
-    padding: const pw.EdgeInsets.only(top: 1.5, bottom: 1.5),
-    child: pw.Row(
-      children: [
-        pw.Expanded(child: pw.Container(height: 0.8, color: PdfColors.grey700)),
-        pw.Padding(
-          padding: const pw.EdgeInsets.symmetric(horizontal: 3),
-          child: pw.Text(
-            '✂',
-            style: pw.TextStyle(
-              fontSize: smallFontSize,
-              fontWeight: pw.FontWeight.bold,
-            ),
-          ),
-        ),
-        pw.Expanded(child: pw.Container(height: 0.8, color: PdfColors.grey700)),
-      ],
-    ),
-  );
-}
-
 pw.Widget _buildOrdDetailsTable({
   required List<TallerEtiquetaOrdLegacyDetail> details,
   required double smallFontSize,
@@ -171,12 +177,9 @@ pw.Widget _buildOrdDetailsTable({
     rows.add(['', '', '', '']);
   }
 
-  pw.Widget cell(
-    String text, {
-    required bool header,
-  }) {
+  pw.Widget cell(String text, {required bool header}) {
     return pw.Container(
-      padding: const pw.EdgeInsets.symmetric(vertical: 1.5, horizontal: 2),
+      padding: const pw.EdgeInsets.symmetric(vertical: 0.2, horizontal: 0.4),
       alignment: pw.Alignment.center,
       child: pw.Text(
         text,
@@ -189,12 +192,9 @@ pw.Widget _buildOrdDetailsTable({
   }
 
   return pw.Padding(
-    padding: const pw.EdgeInsets.only(top: 1.5, bottom: 1.5),
+    padding: const pw.EdgeInsets.only(top: 0.2, bottom: 0.4),
     child: pw.Table(
-      border: pw.TableBorder.all(
-        color: PdfColors.grey700,
-        width: 0.6,
-      ),
+      border: null,
       columnWidths: const {
         0: pw.FlexColumnWidth(1.0),
         1: pw.FlexColumnWidth(1.2),
@@ -222,6 +222,102 @@ pw.Widget _buildOrdDetailsTable({
           ),
         ),
       ],
+    ),
+  );
+}
+
+pw.Widget _buildClientRow({
+  required String clientNumber,
+  required String clientName,
+  required double fontSize,
+}) {
+  return pw.Padding(
+    padding: const pw.EdgeInsets.only(top: 0.4),
+    child: pw.Container(
+      width: double.infinity,
+      color: PdfColors.grey100,
+      padding: const pw.EdgeInsets.symmetric(horizontal: 1, vertical: 0.8),
+      child: pw.Text(
+        [
+          clientNumber,
+          clientName,
+        ].where((value) => value.trim().isNotEmpty).join(' '),
+        style: pw.TextStyle(fontSize: fontSize),
+        maxLines: 1,
+      ),
+    ),
+  );
+}
+
+pw.Widget _buildDateTimePanel({
+  required String deliveryDate,
+  required String deliveryTime,
+  required double smallFontSize,
+}) {
+  pw.Widget box(String title, String value) {
+    return pw.Container(
+      margin: const pw.EdgeInsets.only(bottom: 4),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+        children: [
+          pw.Container(
+            color: PdfColors.grey700,
+            padding: const pw.EdgeInsets.symmetric(
+              horizontal: 1,
+              vertical: 0.8,
+            ),
+            child: pw.Text(
+              title,
+              textAlign: pw.TextAlign.center,
+              style: pw.TextStyle(
+                color: PdfColors.white,
+                fontSize: smallFontSize,
+                fontWeight: pw.FontWeight.bold,
+              ),
+            ),
+          ),
+          pw.Container(
+            color: PdfColors.grey100,
+            padding: const pw.EdgeInsets.symmetric(
+              horizontal: 1,
+              vertical: 1.2,
+            ),
+            child: pw.Text(
+              value.trim().isEmpty ? '-' : value.trim(),
+              textAlign: pw.TextAlign.center,
+              style: pw.TextStyle(fontSize: smallFontSize + 0.1),
+              maxLines: 1,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  return pw.Padding(
+    padding: const pw.EdgeInsets.only(top: 0.4),
+    child: pw.Column(
+      children: [box('FCNTE', deliveryDate), box('HR_ENT', deliveryTime)],
+    ),
+  );
+}
+
+pw.Widget _buildCommentBox({
+  required String comment,
+  required double smallFontSize,
+}) {
+  final content = comment.trim().isEmpty ? 'SIN COMENTARIO' : comment.trim();
+  return pw.Padding(
+    padding: const pw.EdgeInsets.only(top: 0.4),
+    child: pw.Container(
+      width: double.infinity,
+      height: _mmToPt(10),
+      padding: const pw.EdgeInsets.symmetric(horizontal: 1, vertical: 0.6),
+      child: pw.Text(
+        'COMENTARIO: $content',
+        style: pw.TextStyle(fontSize: smallFontSize),
+        maxLines: 2,
+      ),
     ),
   );
 }

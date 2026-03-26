@@ -163,6 +163,13 @@ autenticacion, datos maestros, inventarios, control de cuentas y punto de venta.
 - AppBar operativo compacto para reducir altura y ahorrar espacio en pantalla.
 - panel ORD UI (2026-03-24): la botonera principal sale del encabezado visible y se abre desde un popup `Opciones de Trabajo` en el AppBar.
 - panel ORD UI (2026-03-24): `Configuracion de Vista` se mueve al AppBar del lado derecho; el bloque de filtros conserva solo criterios y acciones de consulta.
+- panel ORD UI (2026-03-24): los botones del AppBar (`Opciones de Trabajo`, `Configuracion de Vista` y refrescar) usan fondo blanco para contrastar con el AppBar.
+- panel ORD UI (2026-03-24): se elimina del card de filtros el label de selección de ORDs y el contador/paginador se integra en la misma banda de criterios, alineado a la derecha cuando hay ancho suficiente.
+- panel ORD UI/Home (2026-03-24): `HomePage` agrega accesos directos a `Enviar`, `Asignar`, `Regresar a tienda`, `Recibir` y `Entregar`; cada tarjeta solo se muestra cuando `GET /ordenes-trabajo` expone el permiso correspondiente en `allowedActions`.
+- panel ORD UI/Home (2026-03-24): `router.dart` registra rutas directas `/taller/ordenes-trabajo/enviar|asignar|regresar-tienda|recibir|entregar` hacia páginas adicionales standalone (`ordenes_trabajo_action_page.dart`) que no muestran el panel principal ni redirigen a él.
+- panel ORD UI/Home (2026-03-24): las páginas standalone replican la mecánica de los popups del panel (`captura/escaneo`, validación de estado, lista relacionada, confirmación y cambio de `ESTSEGU`) y el panel principal conserva intactos sus botones y mensajes emergentes.
+- panel ORD UI/Home (2026-03-24): la página directa de `Entregar` agrega captura de firma digital del cliente y procesa las ORDs relacionadas una por una con `POST /ordenes-trabajo/:iord/entregar`, reutilizando el mismo contrato API sin cambios backend ni SP adicional.
+- matriz botones ORD (2026-03-24): `JEF_TALLER/TALLER` conserva flujo completo e impresión; `ANALISTA_ORD/ANALISTA` ve `Ver detalle`, `Autorizar`, `Enviar`, `Asignar laboratorio`, `Entregar` e `Imprimir etiqueta`; `ENC_MAQUILA/ENCARGADO_MAQUILA/ENC_BISEL/ENCARGADO_BISELADO` ve `Ver detalle`, `Asignar`, `Trabajo terminado`, `Regresar incidencia`, `Regresar a tienda` y `Recibir`.
 - etiqueta ORD legado (2026-03-24): `Imprimir etiqueta` genera una página por ORD seleccionada con tamaño fijo `76mm x 51mm`, reutilizando `ticket_ords_legacy_layout.dart`.
 - escaneo con captura manual (lector físico por Enter) y opción de cámara (`mobile_scanner`) para recepción/entrega.
 - `detalle` de cabecera/renglones disponible desde panel para trazabilidad rápida.

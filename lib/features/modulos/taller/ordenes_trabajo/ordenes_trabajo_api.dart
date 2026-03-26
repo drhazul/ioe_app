@@ -143,6 +143,20 @@ class OrdenesTrabajoApi {
         .toList(growable: false);
   }
 
+  Future<List<OrdenTrabajoSucursalOption>> fetchSucursales() async {
+    final res = await dio.get('/dat-suc');
+    final rawItems = (res.data as List?) ?? const [];
+    return rawItems
+        .whereType<Map>()
+        .map(
+          (item) => OrdenTrabajoSucursalOption.fromJson(
+            Map<String, dynamic>.from(item),
+          ),
+        )
+        .where((item) => item.suc.trim().isNotEmpty)
+        .toList(growable: false);
+  }
+
   Future<OrdenTrabajoEnviarRelacionItem> validarOrdAsignar(String code) async {
     final cleanCode = code.trim();
     final res = await dio.post(
@@ -237,6 +251,19 @@ class OrdenesTrabajoApi {
         .toList(growable: false);
     final res = await dio.post(
       '/ordenes-trabajo/enviar/lote',
+      data: {'iords': normalized},
+    );
+    return _actionFrom(res);
+  }
+
+  Future<OrdenTrabajoActionResult> anularLote(List<String> iords) async {
+    final normalized = iords
+        .map((item) => item.trim().toUpperCase())
+        .where((item) => item.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
+    final res = await dio.post(
+      '/ordenes-trabajo/anular/lote',
       data: {'iords': normalized},
     );
     return _actionFrom(res);

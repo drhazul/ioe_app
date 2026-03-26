@@ -87,8 +87,7 @@ class _ModulesList extends StatelessWidget {
   final HomeModulesResponse response;
 
   @override
-  Widget build(BuildContext context) =>
-      _ModulesListStateful(response: response);
+  Widget build(BuildContext context) => _ModulesListStateful(response: response);
 }
 
 class _ModulesListStateful extends StatefulWidget {
@@ -178,6 +177,7 @@ class _ModulesListStatefulState extends State<_ModulesListStateful> {
       ),
     );
   }
+
 }
 
 class _SearchBar extends StatelessWidget {
@@ -373,6 +373,21 @@ class _ModuleRow extends StatelessWidget {
         moduloCode == 'ORDENES_TRABAJO' ||
         moduloCode == 'ORD_TRABAJO') {
       return '/taller/ordenes-trabajo';
+    }
+    if (moduloCode == 'DAT_JAO_ORD_ENVIAR') {
+      return '/taller/ordenes-trabajo/enviar';
+    }
+    if (moduloCode == 'DAT_JAO_ORD_ASIGNAR') {
+      return '/taller/ordenes-trabajo/asignar';
+    }
+    if (moduloCode == 'DAT_JAO_ORD_REGRESAR_TIENDA') {
+      return '/taller/ordenes-trabajo/regresar-tienda';
+    }
+    if (moduloCode == 'DAT_JAO_ORD_RECIBIR') {
+      return '/taller/ordenes-trabajo/recibir';
+    }
+    if (moduloCode == 'DAT_JAO_ORD_ENTREGAR') {
+      return '/taller/ordenes-trabajo/entregar';
     }
     if (moduloCode == 'PV_CAJAS') {
       return '/punto-venta';

@@ -83,10 +83,31 @@ class _GruposFrontListState extends State<_GruposFrontList> {
   Future<void> _assignModules(AccessGrupoFront grupo) async {
     final api = widget.ref.read(accessApiProvider);
     final allMods = await widget.ref.read(frontModulosProvider.future);
-    allMods.sort((a, b) => a.codigo.compareTo(b.codigo));
+    allMods.sort((a, b) {
+      final deptoA = (a.depto ?? 'SIN DEPTO').trim().toUpperCase();
+      final deptoB = (b.depto ?? 'SIN DEPTO').trim().toUpperCase();
+      final deptoCompare = deptoA.compareTo(deptoB);
+      if (deptoCompare != 0) return deptoCompare;
+      return a.codigo.compareTo(b.codigo);
+    });
     final assigned = await widget.ref.read(frontGroupModulesProvider(grupo.id).future);
 
     final selected = assigned.map((e) => e.id).toSet();
+    var selectedDepto = 'TODOS';
+    final deptoOptions = <String>{
+      'TODOS',
+      ...allMods.map((mod) {
+        final depto = (mod.depto ?? '').trim();
+        return depto.isEmpty ? 'SIN DEPTO' : depto.toUpperCase();
+      }),
+    }.toList()
+      ..sort((a, b) {
+        if (a == 'TODOS') return -1;
+        if (b == 'TODOS') return 1;
+        if (a == 'SIN DEPTO') return 1;
+        if (b == 'SIN DEPTO') return -1;
+        return a.compareTo(b);
+      });
 
     if (!mounted) return;
     final saved = await showDialog<bool>(
@@ -94,29 +115,73 @@ class _GruposFrontListState extends State<_GruposFrontList> {
       builder: (ctx) => AlertDialog(
         title: Text('Asignar módulos a ${grupo.nombre}'),
         content: StatefulBuilder(
-          builder: (ctx, setState) => SizedBox(
-            width: double.maxFinite,
-            child: ListView(
-              shrinkWrap: true,
-              children: [
-                for (final mod in allMods)
-                  CheckboxListTile(
-                    value: selected.contains(mod.id),
-                    title: Text('${mod.codigo} - ${mod.nombre}'),
-                    subtitle: Text('${mod.depto ?? 'SIN DEPTO'} · ${mod.activo ? 'Activo' : 'Inactivo'}'),
-                    onChanged: (val) {
-                      setState(() {
-                        if (val == true) {
-                          selected.add(mod.id);
-                        } else {
-                          selected.remove(mod.id);
-                        }
-                      });
+          builder: (ctx, setState) {
+            final filteredMods = allMods.where((mod) {
+              if (selectedDepto == 'TODOS') return true;
+              final depto = (mod.depto ?? '').trim();
+              final normalized = depto.isEmpty ? 'SIN DEPTO' : depto.toUpperCase();
+              return normalized == selectedDepto;
+            }).toList(growable: false);
+
+            return SizedBox(
+              width: 1000,
+              height: 560,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  DropdownButtonFormField<String>(
+                    key: ValueKey(selectedDepto),
+                    initialValue: selectedDepto,
+                    decoration: const InputDecoration(
+                      labelText: 'Filtrar por departamento',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: deptoOptions
+                        .map(
+                          (depto) => DropdownMenuItem(
+                            value: depto,
+                            child: Text(depto),
+                          ),
+                        )
+                        .toList(growable: false),
+                    onChanged: (value) {
+                      setState(() => selectedDepto = value ?? 'TODOS');
                     },
                   ),
-              ],
-            ),
-          ),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: filteredMods.isEmpty
+                        ? const Center(
+                            child: Text(
+                              'No hay módulos para el departamento seleccionado.',
+                            ),
+                          )
+                        : ListView(
+                            children: [
+                              for (final mod in filteredMods)
+                                CheckboxListTile(
+                                  value: selected.contains(mod.id),
+                                  title: Text('${mod.codigo} - ${mod.nombre}'),
+                                  subtitle: Text(
+                                    '${(mod.depto ?? '').trim().isEmpty ? 'SIN DEPTO' : mod.depto!.trim().toUpperCase()} · ${mod.activo ? 'Activo' : 'Inactivo'}',
+                                  ),
+                                  onChanged: (val) {
+                                    setState(() {
+                                      if (val == true) {
+                                        selected.add(mod.id);
+                                      } else {
+                                        selected.remove(mod.id);
+                                      }
+                                    });
+                                  },
+                                ),
+                            ],
+                          ),
+                  ),
+                ],
+              ),
+            );
+          },
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),

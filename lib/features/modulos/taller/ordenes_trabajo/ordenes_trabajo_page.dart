@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -18,15 +19,20 @@ class OrdenesTrabajoPage extends ConsumerStatefulWidget {
   const OrdenesTrabajoPage({
     super.key,
     this.panelMode = OrdenesTrabajoPanelMode.operativo,
+    this.initialAction,
   });
 
   final OrdenesTrabajoPanelMode panelMode;
+  final OrdenesTrabajoInitialAction? initialAction;
 
   @override
   ConsumerState<OrdenesTrabajoPage> createState() => _OrdenesTrabajoPageState();
 }
 
 class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
+  static const String _recibirRolHint =
+      'Los encargados de maquila solo pueden recibir ORDs TALLADO y los encargados de bisel solo ORDs BISELADO. Admin y jefe de taller pueden recibir ambas.';
+
   static const Map<String, double> _defaultColumnWidths = <String, double>{
     'SUC': 80,
     'TIPO': 95,
@@ -61,12 +67,12 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
   final _iordCtrl = TextEditingController();
   final _idfolCtrl = TextEditingController();
   final _clientCtrl = TextEditingController();
-  final _asignCtrl = TextEditingController();
   final _sucCtrl = TextEditingController();
   final _ordEnviarCtrl = TextEditingController();
   String? _tipoValue;
   String? _laboratorioId;
   String? _estseguValue;
+  String? _asignValue;
 
   DateTime? _fecIni;
   DateTime? _fecFin;
@@ -74,6 +80,14 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
   bool _contextReady = false;
   bool _isAdmin = false;
   String _userSuc = '';
+  bool _initialActionHandled = false;
+  bool _loadingSucursalOptions = false;
+  bool _loadingAsignadoOptions = false;
+  String? _lastAsignadosSuc;
+  List<OrdenTrabajoSucursalOption> _sucursalOptions =
+      const <OrdenTrabajoSucursalOption>[];
+  List<OrdenTrabajoColaboradorOption> _asignadoOptions =
+      const <OrdenTrabajoColaboradorOption>[];
 
   final Set<String> _selectedIords = <String>{};
   double _filterFontSize = 13;
@@ -92,7 +106,6 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     _iordCtrl.dispose();
     _idfolCtrl.dispose();
     _clientCtrl.dispose();
-    _asignCtrl.dispose();
     _sucCtrl.dispose();
     _ordEnviarCtrl.dispose();
     super.dispose();
@@ -109,6 +122,8 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     final selectedItem = _findSelected(
       panelData?.items ?? const <OrdenTrabajoItem>[],
     );
+    _tryHandleInitialAction(panelData);
+    _scheduleFilterCatalogSync(panelData?.roleCode);
 
     return Scaffold(
       appBar: AppBar(
@@ -127,6 +142,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
               onPressed: panelData == null
                   ? null
                   : () => _showOpcionesTrabajoDialog(selectedItem, panelData),
+              style: _appBarActionButtonStyle(),
               icon: const Icon(Icons.widgets_outlined),
               label: const Text('Opciones de Trabajo'),
             ),
@@ -140,6 +156,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                       panelData,
                       _showAsignFilter(panelData.roleCode),
                     ),
+              style: _appBarActionButtonStyle(),
               icon: const Icon(Icons.tune),
               label: const Text('Configuracion de Vista'),
             ),
@@ -147,6 +164,10 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
           IconButton(
             tooltip: 'Refrescar',
             onPressed: _reload,
+            style: IconButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: Colors.teal.shade900,
+            ),
             icon: const Icon(Icons.refresh),
           ),
         ],
@@ -193,7 +214,11 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     final laboratoriosByTipo = _filterLaboratoriosByTipo(
       laboratorios,
       _tipoValue,
+      _sucCtrl.text,
     );
+    final sucursalItems = _buildSucursalFilterItems(panel);
+    final asignadoItems = _buildAsignadoFilterItems();
+    final selectedSucValue = _selectedSucursalFilterValue;
 
     return Card(
       elevation: 0,
@@ -211,213 +236,242 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
               ),
             ),
             const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _filterField(
-                  _sucCtrl,
-                  'Sucursal',
-                  width: 100,
-                  enabled: _isAdmin,
-                ),
-                _filterField(_iordCtrl, 'IORD', width: 150),
-                _filterField(_idfolCtrl, 'IDFOL', width: 170),
-                _filterField(_clientCtrl, 'Cliente', width: 120),
-                _dropdownField(
-                  label: 'Tipo',
-                  value: _tipoValue,
-                  width: 140,
-                  items: const [
-                    DropdownMenuItem<String>(value: null, child: Text('Todos')),
-                    DropdownMenuItem<String>(
-                      value: 'TALLADO',
-                      child: Text('TALLADO'),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final filtersWrap = Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _dropdownField(
+                      label: 'Sucursal',
+                      value: selectedSucValue,
+                      width: 180,
+                      items: sucursalItems,
+                      onChanged: (value) {
+                        final nextSuc = (value ?? '').trim();
+                        setState(() {
+                          _sucCtrl.text = nextSuc;
+                          _asignValue = null;
+                          _lastAsignadosSuc = null;
+                          final laboratoriosCompatibles =
+                              _filterLaboratoriosByTipo(
+                                laboratorios,
+                                _tipoValue,
+                                nextSuc,
+                              );
+                          final selectedLabId = _parseLaboratorioId(
+                            _laboratorioId ?? '',
+                          );
+                          if (selectedLabId != null &&
+                              !laboratoriosCompatibles.any(
+                                (item) => item.id == selectedLabId,
+                              )) {
+                            _laboratorioId = null;
+                          }
+                        });
+                        unawaited(
+                          _loadAsignadoOptionsForCurrentSuc(force: true),
+                        );
+                      },
                     ),
-                    DropdownMenuItem<String>(
-                      value: 'BISELADO',
-                      child: Text('BISELADO'),
+                    _filterField(_iordCtrl, 'IORD', width: 150),
+                    _filterField(_idfolCtrl, 'IDFOL', width: 170),
+                    _filterField(_clientCtrl, 'Cliente', width: 120),
+                    _dropdownField(
+                      label: 'Tipo',
+                      value: _tipoValue,
+                      width: 140,
+                      items: const [
+                        DropdownMenuItem<String>(
+                          value: null,
+                          child: Text('Todos'),
+                        ),
+                        DropdownMenuItem<String>(
+                          value: 'TALLADO',
+                          child: Text('TALLADO'),
+                        ),
+                        DropdownMenuItem<String>(
+                          value: 'BISELADO',
+                          child: Text('BISELADO'),
+                        ),
+                      ],
+                      onChanged: (value) => setState(() {
+                        _tipoValue = value;
+                        final laboratoriosCompatibles =
+                            _filterLaboratoriosByTipo(
+                              laboratorios,
+                              value,
+                              _sucCtrl.text,
+                            );
+                        final selectedLabId = _parseLaboratorioId(
+                          _laboratorioId ?? '',
+                        );
+                        if (selectedLabId == null) return;
+                        if (!laboratoriosCompatibles.any(
+                          (item) => item.id == selectedLabId,
+                        )) {
+                          _laboratorioId = null;
+                        }
+                      }),
                     ),
-                  ],
-                  onChanged: (value) => setState(() {
-                    _tipoValue = value;
-                    final laboratoriosCompatibles = _filterLaboratoriosByTipo(
-                      laboratorios,
-                      value,
-                    );
-                    final selectedLabId = _parseLaboratorioId(
-                      _laboratorioId ?? '',
-                    );
-                    if (selectedLabId == null) return;
-                    if (!laboratoriosCompatibles.any(
-                      (item) => item.id == selectedLabId,
-                    )) {
-                      _laboratorioId = null;
-                    }
-                  }),
-                ),
-                _dropdownField(
-                  label: 'Laboratorio',
-                  value: _laboratorioId,
-                  width: 220,
-                  items: [
-                    const DropdownMenuItem<String>(
-                      value: null,
-                      child: Text('Todos'),
+                    _dropdownField(
+                      label: 'Laboratorio',
+                      value: _laboratorioId,
+                      width: 220,
+                      items: [
+                        const DropdownMenuItem<String>(
+                          value: null,
+                          child: Text('Todos'),
+                        ),
+                        ...laboratoriosByTipo.map(
+                          (item) => DropdownMenuItem<String>(
+                            value: item.id.toString(),
+                            child: Text(
+                              item.lab.trim().isEmpty
+                                  ? item.id.toString()
+                                  : item.lab.trim(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                      ],
+                      onChanged: (value) =>
+                          setState(() => _laboratorioId = value),
                     ),
-                    ...laboratoriosByTipo.map(
-                      (item) => DropdownMenuItem<String>(
-                        value: item.id.toString(),
-                        child: Text(
-                          item.lab.trim().isEmpty
-                              ? item.id.toString()
-                              : item.lab.trim(),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                    _dropdownField(
+                      label: 'Est. flujo',
+                      value: _estseguValue,
+                      width: 170,
+                      items: [
+                        const DropdownMenuItem<String>(
+                          value: null,
+                          child: Text('Todos'),
+                        ),
+                        ...flowOptions.map((item) {
+                          final rawValue = item.value.trim();
+                          final itemText = rawValue.toUpperCase() == 'NULL'
+                              ? (item.label.trim().isEmpty
+                                    ? 'SIN FLUJO'
+                                    : item.label.trim())
+                              : '$rawValue ${item.label}'.trim();
+                          return DropdownMenuItem<String>(
+                            value: item.value,
+                            child: Text(
+                              itemText,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          );
+                        }),
+                      ],
+                      onChanged: (value) =>
+                          setState(() => _estseguValue = value),
+                    ),
+                    if (showAsign)
+                      _dropdownField(
+                        label: 'Asignado',
+                        value: _asignValue,
+                        width: 220,
+                        items: asignadoItems,
+                        onChanged: (value) =>
+                            setState(() => _asignValue = value),
+                      ),
+                    _dateChip(
+                      label: 'Desde',
+                      value: _fecIni,
+                      onPick: () => _pickDate(
+                        initial: _fecIni,
+                        onChange: (d) => setState(() => _fecIni = d),
+                      ),
+                      onClear: _fecIni == null
+                          ? null
+                          : () => setState(() => _fecIni = null),
+                    ),
+                    _dateChip(
+                      label: 'Hasta',
+                      value: _fecFin,
+                      onPick: () => _pickDate(
+                        initial: _fecFin,
+                        onChange: (d) => setState(() => _fecFin = d),
+                      ),
+                      onClear: _fecFin == null
+                          ? null
+                          : () => setState(() => _fecFin = null),
+                    ),
+                    ElevatedButton.icon(
+                      onPressed: () => _applyFilters(showAsign: showAsign),
+                      icon: Icon(
+                        Icons.search,
+                        size: (_filterFontSize + 3).clamp(15.0, 20.0),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: (14 * _filterScale).clamp(10.0, 22.0),
+                          vertical: (10 * _filterScale).clamp(8.0, 14.0),
+                        ),
+                        textStyle: TextStyle(
+                          fontSize: _filterFontSize,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
+                      label: const Text('Aplicar filtros'),
                     ),
-                  ],
-                  onChanged: (value) => setState(() => _laboratorioId = value),
-                ),
-                _dropdownField(
-                  label: 'Est. flujo',
-                  value: _estseguValue,
-                  width: 170,
-                  items: [
-                    const DropdownMenuItem<String>(
-                      value: null,
-                      child: Text('Todos'),
-                    ),
-                    ...flowOptions.map((item) {
-                      final rawValue = item.value.trim();
-                      final itemText = rawValue.toUpperCase() == 'NULL'
-                          ? (item.label.trim().isEmpty
-                                ? 'SIN FLUJO'
-                                : item.label.trim())
-                          : '$rawValue ${item.label}'.trim();
-                      return DropdownMenuItem<String>(
-                        value: item.value,
-                        child: Text(
-                          itemText,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                    OutlinedButton.icon(
+                      onPressed: _clearFilters,
+                      icon: Icon(
+                        Icons.clear_all,
+                        size: (_filterFontSize + 3).clamp(15.0, 20.0),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: (14 * _filterScale).clamp(10.0, 22.0),
+                          vertical: (10 * _filterScale).clamp(8.0, 14.0),
                         ),
-                      );
-                    }),
+                        textStyle: TextStyle(
+                          fontSize: _filterFontSize,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      label: const Text('Limpiar filtros'),
+                    ),
                   ],
-                  onChanged: (value) => setState(() => _estseguValue = value),
-                ),
-                if (showAsign) _filterField(_asignCtrl, 'Asignado', width: 130),
-                _dateChip(
-                  label: 'Desde',
-                  value: _fecIni,
-                  onPick: () => _pickDate(
-                    initial: _fecIni,
-                    onChange: (d) => setState(() => _fecIni = d),
-                  ),
-                  onClear: _fecIni == null
-                      ? null
-                      : () => setState(() => _fecIni = null),
-                ),
-                _dateChip(
-                  label: 'Hasta',
-                  value: _fecFin,
-                  onPick: () => _pickDate(
-                    initial: _fecFin,
-                    onChange: (d) => setState(() => _fecFin = d),
-                  ),
-                  onClear: _fecFin == null
-                      ? null
-                      : () => setState(() => _fecFin = null),
-                ),
-                ElevatedButton.icon(
-                  onPressed: () => _applyFilters(showAsign: showAsign),
-                  icon: Icon(
-                    Icons.search,
-                    size: (_filterFontSize + 3).clamp(15.0, 20.0),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                    padding: EdgeInsets.symmetric(
-                      horizontal: (14 * _filterScale).clamp(10.0, 22.0),
-                      vertical: (10 * _filterScale).clamp(8.0, 14.0),
+                );
+                final paginator = _buildPaginator(
+                  panel,
+                  asCard: false,
+                  fontSize: _filterFontSize,
+                );
+
+                if (constraints.maxWidth < 1240) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      filtersWrap,
+                      const SizedBox(height: 10),
+                      Align(alignment: Alignment.centerRight, child: paginator),
+                    ],
+                  );
+                }
+
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: filtersWrap),
+                    const SizedBox(width: 12),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: paginator,
                     ),
-                    textStyle: TextStyle(
-                      fontSize: _filterFontSize,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  label: const Text('Aplicar filtros'),
-                ),
-                OutlinedButton.icon(
-                  onPressed: _clearFilters,
-                  icon: Icon(
-                    Icons.clear_all,
-                    size: (_filterFontSize + 3).clamp(15.0, 20.0),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                    padding: EdgeInsets.symmetric(
-                      horizontal: (14 * _filterScale).clamp(10.0, 22.0),
-                      vertical: (10 * _filterScale).clamp(8.0, 14.0),
-                    ),
-                    textStyle: TextStyle(
-                      fontSize: _filterFontSize,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  label: const Text('Limpiar filtros'),
-                ),
-              ],
+                  ],
+                );
+              },
             ),
-            const SizedBox(height: 10),
-            const Divider(height: 1),
-            const SizedBox(height: 6),
-            _buildPanelStatusRow(panel),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildPanelStatusRow(OrdenTrabajoPanelResponse panel) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final selected = _findSelected(panel.items);
-        final statusLabel = Text(
-          _selectionStatusText(selected),
-          style: TextStyle(
-            color: Colors.teal.shade900,
-            fontWeight: FontWeight.w700,
-            fontSize: _filterFontSize,
-          ),
-        );
-        final paginator = _buildPaginator(
-          panel,
-          asCard: false,
-          fontSize: _filterFontSize,
-        );
-
-        if (constraints.maxWidth < 1080) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              statusLabel,
-              const SizedBox(height: 8),
-              Align(alignment: Alignment.centerRight, child: paginator),
-            ],
-          );
-        }
-
-        return Row(
-          children: [
-            Expanded(child: statusLabel),
-            const SizedBox(width: 8),
-            paginator,
-          ],
-        );
-      },
     );
   }
 
@@ -448,6 +502,92 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
         return 'Ordenes de Trabajo Entregadas';
       case OrdenesTrabajoPanelMode.operativo:
         return 'Ordenes de Trabajo';
+    }
+  }
+
+  ButtonStyle _appBarActionButtonStyle() {
+    return TextButton.styleFrom(
+      backgroundColor: Colors.white,
+      foregroundColor: Colors.teal.shade900,
+      disabledBackgroundColor: Colors.white24,
+      disabledForegroundColor: Colors.white70,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    );
+  }
+
+  void _tryHandleInitialAction(OrdenTrabajoPanelResponse? panel) {
+    final initialAction = widget.initialAction;
+    if (_initialActionHandled ||
+        !_contextReady ||
+        panel == null ||
+        initialAction == null ||
+        widget.panelMode != OrdenesTrabajoPanelMode.operativo) {
+      return;
+    }
+
+    _initialActionHandled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      if (!_canLaunchInitialAction(initialAction, panel)) {
+        _showError(
+          'Tu usuario no tiene acceso a la opcion ${_initialActionLabel(initialAction)}.',
+        );
+        return;
+      }
+
+      switch (initialAction) {
+        case OrdenesTrabajoInitialAction.enviar:
+          await _showEnviarRelacionDialog();
+          break;
+        case OrdenesTrabajoInitialAction.asignar:
+          await _showAsignarRelacionDialog();
+          break;
+        case OrdenesTrabajoInitialAction.regresarTienda:
+          await _showRegresarTiendaRelacionDialog();
+          break;
+        case OrdenesTrabajoInitialAction.recibir:
+          await _showRecibirRelacionDialog();
+          break;
+        case OrdenesTrabajoInitialAction.entregar:
+          await _showEntregarRelacionDialog();
+          break;
+      }
+    });
+  }
+
+  bool _canLaunchInitialAction(
+    OrdenesTrabajoInitialAction action,
+    OrdenTrabajoPanelResponse panel,
+  ) {
+    if (_isAdmin) return true;
+    final allowedActions = panel.allowedActions;
+    switch (action) {
+      case OrdenesTrabajoInitialAction.enviar:
+        return allowedActions.contains('ENVIAR');
+      case OrdenesTrabajoInitialAction.asignar:
+        return allowedActions.contains('ASIGNAR');
+      case OrdenesTrabajoInitialAction.regresarTienda:
+        return allowedActions.contains('REGRESAR_TIENDA');
+      case OrdenesTrabajoInitialAction.recibir:
+        return allowedActions.contains('SCAN_RECIBIR');
+      case OrdenesTrabajoInitialAction.entregar:
+        return allowedActions.contains('SCAN_ENTREGAR');
+    }
+  }
+
+  String _initialActionLabel(OrdenesTrabajoInitialAction action) {
+    switch (action) {
+      case OrdenesTrabajoInitialAction.enviar:
+        return 'Enviar a taller';
+      case OrdenesTrabajoInitialAction.asignar:
+        return 'Asignar a colaborador';
+      case OrdenesTrabajoInitialAction.regresarTienda:
+        return 'Recibir en tienda';
+      case OrdenesTrabajoInitialAction.recibir:
+        return 'Recibir en taller';
+      case OrdenesTrabajoInitialAction.entregar:
+        return 'Entregar a cliente';
     }
   }
 
@@ -487,7 +627,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     if (widget.panelMode == OrdenesTrabajoPanelMode.anulados) {
       actions.add(
         _OrdenTrabajoToolbarAction(
-          label: 'Ver detalle',
+          label: 'VER DETALLE',
           icon: Icons.info_outline,
           enabled: hasSingleSelection,
           onPressed: () {
@@ -505,7 +645,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     if (widget.panelMode == OrdenesTrabajoPanelMode.entregadas) {
       actions.add(
         _OrdenTrabajoToolbarAction(
-          label: 'Ver detalle',
+          label: 'VER DETALLE',
           icon: Icons.info_outline,
           enabled: hasSingleSelection,
           onPressed: () {
@@ -538,7 +678,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
 
     addAction(
       action: 'VER_DETALLE',
-      label: 'Ver detalle',
+      label: 'VER DETALLE',
       icon: Icons.info_outline,
       requiresSelection: true,
       requiresSingleSelection: true,
@@ -546,28 +686,35 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     );
     addAction(
       action: 'AUTORIZAR',
-      label: 'Autorizar',
+      label: 'AUTORIZAR',
       icon: Icons.verified,
       requiresSelection: true,
       onPressed: _doAutorizarSeleccion,
     );
     addAction(
+      action: 'ANULAR',
+      label: 'ANULAR',
+      icon: Icons.cancel_outlined,
+      requiresSelection: true,
+      onPressed: _doAnularSeleccion,
+    );
+    addAction(
       action: 'ENVIAR',
-      label: hasSelection ? 'ENVIAR Seleccionados' : 'Enviar',
+      label: hasSelection ? 'ENVIAR A TALLER Sel.' : 'ENVIAR A TALLER',
       icon: Icons.outbound,
       requiresSelection: false,
       onPressed: _doEnviar,
     );
     addAction(
       action: 'ASIGNAR',
-      label: hasSelection ? 'ASIGNAR Seleccionados' : 'Asignar',
+      label: hasSelection ? 'ASIGNAR A COLAB. Sel.' : 'ASIGNAR A COLABORADOR',
       icon: Icons.assignment_ind,
       requiresSelection: false,
       onPressed: _doAsignar,
     );
     addAction(
       action: 'TRABAJO_TERMINADO',
-      label: hasSelection ? 'TRAB. TERMINADO Sel.' : 'Trabajo terminado',
+      label: hasSelection ? 'TRABAJO TERMINADO Sel.' : 'TRABAJO TERMINADO',
       icon: Icons.task_alt,
       requiresSelection: false,
       onPressed: _doTrabajoTerminado,
@@ -581,7 +728,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     );
     addAction(
       action: 'REGRESAR_TIENDA',
-      label: hasSelection ? 'TIENDA Sel.' : 'Regresar a tienda',
+      label: hasSelection ? 'RECIBIR EN TIENDA Sel.' : 'RECIBIR EN TIENDA',
       icon: Icons.storefront_outlined,
       requiresSelection: false,
       onPressed: _doRegresarTienda,
@@ -595,19 +742,19 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     );
     addAction(
       action: 'SCAN_RECIBIR',
-      label: hasSelection ? 'RECIBIR Seleccionados' : 'Recibir',
+      label: hasSelection ? 'RECIBIR EN TALLER Sel.' : 'RECIBIR EN TALLER',
       icon: Icons.qr_code_scanner,
       requiresSelection: false,
       onPressed: _doScanRecibir,
     );
     addAction(
       action: 'SCAN_ENTREGAR',
-      label: hasSelection ? 'ENTREGAR Seleccionados' : 'Entregar',
+      label: hasSelection ? 'ENTREGAR A CLIENTE Sel.' : 'ENTREGAR A CLIENTE',
       icon: Icons.qr_code,
       requiresSelection: false,
       onPressed: _doScanEntregar,
     );
-    if ((_isAdmin || can('VER_DETALLE')) && panel != null) {
+    if ((_isAdmin || can('IMPRIMIR_ETIQUETA')) && panel != null) {
       actions.add(
         _OrdenTrabajoToolbarAction(
           label: 'Imprimir etiqueta',
@@ -757,115 +904,117 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
 
     return Card(
       elevation: 0,
-      child: SingleChildScrollView(
+      child: SelectionArea(
         child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: DataTable(
-            showCheckboxColumn: false,
-            horizontalMargin: 2,
-            checkboxHorizontalMargin: 2,
-            columnSpacing: 0,
-            headingRowHeight: headingRowHeight,
-            dataRowMinHeight: dataRowHeight,
-            dataRowMaxHeight: dataRowHeight,
-            headingTextStyle: TextStyle(
-              fontWeight: FontWeight.w700,
-              fontSize: headingFontSize,
-              color: Colors.black87,
-            ),
-            dataTextStyle: TextStyle(
-              fontSize: _tableFontSize,
-              color: Colors.black87,
-            ),
-            columns: columns,
-            rows: panel.items
-                .map((row) {
-                  final selected = _selectedIords.contains(row.iord);
-                  final labDesc = _resolveLaboratorioDescripcion(
-                    row.labor,
-                    panel.laboratorios,
-                  );
-                  final cells = <DataCell>[
-                    DataCell(
-                      Checkbox(
-                        value: selected,
-                        onChanged: (checked) {
-                          _toggleRowSelection(row.iord, checked ?? false);
-                        },
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              showCheckboxColumn: false,
+              horizontalMargin: 2,
+              checkboxHorizontalMargin: 2,
+              columnSpacing: 0,
+              headingRowHeight: headingRowHeight,
+              dataRowMinHeight: dataRowHeight,
+              dataRowMaxHeight: dataRowHeight,
+              headingTextStyle: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: headingFontSize,
+                color: Colors.black87,
+              ),
+              dataTextStyle: TextStyle(
+                fontSize: _tableFontSize,
+                color: Colors.black87,
+              ),
+              columns: columns,
+              rows: panel.items
+                  .map((row) {
+                    final selected = _selectedIords.contains(row.iord);
+                    final labDesc = _resolveLaboratorioDescripcion(
+                      row.labor,
+                      panel.laboratorios,
+                    );
+                    final cells = <DataCell>[
+                      DataCell(
+                        Checkbox(
+                          value: selected,
+                          onChanged: (checked) {
+                            _toggleRowSelection(row.iord, checked ?? false);
+                          },
+                        ),
                       ),
-                    ),
-                    DataCell(_tableCellText(row.suc, width: widthFor('SUC'))),
-                    DataCell(_tableCellText(row.tipo, width: widthFor('TIPO'))),
-                    DataCell(
-                      _tableCellText(
-                        labDesc,
-                        width: widthFor('LABORATORIO'),
-                        maxLines: rowMaxLines,
-                      ),
-                    ),
-                    DataCell(_tableCellText(row.iord, width: widthFor('IORD'))),
-                    DataCell(
-                      _tableCellText(
-                        '${row.clien} ${row.ncliente}'.trim(),
-                        width: widthFor('CLIENTE'),
-                        maxLines: rowMaxLines,
-                      ),
-                    ),
-                    DataCell(
-                      _tableCellText(row.art, width: widthFor('ARTICULO')),
-                    ),
-                    DataCell(
-                      _tableCellText(
-                        row.descArt,
-                        width: widthFor('DESCRIPCION'),
-                        maxLines: rowMaxLines,
-                      ),
-                    ),
-                    DataCell(
-                      _tableCellText(
-                        _money(row.ctd),
-                        width: widthFor('CTD'),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                    DataCell(
-                      _tableCellText(
-                        _flowDescripcion(row.estsegu, row.estseguDesc),
-                        width: widthFor('FLUJO'),
-                        maxLines: rowMaxLines,
-                      ),
-                    ),
-                    if (showAsign)
+                      DataCell(_tableCellText(row.suc, width: widthFor('SUC'))),
+                      DataCell(_tableCellText(row.tipo, width: widthFor('TIPO'))),
                       DataCell(
                         _tableCellText(
-                          row.asign,
-                          width: widthFor('ASIGNADO'),
+                          labDesc,
+                          width: widthFor('LABORATORIO'),
                           maxLines: rowMaxLines,
                         ),
                       ),
-                    DataCell(
-                      _tableCellText(
-                        _fmtDate(row.fcns),
-                        width: widthFor('F_SOL'),
+                      DataCell(_tableCellText(row.iord, width: widthFor('IORD'))),
+                      DataCell(
+                        _tableCellText(
+                          '${row.clien} ${row.ncliente}'.trim(),
+                          width: widthFor('CLIENTE'),
+                          maxLines: rowMaxLines,
+                        ),
                       ),
-                    ),
-                    DataCell(
-                      _tableCellText(
-                        _fmtDate(row.fcnm),
-                        width: widthFor('F_ENT'),
+                      DataCell(
+                        _tableCellText(row.art, width: widthFor('ARTICULO')),
                       ),
-                    ),
-                  ];
+                      DataCell(
+                        _tableCellText(
+                          row.descArt,
+                          width: widthFor('DESCRIPCION'),
+                          maxLines: rowMaxLines,
+                        ),
+                      ),
+                      DataCell(
+                        _tableCellText(
+                          _money(row.ctd),
+                          width: widthFor('CTD'),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      DataCell(
+                        _tableCellText(
+                          _flowDescripcion(row.estsegu, row.estseguDesc),
+                          width: widthFor('FLUJO'),
+                          maxLines: rowMaxLines,
+                        ),
+                      ),
+                      if (showAsign)
+                        DataCell(
+                          _tableCellText(
+                            row.asign,
+                            width: widthFor('ASIGNADO'),
+                            maxLines: rowMaxLines,
+                          ),
+                        ),
+                      DataCell(
+                        _tableCellText(
+                          _fmtDate(row.fcns),
+                          width: widthFor('F_SOL'),
+                        ),
+                      ),
+                      DataCell(
+                        _tableCellText(
+                          _fmtDate(row.fcnm),
+                          width: widthFor('F_ENT'),
+                        ),
+                      ),
+                    ];
 
-                  return DataRow(
-                    selected: selected,
-                    onSelectChanged: (_) {
-                      _toggleRowSelection(row.iord, !selected);
-                    },
-                    cells: cells,
-                  );
-                })
-                .toList(growable: false),
+                    return DataRow(
+                      selected: selected,
+                      onSelectChanged: (_) {
+                        _toggleRowSelection(row.iord, !selected);
+                      },
+                      cells: cells,
+                    );
+                  })
+                  .toList(growable: false),
+            ),
           ),
         ),
       ),
@@ -1400,22 +1549,28 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
   List<OrdenTrabajoLaboratorioOption> _filterLaboratoriosByTipo(
     List<OrdenTrabajoLaboratorioOption> laboratorios,
     String? tipo,
+    String? suc,
   ) {
     final tipoNorm = (tipo ?? '').trim().toUpperCase();
-    final filtered = tipoNorm.isEmpty
-        ? laboratorios
-        : laboratorios
-              .where((item) => item.tipoLab.trim().toUpperCase() == tipoNorm)
-              .toList(growable: false);
+    final sucNorm = (suc ?? '').trim().toUpperCase();
+    final filtered = laboratorios.where((item) {
+      final matchesTipo =
+          tipoNorm.isEmpty || item.tipoLab.trim().toUpperCase() == tipoNorm;
+      final itemSuc = item.suc.trim().toUpperCase();
+      final matchesSuc =
+          sucNorm.isEmpty || itemSuc.isEmpty || itemSuc == sucNorm;
+      return matchesTipo && matchesSuc;
+    }).toList(growable: false);
     return _dedupeLaboratorios(filtered);
   }
 
   List<OrdenTrabajoLaboratorioOption> _laboratoriosDetallePorTipo(
     List<OrdenTrabajoLaboratorioOption> laboratorios,
     String tipo,
+    String suc,
     String selectedLaborValue,
   ) {
-    final byTipo = _filterLaboratoriosByTipo(laboratorios, tipo).toList();
+    final byTipo = _filterLaboratoriosByTipo(laboratorios, tipo, suc).toList();
     final selectedId = _parseLaboratorioId(selectedLaborValue);
     if (selectedId == null) return byTipo;
     if (byTipo.any((item) => item.id == selectedId)) return byTipo;
@@ -1582,14 +1737,15 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     required String? value,
     required double width,
     required List<DropdownMenuItem<String>> items,
-    required ValueChanged<String?> onChanged,
+    required ValueChanged<String?>? onChanged,
   }) {
+    final safeValue = _coerceDropdownValue(value, items);
     final scaledWidth = (width * _filterScale).clamp(width * 0.9, width * 1.7);
     return SizedBox(
       width: scaledWidth.toDouble(),
       child: DropdownButtonFormField<String>(
-        key: ValueKey('$label-${value ?? 'ALL'}'),
-        initialValue: value,
+        key: ValueKey('$label-${safeValue ?? 'ALL'}'),
+        initialValue: safeValue,
         isDense: true,
         isExpanded: true,
         items: items,
@@ -1612,14 +1768,39 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     );
   }
 
+  String? _coerceDropdownValue(
+    String? value,
+    List<DropdownMenuItem<String>> items,
+  ) {
+    if (value == null) return null;
+    for (final item in items) {
+      if (item.value == value) {
+        return value;
+      }
+    }
+    return null;
+  }
+
   bool _showAsignFilter(String roleCodeRaw) {
     final role = roleCodeRaw.trim().toUpperCase();
     if (_isAdmin) return true;
     return role == 'JEF_TALLER' ||
+        role == 'TALLER' ||
+        role == 'ANALISTA_ORD' ||
+        role == 'ANALISTA' ||
         role == 'ENC_MAQUILA' ||
         role == 'ENCARGADO_MAQUILA' ||
         role == 'ENC_BISEL' ||
         role == 'ENCARGADO_BISELADO';
+  }
+
+  bool _canEditOrdDetail(String roleCodeRaw) {
+    final role = roleCodeRaw.trim().toUpperCase();
+    if (_isAdmin) return true;
+    return role == 'JEF_TALLER' ||
+        role == 'TALLER' ||
+        role == 'ANALISTA_ORD' ||
+        role == 'ANALISTA';
   }
 
   Widget _dateChip({
@@ -1730,10 +1911,10 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       estsegu: _estseguValue,
       fecIni: _fecIni,
       fecFin: _fecFin,
-      asign: showAsign ? _asignCtrl.text : null,
+      asign: showAsign ? _asignValue : null,
       tipom: null,
       motr: null,
-      suc: _isAdmin ? _sucCtrl.text : _userSuc,
+      suc: _selectedFilterSuc,
       search: null,
       page: 1,
     );
@@ -1744,13 +1925,9 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     _iordCtrl.clear();
     _idfolCtrl.clear();
     _clientCtrl.clear();
-    _asignCtrl.clear();
-    if (_isAdmin) {
-      _sucCtrl.clear();
-    } else {
-      _sucCtrl.text = _userSuc;
-    }
+    _sucCtrl.clear();
     setState(() {
+      _asignValue = null;
       _tipoValue = null;
       _laboratorioId = null;
       _estseguValue = null;
@@ -1762,9 +1939,181 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     ref
         .read(ordenesTrabajoFilterProvider.notifier)
         .state = OrdenesTrabajoFilter(
-      suc: _isAdmin ? null : _userSuc,
+      suc: null,
       panelMode: widget.panelMode,
     );
+  }
+
+  String? get _selectedFilterSuc {
+    final suc = _sucCtrl.text.trim().toUpperCase();
+    return suc.isEmpty ? null : suc;
+  }
+
+  String? get _selectedSucursalFilterValue {
+    return _selectedFilterSuc;
+  }
+
+  List<DropdownMenuItem<String>> _buildSucursalFilterItems(
+    OrdenTrabajoPanelResponse panel,
+  ) {
+    final options = _visibleSucursalOptions(panel);
+    final items = <DropdownMenuItem<String>>[
+      const DropdownMenuItem<String>(value: null, child: Text('Todos')),
+    ];
+    items.addAll(
+      options.map(
+        (item) => DropdownMenuItem<String>(
+          value: item.suc.trim().toUpperCase(),
+          child: Text(
+            item.label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ),
+    );
+    return items;
+  }
+
+  List<DropdownMenuItem<String>> _buildAsignadoFilterItems() {
+    final selectedValue = (_asignValue ?? '').trim();
+    final options = [..._asignadoOptions];
+    if (selectedValue.isNotEmpty &&
+        !options.any((item) => item.idopv.trim() == selectedValue)) {
+      options.add(
+        OrdenTrabajoColaboradorOption(
+          idopv: selectedValue,
+          label: selectedValue,
+          nomb: '',
+          apelp: '',
+          apelm: '',
+          suc: _selectedFilterSuc ?? '',
+        ),
+      );
+    }
+    return <DropdownMenuItem<String>>[
+      const DropdownMenuItem<String>(value: null, child: Text('Todos')),
+      ...options.map(
+        (item) => DropdownMenuItem<String>(
+          value: item.idopv.trim(),
+          child: Text(
+            item.label.trim().isEmpty ? item.idopv : item.label.trim(),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ),
+    ];
+  }
+
+  List<OrdenTrabajoSucursalOption> _visibleSucursalOptions(
+    OrdenTrabajoPanelResponse panel,
+  ) {
+    final currentSuc = (_selectedFilterSuc ?? '').trim().toUpperCase();
+    final allowedSucs = panel.allowedSucs
+        .map((item) => item.trim().toUpperCase())
+        .where((item) => item.isNotEmpty)
+        .toSet();
+    final filtered = _isAdmin || allowedSucs.isEmpty
+        ? _sucursalOptions
+        : _sucursalOptions
+              .where(
+                (item) => allowedSucs.contains(item.suc.trim().toUpperCase()),
+              )
+              .toList(growable: false);
+    if (filtered.isNotEmpty) return filtered;
+    if (currentSuc.isEmpty) return const <OrdenTrabajoSucursalOption>[];
+    return <OrdenTrabajoSucursalOption>[
+      OrdenTrabajoSucursalOption(suc: currentSuc, label: currentSuc, desc: ''),
+    ];
+  }
+
+  void _scheduleFilterCatalogSync(String? roleCodeRaw) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (_sucursalOptions.isEmpty && !_loadingSucursalOptions) {
+        unawaited(_loadSucursalOptions());
+      }
+      final normalizedRole = (roleCodeRaw ?? '').trim();
+      if (normalizedRole.isEmpty) return;
+      final canShowAsign = _showAsignFilter(normalizedRole);
+      if (canShowAsign) {
+        unawaited(_loadAsignadoOptionsForCurrentSuc());
+      } else if (_asignadoOptions.isNotEmpty || _asignValue != null) {
+        setState(() {
+          _asignadoOptions = const <OrdenTrabajoColaboradorOption>[];
+          _asignValue = null;
+          _lastAsignadosSuc = null;
+        });
+      }
+    });
+  }
+
+  Future<void> _loadSucursalOptions() async {
+    if (_loadingSucursalOptions) return;
+    _loadingSucursalOptions = true;
+    try {
+      final items = [
+        ...await ref.read(ordenesTrabajoApiProvider).fetchSucursales(),
+      ];
+      if (!mounted) return;
+      items.sort(
+        (a, b) => a.suc.trim().toUpperCase().compareTo(b.suc.trim().toUpperCase()),
+      );
+      setState(() {
+        _sucursalOptions = items;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      _showError(
+        apiErrorMessage(e, fallback: 'No se pudieron cargar las sucursales.'),
+      );
+    } finally {
+      _loadingSucursalOptions = false;
+    }
+  }
+
+  Future<void> _loadAsignadoOptionsForCurrentSuc({bool force = false}) async {
+    final suc = (_selectedFilterSuc ?? _userSuc).trim().toUpperCase();
+    if (suc.isEmpty) {
+      if (_asignadoOptions.isNotEmpty || _asignValue != null || _lastAsignadosSuc != null) {
+        setState(() {
+          _asignadoOptions = const <OrdenTrabajoColaboradorOption>[];
+          _asignValue = null;
+          _lastAsignadosSuc = null;
+        });
+      }
+      return;
+    }
+    if (!force && !_loadingAsignadoOptions && _lastAsignadosSuc == suc) {
+      return;
+    }
+    if (_loadingAsignadoOptions) return;
+
+    _loadingAsignadoOptions = true;
+    try {
+      final items = await ref
+          .read(ordenesTrabajoApiProvider)
+          .fetchAsignarColaboradores(suc);
+      if (!mounted) return;
+      setState(() {
+        _asignadoOptions = items;
+        _lastAsignadosSuc = suc;
+        if (_asignValue != null &&
+            !_asignadoOptions.any(
+              (item) => item.idopv.trim() == _asignValue!.trim(),
+            )) {
+          _asignValue = null;
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      _showError(
+        apiErrorMessage(e, fallback: 'No se pudieron cargar los asignados.'),
+      );
+    } finally {
+      _loadingAsignadoOptions = false;
+    }
   }
 
   void _changePage(int page) {
@@ -1807,6 +2156,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       final flujoDesc = _textOf(header['ESTSEGU_DESC']);
       final flujo = '$flujoCode $flujoDesc'.trim();
       final tipoOrd = _textOf(header['TIPO']);
+      final sucOrd = _textOf(header['SUC']);
       final tipom = _parseIntLike(
         _textOf(header['TIPOM'], fallback: _textOf(header['TPOM'])),
       );
@@ -1816,16 +2166,25 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       final laboratoriosByTipo = _laboratoriosDetallePorTipo(
         laboratorios,
         tipoOrd,
+        sucOrd,
         selectedLab,
       );
+      final canEditDetail =
+          _isAdmin || _canEditOrdDetail(panel?.roleCode ?? '');
       final isConsultaDetalle =
-          widget.panelMode == OrdenesTrabajoPanelMode.anulados;
+          widget.panelMode == OrdenesTrabajoPanelMode.anulados ||
+          !canEditDetail;
+      final editableLaboratorios = laboratoriosByTipo.isNotEmpty
+          ? laboratoriosByTipo
+          : laboratorios;
+      final selectedLabDropdownValue =
+          editableLaboratorios.any((lab) => lab.id.toString() == selectedLab)
+          ? selectedLab
+          : null;
       final laboratorioLabel = () {
         if (selectedLab.isEmpty) return '';
         final selectedLabId = _parseLaboratorioId(selectedLab);
-        final options = laboratoriosByTipo.isNotEmpty
-            ? laboratoriosByTipo
-            : laboratorios;
+        final options = editableLaboratorios;
         if (selectedLabId != null) {
           for (final lab in options) {
             if (lab.id == selectedLabId) {
@@ -1883,15 +2242,45 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                     children: [
                       SizedBox(
                         width: 320,
-                        child: TextFormField(
-                          initialValue: laboratorioLabel,
-                          readOnly: true,
-                          decoration: const InputDecoration(
-                            labelText: 'Laboratorio',
-                            border: OutlineInputBorder(),
-                            isDense: true,
-                          ),
-                        ),
+                        child: canEditDetail && editableLaboratorios.isNotEmpty
+                            ? DropdownButtonFormField<String>(
+                                key: ValueKey(
+                                  'detalle-labor-${ordId.trim()}-$selectedLab',
+                                ),
+                                initialValue: selectedLabDropdownValue,
+                                isExpanded: true,
+                                decoration: const InputDecoration(
+                                  labelText: 'Laboratorio',
+                                  border: OutlineInputBorder(),
+                                  isDense: true,
+                                ),
+                                items: editableLaboratorios
+                                    .map(
+                                      (lab) => DropdownMenuItem<String>(
+                                        value: lab.id.toString(),
+                                        child: Text(
+                                          lab.lab.trim().isEmpty
+                                              ? lab.id.toString()
+                                              : lab.lab.trim(),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    )
+                                    .toList(growable: false),
+                                onChanged: (value) {
+                                  selectedLab = value ?? '';
+                                },
+                              )
+                            : TextFormField(
+                                initialValue: laboratorioLabel,
+                                readOnly: true,
+                                decoration: const InputDecoration(
+                                  labelText: 'Laboratorio',
+                                  border: OutlineInputBorder(),
+                                  isDense: true,
+                                ),
+                              ),
                       ),
                       SizedBox(
                         width: 220,
@@ -2084,11 +2473,14 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                                 ),
                                 initialValue: line['esf'],
                                 textAlign: TextAlign.center,
-                                readOnly: true,
+                                readOnly: !canEditDetail,
                                 decoration: const InputDecoration(
                                   isDense: true,
                                   border: OutlineInputBorder(),
                                 ),
+                                onChanged: canEditDetail
+                                    ? (value) => line['esf'] = value
+                                    : null,
                               ),
                             ),
                             Padding(
@@ -2099,11 +2491,14 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                                 ),
                                 initialValue: line['cil'],
                                 textAlign: TextAlign.center,
-                                readOnly: true,
+                                readOnly: !canEditDetail,
                                 decoration: const InputDecoration(
                                   isDense: true,
                                   border: OutlineInputBorder(),
                                 ),
+                                onChanged: canEditDetail
+                                    ? (value) => line['cil'] = value
+                                    : null,
                               ),
                             ),
                             Padding(
@@ -2114,11 +2509,14 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                                 ),
                                 initialValue: line['eje'],
                                 textAlign: TextAlign.center,
-                                readOnly: true,
+                                readOnly: !canEditDetail,
                                 decoration: const InputDecoration(
                                   isDense: true,
                                   border: OutlineInputBorder(),
                                 ),
+                                onChanged: canEditDetail
+                                    ? (value) => line['eje'] = value
+                                    : null,
                               ),
                             ),
                           ],
@@ -2205,7 +2603,9 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                     if (!mounted) return;
                     Navigator.of(context).pop();
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Comentario ORD guardado.')),
+                      const SnackBar(
+                        content: Text('Cambios de ORD guardados.'),
+                      ),
                     );
                     await _reload();
                   } catch (e) {
@@ -2218,7 +2618,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                     );
                   }
                 },
-                child: const Text('Guardar comentario'),
+                child: const Text('Guardar cambios'),
               ),
           ],
         ),
@@ -2256,6 +2656,21 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     await _reload();
   }
 
+  Future<void> _doAnularSeleccion() async {
+    final iords = _selectedIords.toList(growable: false);
+    if (iords.isEmpty) {
+      _showError('Selecciona una o más ORDs para anular.');
+      return;
+    }
+    final confirm = await _confirmAnular(iords.length);
+    if (confirm != true) return;
+
+    setState(() => _selectedIords.clear());
+    await _executeAction(
+      () => ref.read(ordenesTrabajoApiProvider).anularLote(iords),
+    );
+  }
+
   Future<void> _printEtiquetasSeleccion(OrdenTrabajoPanelResponse panel) async {
     final selectedRows = panel.items
         .where((row) => _selectedIords.contains(row.iord))
@@ -2270,6 +2685,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     for (final row in selectedRows) {
       try {
         final detail = await api.fetchDetail(row.iord);
+        final header = detail.header;
         final details = detail.details
             .map(
               (item) => TallerEtiquetaOrdLegacyDetail(
@@ -2283,9 +2699,25 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
         ords.add(
           TallerEtiquetaOrdLegacy(
             ord: row.iord,
-            upc: row.art,
             description: row.descArt,
             tipo: row.tipo,
+            clientNumber: _textOf(header['CLIEN']),
+            clientName: _textOf(
+              header['RAZONSOCIALRECEPTOR'],
+              fallback: _textOf(header['NCLIENTE']),
+            ),
+            deliveryDate: _textOf(
+              header['FCNTE'],
+              fallback: _textOf(
+                header['FCNEN'],
+                fallback: _fmtDate(_toDate(header['FCNM'])),
+              ),
+            ),
+            deliveryTime: _textOf(
+              header['HR_ENT'],
+              fallback: _textOf(header['HREN'], fallback: '-'),
+            ),
+            comment: _textOf(header['COMAD']),
             details: details,
           ),
         );
@@ -2293,7 +2725,6 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
         ords.add(
           TallerEtiquetaOrdLegacy(
             ord: row.iord,
-            upc: row.art,
             description: row.descArt,
             tipo: row.tipo,
           ),
@@ -2330,14 +2761,14 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       doc.addPage(
         pw.Page(
           pageFormat: pageFormat,
-          margin: pw.EdgeInsets.all(1.5 * PdfPageFormat.mm),
+          margin: pw.EdgeInsets.all(0.8 * PdfPageFormat.mm),
           build: (context) => pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: buildTicketOrdsLegacySection(
               ords: [ord],
               widthMm: _legacyEtiquetaWidthMm,
-              baseFontSize: 7.5,
-              smallFontSize: 5.8,
+              baseFontSize: 6.6,
+              smallFontSize: 4.8,
               showSectionTitle: false,
             ),
           ),
@@ -2478,18 +2909,14 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     final selectedRows = panel.items
         .where((row) => _selectedIords.contains(row.iord))
         .toList(growable: false);
-    final sucs = selectedRows
-        .map((row) => row.suc.trim().toUpperCase())
-        .where((item) => item.isNotEmpty)
-        .toSet();
-    if (sucs.length != 1) {
+    if (selectedRows.isEmpty) {
       _showError(
-        'Para asignar colaborador, selecciona ORDs de una misma sucursal.',
+        'No se identificaron ORDs seleccionadas para asignar colaborador.',
       );
       return;
     }
 
-    final colaborador = await _selectColaboradorDialog(sucs.first);
+    final colaborador = await _selectColaboradorDialog();
     if (colaborador == null) return;
     final confirm = await _confirmAsignarAColaborador(
       iords.length,
@@ -2507,15 +2934,23 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
 
   Future<bool?> _confirmEnviarAmaqBisel(int total) {
     return _confirmCambioEstatus(
-      title: 'Confirmar envío de ORDs',
+      title: 'Confirmar envío a taller',
       targetStatus: '5 (ENTREGADA A MAQ O BISEL)',
+      total: total,
+    );
+  }
+
+  Future<bool?> _confirmAnular(int total) {
+    return _confirmCambioEstatus(
+      title: 'Confirmar anulación de ORDs',
+      targetStatus: '4 (ANULADA)',
       total: total,
     );
   }
 
   Future<bool?> _confirmRecibirATaller(int total) {
     return _confirmCambioEstatus(
-      title: 'Confirmar recepción de ORDs',
+      title: 'Confirmar recepción en taller',
       targetStatus: '7 (RECIBIDA A TALLER)',
       total: total,
     );
@@ -2534,7 +2969,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     String colaboradorLabel,
   ) {
     return _confirmCambioEstatus(
-      title: 'Confirmar asignación de ORDs',
+      title: 'Confirmar asignación a colaborador',
       targetStatus: '8 (ASIGNADA)',
       total: total,
       extraMessage: 'Colaborador: $colaboradorLabel',
@@ -2562,7 +2997,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
 
   Future<bool?> _confirmRegresarTienda(int total) {
     return _confirmCambioEstatus(
-      title: 'Confirmar regreso a tienda',
+      title: 'Confirmar recepción en tienda',
       targetStatus: '10 (REGRESADO A TIENDA)',
       total: total,
     );
@@ -2684,10 +3119,10 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
   Future<void> _showEnviarRelacionDialog() {
     return _showRelacionDialog(
       _RelacionDialogConfig(
-        title: 'Enviar ORDs a Maquila / Bisel',
+        title: 'ORDs: Enviar a taller',
         helperText:
             'Captura o escanea una ORD para validarla en estatus 3 (NUEVA AUTORIZADA) y relacionarla en appstate.',
-        submitLabel: 'Enviar',
+        submitLabel: 'Enviar a taller',
         submitIcon: Icons.outbound,
         emptySubmitError: 'No hay ORDs relacionadas para enviar.',
         validateFallbackError:
@@ -2706,15 +3141,15 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
   Future<void> _showRecibirRelacionDialog() {
     return _showRelacionDialog(
       _RelacionDialogConfig(
-        title: 'Recibir ORDs en Taller',
+        title: 'ORDs: Recibir en taller',
         helperText:
-            'Captura o escanea una ORD para validarla en estatus 5 (ENTREGADA A MAQ O BISEL) y relacionarla en appstate.',
-        submitLabel: 'Recibir',
+            'Captura o escanea una ORD para validarla en estatus 5 (ENTREGADA A MAQ O BISEL) y relacionarla en appstate.\n\n$_recibirRolHint',
+        submitLabel: 'Recibir en taller',
         submitIcon: Icons.move_to_inbox,
-        emptySubmitError: 'No hay ORDs relacionadas para recibir.',
+        emptySubmitError: 'No hay ORDs relacionadas para recibir en taller.',
         validateFallbackError:
             'No se pudo validar la ORD. Debe estar en estatus 5.',
-        executeFallbackError: 'No se pudo recibir las ORDs.',
+        executeFallbackError: 'No se pudo recibir las ORDs en taller.',
         relacionProvider: ordenesTrabajoRecibirRelacionProvider,
         validateOrd: (code) =>
             ref.read(ordenesTrabajoApiProvider).validarOrdRecibir(code),
@@ -2728,15 +3163,15 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
   Future<void> _showEntregarRelacionDialog() {
     return _showRelacionDialog(
       _RelacionDialogConfig(
-        title: 'Entregar ORDs a Cliente',
+        title: 'ORDs: Entregar a cliente',
         helperText:
             'Captura o escanea una ORD para validarla en estatus 10 (REGRESADO A TIENDA) y relacionarla en appstate.',
-        submitLabel: 'Entregar',
+        submitLabel: 'Entregar a cliente',
         submitIcon: Icons.handshake,
-        emptySubmitError: 'No hay ORDs relacionadas para entregar.',
+        emptySubmitError: 'No hay ORDs relacionadas para entregar a cliente.',
         validateFallbackError:
             'No se pudo validar la ORD. Debe estar en estatus 10.',
-        executeFallbackError: 'No se pudo entregar las ORDs.',
+        executeFallbackError: 'No se pudo entregar las ORDs a cliente.',
         relacionProvider: ordenesTrabajoEntregarRelacionProvider,
         validateOrd: (code) =>
             ref.read(ordenesTrabajoApiProvider).validarOrdEntregar(code),
@@ -2777,15 +3212,15 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
   Future<void> _showRegresarTiendaRelacionDialog() {
     return _showRelacionDialog(
       _RelacionDialogConfig(
-        title: 'ORDs: Regresar a tienda',
+        title: 'ORDs: Recibir en tienda',
         helperText:
-            'Captura o escanea una ORD para validarla en estatus 9 (TRABAJO TERMINADO) y relacionarla en appstate.',
-        submitLabel: 'Regresar a tienda',
+            'Captura o escanea una ORD para validarla en estatus 9 (TRABAJO TERMINADO) y relacionarla en appstate para recibirla en tienda.',
+        submitLabel: 'Recibir en tienda',
         submitIcon: Icons.storefront_outlined,
-        emptySubmitError: 'No hay ORDs relacionadas para regresar a tienda.',
+        emptySubmitError: 'No hay ORDs relacionadas para recibir en tienda.',
         validateFallbackError:
             'No se pudo validar la ORD. Debe estar en estatus 9.',
-        executeFallbackError: 'No se pudo regresar a tienda.',
+        executeFallbackError: 'No se pudo recibir las ORDs en tienda.',
         relacionProvider: ordenesTrabajoRegresarTiendaRelacionProvider,
         validateOrd: (code) =>
             ref.read(ordenesTrabajoApiProvider).validarOrdRegresarTienda(code),
@@ -2800,22 +3235,28 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     _ordEnviarCtrl.clear();
     var processing = false;
     var loadingCollaborators = false;
-    String? sucActiva;
     String? colaboradorId;
     List<OrdenTrabajoColaboradorOption> colaboradores =
         const <OrdenTrabajoColaboradorOption>[];
+    final colaboradorSuc = _userSuc.trim().toUpperCase();
+
+    if (colaboradorSuc.isEmpty) {
+      _showError(
+        'No se pudo determinar la sucursal base del usuario para asignar colaborador.',
+      );
+      return;
+    }
 
     Future<void> loadCollaborators({
       required BuildContext dialogContext,
       required StateSetter setDialogState,
-      required String suc,
     }) async {
       if (loadingCollaborators) return;
       setDialogState(() => loadingCollaborators = true);
       try {
         final items = await ref
             .read(ordenesTrabajoApiProvider)
-            .fetchAsignarColaboradores(suc);
+            .fetchAsignarColaboradores(colaboradorSuc);
         if (!dialogContext.mounted) return;
         setDialogState(() {
           colaboradores = items;
@@ -2862,28 +3303,10 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
           _showError('La ORD ${item.iord} ya está relacionada.');
           return;
         }
-        final ordSuc = item.suc.trim().toUpperCase();
-        if ((sucActiva ?? '').isNotEmpty &&
-            ordSuc.isNotEmpty &&
-            ordSuc != sucActiva) {
-          _showError(
-            'Solo puedes relacionar ORDs de la misma sucursal para asignar colaborador.',
-          );
-          return;
-        }
         dialogRef.read(ordenesTrabajoAsignarRelacionProvider.notifier).state = [
           ...current,
           item,
         ];
-        if ((sucActiva ?? '').isEmpty && ordSuc.isNotEmpty) {
-          if (!dialogContext.mounted) return;
-          sucActiva = ordSuc;
-          await loadCollaborators(
-            dialogContext: dialogContext,
-            setDialogState: setDialogState,
-            suc: ordSuc,
-          );
-        }
         _ordEnviarCtrl.clear();
       } catch (e) {
         _showError(
@@ -2968,6 +3391,14 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       builder: (dialogContext) => StatefulBuilder(
         builder: (dialogContext, setDialogState) => Consumer(
           builder: (dialogContext, dialogRef, _) {
+            if (!loadingCollaborators && colaboradores.isEmpty) {
+              unawaited(
+                loadCollaborators(
+                  dialogContext: dialogContext,
+                  setDialogState: setDialogState,
+                ),
+              );
+            }
             final relaciones = dialogRef.watch(
               ordenesTrabajoAsignarRelacionProvider,
             );
@@ -2981,6 +3412,11 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                   children: [
                     const Text(
                       'Captura o escanea una ORD para validarla en estatus 7 (RECIBIDA A TALLER) y asignar colaborador.',
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Colaboradores disponibles para la sucursal $colaboradorSuc.',
+                      style: Theme.of(context).textTheme.bodySmall,
                     ),
                     const SizedBox(height: 12),
                     Row(
@@ -3031,9 +3467,9 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                       key: ValueKey('asignar-colab-${colaboradorId ?? 'NONE'}'),
                       initialValue: colaboradorId,
                       isExpanded: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Colaborador a asignar',
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: 'Colaborador a asignar ($colaboradorSuc)',
+                        border: const OutlineInputBorder(),
                       ),
                       items: colaboradores
                           .map(
@@ -3124,17 +3560,6 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                                                                 )
                                                                 .state =
                                                             remaining;
-                                                        if (remaining.isEmpty) {
-                                                          setDialogState(() {
-                                                            sucActiva = null;
-                                                            colaboradores =
-                                                                const <
-                                                                  OrdenTrabajoColaboradorOption
-                                                                >[];
-                                                            colaboradorId =
-                                                                null;
-                                                          });
-                                                        }
                                                       },
                                                 icon: const Icon(
                                                   Icons.delete_outline,
@@ -4016,9 +4441,14 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     await _showEntregarRelacionDialog();
   }
 
-  Future<OrdenTrabajoColaboradorOption?> _selectColaboradorDialog(
-    String suc,
-  ) async {
+  Future<OrdenTrabajoColaboradorOption?> _selectColaboradorDialog() async {
+    final suc = _userSuc.trim().toUpperCase();
+    if (suc.isEmpty) {
+      _showError(
+        'No se pudo determinar la sucursal base del usuario para asignar colaborador.',
+      );
+      return null;
+    }
     try {
       final colaboradores = await ref
           .read(ordenesTrabajoApiProvider)
@@ -4342,15 +4772,16 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     if (!mounted) return;
     setState(() {
       _isAdmin = isAdmin;
-      _userSuc = suc;
-      _sucCtrl.text = isAdmin ? '' : suc;
+      _userSuc = suc.toUpperCase();
+      _sucCtrl.clear();
       _contextReady = true;
     });
+    unawaited(_loadSucursalOptions());
 
     ref
         .read(ordenesTrabajoFilterProvider.notifier)
         .state = OrdenesTrabajoFilter(
-      suc: isAdmin ? null : suc,
+      suc: null,
       panelMode: widget.panelMode,
       page: 1,
       pageSize: 25,

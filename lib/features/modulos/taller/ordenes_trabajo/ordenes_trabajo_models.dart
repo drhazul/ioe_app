@@ -14,6 +14,18 @@ enum OrdenesTrabajoPanelMode {
   }
 }
 
+enum OrdenesTrabajoInitialAction {
+  enviar('enviar'),
+  asignar('asignar'),
+  regresarTienda('regresar-tienda'),
+  recibir('recibir'),
+  entregar('entregar');
+
+  const OrdenesTrabajoInitialAction(this.routeSegment);
+
+  final String routeSegment;
+}
+
 class OrdenesTrabajoFilter {
   const OrdenesTrabajoFilter({
     this.iord,
@@ -158,6 +170,7 @@ class OrdenTrabajoPanelResponse {
     required this.total,
     required this.roleCode,
     required this.panelMode,
+    required this.allowedSucs,
     required this.allowedActions,
     required this.flowStatusOptions,
     required this.incidenciaOptions,
@@ -170,6 +183,7 @@ class OrdenTrabajoPanelResponse {
   final int total;
   final String roleCode;
   final OrdenesTrabajoPanelMode panelMode;
+  final List<String> allowedSucs;
   final Set<String> allowedActions;
   final List<OrdenTrabajoFlowStatusOption> flowStatusOptions;
   final List<OrdenTrabajoIncidenciaOption> incidenciaOptions;
@@ -178,6 +192,7 @@ class OrdenTrabajoPanelResponse {
 
   factory OrdenTrabajoPanelResponse.fromJson(Map<String, dynamic> json) {
     final rawItems = (json['items'] as List?) ?? const [];
+    final rawAllowedSucs = (json['allowedSucs'] as List?) ?? const [];
     final rawActions = (json['allowedActions'] as List?) ?? const [];
     final rawFlowStatus = (json['flowStatusOptions'] as List?) ?? const [];
     final rawIncidenciaOptions =
@@ -189,6 +204,10 @@ class OrdenTrabajoPanelResponse {
       total: _toInt(json['total']) ?? 0,
       roleCode: _toText(json['roleCode']) ?? '',
       panelMode: OrdenesTrabajoPanelMode.fromApi(_toText(json['panelMode'])),
+      allowedSucs: rawAllowedSucs
+          .map((item) => item?.toString().trim().toUpperCase() ?? '')
+          .where((item) => item.isNotEmpty)
+          .toList(growable: false),
       allowedActions: rawActions
           .map((item) => item?.toString().trim().toUpperCase() ?? '')
           .where((item) => item.isNotEmpty)
@@ -323,6 +342,8 @@ class OrdenTrabajoItem {
   final Map<String, dynamic> raw;
 
   factory OrdenTrabajoItem.fromJson(Map<String, dynamic> json) {
+    final asignLabel =
+        _toText(json['ASIGN_LABEL']) ?? _toText(json['ASIGN']) ?? '';
     return OrdenTrabajoItem(
       iord: _toText(json['IORD']) ?? '',
       idfol: _toText(json['IDFOL']) ?? '',
@@ -336,7 +357,7 @@ class OrdenTrabajoItem {
       estatus: _toText(json['ESTATUS']) ?? '',
       estsegu: _toText(json['ESTSEGU']) ?? '',
       estseguDesc: _toText(json['ESTSEGU_DESC']) ?? '',
-      asign: _toText(json['ASIGN']) ?? '',
+      asign: asignLabel,
       labor: _toText(json['LABOR']) ?? '',
       tipom: _toText(json['TIPOM']) ?? '',
       motr: _toText(json['MOTR']) ?? '',
@@ -455,8 +476,8 @@ class OrdenTrabajoColaboradorOption {
     final apelm = _toText(json['apelm']) ?? '';
     final fallbackLabel = [
       nomb,
-      apelm,
       apelp,
+      apelm,
     ].where((item) => item.isNotEmpty).join(' ').trim();
     return OrdenTrabajoColaboradorOption(
       idopv: _toText(json['idopv']) ?? '',
@@ -467,6 +488,32 @@ class OrdenTrabajoColaboradorOption {
       apelp: apelp,
       apelm: apelm,
       suc: _toText(json['suc']) ?? '',
+    );
+  }
+}
+
+class OrdenTrabajoSucursalOption {
+  const OrdenTrabajoSucursalOption({
+    required this.suc,
+    required this.label,
+    required this.desc,
+  });
+
+  final String suc;
+  final String label;
+  final String desc;
+
+  factory OrdenTrabajoSucursalOption.fromJson(Map<String, dynamic> json) {
+    final suc = _toText(json['SUC']) ?? '';
+    final desc = _toText(json['DESC']) ?? '';
+    final label = [suc, desc]
+        .where((item) => item.isNotEmpty)
+        .join(' - ')
+        .trim();
+    return OrdenTrabajoSucursalOption(
+      suc: suc,
+      label: label.isEmpty ? suc : label,
+      desc: desc,
     );
   }
 }

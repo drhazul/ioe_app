@@ -60,6 +60,7 @@ import '../features/modulos/retiros/retiro_detalle_page.dart';
 import '../features/modulos/retiros/retiro_efectivo_page.dart';
 import '../features/modulos/reloj_checador/app/reloj_checador_app_page.dart';
 import '../features/modulos/reloj_checador/consultas/reloj_checador_consultas_page.dart';
+import '../features/modulos/taller/ordenes_trabajo/ordenes_trabajo_action_page.dart';
 import '../features/modulos/taller/ordenes_trabajo/ordenes_trabajo_models.dart';
 import '../features/modulos/taller/ordenes_trabajo/ordenes_trabajo_page.dart';
 import '../features/modulos/facturacion/facturacion_page.dart';
@@ -634,6 +635,36 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'taller/ordenes-trabajo',
             builder: (c, s) => const OrdenesTrabajoPage(
               panelMode: OrdenesTrabajoPanelMode.operativo,
+            ),
+          ),
+          GoRoute(
+            path: 'taller/ordenes-trabajo/enviar',
+            builder: (c, s) => const OrdenesTrabajoActionPage(
+              action: OrdenesTrabajoInitialAction.enviar,
+            ),
+          ),
+          GoRoute(
+            path: 'taller/ordenes-trabajo/asignar',
+            builder: (c, s) => const OrdenesTrabajoActionPage(
+              action: OrdenesTrabajoInitialAction.asignar,
+            ),
+          ),
+          GoRoute(
+            path: 'taller/ordenes-trabajo/regresar-tienda',
+            builder: (c, s) => const OrdenesTrabajoActionPage(
+              action: OrdenesTrabajoInitialAction.regresarTienda,
+            ),
+          ),
+          GoRoute(
+            path: 'taller/ordenes-trabajo/recibir',
+            builder: (c, s) => const OrdenesTrabajoActionPage(
+              action: OrdenesTrabajoInitialAction.recibir,
+            ),
+          ),
+          GoRoute(
+            path: 'taller/ordenes-trabajo/entregar',
+            builder: (c, s) => const OrdenesTrabajoActionPage(
+              action: OrdenesTrabajoInitialAction.entregar,
             ),
           ),
           GoRoute(
