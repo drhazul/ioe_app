@@ -55,6 +55,14 @@ class FacturacionPage extends ConsumerStatefulWidget {
 
 class _FacturacionPageState extends ConsumerState<FacturacionPage> {
   // Configuración visual para ajuste en runtime.
+  static const List<String> _estatusFilterOptions = <String>[
+    'PENDIENTE',
+    'CANCELACION PENDIENTE',
+    'FACTURADO',
+    'FACTURADO Y CANCELACION PENDIENTE',
+    'CON ERROR',
+  ];
+
   static const double _kMinFontScale = 0.80;
   static const double _kMaxFontScale = 1.40;
   static const double _kDefaultFontScale = 1.00;
@@ -469,6 +477,7 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
     }
 
     final pendientesAsync = providerRef.watch(facturasPendientesProvider);
+    final currentEstatusFilter = providerRef.watch(facturacionFilterEstatusProvider);
 
     return Theme(
       data: facturacionTheme,
@@ -546,9 +555,11 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
                     totalPages: totalPages,
                   ),
                   const SizedBox(height: 12),
-                  const Expanded(
+                  Expanded(
                     child: Center(
-                      child: Text('Sin registros con estatus PENDIENTE'),
+                      child: Text(
+                        'Sin registros con estatus ${currentEstatusFilter.trim().isEmpty ? 'PENDIENTE' : currentEstatusFilter}',
+                      ),
                     ),
                   ),
                 ],
@@ -1626,7 +1637,7 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
     ref.read(facturacionFilterSucProvider.notifier).state =
         ref.read(facturacionDraftFilterSucProvider);
     ref.read(facturacionFilterEstatusProvider.notifier).state =
-        'PENDIENTE';
+        ref.read(facturacionDraftFilterEstatusProvider);
     ref.read(facturacionFilterRazonSocialProvider.notifier).state =
         ref.read(facturacionDraftFilterRazonSocialProvider);
     ref.read(facturacionFilterRfcReceptorProvider.notifier).state =
@@ -1700,6 +1711,9 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
     final selectedDraftSuc = sucItems.any((item) => item.value == draftSuc)
         ? draftSuc
         : '';
+    final selectedDraftEstatus = _estatusFilterOptions.contains(draftEstatus)
+        ? draftEstatus
+        : _estatusFilterOptions.first;
     const tipoFactItems = <DropdownMenuItem<String>>[
       DropdownMenuItem(
         value: '',
@@ -1766,13 +1780,29 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
                 SizedBox(
                   width: 220,
                   child: DropdownButtonFormField<String>(
-                    key: ValueKey('ff-estatus-$revision-$draftEstatus'),
-                    initialValue: draftEstatus,
+                    key: ValueKey('ff-estatus-$revision-$selectedDraftEstatus'),
+                    initialValue: selectedDraftEstatus,
                     isExpanded: true,
                     items: const [
                       DropdownMenuItem(
                         value: 'PENDIENTE',
                         child: Text('PENDIENTE'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'CANCELACION PENDIENTE',
+                        child: Text('CANCELACION PENDIENTE'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'FACTURADO',
+                        child: Text('FACTURADO'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'FACTURADO Y CANCELACION PENDIENTE',
+                        child: Text('FACTURADO Y CANCELACION PENDIENTE'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'CON ERROR',
+                        child: Text('CON ERROR'),
                       ),
                     ],
                     onChanged: (value) {

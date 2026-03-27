@@ -27,7 +27,7 @@ final facturasPendientesProvider = FutureProvider<FacturacionPendientesPage>(
           page: ref.watch(facturacionPageProvider),
           pageSize: ref.watch(facturacionPageSizeProvider),
           suc: ref.watch(facturacionFilterSucProvider),
-          estatus: 'PENDIENTE',
+          estatus: ref.watch(facturacionFilterEstatusProvider),
           razonSocialReceptor: ref.watch(facturacionFilterRazonSocialProvider),
           rfcReceptor: ref.watch(facturacionFilterRfcReceptorProvider),
           clien: ref.watch(facturacionFilterClienProvider),
