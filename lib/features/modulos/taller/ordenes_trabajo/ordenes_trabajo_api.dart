@@ -31,10 +31,12 @@ class OrdenesTrabajoApi {
   Future<OrdenTrabajoDetalleResponse> saveDetail(
     String iord, {
     int? labor,
+    String? tipo,
     String? comentarios,
     required List<Map<String, dynamic>> details,
   }) async {
     final cleanComments = (comentarios ?? '').trim();
+    final cleanTipo = (tipo ?? '').trim().toUpperCase();
     final payloadDetails = details
         .map(
           (line) => <String, dynamic>{
@@ -53,6 +55,7 @@ class OrdenesTrabajoApi {
       '/ordenes-trabajo/${Uri.encodeComponent(iord)}/detalle/guardar',
       data: {
         if (labor != null) 'labor': labor,
+        if (cleanTipo.isNotEmpty) 'tipo': cleanTipo,
         'comentarios': cleanComments,
         'details': payloadDetails,
       },

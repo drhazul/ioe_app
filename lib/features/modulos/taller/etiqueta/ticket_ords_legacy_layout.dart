@@ -143,6 +143,14 @@ List<pw.Widget> buildTicketOrdsLegacySection({
   return widgets;
 }
 
+const List<String> _legacyJobDisplayOrder = <String>['OD', 'OI', 'ADD'];
+
+int _legacyJobSortWeight(String? value) {
+  final normalized = (value ?? '').trim().toUpperCase();
+  final index = _legacyJobDisplayOrder.indexOf(normalized);
+  return index >= 0 ? index : _legacyJobDisplayOrder.length;
+}
+
 double _mmToPt(double mm) => mm * PdfPageFormat.mm;
 
 String _sanitizeCode39Data(String value) {
@@ -162,20 +170,37 @@ pw.Widget _buildOrdDetailsTable({
   required List<TallerEtiquetaOrdLegacyDetail> details,
   required double smallFontSize,
 }) {
-  final rows = details
-      .map(
-        (d) => [
-          (d.job ?? '').trim(),
-          (d.esf ?? '').trim(),
-          (d.cil ?? '').trim(),
-          (d.eje ?? '').trim(),
-        ],
-      )
-      .toList();
+  final knownRows = <String, List<String>>{};
+  final extraRows = <List<String>>[];
 
-  if (rows.isEmpty) {
-    rows.add(['', '', '', '']);
+  for (final detail in details) {
+    final job = (detail.job ?? '').trim().toUpperCase();
+    final row = <String>[
+      job,
+      (detail.esf ?? '').trim(),
+      (detail.cil ?? '').trim(),
+      (detail.eje ?? '').trim(),
+    ];
+    if (_legacyJobDisplayOrder.contains(job) && !knownRows.containsKey(job)) {
+      knownRows[job] = row;
+    } else {
+      extraRows.add(row);
+    }
   }
+
+  extraRows.sort((a, b) {
+    final byJob = _legacyJobSortWeight(
+      a[0],
+    ).compareTo(_legacyJobSortWeight(b[0]));
+    if (byJob != 0) return byJob;
+    return a[0].compareTo(b[0]);
+  });
+
+  final rows = <List<String>>[
+    for (final job in _legacyJobDisplayOrder)
+      knownRows[job] ?? <String>[job, '', '', ''],
+    ...extraRows,
+  ];
 
   pw.Widget cell(String text, {required bool header}) {
     return pw.Container(
@@ -184,8 +209,8 @@ pw.Widget _buildOrdDetailsTable({
       child: pw.Text(
         text,
         style: pw.TextStyle(
-          fontSize: smallFontSize,
-          fontWeight: header ? pw.FontWeight.bold : pw.FontWeight.normal,
+          fontSize: smallFontSize + 1.8,
+          fontWeight: pw.FontWeight.bold,
         ),
       ),
     );

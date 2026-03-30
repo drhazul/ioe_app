@@ -104,6 +104,8 @@
 - Tickets `/pvticketlog` -> `PV_TICKET_LOG`.
 - Ordenes `/pvctrords` -> `PV_CTR_ORDS`, `PV_CTR_ORDS_DET`.
 - Ordenes de trabajo `/ordenes-trabajo/*` -> `PV_CTR_ORDS`, `PV_CTR_ORDS_DET`, `DAT_EST_ORD`, `DAT_ORD_TMOV`, `DAT_MB51`, `DAT_CTRL_CTAS`.
+- Ordenes de trabajo detalle/etiquetas (2026-03-30): en el modal de detalle la matriz `JOB/ESF/CIL/EJE` se fuerza a `OD`, `OI`, `ADD`, `JOB` queda bloqueado y `Imprimir etiqueta` debe persistir primero los cambios del modal para reflejarlos en PDF.
+- Ordenes de trabajo detalle/roles (2026-03-30): el campo `TIPO` (`TALLADO`/`BISELADO`) se muestra antes de `Laboratorio` y comparte visibilidad restringida con `Imprimir etiqueta` para `admin`, `JEF_TALLER`, `ANALISTA_ORD` y `ANALISTA`.
 - Referencias `/refdetalle` -> `REF_DETALLE`.
 - Referencias PV `/pv/refdetalle` -> `REF_DETALLE` (crear/asignar/eliminar por `IDFOL`).
 - Catalogo formas `/dat-form` -> `DAT_FORM` (`IDFORM`, `ASPEL`, `FORM`, `NOM`, `ESTADO`).
@@ -501,6 +503,10 @@
 - panel ORD UI (2026-03-24): `Configuracion de Vista` se reubica al AppBar del lado derecho; el card de filtros ya no la muestra.
 - panel ORD UI (2026-03-24): los controles del AppBar usan fondo blanco para mejorar contraste visual sobre la barra turquesa.
 - panel ORD UI (2026-03-24): el texto de selección (`ORD seleccionada...`) deja de mostrarse dentro del card de filtros y la paginación (`Total`, página, flechas) se acomoda en la misma franja de filtros.
+- panel ORD UI (2026-03-30): el filtro `Cliente` del panel consulta coincidencias tanto en `CLIEN` como en `NCLIENTE` usando el mismo query param `client` hacia backend.
+- panel ORD UI (2026-03-30): las acciones ejecutadas desde `Opciones de Trabajo` ya no limpian la selección local antes del refresh; la selección se conserva para renglones que sigan visibles después de recargar.
+- panel ORD UI (2026-03-30): el modal `DETALLE DE ORDEN DE TRABAJO` y la impresión de etiqueta fuerzan el orden `OD`, `OI`, `ADD` en `JOB/ESF/CIL/EJE`; `JOB` queda bloqueado sin foco/edición, `ESF/CIL/EJE` mantienen navegación por campos y el bloque se muestra en negritas con fuente mayor.
+- panel ORD UI (2026-03-30): el modal `DETALLE DE ORDEN DE TRABAJO` agrega botón `Imprimir etiqueta` cuando el rol tiene permiso `IMPRIMIR_ETIQUETA`.
 - Home ORDs (2026-03-24): `home_page.dart` agrega accesos directos a `Enviar`, `Asignar`, `Regresar a tienda`, `Recibir` y `Entregar`; se muestran solo cuando `GET /ordenes-trabajo` devuelve el permiso correspondiente en `allowedActions`.
 - Home ORDs (2026-03-24): `router.dart` registra `/taller/ordenes-trabajo/enviar|asignar|regresar-tienda|recibir|entregar` como páginas standalone (`ordenes_trabajo_action_page.dart`) para operación directa sin mostrar el panel principal ni navegar hacia él.
 - Home ORDs (2026-03-24): las páginas standalone replican la estructura y validaciones de los popups del panel (`captura/escaneo`, validación de estado, relación de ORDs, confirmación y transición de `ESTSEGU`), mientras `ordenes_trabajo_page.dart` conserva intactos los botones y mensajes emergentes del panel.

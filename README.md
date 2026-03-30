@@ -163,10 +163,16 @@ autenticacion, datos maestros, inventarios, control de cuentas y punto de venta.
 - filtros server-side con paginación y selección local en pantalla (sin flags persistidos en DB).
 - barra de acciones por ORD seleccionada para flujo operativo completo.
 - AppBar operativo compacto para reducir altura y ahorrar espacio en pantalla.
+- detalle ORD/etiquetas (2026-03-30): el popup ordena siempre `OD/OI/ADD`, bloquea `JOB`, y `Imprimir etiqueta` primero guarda `laboratorio/comentarios/detalle` antes de abrir la impresión.
+- detalle ORD/roles (2026-03-30): el selector `TIPO` (`TALLADO`/`BISELADO`) se muestra antes de `Laboratorio` y solo es visible para `admin`, `JEF_TALLER`, `ANALISTA_ORD` y `ANALISTA`; el botón `Imprimir etiqueta` usa la misma restricción.
 - panel ORD UI (2026-03-24): la botonera principal sale del encabezado visible y se abre desde un popup `Opciones de Trabajo` en el AppBar.
 - panel ORD UI (2026-03-24): `Configuracion de Vista` se mueve al AppBar del lado derecho; el bloque de filtros conserva solo criterios y acciones de consulta.
 - panel ORD UI (2026-03-24): los botones del AppBar (`Opciones de Trabajo`, `Configuracion de Vista` y refrescar) usan fondo blanco para contrastar con el AppBar.
 - panel ORD UI (2026-03-24): se elimina del card de filtros el label de selección de ORDs y el contador/paginador se integra en la misma banda de criterios, alineado a la derecha cuando hay ancho suficiente.
+- panel ORD UI (2026-03-30): el filtro `Cliente` consulta coincidencias sobre `CLIEN` y `NCLIENTE` mediante el mismo criterio server-side.
+- panel ORD UI (2026-03-30): las acciones del popup `Opciones de Trabajo` conservan la selección local mientras las ORDs sigan visibles después del refresh.
+- panel ORD UI (2026-03-30): el modal de detalle y la etiqueta legado fuerzan el orden `OD`, `OI`, `ADD` en la matriz `JOB/ESF/CIL/EJE`; `JOB` queda sin foco/edición y el bloque completo se renderiza con tipografía reforzada en negritas.
+- panel ORD UI (2026-03-30): el modal `DETALLE DE ORDEN DE TRABAJO` incorpora botón `Imprimir etiqueta` para roles con permiso `IMPRIMIR_ETIQUETA`.
 - panel ORD UI/Home (2026-03-24): `HomePage` agrega accesos directos a `Enviar`, `Asignar`, `Regresar a tienda`, `Recibir` y `Entregar`; cada tarjeta solo se muestra cuando `GET /ordenes-trabajo` expone el permiso correspondiente en `allowedActions`.
 - panel ORD UI/Home (2026-03-24): `router.dart` registra rutas directas `/taller/ordenes-trabajo/enviar|asignar|regresar-tienda|recibir|entregar` hacia páginas adicionales standalone (`ordenes_trabajo_action_page.dart`) que no muestran el panel principal ni redirigen a él.
 - panel ORD UI/Home (2026-03-24): las páginas standalone replican la mecánica de los popups del panel (`captura/escaneo`, validación de estado, lista relacionada, confirmación y cambio de `ESTSEGU`) y el panel principal conserva intactos sus botones y mensajes emergentes.

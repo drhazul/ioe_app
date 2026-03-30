@@ -943,7 +943,9 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                         ),
                       ),
                       DataCell(_tableCellText(row.suc, width: widthFor('SUC'))),
-                      DataCell(_tableCellText(row.tipo, width: widthFor('TIPO'))),
+                      DataCell(
+                        _tableCellText(row.tipo, width: widthFor('TIPO')),
+                      ),
                       DataCell(
                         _tableCellText(
                           labDesc,
@@ -951,7 +953,9 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                           maxLines: rowMaxLines,
                         ),
                       ),
-                      DataCell(_tableCellText(row.iord, width: widthFor('IORD'))),
+                      DataCell(
+                        _tableCellText(row.iord, width: widthFor('IORD')),
+                      ),
                       DataCell(
                         _tableCellText(
                           '${row.clien} ${row.ncliente}'.trim(),
@@ -1529,6 +1533,67 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     _selectedIords.removeWhere((iord) => !visible.contains(iord));
   }
 
+  static const List<String> _jobDisplayOrder = <String>['OD', 'OI', 'ADD'];
+
+  int _jobSortWeight(String value) {
+    final normalized = _normalizeJob(value);
+    final index = _jobDisplayOrder.indexOf(normalized);
+    return index >= 0 ? index : _jobDisplayOrder.length;
+  }
+
+  List<Map<String, String>> _sortEditableDetailRows(
+    List<Map<String, String>> rows,
+  ) {
+    final knownRows = <String, Map<String, String>>{};
+    final extraRows = <Map<String, String>>[];
+
+    for (final row in rows) {
+      final normalizedJob = _normalizeJob(row['job'] ?? '');
+      if (_jobDisplayOrder.contains(normalizedJob) &&
+          !knownRows.containsKey(normalizedJob)) {
+        knownRows[normalizedJob] = row;
+      } else {
+        extraRows.add(row);
+      }
+    }
+
+    final sorted = <Map<String, String>>[
+      for (final job in _jobDisplayOrder)
+        knownRows[job] ??
+            <String, String>{
+              'key': 'row-${job.toLowerCase()}',
+              'job': job,
+              'esf': '',
+              'cil': '',
+              'eje': '',
+            },
+    ];
+
+    extraRows.sort((a, b) {
+      final byJob = _jobSortWeight(
+        a['job'] ?? '',
+      ).compareTo(_jobSortWeight(b['job'] ?? ''));
+      if (byJob != 0) return byJob;
+      return (a['key'] ?? '').compareTo(b['key'] ?? '');
+    });
+    sorted.addAll(extraRows);
+    return sorted;
+  }
+
+  List<TallerEtiquetaOrdLegacyDetail> _sortLegacyEtiquetaDetails(
+    Iterable<TallerEtiquetaOrdLegacyDetail> details,
+  ) {
+    final sorted = details.toList(growable: false).toList();
+    sorted.sort((a, b) {
+      final byJob = _jobSortWeight(
+        a.job ?? '',
+      ).compareTo(_jobSortWeight(b.job ?? ''));
+      if (byJob != 0) return byJob;
+      return (a.job ?? '').compareTo(b.job ?? '');
+    });
+    return sorted;
+  }
+
   String _resolveLaboratorioDescripcion(
     String laborValue,
     List<OrdenTrabajoLaboratorioOption> laboratorios,
@@ -1553,14 +1618,16 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
   ) {
     final tipoNorm = (tipo ?? '').trim().toUpperCase();
     final sucNorm = (suc ?? '').trim().toUpperCase();
-    final filtered = laboratorios.where((item) {
-      final matchesTipo =
-          tipoNorm.isEmpty || item.tipoLab.trim().toUpperCase() == tipoNorm;
-      final itemSuc = item.suc.trim().toUpperCase();
-      final matchesSuc =
-          sucNorm.isEmpty || itemSuc.isEmpty || itemSuc == sucNorm;
-      return matchesTipo && matchesSuc;
-    }).toList(growable: false);
+    final filtered = laboratorios
+        .where((item) {
+          final matchesTipo =
+              tipoNorm.isEmpty || item.tipoLab.trim().toUpperCase() == tipoNorm;
+          final itemSuc = item.suc.trim().toUpperCase();
+          final matchesSuc =
+              sucNorm.isEmpty || itemSuc.isEmpty || itemSuc == sucNorm;
+          return matchesTipo && matchesSuc;
+        })
+        .toList(growable: false);
     return _dedupeLaboratorios(filtered);
   }
 
@@ -1668,7 +1735,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
         {'key': 'row-add', 'job': 'ADD', 'esf': '', 'cil': '', 'eje': ''},
       ]);
     }
-    return rows;
+    return _sortEditableDetailRows(rows);
   }
 
   String _normalizeJob(String value) => value.trim().toUpperCase();
@@ -1801,6 +1868,12 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
         role == 'TALLER' ||
         role == 'ANALISTA_ORD' ||
         role == 'ANALISTA';
+  }
+
+  bool _canManageOrdTipoAndPrint(String roleCodeRaw) {
+    final role = roleCodeRaw.trim().toUpperCase();
+    if (_isAdmin) return true;
+    return role == 'JEF_TALLER' || role == 'ANALISTA_ORD' || role == 'ANALISTA';
   }
 
   Widget _dateChip({
@@ -1936,12 +2009,8 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       _selectedIords.clear();
     });
 
-    ref
-        .read(ordenesTrabajoFilterProvider.notifier)
-        .state = OrdenesTrabajoFilter(
-      suc: null,
-      panelMode: widget.panelMode,
-    );
+    ref.read(ordenesTrabajoFilterProvider.notifier).state =
+        OrdenesTrabajoFilter(suc: null, panelMode: widget.panelMode);
   }
 
   String? get _selectedFilterSuc {
@@ -1964,11 +2033,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       options.map(
         (item) => DropdownMenuItem<String>(
           value: item.suc.trim().toUpperCase(),
-          child: Text(
-            item.label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
+          child: Text(item.label, maxLines: 1, overflow: TextOverflow.ellipsis),
         ),
       ),
     );
@@ -2058,7 +2123,8 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       ];
       if (!mounted) return;
       items.sort(
-        (a, b) => a.suc.trim().toUpperCase().compareTo(b.suc.trim().toUpperCase()),
+        (a, b) =>
+            a.suc.trim().toUpperCase().compareTo(b.suc.trim().toUpperCase()),
       );
       setState(() {
         _sucursalOptions = items;
@@ -2076,7 +2142,9 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
   Future<void> _loadAsignadoOptionsForCurrentSuc({bool force = false}) async {
     final suc = (_selectedFilterSuc ?? _userSuc).trim().toUpperCase();
     if (suc.isEmpty) {
-      if (_asignadoOptions.isNotEmpty || _asignValue != null || _lastAsignadosSuc != null) {
+      if (_asignadoOptions.isNotEmpty ||
+          _asignValue != null ||
+          _lastAsignadosSuc != null) {
         setState(() {
           _asignadoOptions = const <OrdenTrabajoColaboradorOption>[];
           _asignValue = null;
@@ -2156,6 +2224,10 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       final flujoDesc = _textOf(header['ESTSEGU_DESC']);
       final flujo = '$flujoCode $flujoDesc'.trim();
       final tipoOrd = _textOf(header['TIPO']);
+      var selectedTipo = tipoOrd.trim().toUpperCase();
+      if (selectedTipo != 'TALLADO' && selectedTipo != 'BISELADO') {
+        selectedTipo = tipoOrd.trim();
+      }
       final sucOrd = _textOf(header['SUC']);
       final tipom = _parseIntLike(
         _textOf(header['TIPOM'], fallback: _textOf(header['TPOM'])),
@@ -2163,47 +2235,16 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       var selectedLab = _normalizeLaboratorioValue(_textOf(header['LABOR']));
       var comentarios = _textOf(header['COMAD']);
       final availableJobs = <String>{'OD', 'OI', 'ADD'};
-      final laboratoriosByTipo = _laboratoriosDetallePorTipo(
-        laboratorios,
-        tipoOrd,
-        sucOrd,
-        selectedLab,
-      );
+      const detailGridFontSize = 18.0;
+      const detailGridHeaderFontSize = 18.0;
       final canEditDetail =
           _isAdmin || _canEditOrdDetail(panel?.roleCode ?? '');
+      final canManageTipoAndPrint = _canManageOrdTipoAndPrint(
+        panel?.roleCode ?? '',
+      );
       final isConsultaDetalle =
           widget.panelMode == OrdenesTrabajoPanelMode.anulados ||
           !canEditDetail;
-      final editableLaboratorios = laboratoriosByTipo.isNotEmpty
-          ? laboratoriosByTipo
-          : laboratorios;
-      final selectedLabDropdownValue =
-          editableLaboratorios.any((lab) => lab.id.toString() == selectedLab)
-          ? selectedLab
-          : null;
-      final laboratorioLabel = () {
-        if (selectedLab.isEmpty) return '';
-        final selectedLabId = _parseLaboratorioId(selectedLab);
-        final options = editableLaboratorios;
-        if (selectedLabId != null) {
-          for (final lab in options) {
-            if (lab.id == selectedLabId) {
-              return lab.lab.trim().isEmpty
-                  ? lab.id.toString()
-                  : lab.lab.trim();
-            }
-          }
-          for (final lab in laboratorios) {
-            if (lab.id == selectedLabId) {
-              return lab.lab.trim().isEmpty
-                  ? lab.id.toString()
-                  : lab.lab.trim();
-            }
-          }
-          return selectedLabId.toString();
-        }
-        return selectedLab;
-      }();
       final allowedActions = panel?.allowedActions ?? const <String>{};
       bool can(String action) => _isAdmin || allowedActions.contains(action);
       final showCambioMaterialBtn =
@@ -2211,416 +2252,587 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       final showMermaBtn =
           _isFlowStatus(flujoCode, 9.1) && tipom == 2 && can('MERMA');
 
+      Future<bool> saveCurrentDetail({required bool showSuccessMessage}) async {
+        try {
+          final laborId = _parseLaboratorioId(selectedLab);
+          await ref
+              .read(ordenesTrabajoApiProvider)
+              .saveDetail(
+                ordId,
+                labor: laborId,
+                tipo: canManageTipoAndPrint ? selectedTipo : null,
+                comentarios: comentarios,
+                details: jobRows,
+              );
+          if (!mounted) return false;
+          if (showSuccessMessage) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Cambios de ORD guardados.')),
+            );
+          }
+          await _reload();
+          return true;
+        } catch (e) {
+          if (!mounted) return false;
+          _showError(
+            apiErrorMessage(e, fallback: 'No se pudo guardar detalle ORD'),
+          );
+          return false;
+        }
+      }
+
       await showDialog<void>(
         context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('DETALLE DE ORDEN DE TRABAJO'),
-          content: SizedBox(
-            width: 980,
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+        builder: (ctx) => StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            final laboratoriosByTipo = _laboratoriosDetallePorTipo(
+              laboratorios,
+              selectedTipo,
+              sucOrd,
+              selectedLab,
+            );
+            final editableLaboratorios = laboratoriosByTipo.isNotEmpty
+                ? laboratoriosByTipo
+                : laboratorios;
+            final selectedLabDropdownValue =
+                editableLaboratorios.any(
+                  (lab) => lab.id.toString() == selectedLab,
+                )
+                ? selectedLab
+                : null;
+            final laboratorioLabel = () {
+              if (selectedLab.isEmpty) return '';
+              final selectedLabId = _parseLaboratorioId(selectedLab);
+              final options = editableLaboratorios;
+              if (selectedLabId != null) {
+                for (final lab in options) {
+                  if (lab.id == selectedLabId) {
+                    return lab.lab.trim().isEmpty
+                        ? lab.id.toString()
+                        : lab.lab.trim();
+                  }
+                }
+                for (final lab in laboratorios) {
+                  if (lab.id == selectedLabId) {
+                    return lab.lab.trim().isEmpty
+                        ? lab.id.toString()
+                        : lab.lab.trim();
+                  }
+                }
+                return selectedLabId.toString();
+              }
+              return selectedLab;
+            }();
+            final selectedTipoDropdownValue =
+                selectedTipo == 'TALLADO' || selectedTipo == 'BISELADO'
+                ? selectedTipo
+                : null;
+
+            return AlertDialog(
+              title: const Text('DETALLE DE ORDEN DE TRABAJO'),
+              content: SizedBox(
+                width: 980,
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: Text(
-                          'ID ORD: $ordId',
-                          style: const TextStyle(fontWeight: FontWeight.w700),
-                        ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'ID ORD: $ordId',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            'Fch creación: $createdAt',
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                        ],
                       ),
-                      Text(
-                        'Fch creación: $createdAt',
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 10,
-                    children: [
-                      SizedBox(
-                        width: 320,
-                        child: canEditDetail && editableLaboratorios.isNotEmpty
-                            ? DropdownButtonFormField<String>(
-                                key: ValueKey(
-                                  'detalle-labor-${ordId.trim()}-$selectedLab',
-                                ),
-                                initialValue: selectedLabDropdownValue,
-                                isExpanded: true,
-                                decoration: const InputDecoration(
-                                  labelText: 'Laboratorio',
-                                  border: OutlineInputBorder(),
-                                  isDense: true,
-                                ),
-                                items: editableLaboratorios
-                                    .map(
-                                      (lab) => DropdownMenuItem<String>(
-                                        value: lab.id.toString(),
-                                        child: Text(
-                                          lab.lab.trim().isEmpty
-                                              ? lab.id.toString()
-                                              : lab.lab.trim(),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 10,
+                        children: [
+                          if (canManageTipoAndPrint)
+                            SizedBox(
+                              width: 180,
+                              child: isConsultaDetalle
+                                  ? TextFormField(
+                                      initialValue: selectedTipo,
+                                      readOnly: true,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Tipo',
+                                        border: OutlineInputBorder(),
+                                        isDense: true,
                                       ),
                                     )
-                                    .toList(growable: false),
-                                onChanged: (value) {
-                                  selectedLab = value ?? '';
-                                },
-                              )
-                            : TextFormField(
-                                initialValue: laboratorioLabel,
-                                readOnly: true,
-                                decoration: const InputDecoration(
-                                  labelText: 'Laboratorio',
-                                  border: OutlineInputBorder(),
-                                  isDense: true,
-                                ),
+                                  : DropdownButtonFormField<String>(
+                                      key: ValueKey(
+                                        'detalle-tipo-${ordId.trim()}-$selectedTipo',
+                                      ),
+                                      initialValue: selectedTipoDropdownValue,
+                                      isExpanded: true,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Tipo',
+                                        border: OutlineInputBorder(),
+                                        isDense: true,
+                                      ),
+                                      items: const [
+                                        DropdownMenuItem<String>(
+                                          value: 'TALLADO',
+                                          child: Text('TALLADO'),
+                                        ),
+                                        DropdownMenuItem<String>(
+                                          value: 'BISELADO',
+                                          child: Text('BISELADO'),
+                                        ),
+                                      ],
+                                      onChanged: (value) {
+                                        setDialogState(() {
+                                          selectedTipo = value ?? selectedTipo;
+                                          final compatibles =
+                                              _laboratoriosDetallePorTipo(
+                                                laboratorios,
+                                                selectedTipo,
+                                                sucOrd,
+                                                selectedLab,
+                                              );
+                                          if (compatibles.isNotEmpty &&
+                                              !compatibles.any(
+                                                (lab) =>
+                                                    lab.id.toString() ==
+                                                    selectedLab,
+                                              )) {
+                                            selectedLab = '';
+                                          }
+                                        });
+                                      },
+                                    ),
+                            ),
+                          SizedBox(
+                            width: 320,
+                            child:
+                                canEditDetail && editableLaboratorios.isNotEmpty
+                                ? DropdownButtonFormField<String>(
+                                    key: ValueKey(
+                                      'detalle-labor-${ordId.trim()}-$selectedTipo-$selectedLab',
+                                    ),
+                                    initialValue: selectedLabDropdownValue,
+                                    isExpanded: true,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Laboratorio',
+                                      border: OutlineInputBorder(),
+                                      isDense: true,
+                                    ),
+                                    items: editableLaboratorios
+                                        .map(
+                                          (lab) => DropdownMenuItem<String>(
+                                            value: lab.id.toString(),
+                                            child: Text(
+                                              lab.lab.trim().isEmpty
+                                                  ? lab.id.toString()
+                                                  : lab.lab.trim(),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        )
+                                        .toList(growable: false),
+                                    onChanged: (value) {
+                                      setDialogState(() {
+                                        selectedLab = value ?? '';
+                                      });
+                                    },
+                                  )
+                                : TextFormField(
+                                    initialValue: laboratorioLabel,
+                                    readOnly: true,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Laboratorio',
+                                      border: OutlineInputBorder(),
+                                      isDense: true,
+                                    ),
+                                  ),
+                          ),
+                          SizedBox(
+                            width: 220,
+                            child: TextFormField(
+                              initialValue: idfol,
+                              readOnly: true,
+                              decoration: const InputDecoration(
+                                labelText: 'IDFOL',
+                                border: OutlineInputBorder(),
+                                isDense: true,
                               ),
-                      ),
-                      SizedBox(
-                        width: 220,
-                        child: TextFormField(
-                          initialValue: idfol,
-                          readOnly: true,
-                          decoration: const InputDecoration(
-                            labelText: 'IDFOL',
-                            border: OutlineInputBorder(),
-                            isDense: true,
-                          ),
-                        ),
-                      ),
-                      SizedBox(
-                        width: 180,
-                        child: TextFormField(
-                          initialValue: cliente,
-                          readOnly: true,
-                          decoration: const InputDecoration(
-                            labelText: 'Cliente',
-                            border: OutlineInputBorder(),
-                            isDense: true,
-                          ),
-                        ),
-                      ),
-                      SizedBox(
-                        width: 360,
-                        child: TextFormField(
-                          initialValue: razonSocial,
-                          readOnly: true,
-                          decoration: const InputDecoration(
-                            labelText: 'Razon social receptor',
-                            border: OutlineInputBorder(),
-                            isDense: true,
-                          ),
-                        ),
-                      ),
-                      SizedBox(
-                        width: 210,
-                        child: TextFormField(
-                          initialValue: articulo,
-                          readOnly: true,
-                          decoration: const InputDecoration(
-                            labelText: 'Articulo',
-                            border: OutlineInputBorder(),
-                            isDense: true,
-                          ),
-                        ),
-                      ),
-                      SizedBox(
-                        width: 140,
-                        child: TextFormField(
-                          initialValue: piezas,
-                          readOnly: true,
-                          decoration: const InputDecoration(
-                            labelText: 'Piezas',
-                            border: OutlineInputBorder(),
-                            isDense: true,
-                          ),
-                        ),
-                      ),
-                      SizedBox(
-                        width: 240,
-                        child: TextFormField(
-                          initialValue: flujo,
-                          readOnly: true,
-                          decoration: const InputDecoration(
-                            labelText: 'Estado flujo',
-                            border: OutlineInputBorder(),
-                            isDense: true,
-                          ),
-                        ),
-                      ),
-                      SizedBox(
-                        width: 360,
-                        child: TextFormField(
-                          initialValue: descArticulo,
-                          readOnly: true,
-                          decoration: const InputDecoration(
-                            labelText: 'Descripción artículo',
-                            border: OutlineInputBorder(),
-                            isDense: true,
-                          ),
-                        ),
-                      ),
-                      SizedBox(
-                        width: 200,
-                        child: TextFormField(
-                          initialValue: fEntrega,
-                          readOnly: true,
-                          decoration: const InputDecoration(
-                            labelText: 'Fecha entrega',
-                            border: OutlineInputBorder(),
-                            isDense: true,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  TextFormField(
-                    key: ValueKey('detalle-comentarios-${comentarios.length}'),
-                    initialValue: comentarios,
-                    minLines: 2,
-                    maxLines: 3,
-                    readOnly: isConsultaDetalle,
-                    decoration: const InputDecoration(
-                      labelText: 'Comentarios',
-                      border: OutlineInputBorder(),
-                    ),
-                    onChanged: isConsultaDetalle
-                        ? null
-                        : (value) => comentarios = value,
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Detalle de graduación',
-                    style: TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 6),
-                  Table(
-                    border: TableBorder.all(color: Colors.grey.shade400),
-                    columnWidths: const {
-                      0: FixedColumnWidth(90),
-                      1: FixedColumnWidth(90),
-                      2: FixedColumnWidth(90),
-                      3: FixedColumnWidth(90),
-                    },
-                    children: [
-                      const TableRow(
-                        decoration: BoxDecoration(color: Color(0xFFE9EEF6)),
-                        children: [
-                          Padding(
-                            padding: EdgeInsets.all(6),
-                            child: Text(
-                              'JOB',
-                              style: TextStyle(fontWeight: FontWeight.w700),
-                              textAlign: TextAlign.center,
                             ),
                           ),
-                          Padding(
-                            padding: EdgeInsets.all(6),
-                            child: Text(
-                              'ESF',
-                              style: TextStyle(fontWeight: FontWeight.w700),
-                              textAlign: TextAlign.center,
+                          SizedBox(
+                            width: 180,
+                            child: TextFormField(
+                              initialValue: cliente,
+                              readOnly: true,
+                              decoration: const InputDecoration(
+                                labelText: 'Cliente',
+                                border: OutlineInputBorder(),
+                                isDense: true,
+                              ),
                             ),
                           ),
-                          Padding(
-                            padding: EdgeInsets.all(6),
-                            child: Text(
-                              'CIL',
-                              style: TextStyle(fontWeight: FontWeight.w700),
-                              textAlign: TextAlign.center,
+                          SizedBox(
+                            width: 360,
+                            child: TextFormField(
+                              initialValue: razonSocial,
+                              readOnly: true,
+                              decoration: const InputDecoration(
+                                labelText: 'Razon social receptor',
+                                border: OutlineInputBorder(),
+                                isDense: true,
+                              ),
                             ),
                           ),
-                          Padding(
-                            padding: EdgeInsets.all(6),
-                            child: Text(
-                              'EJE',
-                              style: TextStyle(fontWeight: FontWeight.w700),
-                              textAlign: TextAlign.center,
+                          SizedBox(
+                            width: 210,
+                            child: TextFormField(
+                              initialValue: articulo,
+                              readOnly: true,
+                              decoration: const InputDecoration(
+                                labelText: 'Articulo',
+                                border: OutlineInputBorder(),
+                                isDense: true,
+                              ),
+                            ),
+                          ),
+                          SizedBox(
+                            width: 140,
+                            child: TextFormField(
+                              initialValue: piezas,
+                              readOnly: true,
+                              decoration: const InputDecoration(
+                                labelText: 'Piezas',
+                                border: OutlineInputBorder(),
+                                isDense: true,
+                              ),
+                            ),
+                          ),
+                          SizedBox(
+                            width: 240,
+                            child: TextFormField(
+                              initialValue: flujo,
+                              readOnly: true,
+                              decoration: const InputDecoration(
+                                labelText: 'Estado flujo',
+                                border: OutlineInputBorder(),
+                                isDense: true,
+                              ),
+                            ),
+                          ),
+                          SizedBox(
+                            width: 360,
+                            child: TextFormField(
+                              initialValue: descArticulo,
+                              readOnly: true,
+                              decoration: const InputDecoration(
+                                labelText: 'Descripción artículo',
+                                border: OutlineInputBorder(),
+                                isDense: true,
+                              ),
+                            ),
+                          ),
+                          SizedBox(
+                            width: 200,
+                            child: TextFormField(
+                              initialValue: fEntrega,
+                              readOnly: true,
+                              decoration: const InputDecoration(
+                                labelText: 'Fecha entrega',
+                                border: OutlineInputBorder(),
+                                isDense: true,
+                              ),
                             ),
                           ),
                         ],
                       ),
-                      ...jobRows.map(
-                        (line) => TableRow(
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.all(4),
-                              child: TextFormField(
-                                key: ValueKey(
-                                  'job-${line['key']}-${line['job']}',
-                                ),
-                                initialValue: line['job'],
-                                textAlign: TextAlign.center,
-                                readOnly: true,
-                                decoration: const InputDecoration(
-                                  isDense: true,
-                                  border: OutlineInputBorder(),
-                                ),
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.all(4),
-                              child: TextFormField(
-                                key: ValueKey(
-                                  'esf-${line['key']}-${line['esf']}',
-                                ),
-                                initialValue: line['esf'],
-                                textAlign: TextAlign.center,
-                                readOnly: !canEditDetail,
-                                decoration: const InputDecoration(
-                                  isDense: true,
-                                  border: OutlineInputBorder(),
-                                ),
-                                onChanged: canEditDetail
-                                    ? (value) => line['esf'] = value
-                                    : null,
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.all(4),
-                              child: TextFormField(
-                                key: ValueKey(
-                                  'cil-${line['key']}-${line['cil']}',
-                                ),
-                                initialValue: line['cil'],
-                                textAlign: TextAlign.center,
-                                readOnly: !canEditDetail,
-                                decoration: const InputDecoration(
-                                  isDense: true,
-                                  border: OutlineInputBorder(),
-                                ),
-                                onChanged: canEditDetail
-                                    ? (value) => line['cil'] = value
-                                    : null,
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.all(4),
-                              child: TextFormField(
-                                key: ValueKey(
-                                  'eje-${line['key']}-${line['eje']}',
-                                ),
-                                initialValue: line['eje'],
-                                textAlign: TextAlign.center,
-                                readOnly: !canEditDetail,
-                                decoration: const InputDecoration(
-                                  isDense: true,
-                                  border: OutlineInputBorder(),
-                                ),
-                                onChanged: canEditDetail
-                                    ? (value) => line['eje'] = value
-                                    : null,
-                              ),
-                            ),
-                          ],
+                      const SizedBox(height: 10),
+                      TextFormField(
+                        key: ValueKey(
+                          'detalle-comentarios-${comentarios.length}',
+                        ),
+                        initialValue: comentarios,
+                        minLines: 2,
+                        maxLines: 3,
+                        readOnly: isConsultaDetalle,
+                        decoration: const InputDecoration(
+                          labelText: 'Comentarios',
+                          border: OutlineInputBorder(),
+                        ),
+                        onChanged: isConsultaDetalle
+                            ? null
+                            : (value) => comentarios = value,
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Detalle de graduación',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: detailGridHeaderFontSize,
                         ),
                       ),
-                      if (jobRows
-                          .where(
-                            (line) => availableJobs.contains(
-                              _normalizeJob(line['job'] ?? ''),
+                      const SizedBox(height: 6),
+                      Table(
+                        border: TableBorder.all(color: Colors.grey.shade400),
+                        columnWidths: const {
+                          0: FixedColumnWidth(90),
+                          1: FixedColumnWidth(90),
+                          2: FixedColumnWidth(90),
+                          3: FixedColumnWidth(90),
+                        },
+                        children: [
+                          const TableRow(
+                            decoration: BoxDecoration(color: Color(0xFFE9EEF6)),
+                            children: [
+                              Padding(
+                                padding: EdgeInsets.all(6),
+                                child: Text(
+                                  'JOB',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: detailGridHeaderFontSize,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                              Padding(
+                                padding: EdgeInsets.all(6),
+                                child: Text(
+                                  'ESF',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: detailGridHeaderFontSize,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                              Padding(
+                                padding: EdgeInsets.all(6),
+                                child: Text(
+                                  'CIL',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: detailGridHeaderFontSize,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                              Padding(
+                                padding: EdgeInsets.all(6),
+                                child: Text(
+                                  'EJE',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: detailGridHeaderFontSize,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ],
+                          ),
+                          ...jobRows.map(
+                            (line) => TableRow(
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.all(4),
+                                  child: Focus(
+                                    canRequestFocus: false,
+                                    skipTraversal: true,
+                                    descendantsAreFocusable: false,
+                                    child: IgnorePointer(
+                                      child: TextFormField(
+                                        key: ValueKey(
+                                          'job-${line['key']}-${line['job']}',
+                                        ),
+                                        initialValue: line['job'],
+                                        textAlign: TextAlign.center,
+                                        readOnly: true,
+                                        style: const TextStyle(
+                                          fontSize: detailGridFontSize,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                        decoration: const InputDecoration(
+                                          isDense: true,
+                                          border: OutlineInputBorder(),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.all(4),
+                                  child: TextFormField(
+                                    key: ValueKey(
+                                      'esf-${line['key']}-${line['esf']}',
+                                    ),
+                                    initialValue: line['esf'],
+                                    textAlign: TextAlign.center,
+                                    readOnly: !canEditDetail,
+                                    style: const TextStyle(
+                                      fontSize: detailGridFontSize,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                    textInputAction: TextInputAction.next,
+                                    decoration: const InputDecoration(
+                                      isDense: true,
+                                      border: OutlineInputBorder(),
+                                    ),
+                                    onChanged: canEditDetail
+                                        ? (value) => line['esf'] = value
+                                        : null,
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.all(4),
+                                  child: TextFormField(
+                                    key: ValueKey(
+                                      'cil-${line['key']}-${line['cil']}',
+                                    ),
+                                    initialValue: line['cil'],
+                                    textAlign: TextAlign.center,
+                                    readOnly: !canEditDetail,
+                                    style: const TextStyle(
+                                      fontSize: detailGridFontSize,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                    textInputAction: TextInputAction.next,
+                                    decoration: const InputDecoration(
+                                      isDense: true,
+                                      border: OutlineInputBorder(),
+                                    ),
+                                    onChanged: canEditDetail
+                                        ? (value) => line['cil'] = value
+                                        : null,
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.all(4),
+                                  child: TextFormField(
+                                    key: ValueKey(
+                                      'eje-${line['key']}-${line['eje']}',
+                                    ),
+                                    initialValue: line['eje'],
+                                    textAlign: TextAlign.center,
+                                    readOnly: !canEditDetail,
+                                    style: const TextStyle(
+                                      fontSize: detailGridFontSize,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                    textInputAction: TextInputAction.done,
+                                    decoration: const InputDecoration(
+                                      isDense: true,
+                                      border: OutlineInputBorder(),
+                                    ),
+                                    onChanged: canEditDetail
+                                        ? (value) => line['eje'] = value
+                                        : null,
+                                  ),
+                                ),
+                              ],
                             ),
-                          )
-                          .isEmpty)
-                        const TableRow(
+                          ),
+                          if (jobRows
+                              .where(
+                                (line) => availableJobs.contains(
+                                  _normalizeJob(line['job'] ?? ''),
+                                ),
+                              )
+                              .isEmpty)
+                            const TableRow(
+                              children: [
+                                Padding(
+                                  padding: EdgeInsets.all(8),
+                                  child: Text('OD'),
+                                ),
+                                Padding(
+                                  padding: EdgeInsets.all(8),
+                                  child: Text(''),
+                                ),
+                                Padding(
+                                  padding: EdgeInsets.all(8),
+                                  child: Text(''),
+                                ),
+                                Padding(
+                                  padding: EdgeInsets.all(8),
+                                  child: Text(''),
+                                ),
+                              ],
+                            ),
+                        ],
+                      ),
+                      if (showCambioMaterialBtn || showMermaBtn) ...[
+                        const SizedBox(height: 14),
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
                           children: [
-                            Padding(
-                              padding: EdgeInsets.all(8),
-                              child: Text('OD'),
-                            ),
-                            Padding(
-                              padding: EdgeInsets.all(8),
-                              child: Text(''),
-                            ),
-                            Padding(
-                              padding: EdgeInsets.all(8),
-                              child: Text(''),
-                            ),
-                            Padding(
-                              padding: EdgeInsets.all(8),
-                              child: Text(''),
-                            ),
+                            if (showCambioMaterialBtn)
+                              OutlinedButton.icon(
+                                onPressed: () async {
+                                  Navigator.of(ctx).pop();
+                                  await _doCambioMaterial(ordId);
+                                },
+                                icon: const Icon(Icons.swap_horiz),
+                                label: const Text('Cambio material'),
+                              ),
+                            if (showMermaBtn)
+                              OutlinedButton.icon(
+                                onPressed: () async {
+                                  Navigator.of(ctx).pop();
+                                  await _doMerma(ordId);
+                                },
+                                icon: const Icon(Icons.warning_amber),
+                                label: const Text('Merma'),
+                              ),
                           ],
                         ),
+                      ],
                     ],
                   ),
-                  if (showCambioMaterialBtn || showMermaBtn) ...[
-                    const SizedBox(height: 14),
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: [
-                        if (showCambioMaterialBtn)
-                          OutlinedButton.icon(
-                            onPressed: () async {
-                              Navigator.of(ctx).pop();
-                              await _doCambioMaterial(ordId);
-                            },
-                            icon: const Icon(Icons.swap_horiz),
-                            label: const Text('Cambio material'),
-                          ),
-                        if (showMermaBtn)
-                          OutlinedButton.icon(
-                            onPressed: () async {
-                              Navigator.of(ctx).pop();
-                              await _doMerma(ordId);
-                            },
-                            icon: const Icon(Icons.warning_amber),
-                            label: const Text('Merma'),
-                          ),
-                      ],
-                    ),
-                  ],
-                ],
+                ),
               ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Cerrar'),
-            ),
-            if (!isConsultaDetalle)
-              ElevatedButton(
-                onPressed: () async {
-                  try {
-                    final laborId = _parseLaboratorioId(selectedLab);
-                    await ref
-                        .read(ordenesTrabajoApiProvider)
-                        .saveDetail(
-                          ordId,
-                          labor: laborId,
-                          comentarios: comentarios,
-                          details: jobRows,
-                        );
-                    if (!mounted) return;
-                    Navigator.of(context).pop();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Cambios de ORD guardados.'),
-                      ),
-                    );
-                    await _reload();
-                  } catch (e) {
-                    if (!mounted) return;
-                    _showError(
-                      apiErrorMessage(
-                        e,
-                        fallback: 'No se pudo guardar detalle ORD',
-                      ),
-                    );
-                  }
-                },
-                child: const Text('Guardar cambios'),
-              ),
-          ],
+              actions: [
+                if (canManageTipoAndPrint)
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      final canPrint =
+                          isConsultaDetalle ||
+                          await saveCurrentDetail(showSuccessMessage: false);
+                      if (!canPrint || !mounted || !ctx.mounted) return;
+                      Navigator.of(ctx).pop();
+                      await _printEtiquetasPorIords([ordId], panel: panel);
+                    },
+                    icon: const Icon(Icons.print),
+                    label: const Text('Imprimir etiqueta'),
+                  ),
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('Cerrar'),
+                ),
+                if (!isConsultaDetalle)
+                  ElevatedButton(
+                    onPressed: () async {
+                      final saved = await saveCurrentDetail(
+                        showSuccessMessage: true,
+                      );
+                      if (!saved || !mounted || !ctx.mounted) return;
+                      Navigator.of(ctx).pop();
+                    },
+                    child: const Text('Guardar cambios'),
+                  ),
+              ],
+            );
+          },
         ),
       );
     } catch (e) {
@@ -2665,42 +2877,56 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     final confirm = await _confirmAnular(iords.length);
     if (confirm != true) return;
 
-    setState(() => _selectedIords.clear());
     await _executeAction(
       () => ref.read(ordenesTrabajoApiProvider).anularLote(iords),
     );
   }
 
   Future<void> _printEtiquetasSeleccion(OrdenTrabajoPanelResponse panel) async {
-    final selectedRows = panel.items
+    final selectedIords = panel.items
         .where((row) => _selectedIords.contains(row.iord))
+        .map((row) => row.iord)
         .toList(growable: false);
-    if (selectedRows.isEmpty) {
+    if (selectedIords.isEmpty) {
       _showError('Selecciona al menos una ORD para imprimir etiquetas.');
       return;
     }
+    await _printEtiquetasPorIords(selectedIords, panel: panel);
+  }
 
+  Future<void> _printEtiquetasPorIords(
+    List<String> iords, {
+    OrdenTrabajoPanelResponse? panel,
+  }) async {
+    final confirm = await _confirmImprimirEtiquetas(iords.length);
+    if (confirm != true) return;
+
+    final selectedRowsByIord = <String, OrdenTrabajoItem>{
+      for (final row in panel?.items ?? const <OrdenTrabajoItem>[])
+        row.iord: row,
+    };
     final api = ref.read(ordenesTrabajoApiProvider);
     final ords = <TallerEtiquetaOrdLegacy>[];
-    for (final row in selectedRows) {
+    for (final iord in iords) {
+      final row = selectedRowsByIord[iord];
       try {
-        final detail = await api.fetchDetail(row.iord);
+        final detail = await api.fetchDetail(iord);
         final header = detail.header;
-        final details = detail.details
-            .map(
-              (item) => TallerEtiquetaOrdLegacyDetail(
-                job: _textOf(item['JOB']),
-                esf: _textOf(item['ESF']),
-                cil: _textOf(item['CIL']),
-                eje: _textOf(item['EJE']),
-              ),
-            )
-            .toList(growable: false);
+        final details = _sortLegacyEtiquetaDetails(
+          detail.details.map(
+            (item) => TallerEtiquetaOrdLegacyDetail(
+              job: _textOf(item['JOB']),
+              esf: _textOf(item['ESF']),
+              cil: _textOf(item['CIL']),
+              eje: _textOf(item['EJE']),
+            ),
+          ),
+        );
         ords.add(
           TallerEtiquetaOrdLegacy(
-            ord: row.iord,
-            description: row.descArt,
-            tipo: row.tipo,
+            ord: iord,
+            description: row?.descArt ?? _textOf(header['DESCART']),
+            tipo: row?.tipo ?? _textOf(header['TIPO']),
             clientNumber: _textOf(header['CLIEN']),
             clientName: _textOf(
               header['RAZONSOCIALRECEPTOR'],
@@ -2724,9 +2950,9 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       } catch (_) {
         ords.add(
           TallerEtiquetaOrdLegacy(
-            ord: row.iord,
-            description: row.descArt,
-            tipo: row.tipo,
+            ord: iord,
+            description: row?.descArt,
+            tipo: row?.tipo,
           ),
         );
       }
@@ -2747,6 +2973,29 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     await Printing.layoutPdf(
       name: 'etiquetas_ords_$y$m$d-$hh$mm.pdf',
       onLayout: (_) => doc.save(),
+    );
+  }
+
+  Future<bool?> _confirmImprimirEtiquetas(int total) {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Imprimir etiquetas'),
+        content: Text(
+          'Se generará${total == 1 ? '' : 'n'} etiqueta${total == 1 ? '' : 's'} para $total ORD${total == 1 ? '' : 's'}.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            icon: const Icon(Icons.print),
+            label: const Text('Imprimir etiqueta'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -2880,7 +3129,6 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     );
     if (confirm != true) return;
 
-    setState(() => _selectedIords.clear());
     await _executeAction(
       () => ref
           .read(ordenesTrabajoApiProvider)
@@ -2893,7 +3141,6 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     final confirm = await _confirmEnviarAmaqBisel(iords.length);
     if (confirm != true) return;
 
-    setState(() => _selectedIords.clear());
     await _executeAction(
       () => ref.read(ordenesTrabajoApiProvider).enviarLote(iords),
     );
@@ -2924,7 +3171,6 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     );
     if (confirm != true) return;
 
-    setState(() => _selectedIords.clear());
     await _executeAction(
       () => ref
           .read(ordenesTrabajoApiProvider)
@@ -3062,7 +3308,6 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     final confirm = await _confirmRecibirATaller(iords.length);
     if (confirm != true) return;
 
-    setState(() => _selectedIords.clear());
     await _executeAction(
       () => ref.read(ordenesTrabajoApiProvider).recibirLote(iords),
     );
@@ -3073,7 +3318,6 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     final confirm = await _confirmEntregarCliente(iords.length);
     if (confirm != true) return;
 
-    setState(() => _selectedIords.clear());
     await _executeAction(
       () => ref.read(ordenesTrabajoApiProvider).entregarLote(iords),
     );
@@ -3083,7 +3327,6 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     if (iords.isEmpty) return;
     final confirm = await _confirmTrabajoTerminado(iords.length);
     if (confirm != true) return;
-    setState(() => _selectedIords.clear());
     await _executeAction(
       () => ref.read(ordenesTrabajoApiProvider).trabajoTerminadoLote(iords),
     );
@@ -3098,7 +3341,6 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       motivoLabel: motivo.label,
     );
     if (confirm != true) return;
-    setState(() => _selectedIords.clear());
     await _executeAction(
       () => ref
           .read(ordenesTrabajoApiProvider)
@@ -3110,7 +3352,6 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     if (iords.isEmpty) return;
     final confirm = await _confirmRegresarTienda(iords.length);
     if (confirm != true) return;
-    setState(() => _selectedIords.clear());
     await _executeAction(
       () => ref.read(ordenesTrabajoApiProvider).regresarTiendaLote(iords),
     );
