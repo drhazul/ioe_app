@@ -61,6 +61,7 @@
 - Punto de venta:
 - Clientes `/factclientshp` -> `FACT_CLIENT_SHP`.
 - Facturación `/facturacion/*` -> `FAC_SVR_SHAP`, `FACT_TICKET_SHP`, `FACT_CLIENT_SHP`, `DAT_SUC`.
+- Facturación mantenimiento de clientes `/facturacion/mtto-clientes` (`FACTURA_MTTOCLIENTE`): panel tripa de clientes con dropdown de sucursal (solo las autorizadas por `USR_MOD_SUC`), filtros por nombre/RFC/IDC y formulario embebido para editar `UsoCfdi`, `RegimenFiscal` y demás campos fiscales sin cambiar IDC/SUC.
 - Facturación compat (2026-03-13): frontend usa `IDFOL` textual y codifica el path parameter; backend soporta `FAC_SVR_SHAP` sin columna `AUT` con fallback a `TIPOVTA` para evitar `500` en `/facturacion/pendientes`.
 - Facturación pendientes paginada (2026-03-13): frontend consulta `GET /facturacion/pendientes` con `page`, `pageSize`, `suc`, `estatus`, `razonSocialReceptor`, `rfcReceptor`, `clien`, `idFol`, `tipoFact`.
 - Facturación pendientes paginada (2026-03-13): los filtros aplican server-side sobre toda la consulta y la respuesta incluye `data`, `total`, `page`, `pageSize`, `totalPages`.

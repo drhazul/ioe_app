@@ -66,6 +66,7 @@ import '../features/modulos/taller/ordenes_trabajo/ordenes_trabajo_page.dart';
 import '../features/modulos/facturacion/facturacion_page.dart';
 import '../features/modulos/facturacion/facturacionview_page.dart';
 import '../features/modulos/facturacion/facturacion_sreqf_page.dart';
+import '../features/modulos/facturacion/factura_mtto_cliente_page.dart';
 import '../features/modulos/estado_cajon/app/estado_cajon_page.dart';
 import '../features/modulos/caja_general/app/caja_general_page.dart';
 import '../features/modulos/caja_general/app/entrega_opv_page.dart';
@@ -624,6 +625,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (c, s) => const FacturacionPage(),
           ),
           GoRoute(
+            path: 'facturacion/mtto-clientes',
+            builder: (c, s) => const FacturaMttoClientePage(),
+          ),
+          GoRoute(
             path: 'facturacion-view',
             builder: (c, s) => const FacturacionViewPage(),
           ),
@@ -690,6 +695,7 @@ const Set<String> _facturaManageModuleCodes = <String>{
   'FACTURACION',
   'PV_FACTURACION',
   'FACT_IOE',
+  'FACTURA_MTTOCLIENTE',
 };
 
 const Set<String> _facturaViewModuleCodes = <String>{
@@ -703,6 +709,8 @@ const Set<String> _facturaReqfModuleCodes = <String>{
 bool _isFacturacionRoute(String location) {
   return location == '/facturacion' ||
       location.startsWith('/facturacion/') ||
+      location == '/facturacion/mtto-clientes' ||
+      location.startsWith('/facturacion/mtto-clientes/') ||
       location == '/facturacion-view' ||
       location.startsWith('/facturacion-view/') ||
       location == '/facturacion-sreqf' ||

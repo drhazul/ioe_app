@@ -392,6 +392,9 @@ class _ModuleRow extends StatelessWidget {
     if (moduloCode == 'PV_CAJAS') {
       return '/punto-venta';
     }
+    if (moduloCode == 'FACTURA_MTTOCLIENTE') {
+      return '/facturacion/mtto-clientes';
+    }
     if (moduloCode == 'FACTURA' ||
         moduloCode == 'FACTURACION' ||
         moduloCode == 'PV_FACTURACION' ||

@@ -90,6 +90,7 @@ autenticacion, datos maestros, inventarios, control de cuentas y punto de venta.
 - Punto de venta:
 - `/factclientshp` -> `FACT_CLIENT_SHP`.
 - Facturación `/facturacion/*` -> `FAC_SVR_SHAP`, `FACT_TICKET_SHP`, `FACT_CLIENT_SHP`, `DAT_SUC`.
+- Facturación mantenimiento de clientes `/facturacion/mtto-clientes` (`FACTURA_MTTOCLIENTE`): panel sincronizado por sucursal con dropdown de filtro, búsqueda por nombre/RFC/IDC y formulario embebido que recalcula data fiscal (`UsoCfdi`, `RegimenFiscal`) y respeta las sucursales autorizadas por `USR_MOD_SUC`.
 - Facturación compat (2026-03-13): la UI consume `IDFOL` como texto (no `int`) y codifica el parámetro de ruta; backend tolera esquemas `FAC_SVR_SHAP` legacy sin columna `AUT` (fallback `TIPOVTA`/`NULL`) para evitar `500` en `/facturacion/pendientes`.
 - Facturación pendientes paginada (2026-03-13): la UI consume `GET /facturacion/pendientes` con `page`, `pageSize`, `suc`, `estatus`, `razonSocialReceptor`, `rfcReceptor`, `clien`, `idFol`, `tipoFact`.
 - Facturación pendientes paginada (2026-03-13): filtros y orden por `FCN` se aplican en backend sobre todo el dataset; la UI muestra contador absoluto de registros y navegación entre páginas.
