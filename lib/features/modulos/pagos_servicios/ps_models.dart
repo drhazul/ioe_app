@@ -69,6 +69,7 @@ class PsFolioItem {
     this.suc,
     this.tra,
     this.opv,
+    this.opvm,
     this.esta,
     this.aut,
     this.impt,
@@ -83,6 +84,7 @@ class PsFolioItem {
   final String? suc;
   final String? tra;
   final String? opv;
+  final String? opvm;
   final String? esta;
   final String? aut;
   final double? impt;
@@ -98,6 +100,7 @@ class PsFolioItem {
       suc: _asText(json['SUC']),
       tra: _asText(json['TRA']),
       opv: _asText(json['OPV']),
+      opvm: _asText(json['OPVM']),
       esta: _asText(json['ESTA']),
       aut: _asText(json['AUT']),
       impt: _asDouble(json['IMPT']),

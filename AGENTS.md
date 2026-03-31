@@ -183,6 +183,7 @@
 - Panel cotizaciones seguridad (2026-03): la lista normal mantiene filtro estricto por `SUC/OPV` del contexto; en búsqueda cruzada (folio/cliente/razón social/OPV) solo se permiten folios de otros OPV con `AUT='CP'` y `ESTA='PENDIENTE'`.
 - Paneles PV (2026-03-10): en cotizaciones/devoluciones/pago de servicios, el botón de papelera ya no elimina registro; actualiza `ESTA='ANULADO'` por `PATCH /pvctrfolasvr/:idfol` y solo se habilita cuando `ESTA='PENDIENTE'`.
 - Paneles PV (2026-03-21): los listados de cotizaciones/devoluciones/pago de servicios excluyen `ESTA='ANULADO'`; solo muestran `PENDIENTE`, `EDITANDO` y `PAGADO`.
+- Paneles PV (2026-03-30): los filtros de cotizaciones, devoluciones y pago de servicios ahora permiten que un administrador seleccione la sucursal y un usuario OPV/Supervisor de esa sucursal (listas derivadas de `users`), y los endpoints reciben los parámetros `suc`/`opv` para reflejar el contexto elegido antes de consultar.
 - Vista previa PDF de cierre (ticket 58/80mm): cabecera sucursal (`DAT_SUC`), detalle de articulos (`PV_TICKET_LOG`), totales+formas+cambio, pie transaccional (`OPV/OPVM`, `IDFOL`, `FCNM`, cliente) y ORDs con control (`ORD + UPC`) + codigo de barras `CODE39` + tabla con bordes del detalle.
 - Ticket cotizaciones voucher (2026-03): si el cierre incluye formas no `EFECTIVO`, la impresión agrega al final un voucher `SOPORTE RECEPCION PAGO` por cada forma no efectivo (`FORM/IMPD/AUT o REF/AUT` + datos de cliente/folio).
 - Ticket cotizaciones voucher (2026-03): el voucher incluye espacio en blanco para firma y renglón `Firma cliente` debajo de `FCN`.
@@ -331,9 +332,11 @@
 - `POST /ps/folios/:idFol/procesar`
 - `POST /ps/folios/:idFol/formas-pago`
 - `DELETE /ps/folios/:idFol/formas-pago/:idF`
+- Nota de origen (2026-03-31): si la relación que se liquida viene de un folio `CA` y el pago se hace con alguna forma distinta de `EFECTIVO`, el folio final visible se convierte en `VF` para reflejar la forma utilizada; los orígenes `VF` existentes conservan su asignación habitual.
 - `GET /ps/folios/:idFol/formas-pago/summary`
 - `POST /ps/folios/:idFol/finalizar`
 - `PATCH /pvctrfolasvr/:idfol`
+- Corrección de liquidación (2026-03-30): el servicio `/ps/folios/:idFol/ticket/pvta` ahora se apoya en un `sp_ps_ticket_update_pvta` que suma todos los registros de `DAT_CTRL_CTAS` del mismo concepto antes de validar el `PVTA`, de modo que se permiten liquidar diferencias de taller que se reparten en varias filas del mismo concepto.
 - Reglas UI relevantes:
 - en detalle, `PVTA` se captura/edita por línea y el backend valida referencia y tope de adeudo.
 - en detalle, el resumen de adeudos del cliente se basa en `DAT_CTRL_CTAS` agrupado por `CLIENT, IDFOL` con `SUM(IMPT) <> 0`.

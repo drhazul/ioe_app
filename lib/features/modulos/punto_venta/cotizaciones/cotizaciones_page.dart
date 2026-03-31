@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:ioe_app/core/dio_provider.dart';
 import 'package:ioe_app/core/terminal_name.dart';
 import 'package:ioe_app/features/masterdata/sucursales/sucursales_providers.dart';
+import 'package:ioe_app/features/modulos/punto_venta/admin_opv_selector.dart';
 import 'package:ioe_app/features/modulos/punto_venta/clientes/clientes_models.dart';
 import 'package:ioe_app/features/modulos/punto_venta/clientes/clientes_providers.dart';
 
@@ -97,7 +98,12 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
                   isAdmin: isAdmin,
                   hasUserOpv: hasUserOpv,
                   hasUserSuc: hasUserSuc,
-                  onSucChanged: (value) => setState(() => _sucCtrl.text = value?.trim() ?? ''),
+                  selectedOpv: _opvCtrl.text.trim(),
+                  onOpvChanged: (value) => setState(() => _opvCtrl.text = value?.trim() ?? ''),
+                  onSucChanged: (value) => setState(() {
+                    _sucCtrl.text = value?.trim() ?? '';
+                    if (isAdmin) _opvCtrl.clear();
+                  }),
                   onSearch: _applyFilters,
                   onClear: _clearFilters,
                 ),
@@ -143,7 +149,7 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
     final suc = isAdmin
         ? _sucCtrl.text.trim()
         : (_userSuc ?? _sucCtrl.text).trim();
-    final opv = (_userOpv ?? _opvCtrl.text).trim();
+    final opv = _selectedOpv();
     final next = CotizacionesPanelQuery(
       suc: suc,
       opv: opv,
@@ -162,14 +168,15 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
       _searchCtrl.clear();
       if (isAdmin) {
         _sucCtrl.clear();
+        _opvCtrl.clear();
       } else {
         _sucCtrl.text = (_userSuc ?? '').trim();
+        _opvCtrl.text = (_userOpv ?? '').trim();
       }
-      _opvCtrl.text = (_userOpv ?? '').trim();
       _selected = null;
       _query = CotizacionesPanelQuery(
         suc: _sucCtrl.text.trim(),
-        opv: _opvCtrl.text.trim(),
+        opv: _selectedOpv(),
       );
     });
     ref.read(cotizacionesPanelQueryProvider.notifier).state = _query;
@@ -351,9 +358,10 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
     final opv = (payload['opv'] ?? payload['OPV'] ?? payload['username'] ?? '')
         .toString()
         .trim();
+    final isAdmin = _isAdmin;
     final query = CotizacionesPanelQuery(
       suc: suc,
-      opv: opv,
+      opv: isAdmin ? '' : opv,
     );
 
     ref.read(cotizacionesPanelQueryProvider.notifier).state = query;
@@ -362,7 +370,11 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
       _username = username;
       _userSuc = suc;
       _userOpv = opv;
-      if (opv.isNotEmpty) _opvCtrl.text = opv;
+      if (isAdmin) {
+        _opvCtrl.clear();
+      } else if (opv.isNotEmpty) {
+        _opvCtrl.text = opv;
+      }
       if (suc.isNotEmpty) _sucCtrl.text = suc;
       _query = query;
       _contextReady = true;
@@ -391,6 +403,13 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
     return (_username ?? '').trim().toUpperCase() == 'ADMIN';
   }
 
+  String _selectedOpv() {
+    final explicit = _opvCtrl.text.trim();
+    if (explicit.isNotEmpty) return explicit;
+    if (_isAdmin) return '';
+    return (_userOpv ?? '').trim();
+  }
+
   bool _isEstadoPendiente(String? value) {
     return (value ?? '').trim().toUpperCase() == 'PENDIENTE';
   }
@@ -407,6 +426,8 @@ class _TopFilters extends ConsumerWidget {
     required this.isAdmin,
     required this.hasUserOpv,
     required this.hasUserSuc,
+    required this.selectedOpv,
+    required this.onOpvChanged,
   });
 
   final TextEditingController opvCtrl;
@@ -418,6 +439,8 @@ class _TopFilters extends ConsumerWidget {
   final bool isAdmin;
   final bool hasUserOpv;
   final bool hasUserSuc;
+  final String selectedOpv;
+  final ValueChanged<String?> onOpvChanged;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -431,7 +454,14 @@ class _TopFilters extends ConsumerWidget {
           runSpacing: 10,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            _SmallField(label: 'OPV', controller: opvCtrl, enabled: !hasUserOpv),
+            if (isAdmin)
+              AdminOpvSelector(
+                suc: sucCtrl.text,
+                selectedOpv: selectedOpv,
+                onOpvChanged: onOpvChanged,
+              )
+            else
+              _SmallField(label: 'OPV', controller: opvCtrl, enabled: !hasUserOpv),
             if (!isAdmin) _SmallField(label: 'Sucursal', controller: sucCtrl, enabled: !hasUserSuc),
             if (isAdmin)
               SizedBox(

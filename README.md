@@ -258,6 +258,8 @@ autenticacion, datos maestros, inventarios, control de cuentas y punto de venta.
 - `POST /ps/folios/:idFol/procesar`
 - `POST /ps/folios/:idFol/formas-pago`
 - `DELETE /ps/folios/:idFol/formas-pago/:idF`
+- Nota de origen (2026-03-31): cuando la relación consultada procede de `CA` y el pago final se realiza con alguna forma diferente de `EFECTIVO`, el backend genera el folio visible final como `VF`, de modo que el ticket refleja la forma de pago utilizada; los folios que ya son `VF` mantienen su origen habitual.
+- Corrección de liquidación (2026-03-30): el backend suma todos los registros de `DAT_CTRL_CTAS` que comparten el mismo concepto antes de validar el `PVTA`, lo que permite pagar diferencias de taller aunque el adeudo esté dividido en varias filas del mismo concepto.
 - `GET /ps/folios/:idFol/formas-pago/summary`
 - `POST /ps/folios/:idFol/finalizar`
 - `PATCH /pvctrfolasvr/:idfol`
@@ -473,6 +475,7 @@ autenticacion, datos maestros, inventarios, control de cuentas y punto de venta.
 - Panel cotizaciones seguridad (2026-03): la lista normal conserva filtro estricto por `SUC/OPV`; en búsqueda cruzada (folio/cliente/razón social/OPV) solo se permiten folios de otros OPV con `AUT='CP'` y `ESTA='PENDIENTE'`.
 - Paneles PV (2026-03-10): en cotizaciones/devoluciones/pago de servicios, la papelera no elimina físicamente; ahora cambia `ESTA='ANULADO'` por `PATCH /pvctrfolasvr/:idfol` y solo se habilita cuando `ESTA='PENDIENTE'`.
 - Paneles PV (2026-03-21): los listados de cotizaciones/devoluciones/pago de servicios excluyen `ESTA='ANULADO'`; se muestran únicamente `PENDIENTE`, `EDITANDO` y `PAGADO`.
+- Paneles PV (2026-03-30): los filtros de cotizaciones, devoluciones y pago de servicios permiten que un administrador elite la sucursal y un OPV/Supervisor desde el catálogo de `users`; el backend aplica esos `suc`/`opv` (o el valor del JWT para usuarios no admin) y considera como dueño del folio a cualquier registro cuya `OPV` u `OPVM` coincida con el consumidor actual mientras la `SUC` es la misma.
 - Al cierre exitoso, app habilita un boton `Imprimir ticket` debajo de `Finalizar cierre`.
 - Al presionar `Imprimir ticket`, app muestra dialogo de ancho 58mm/80mm y abre la vista previa PDF.
 - En ticket de cotización (2026-03), si hay formas no `EFECTIVO`, la impresión agrega al final un voucher `SOPORTE RECEPCION PAGO` por cada forma no efectivo.
@@ -621,12 +624,6 @@ Web:
 ```bash
 flutter run -d chrome
 ```
-
-Testing:
-```bash
-flutter test
-```
-
 ## Documentacion viva obligatoria
 - Cada cambio funcional o tecnico que afecte modulos, rutas, providers,
   endpoints, tablas, campos o consultas debe actualizar en el mismo trabajo:

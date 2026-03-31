@@ -23,7 +23,7 @@ class CotizacionesApi {
     );
     final scoped = parsed.where((item) {
       return _matchesExactFilter(item.suc, normalizedSuc) &&
-          _matchesExactFilter(item.opv, normalizedOpv);
+          _matchesOpvFilter(item, normalizedOpv);
     });
     final visible = scoped.where(_isVisiblePanelItem).toList();
 
@@ -123,7 +123,8 @@ class CotizacionesApi {
       if (!_matchesExactFilter(item.suc, suc)) return false;
       if (!opvCriterion &&
           currentOpvNormalized.isNotEmpty &&
-          _normalize(item.opv) == currentOpvNormalized) {
+          (_normalize(item.opv) == currentOpvNormalized ||
+              _normalize(item.opvm) == currentOpvNormalized)) {
         return false;
       }
       if (!_isCrossUserSearchAllowed(item)) return false;
@@ -159,7 +160,10 @@ class CotizacionesApi {
     final normalizedTerm = _normalize(term);
 
     if (_looksLikeOpvSearch(term)) {
-      return _normalize(item.opv) == normalizedTerm;
+      final normalizedOpv = _normalize(item.opv);
+      final normalizedOpvm = _normalize(item.opvm);
+      return normalizedOpv == normalizedTerm ||
+          normalizedOpvm == normalizedTerm;
     }
     if (_looksLikeIdFolSearch(term)) {
       return _normalize(item.idfol) == normalizedTerm ||
@@ -177,6 +181,13 @@ class CotizacionesApi {
   bool _matchesExactFilter(String? rowValue, String filterValue) {
     if (filterValue.isEmpty) return true;
     return _normalize(rowValue) == _normalize(filterValue);
+  }
+
+  bool _matchesOpvFilter(PvCtrFolAsvrModel item, String filterValue) {
+    if (filterValue.isEmpty) return true;
+    final normalizedFilter = _normalize(filterValue);
+    return _normalize(item.opv) == normalizedFilter ||
+        _normalize(item.opvm) == normalizedFilter;
   }
 
   bool _looksLikeIdFolSearch(String value) {

@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:ioe_app/core/api_error.dart';
 import 'package:ioe_app/core/dio_provider.dart';
 import 'package:ioe_app/features/masterdata/sucursales/sucursales_providers.dart';
+import 'package:ioe_app/features/modulos/punto_venta/admin_opv_selector.dart';
 
 import 'devoluciones_models.dart';
 import 'devoluciones_providers.dart';
@@ -96,9 +97,14 @@ class _DevolucionesPageState extends ConsumerState<DevolucionesPage> {
                   searchCtrl: _searchCtrl,
                   sucCtrl: _sucCtrl,
                   opvCtrl: _opvCtrl,
+                  selectedOpv: _opvCtrl.text.trim(),
+                  onOpvChanged: (value) => setState(() => _opvCtrl.text = value?.trim() ?? ''),
                   onSearch: _applyFilters,
                   onClear: _clearFilters,
-                  onSucChanged: (value) => setState(() => _sucCtrl.text = value?.trim() ?? ''),
+                  onSucChanged: (value) => setState(() {
+                    _sucCtrl.text = value?.trim() ?? '';
+                    if (isAdmin) _opvCtrl.clear();
+                  }),
                 ),
                 const SizedBox(height: 12),
                 _PanelTable(
@@ -122,7 +128,7 @@ class _DevolucionesPageState extends ConsumerState<DevolucionesPage> {
     final suc = isAdmin
         ? _sucCtrl.text.trim()
         : (_userSuc ?? _sucCtrl.text).trim();
-    final opv = (_userOpv ?? _opvCtrl.text).trim();
+    final opv = _selectedOpv();
     setState(() {
       _selected = null;
       _query = DevolucionesPanelQuery(
@@ -139,14 +145,14 @@ class _DevolucionesPageState extends ConsumerState<DevolucionesPage> {
       _searchCtrl.clear();
       if (isAdmin) {
         _sucCtrl.clear();
+        _opvCtrl.clear();
       } else {
         _sucCtrl.text = (_userSuc ?? '').trim();
       }
-      _opvCtrl.text = (_userOpv ?? '').trim();
       _selected = null;
       _query = DevolucionesPanelQuery(
         suc: _sucCtrl.text.trim(),
-        opv: _opvCtrl.text.trim(),
+        opv: _selectedOpv(),
       );
     });
   }
@@ -188,11 +194,15 @@ class _DevolucionesPageState extends ConsumerState<DevolucionesPage> {
       _username = username;
       _userSuc = suc;
       _userOpv = opv;
-      if (opv.isNotEmpty) _opvCtrl.text = opv;
       if (suc.isNotEmpty) _sucCtrl.text = suc;
+      if (isAdmin) {
+        _opvCtrl.clear();
+      } else if (opv.isNotEmpty) {
+        _opvCtrl.text = opv;
+      }
       _query = DevolucionesPanelQuery(
-        suc: isAdmin ? _sucCtrl.text.trim() : suc,
-        opv: opv,
+        suc: suc,
+        opv: isAdmin ? '' : opv,
       );
       _contextReady = true;
     });
@@ -218,6 +228,13 @@ class _DevolucionesPageState extends ConsumerState<DevolucionesPage> {
   bool get _isAdmin {
     if ((_roleId ?? 0) == 1) return true;
     return (_username ?? '').trim().toUpperCase() == 'ADMIN';
+  }
+
+  String _selectedOpv() {
+    final explicit = _opvCtrl.text.trim();
+    if (explicit.isNotEmpty) return explicit;
+    if (_isAdmin) return '';
+    return (_userOpv ?? '').trim();
   }
 
   bool _isEstadoPagado(String? value) {
@@ -440,6 +457,8 @@ class _TopFilters extends ConsumerWidget {
     required this.onSearch,
     required this.onClear,
     required this.onSucChanged,
+    required this.selectedOpv,
+    required this.onOpvChanged,
   });
 
   final bool isAdmin;
@@ -451,6 +470,8 @@ class _TopFilters extends ConsumerWidget {
   final VoidCallback onSearch;
   final VoidCallback onClear;
   final ValueChanged<String?> onSucChanged;
+  final String selectedOpv;
+  final ValueChanged<String?> onOpvChanged;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -464,12 +485,6 @@ class _TopFilters extends ConsumerWidget {
           runSpacing: 10,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            if (!isAdmin)
-              _SmallField(
-                label: 'Sucursal',
-                controller: sucCtrl,
-                enabled: !hasUserSuc,
-              ),
             if (isAdmin)
               SizedBox(
                 width: 220,
@@ -514,12 +529,25 @@ class _TopFilters extends ConsumerWidget {
                     enabled: false,
                   ),
                 ),
+              )
+            else
+              _SmallField(
+                label: 'Sucursal',
+                controller: sucCtrl,
+                enabled: !hasUserSuc,
               ),
-            _SmallField(
-              label: 'OPV',
-              controller: opvCtrl,
-              enabled: !hasUserOpv,
-            ),
+            if (isAdmin)
+              AdminOpvSelector(
+                suc: sucCtrl.text,
+                selectedOpv: selectedOpv,
+                onOpvChanged: onOpvChanged,
+              )
+            else
+              _SmallField(
+                label: 'OPV',
+                controller: opvCtrl,
+                enabled: !hasUserOpv,
+              ),
             SizedBox(
               width: 360,
               child: TextField(

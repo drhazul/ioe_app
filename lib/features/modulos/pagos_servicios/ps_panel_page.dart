@@ -7,6 +7,7 @@ import 'package:ioe_app/core/api_error.dart';
 import 'package:ioe_app/core/dio_provider.dart';
 import 'package:ioe_app/core/terminal_name.dart';
 import 'package:ioe_app/features/masterdata/sucursales/sucursales_providers.dart';
+import 'package:ioe_app/features/modulos/punto_venta/admin_opv_selector.dart';
 
 import 'ps_models.dart';
 import 'ps_providers.dart';
@@ -97,9 +98,14 @@ class _PsPanelPageState extends ConsumerState<PsPanelPage> {
                   searchCtrl: _searchCtrl,
                   sucCtrl: _sucCtrl,
                   opvCtrl: _opvCtrl,
+                  selectedOpv: _opvCtrl.text.trim(),
+                  onOpvChanged: (value) => setState(() => _opvCtrl.text = value?.trim() ?? ''),
                   onSearch: _applyFilters,
                   onClear: _clearFilters,
-                  onSucChanged: (value) => setState(() => _sucCtrl.text = value?.trim() ?? ''),
+                  onSucChanged: (value) => setState(() {
+                    _sucCtrl.text = value?.trim() ?? '';
+                    if (isAdmin) _opvCtrl.clear();
+                  }),
                 ),
                 const SizedBox(height: 12),
                 _PsPanelTable(
@@ -148,14 +154,16 @@ class _PsPanelPageState extends ConsumerState<PsPanelPage> {
       _searchCtrl.clear();
       if (isAdmin) {
         _sucCtrl.clear();
+        _opvCtrl.clear();
       } else {
         _sucCtrl.text = (_userSuc ?? '').trim();
+        _opvCtrl.text = (_userOpv ?? '').trim();
       }
       _selected = null;
     });
     ref.read(psPanelQueryProvider.notifier).state = PsPanelQuery(
       suc: _sucCtrl.text.trim(),
-      opv: (_userOpv ?? _opvCtrl.text).trim(),
+      opv: _selectedOpv(),
       search: '',
     );
   }
@@ -177,7 +185,7 @@ class _PsPanelPageState extends ConsumerState<PsPanelPage> {
 
     final isAdmin = _isAdmin;
     final suc = isAdmin ? _sucCtrl.text.trim() : (_userSuc ?? '').trim();
-    final opv = (_userOpv ?? _opvCtrl.text).trim();
+    final opv = _selectedOpv();
     final ter = getTerminalName().trim();
 
     if (suc.isEmpty) {
@@ -279,8 +287,8 @@ class _PsPanelPageState extends ConsumerState<PsPanelPage> {
     final isAdmin = roleId == 1 || username.toUpperCase() == 'ADMIN';
 
     final query = PsPanelQuery(
-      suc: isAdmin ? _sucCtrl.text.trim() : suc,
-      opv: opv,
+      suc: suc,
+      opv: isAdmin ? '' : opv,
       search: '',
     );
 
@@ -291,7 +299,11 @@ class _PsPanelPageState extends ConsumerState<PsPanelPage> {
       _userSuc = suc;
       _userOpv = opv;
       if (suc.isNotEmpty) _sucCtrl.text = suc;
-      if (opv.isNotEmpty) _opvCtrl.text = opv;
+      if (isAdmin) {
+        _opvCtrl.clear();
+      } else if (opv.isNotEmpty) {
+        _opvCtrl.text = opv;
+      }
       _contextReady = true;
     });
   }
@@ -318,6 +330,13 @@ class _PsPanelPageState extends ConsumerState<PsPanelPage> {
     return (_username ?? '').trim().toUpperCase() == 'ADMIN';
   }
 
+  String _selectedOpv() {
+    final explicit = _opvCtrl.text.trim();
+    if (explicit.isNotEmpty) return explicit;
+    if (_isAdmin) return '';
+    return (_userOpv ?? '').trim();
+  }
+
   bool _isEstadoPendiente(String? value) {
     return (value ?? '').trim().toUpperCase() == 'PENDIENTE';
   }
@@ -332,6 +351,8 @@ class _PsTopFilters extends ConsumerWidget {
     required this.onSearch,
     required this.onClear,
     required this.onSucChanged,
+    required this.selectedOpv,
+    required this.onOpvChanged,
   });
 
   final bool isAdmin;
@@ -341,6 +362,8 @@ class _PsTopFilters extends ConsumerWidget {
   final VoidCallback onSearch;
   final VoidCallback onClear;
   final ValueChanged<String?> onSucChanged;
+  final String selectedOpv;
+  final ValueChanged<String?> onOpvChanged;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -399,7 +422,14 @@ class _PsTopFilters extends ConsumerWidget {
               )
             else
               _SmallField(label: 'Sucursal', controller: sucCtrl, enabled: false),
-            _SmallField(label: 'OPV', controller: opvCtrl, enabled: false),
+            if (isAdmin)
+              AdminOpvSelector(
+                suc: sucCtrl.text,
+                selectedOpv: selectedOpv,
+                onOpvChanged: onOpvChanged,
+              )
+            else
+              _SmallField(label: 'OPV', controller: opvCtrl, enabled: false),
             SizedBox(
               width: 360,
               child: TextField(

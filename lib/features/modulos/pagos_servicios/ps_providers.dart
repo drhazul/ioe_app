@@ -20,7 +20,7 @@ final psFoliosProvider = FutureProvider.autoDispose<List<PsFolioItem>>((ref) asy
     search: query.search,
   );
   const estadosPermitidos = {'PENDIENTE', 'EDITANDO', 'PAGADO'};
-  final opvNorm = query.opv.trim().toUpperCase();
+  final opvNorm = _normalizeOpvValue(query.opv);
   return folios
       .where(
         (folio) {
@@ -29,7 +29,9 @@ final psFoliosProvider = FutureProvider.autoDispose<List<PsFolioItem>>((ref) asy
           );
           if (!estadoValido) return false;
           if (opvNorm.isEmpty) return true;
-          return (folio.opv ?? '').trim().toUpperCase() == opvNorm;
+          final folioOpv = _normalizeOpvValue(folio.opv);
+          final folioOpvm = _normalizeOpvValue(folio.opvm);
+          return folioOpv == opvNorm || folioOpvm == opvNorm;
         },
       )
       .toList(growable: false);
@@ -90,3 +92,5 @@ final psPagoDraftFormasProvider = StateNotifierProvider.family<PsPagoDraftFormas
 });
 
 final psSelectedArtProvider = StateProvider<String?>((ref) => null);
+
+String _normalizeOpvValue(String? value) => (value ?? '').trim().toUpperCase();

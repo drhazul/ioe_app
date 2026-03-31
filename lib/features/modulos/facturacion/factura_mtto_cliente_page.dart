@@ -631,8 +631,8 @@ class _FacturaMttoClientePageState
     final v = (value ?? '').trim().toUpperCase();
     if (v.isEmpty) return 'Requerido';
     if (v == 'XAXX010101000' || v == 'XEXX010101000') return null;
-    final moral = RegExp(r'^[A-Z&Ñ]{3}\\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\\d|3[01])[A-Z0-9]{3}$');
-    final fisica = RegExp(r'^[A-Z&Ñ]{4}\\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\\d|3[01])[A-Z0-9]{3}$');
+    final moral = RegExp(r'^[A-Z&Ñ]{3}\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])[A-Z0-9]{3}$');
+    final fisica = RegExp(r'^[A-Z&Ñ]{4}\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])[A-Z0-9]{3}$');
     if (moral.hasMatch(v) || fisica.hasMatch(v)) return null;
     return 'RFC inválido';
   }
