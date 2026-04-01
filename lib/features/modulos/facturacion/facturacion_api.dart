@@ -137,6 +137,17 @@ class FacturacionApi {
     return FacturacionPendientesPage.fromJson(data);
   }
 
+  Future<Map<String, dynamic>> validarIdFolsPendientes(
+    List<String> idFols,
+  ) async {
+    final ids = _normalizeIdFols(idFols);
+    final res = await dio.post(
+      '/facturacion/pendientes/validar-idfols',
+      data: <String, dynamic>{'idFols': ids},
+    );
+    return _asMap(res.data);
+  }
+
   Future<Map<String, dynamic>> validar(String idFol) async {
     final res = await dio.get('/facturacion/${_folioPath(idFol)}/validar');
     return _asMap(res.data);

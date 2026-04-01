@@ -181,11 +181,13 @@ class _DatArtFormPageState extends ConsumerState<DatArtFormPage> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
+    final upc = _upcCtrl.text.trim().toUpperCase();
+    _upcCtrl.text = upc;
 
     final payload = <String, dynamic>{
       if (_isNew) 'SUC': _sucCtrl.text.trim(),
       if (_isNew) 'ART': _artCtrl.text.trim(),
-      if (_isNew) 'UPC': _upcCtrl.text.trim(),
+      'UPC': upc,
       'TIPO': _parseString(_tipoCtrl.text),
       'CLAVESAT': _parseDouble(_clavesatCtrl.text),
       'UNIMEDSAT': _parseString(_unimedsatCtrl.text),
@@ -311,7 +313,7 @@ class _DatArtFormPageState extends ConsumerState<DatArtFormPage> {
                         width: 140,
                         child: TextFormField(
                           controller: _upcCtrl,
-                          enabled: !_saving && _isNew,
+                          enabled: !_saving,
                           decoration: denseDecoration,
                           inputFormatters: [upperFormatter, LengthLimitingTextInputFormatter(15)],
                           validator: (v) => v == null || v.trim().isEmpty ? 'Requerido' : null,

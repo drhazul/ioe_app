@@ -42,6 +42,7 @@ Enlaces relacionados:
 - `/datart`, `/datart/:suc/:art/:upc`, `/datart/massive-upload`,
   `/articulos/alta-masiva/upload|preview|validate|commit`.
 - tablas: `DAT_ART`, `DAT_ART_MASIVA_TMP`.
+- Edición detalle (2026-04): la ficha permite editar `UPC`; antes de guardar se valida que no esté asignado a otro `ART` de la misma sucursal.
 - Alta masiva: la validación considera duplicados por sucursal (`SUC + ART` / `SUC + UPC`), permitiendo subir el mismo `ART`/`UPC` para distintas sucursales sin bloquear la carga.
 - Impresion etiquetas DAT_ART (frontend):
 - pantalla `lib/features/modulos/catalogo/datart_page.dart` con seleccion local por renglón y seleccion de filtrados para impresión masiva.
@@ -87,6 +88,7 @@ Enlaces relacionados:
 - Facturación filtro por error (2026-03-27): la pantalla respeta el valor seleccionado en `ESTATUS` y permite consultar `PENDIENTE`, `CANCELACION PENDIENTE`, `FACTURADO`, `FACTURADO Y CANCELACION PENDIENTE` y `CON ERROR` contra `GET /facturacion/pendientes`.
 - Facturación nomenclatura CFDI (2026-03-27): el backend controla la visual `RFC4-00001`; Facturify recibe `serie=RFC4` y `folio` entero puro, por lo que la app no recompone año/mes/día ni reinicia consecutivo localmente.
 - Facturación paginación (2026-03-31): el panel de pendientes/consulta carga 60 registros por página por defecto para reducir navegación.
+- Facturación selección por IDFOL (2026-04-01): el panel de pendientes agrega botón `Cargar IDFOL` para capturar folios manualmente o cargar un Excel (una sola columna). Tras validar la lista, `SELECCIONAR relacionados` marca únicamente los folios en ESTATUS `PENDIENTE` visibles en la página actual.
 - Facturación unificación sucursal JWT (2026-03-16): backend dejó de forzar `user.suc` en `preview/create` de unificación para usuarios con permisos de gestión (`FACTURA`/compat), evitando bloqueos falsos de "folios fuera de la sucursal autorizada".
 - REQF sin facturar (2026-03-16): la pantalla `/facturacion-sreqf` (módulo `REG_SINREQF`) consulta `GET /facturacion/reqf/folios`; backend aplica alcance no-admin por `USR_MOD_SUC` y frontend no fija `SUC` inicial por JWT para permitir ver todas las sucursales autorizadas.
 - Panel clientes UI (2026-03): en alta de cliente, el modal usa valores predeterminados `SELECCIONAR` para `RfcEmisor`/`RegimenFiscalReceptor`/`UsoCfdi` (en payload `RegimenFiscalReceptor=0` por tipo numérico) y `COLOCAR` para `EmailReceptor`; incluye botón `CANCELAR` y, después de `Guardar registro`, cierra el modal y refresca la consulta del panel.

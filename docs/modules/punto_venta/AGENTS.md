@@ -72,9 +72,11 @@ Enlaces relacionados:
 - Compatibilidad consulta cotizaciones (2026-03): frontend deja de enviar query param `_` (cache-buster) para evitar `400` por `forbidNonWhitelisted` cuando backend valida query DTO.
 - Panel cotizaciones UI (2026-03): la grilla migra a columnas de ancho dinamico por contenido (con scroll horizontal) para evitar truncado de datos.
 - Panel cotizaciones UI (2026-03): se agregan columnas `CLIEN` y `Razon social receptor` en la visualizacion principal.
+- Panel cotizaciones UI (2026-04-01): se muestra la columna `OPVM` inmediatamente despues de `OPV` en la tabla del panel.
 - Panel cotizaciones busqueda (2026-03): el campo `Buscar cotizacion` permite buscar en el mismo input por `IDFOL`, `CLIEN` y `RazonSocialReceptor`.
 - Panel cotizaciones busqueda OPV (2026-03-10): si `Buscar` recibe un valor con formato OPV (4 dígitos), la búsqueda cruzada permite traer folios de otros OPV solo cuando cumplen `AUT='CP'` y `ESTA='PENDIENTE'`.
 - Panel cotizaciones seguridad (2026-03): la lista normal mantiene filtro estricto por `SUC/OPV` del contexto; en búsqueda cruzada (folio/cliente/razón social/OPV) solo se permiten folios de otros OPV con `AUT='CP'` y `ESTA='PENDIENTE'`.
+- Panel cotizaciones seguridad (2026-04-01): la búsqueda cruzada por OPV (4 dígitos) permite consultar `OPV/OPVM` distintos sin 403; la API fuerza `AUT='CP'` y `ESTA='PENDIENTE'` en esos casos.
 - Paneles PV (2026-03-10): en cotizaciones/devoluciones/pago de servicios, el botón de papelera ya no elimina registro; actualiza `ESTA='ANULADO'` por `PATCH /pvctrfolasvr/:idfol` y solo se habilita cuando `ESTA='PENDIENTE'`.
 - Paneles PV (2026-03-21): los listados de cotizaciones/devoluciones/pago de servicios excluyen `ESTA='ANULADO'`; solo muestran `PENDIENTE`, `EDITANDO` y `PAGADO`.
 - Paneles PV (2026-03-30): los filtros de cotizaciones, devoluciones y pago de servicios ahora permiten que un administrador seleccione la sucursal y un usuario OPV/Supervisor de esa sucursal (listas derivadas de `users`), y los endpoints reciben los parámetros `suc`/`opv` para reflejar el contexto elegido antes de consultar.

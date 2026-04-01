@@ -2897,6 +2897,7 @@ class _DatArtDetailPanelState extends ConsumerState<_DatArtDetailPanel> {
     _clas = item.clas;
     _scla = item.scla;
     _scla2 = item.scla2;
+    _currentKey = '${item.suc}|${item.art}|${item.upc}';
     setState(() {});
   }
 
@@ -2914,11 +2915,57 @@ class _DatArtDetailPanelState extends ConsumerState<_DatArtDetailPanel> {
     return trimmed.isEmpty ? null : trimmed;
   }
 
+  void _showSnack(String message) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<bool> _hasUpcConflict(String newUpc) async {
+    final item = widget.item;
+    if (item == null) return false;
+
+    try {
+      final matches = await ref.read(datArtApiProvider).fetchArticulos(
+            suc: item.suc,
+            sucExact: true,
+            upc: newUpc,
+            limit: 5,
+          );
+      for (final row in matches) {
+        final sameRecord =
+            row.suc == item.suc && row.art == item.art && row.upc == item.upc;
+        if (!sameRecord && row.upc.trim() == newUpc) {
+          _showSnack(
+            'UPC $newUpc ya está asignado al ART ${row.art} en la sucursal ${row.suc}.',
+          );
+          return true;
+        }
+      }
+      return false;
+    } catch (e) {
+      _showSnack('No se pudo validar el UPC: $e');
+      return true;
+    }
+  }
+
   Future<void> _save() async {
     final item = widget.item;
     if (item == null) return;
+    final newUpc = _upcCtrl.text.trim().toUpperCase();
+    if (newUpc.isEmpty) {
+      _showSnack('UPC es requerido');
+      return;
+    }
+    _upcCtrl.text = newUpc;
     setState(() => _saving = true);
+
+    if (await _hasUpcConflict(newUpc)) {
+      if (mounted) setState(() => _saving = false);
+      return;
+    }
+
     final payload = <String, dynamic>{
+      'UPC': newUpc,
       'DES': _parseString(_desCtrl.text),
       'MARCA': _parseString(_marcaCtrl.text),
       'MODELO': _parseString(_modeloCtrl.text),
@@ -2961,14 +3008,10 @@ class _DatArtDetailPanelState extends ConsumerState<_DatArtDetailPanel> {
       if (!mounted) return;
       _applyItem(updated);
       widget.onSaved();
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Artículo actualizado')));
+      _showSnack('Artículo actualizado');
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error al guardar: $e')));
+      _showSnack('Error al guardar: $e');
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -3130,7 +3173,7 @@ class _DatArtDetailPanelState extends ConsumerState<_DatArtDetailPanel> {
               _DetailFieldBox(
                 label: 'UPC',
                 width: 180,
-                child: _readOnlyField(_upcCtrl),
+                child: _upcField(_upcCtrl),
               ),
               _DetailCheckboxBox(
                 label: 'Bloqueado',
@@ -3472,10 +3515,15 @@ class _DatArtDetailPanelState extends ConsumerState<_DatArtDetailPanel> {
     );
   }
 
-  Widget _readOnlyField(TextEditingController controller) {
+  Widget _upcField(TextEditingController controller) {
     return TextField(
       controller: controller,
-      enabled: false,
+      enabled: !_saving,
+      textCapitalization: TextCapitalization.characters,
+      inputFormatters: [
+        FilteringTextInputFormatter.allow(RegExp(r'[0-9A-Za-z]')),
+        LengthLimitingTextInputFormatter(15),
+      ],
       decoration: const InputDecoration(
         border: OutlineInputBorder(),
         isDense: true,

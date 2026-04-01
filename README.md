@@ -39,6 +39,10 @@ Frontend Flutter del ecosistema IOE. Consume `ioe-api` para autenticación, maes
 - Flutter / Dart
 - Riverpod, go_router, Dio
 
+## Pruebas obligatorias
+- Antes de entregar cambios ejecutar `flutter analyze` y `flutter test`.
+- Si hay cambios coordinados con `ioe-api`, ejecutar también las pruebas del backend (`npm test` en IOE API).
+
 ## Ejecucion
 - `flutter test`
 - `flutter run -d chrome`

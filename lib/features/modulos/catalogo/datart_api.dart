@@ -27,6 +27,7 @@ class DatArtApi {
     int? limit,
     bool? withTotal,
     String? view,
+    bool? sucExact,
   }) async {
     final query = <String, dynamic>{};
     void addIfNotEmpty(String key, String? value) {
@@ -53,6 +54,7 @@ class DatArtApi {
     if (limit != null) query['limit'] = limit;
     if (withTotal == true) query['withTotal'] = 1;
     if (view != null && view.trim().isNotEmpty) query['view'] = view.trim();
+    if (sucExact == true) query['sucExact'] = 1;
 
     final res = await dio.get(
       '/datart',
@@ -92,6 +94,7 @@ class DatArtApi {
     int? page,
     int? limit,
     String? view,
+    bool? sucExact,
   }) async {
     final query = <String, dynamic>{};
     void addIfNotEmpty(String key, String? value) {
@@ -118,6 +121,7 @@ class DatArtApi {
     if (limit != null) query['limit'] = limit;
     query['withTotal'] = 1;
     if (view != null && view.trim().isNotEmpty) query['view'] = view.trim();
+    if (sucExact == true) query['sucExact'] = 1;
 
     final res = await dio.get('/datart', queryParameters: query);
     final data = Map<String, dynamic>.from(res.data as Map);

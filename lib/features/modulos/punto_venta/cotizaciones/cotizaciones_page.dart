@@ -573,6 +573,7 @@ class _CotizacionesTable extends StatelessWidget {
               columns: const [
                 DataColumn(label: Text('SUC', style: TextStyle(fontWeight: FontWeight.w600))),
                 DataColumn(label: Text('OPV', style: TextStyle(fontWeight: FontWeight.w600))),
+                DataColumn(label: Text('OPVM', style: TextStyle(fontWeight: FontWeight.w600))),
                 DataColumn(label: Text('IDFOL', style: TextStyle(fontWeight: FontWeight.w600))),
                 DataColumn(label: Text('IDFOLINICIAL', style: TextStyle(fontWeight: FontWeight.w600))),
                 DataColumn(label: Text('ORIGEN_AUT', style: TextStyle(fontWeight: FontWeight.w600))),
@@ -593,6 +594,7 @@ class _CotizacionesTable extends StatelessWidget {
                   cells: [
                     DataCell(_cellText(c.suc ?? '-')),
                     DataCell(_cellText(c.opv ?? '-')),
+                    DataCell(_cellText(c.opvm ?? '-')),
                     DataCell(_cellText(c.idfol)),
                     DataCell(_cellText(c.idfolinicial ?? '-')),
                     DataCell(_cellText((c.origenAut ?? '-').toUpperCase())),

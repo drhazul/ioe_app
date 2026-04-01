@@ -1,7 +1,8 @@
 import 'dart:convert';
 import 'dart:math' as math;
-
+import 'package:excel/excel.dart' as xls;
 import 'package:dio/dio.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -485,11 +486,29 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
         appBar: appBar,
         body: pendientesAsync.when(
         data: (pageData) {
-          final rows = _sortRowsByFcnDesc(pageData.data);
-          final page = pageData.page;
-          final pageSize = pageData.pageSize;
-          final total = pageData.total;
-          final totalPages = pageData.totalPages;
+          final filterIds =
+              ref.watch(facturacionIdFolSelectionFilterProvider).toSet();
+          var rows = _sortRowsByFcnDesc(pageData.data);
+          var page = pageData.page;
+          var pageSize = pageData.pageSize;
+          var total = pageData.total;
+          var totalPages = pageData.totalPages;
+
+          if (filterIds.isNotEmpty) {
+            rows = rows
+                .where((row) =>
+                    filterIds.contains(
+                      _pickText(row, const ['IDFOL', 'idfol']).toUpperCase(),
+                    ) &&
+                    _pickText(row, const ['ESTATUS', 'estatus'])
+                            .toUpperCase() ==
+                        'PENDIENTE')
+                .toList();
+            total = rows.length;
+            totalPages = rows.isEmpty ? 0 : 1;
+            page = 1;
+            pageSize = rows.length;
+          }
 
           if (totalPages > 0 && page > totalPages) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -523,13 +542,23 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
               .map((row) => _pickText(row, const ['IDFOL', 'idfol']).toUpperCase())
               .where((id) => id != '-')
               .toSet();
-          final selectedForUnificacion = rawSelectedForUnificacion
-              .where(visibleIds.contains)
-              .toSet();
-          if (!_sameStringSet(rawSelectedForUnificacion, selectedForUnificacion)) {
+            final selectedForUnificacion = rawSelectedForUnificacion
+                .where(visibleIds.contains)
+                .toSet();
+            if (!_sameStringSet(rawSelectedForUnificacion, selectedForUnificacion)) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                providerRef.read(selectedFacturasUnificacionProvider.notifier).state =
+                    selectedForUnificacion;
+              });
+            }
+
+          final idFilterSet =
+              providerRef.watch(facturacionIdFolSelectionFilterProvider);
+          if (idFilterSet.isNotEmpty &&
+              !_sameStringSet(selectedForUnificacion, idFilterSet)) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               providerRef.read(selectedFacturasUnificacionProvider.notifier).state =
-                  selectedForUnificacion;
+                  idFilterSet;
             });
           }
 
@@ -544,6 +573,7 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
                     selectedIdFol,
                     selectedRow,
                     selectedForUnificacion,
+                    visibleRows: rows,
                   ),
                   const SizedBox(height: 12),
                   _buildPaginationBar(
@@ -577,6 +607,7 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
                   selectedIdFol,
                   selectedRow,
                   selectedForUnificacion,
+                  visibleRows: rows,
                 ),
                 const SizedBox(height: 12),
                 _buildPaginationBar(
@@ -892,8 +923,9 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
     WidgetRef ref,
     String? selectedIdFol,
     Map<String, dynamic>? selectedRow,
-    Set<String> selectedIdFolsForUnificacion,
-  ) {
+    Set<String> selectedIdFolsForUnificacion, {
+    required List<Map<String, dynamic>> visibleRows,
+  }) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final compact = constraints.maxWidth < 1150;
@@ -904,6 +936,7 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
           selectedIdFol,
           selectedRow,
           selectedIdFolsForUnificacion,
+          visibleRows: visibleRows,
         );
 
         if (compact) {
@@ -1674,6 +1707,7 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
     ref.read(facturacionFilterInputRevisionProvider.notifier).state++;
     _setPage(ref, 1);
     ref.read(selectedFacturasUnificacionProvider.notifier).state = <String>{};
+    ref.read(facturacionIdFolSelectionFilterProvider.notifier).state = <String>{};
     ref.invalidate(facturasPendientesProvider);
   }
 
@@ -1899,8 +1933,9 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
     WidgetRef ref,
     String? selectedIdFol,
     Map<String, dynamic>? selectedRow,
-    Set<String> selectedIdFolsForUnificacion,
-  ) {
+    Set<String> selectedIdFolsForUnificacion, {
+    required List<Map<String, dynamic>> visibleRows,
+  }) {
     final selectedStatus = selectedRow == null
         ? '-'
         : _pickText(selectedRow, const ['ESTATUS', 'estatus']);
@@ -1976,12 +2011,434 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
                       : () => _onValidar(ref, selectedIdFol),
                   child: const Text('Validar'),
                 ),
+                OutlinedButton.icon(
+                  onPressed: () => _openIdFolSelectorDialog(
+                    context: context,
+                    ref: ref,
+                    visibleRows: visibleRows,
+                  ),
+                  icon: const Icon(Icons.upload_file, size: 18),
+                  label: const Text('Cargar IDFOL'),
+                ),
               ],
             ),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _openIdFolSelectorDialog({
+    required BuildContext context,
+    required WidgetRef ref,
+    required List<Map<String, dynamic>> visibleRows,
+  }) async {
+    if (!mounted) return;
+    final manualController = TextEditingController();
+    var validating = false;
+    var lastValidationMsg = '';
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (dialogContext, setDialogState) {
+            final selectorState = ref.read(facturacionIdFolSelectorProvider);
+
+            Future<void> addManual() async {
+              final value = manualController.text.trim();
+              if (value.isEmpty) return;
+              ref.read(facturacionIdFolSelectorProvider.notifier).add(value);
+              manualController.clear();
+              setDialogState(() {
+                lastValidationMsg = '';
+              });
+            }
+
+            Future<void> importExcel() async {
+              try {
+                final result = await FilePicker.platform.pickFiles(
+                  type: FileType.custom,
+                  allowedExtensions: const ['xlsx', 'xls'],
+                  withData: true,
+                );
+                if (!context.mounted) return;
+                if (result == null || result.files.isEmpty) return;
+                final file = result.files.first;
+                final bytes = file.bytes;
+                if (bytes == null) {
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('No se pudo leer el archivo seleccionado.'),
+                    ),
+                  );
+                  return;
+                }
+                final ids = _extractIdFolsFromExcel(bytes);
+                if (ids.isEmpty) {
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('El archivo no tiene datos en la primera columna.'),
+                    ),
+                  );
+                  return;
+                }
+                ref
+                    .read(facturacionIdFolSelectorProvider.notifier)
+                    .setAll(ids, append: true);
+                setDialogState(() {
+                  lastValidationMsg =
+                      'Se agregaron ${ids.length} IDFOL de ${file.name.isNotEmpty ? file.name : 'Excel'}.';
+                });
+              } catch (e) {
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      _formatActionError('No se pudo leer el Excel', e),
+                    ),
+                  ),
+                );
+              }
+            }
+
+            Future<void> validar() async {
+              if (selectorState.idFols.isEmpty || validating) return;
+              if (selectorState.idFols.length > 500) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('El límite es de 500 IDFOL por validación.'),
+                  ),
+                );
+                return;
+              }
+              setDialogState(() {
+                validating = true;
+                lastValidationMsg = '';
+              });
+              try {
+                final api = ref.read(facturacionApiProvider);
+                final res = await api.validarIdFolsPendientes(
+                  selectorState.idFols,
+                );
+                if (!context.mounted) return;
+                final validos = (res['validos'] is List)
+                    ? (res['validos'] as List)
+                        .whereType<Map>()
+                        .map(
+                          (row) => _firstNonEmptyText(
+                            [row['idFol'], row['IDFOL']],
+                          ).toUpperCase(),
+                        )
+                        .where((id) => id.isNotEmpty)
+                        .toList()
+                    : const <String>[];
+                final rechazados = (res['rechazados'] is List)
+                    ? (res['rechazados'] as List)
+                        .whereType<Map>()
+                        .map(
+                          (row) => FacturacionIdFolIssue(
+                            idFol: _firstNonEmptyText(
+                              [row['idFol'], row['IDFOL']],
+                            ).toUpperCase(),
+                            motivo: _firstNonEmptyText(
+                              [row['motivo'], row['MOTIVO']],
+                              fallback: 'ERROR',
+                            ),
+                          ),
+                        )
+                        .toList()
+                    : const <FacturacionIdFolIssue>[];
+                ref
+                    .read(facturacionIdFolSelectorProvider.notifier)
+                    .setValidation(validos, rechazados);
+                setDialogState(() {
+                  lastValidationMsg =
+                      'Válidos (PENDIENTE): ${validos.length} | Rechazados: ${rechazados.length}';
+                });
+              } catch (e) {
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      _formatActionError('No se pudo validar la lista', e),
+                    ),
+                  ),
+                );
+              } finally {
+                setDialogState(() {
+                  validating = false;
+                });
+              }
+            }
+
+            void seleccionar() {
+              final validos = selectorState.validos.toSet();
+              if (!selectorState.validated || validos.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Valida la lista antes de presionar "SELECCIONAR relacionados".',
+                    ),
+                  ),
+                );
+                return;
+              }
+              ref
+                  .read(facturacionIdFolSelectionFilterProvider.notifier)
+                  .state = validos;
+              ref.read(facturacionPageSizeProvider.notifier).state = 100;
+              ref.read(facturacionPageProvider.notifier).state = 1;
+              ref.read(selectedFacturasUnificacionProvider.notifier).state =
+                  validos;
+              ref.read(selectedFacturaIdFolProvider.notifier).state =
+                  validos.isNotEmpty ? validos.first : null;
+              ref.invalidate(facturasPendientesProvider);
+              final result = _applyValidatedSelection(
+                ref: ref,
+                validos: validos,
+                visibleRows: visibleRows,
+              );
+              Navigator.of(dialogContext).pop();
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    result['applied'] == 0
+                        ? 'No hay folios PENDIENTE de la lista en la página actual.'
+                        : 'Seleccionados ${result['applied']} en la página | Fuera de página: ${result['outOfView']} | En página con otro estatus: ${result['skippedNotPending']}.',
+                  ),
+                ),
+              );
+            }
+
+            return Dialog(
+              insetPadding: const EdgeInsets.all(16),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 680),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Marcar folios por IDFOL',
+                          style: Theme.of(dialogContext)
+                              .textTheme
+                              .titleLarge
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          'Captura manual o carga un Excel con una columna IDFOL. Solo se seleccionan folios con ESTATUS "PENDIENTE" visibles en la consulta.',
+                          style: Theme.of(dialogContext).textTheme.bodySmall,
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: manualController,
+                                onSubmitted: (_) => addManual(),
+                                decoration: const InputDecoration(
+                                  labelText: 'Agregar IDFOL',
+                                  isDense: true,
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            FilledButton(
+                              onPressed: addManual,
+                              child: const Text('Agregar'),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        OutlinedButton.icon(
+                          onPressed: importExcel,
+                          icon: const Icon(Icons.file_upload_outlined, size: 18),
+                          label: const Text('Cargar Excel (columna IDFOL)'),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          'Capturados: ${selectorState.idFols.length} | Validados PENDIENTE: ${selectorState.validos.length}',
+                          style: Theme.of(dialogContext).textTheme.bodySmall,
+                        ),
+                        if (lastValidationMsg.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            lastValidationMsg,
+                            style: Theme.of(dialogContext)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(color: Colors.green[800]),
+                          ),
+                        ],
+                        if (selectorState.idFols.isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: selectorState.idFols.map((id) {
+                              return InputChip(
+                                label: Text(id),
+                                onDeleted: () {
+                                  ref
+                                      .read(facturacionIdFolSelectorProvider.notifier)
+                                      .remove(id);
+                                  setDialogState(() {});
+                                },
+                              );
+                            }).toList(),
+                          ),
+                        ],
+                        if (selectorState.issues.isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          Text(
+                            'Observaciones',
+                            style: Theme.of(dialogContext).textTheme.titleSmall,
+                          ),
+                          const SizedBox(height: 4),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: selectorState.issues.take(6).map((issue) {
+                              return Text(
+                                '${issue.idFol}: ${issue.motivo}',
+                                style: Theme.of(dialogContext)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(color: const Color(0xFFB71C1C)),
+                              );
+                            }).toList(),
+                          ),
+                          if (selectorState.issues.length > 6)
+                            Text(
+                              '+${selectorState.issues.length - 6} adicionales...',
+                              style: Theme.of(dialogContext).textTheme.bodySmall,
+                            ),
+                        ],
+                        const SizedBox(height: 14),
+                        Row(
+                          children: [
+                            FilledButton(
+                              onPressed: validating || selectorState.idFols.isEmpty
+                                  ? null
+                                  : validar,
+                              child: validating
+                                  ? const SizedBox(
+                                      height: 20,
+                                      width: 20,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    )
+                                  : const Text('Validar'),
+                            ),
+                            const SizedBox(width: 8),
+                            FilledButton.tonal(
+                              onPressed: validating
+                                  ? null
+                                  : selectorState.idFols.isEmpty
+                                      ? null
+                                      : () {
+                                          ref
+                                              .read(
+                                                facturacionIdFolSelectorProvider.notifier,
+                                              )
+                                              .clear();
+                                          setDialogState(() {
+                                            lastValidationMsg = '';
+                                          });
+                                        },
+                              child: const Text('Limpiar'),
+                            ),
+                            const SizedBox(width: 8),
+                            OutlinedButton(
+                              onPressed: validating ||
+                                      !selectorState.validated ||
+                                      selectorState.validos.isEmpty
+                                  ? null
+                                  : seleccionar,
+                              child: const Text('SELECCIONAR relacionados'),
+                            ),
+                            const Spacer(),
+                            TextButton(
+                              onPressed: () => Navigator.of(dialogContext).pop(),
+                              child: const Text('Cerrar'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    manualController.dispose();
+  }
+
+  List<String> _extractIdFolsFromExcel(Uint8List bytes) {
+    final excel = xls.Excel.decodeBytes(bytes);
+    if (excel.tables.isEmpty) return const <String>[];
+    final sheet = excel.tables.values.first;
+    final out = <String>[];
+    for (var r = 0; r < sheet.rows.length; r++) {
+      final row = sheet.rows[r];
+      if (row.isEmpty) continue;
+      final text = _excelCellToText(row.first);
+      if (text.isEmpty) continue;
+      if (r == 0 && text.toUpperCase() == 'IDFOL') continue;
+      out.add(text);
+    }
+    return out;
+  }
+
+  String _excelCellToText(xls.Data? cell) {
+    if (cell == null) return '';
+    final raw = cell.value;
+    if (raw == null) return '';
+    return '$raw'.trim();
+  }
+
+  Map<String, int> _applyValidatedSelection({
+    required WidgetRef ref,
+    required Set<String> validos,
+    required List<Map<String, dynamic>> visibleRows,
+  }) {
+    final normalizedValidos = validos
+        .map((id) => id.trim().toUpperCase())
+        .where((id) => id.isNotEmpty && id != '-')
+        .toSet();
+    final selected = <String>{};
+    var skippedNotPending = 0;
+    // Selecciona sobre la página visible ya filtrada.
+    for (final row in visibleRows) {
+      final id = _pickText(row, const ['IDFOL', 'idfol']).toUpperCase();
+      if (id.isEmpty || id == '-') continue;
+      if (!normalizedValidos.contains(id)) continue;
+      final estatus = _pickText(row, const ['ESTATUS', 'estatus']).toUpperCase();
+      if (estatus != 'PENDIENTE') {
+        skippedNotPending++;
+        continue;
+      }
+      selected.add(id);
+    }
+    final outOfView = normalizedValidos.length - selected.length;
+    ref.read(selectedFacturasUnificacionProvider.notifier).state = selected;
+    ref.read(selectedFacturaIdFolProvider.notifier).state =
+        selected.isNotEmpty ? selected.first : null;
+    return {
+      'applied': selected.length,
+      'outOfView': outOfView < 0 ? 0 : outOfView,
+      'skippedNotPending': skippedNotPending,
+    };
   }
 
   Widget _buildDataRow(
@@ -2028,6 +2485,9 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
       onTap: canSelect
           ? () {
               ref.read(selectedFacturaIdFolProvider.notifier).state = idFol;
+              ref
+                  .read(facturacionIdFolSelectionFilterProvider.notifier)
+                  .state = <String>{};
             }
           : null,
       child: Padding(

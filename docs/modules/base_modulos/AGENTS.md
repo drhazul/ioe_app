@@ -35,6 +35,7 @@ Enlaces relacionados:
 - `/datart`, `/datart/massive-upload`, `/articulos/alta-masiva/*`.
 - tablas: `DAT_ART`, `DAT_ART_MASIVA_TMP`.
 - campos clave: `SUC`, `ART`, `UPC`, `DES`, `TIPO`, `PVTA`, `CTOP`, `DEPA`, `SUBD`, `CLAS`, `SCLA`, `SCLA2`.
+- Edición detalle (2026-04): el campo `UPC` ahora se puede editar en la ficha; antes de guardar se valida que el `UPC` no esté asignado a otro `ART` de la misma sucursal.
 - Alta masiva: la validación del endpoint `/articulos/alta-masiva/validate` sólo considera duplicados dentro de la misma sucursal (`SUC` + `ART`/`UPC`), permitiendo que un `ART` o `UPC` aparezcan en varias sucursales.
 - Impresion etiquetas DAT_ART (2026-03):
 - UI en `lib/features/modulos/catalogo/datart_page.dart` con seleccion local por renglón (casilla), seleccion masiva de artículos filtrados en grilla y boton de impresión por artículo/seleccionados.
@@ -71,6 +72,7 @@ Enlaces relacionados:
 - Facturación filtro por error (2026-03-27): el combo `ESTATUS` del panel ya no se fija a `PENDIENTE`; la UI puede enviar `PENDIENTE`, `CANCELACION PENDIENTE`, `FACTURADO`, `FACTURADO Y CANCELACION PENDIENTE` y `CON ERROR` a `GET /facturacion/pendientes`.
 - Facturación nomenclatura CFDI (2026-03-27): la emisión usa control backend con visual `RFC4-00001`; Facturify recibe `serie=RFC4` y `folio` entero puro, por lo que la UI solo refleja el resultado del backend y no debe recomponer fecha ni consecutivo diario localmente.
 - Facturación paginación (2026-03-31): el panel de pendientes/consulta carga 60 registros por página por defecto para reducir navegación.
+- Facturación selección por IDFOL (2026-04-01): el panel agrega botón `Cargar IDFOL` para capturar folios manualmente o cargar un Excel (columna única) y, tras validar, `SELECCIONAR relacionados` marca solo folios en ESTATUS `PENDIENTE` visibles en la tabla.
 - Facturación unificación sucursal JWT (2026-03-16): backend no fuerza `user.suc` en `preview/create` de unificación para usuarios con permisos de gestión (`FACTURA`/compat), evitando bloqueos falsos de "folios fuera de la sucursal autorizada".
 - REQF sin facturar (2026-03-16): la ruta `/facturacion-sreqf` (módulo `REG_SINREQF`) consulta `GET /facturacion/reqf/folios`; backend delimita sucursales no-admin por `USR_MOD_SUC` y la UI no debe forzar `SUC` inicial desde JWT.
 - Panel clientes UI (2026-03): en alta de cliente, el modal predetermina `RfcEmisor`/`RegimenFiscalReceptor`/`UsoCfdi` con `SELECCIONAR` (en payload `RegimenFiscalReceptor=0` por tipo numérico) y `EmailReceptor` con `COLOCAR`; agrega botón `CANCELAR` y, al guardar, cierra el modal y recarga el panel.
