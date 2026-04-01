@@ -11,7 +11,7 @@ final facturacionApiProvider = Provider<FacturacionApi>(
 );
 
 final facturacionPageProvider = StateProvider<int>((ref) => 1);
-final facturacionPageSizeProvider = StateProvider<int>((ref) => 20);
+final facturacionPageSizeProvider = StateProvider<int>((ref) => 60);
 
 final facturasPendientesProvider = FutureProvider<FacturacionPendientesPage>(
   (ref) async {
@@ -21,7 +21,7 @@ final facturasPendientesProvider = FutureProvider<FacturacionPendientesPage>(
         data: [],
         total: 0,
         page: 1,
-        pageSize: 20,
+        pageSize: 60,
         totalPages: 0,
       );
     }

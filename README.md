@@ -8,6 +8,7 @@ Frontend Flutter del ecosistema IOE. Consume `ioe-api` para autenticación, maes
 - Centralizar operación administrativa (maestros y permisos) y operativa (inventarios, catálogos, cotizaciones y consultas).
 - Mantener UI desacoplada de persistencia usando contratos HTTP definidos por `ioe-api`.
 - Garantizar navegación protegida con sesión JWT y refresh.
+- Notas de documentación viva: este README solo debe cambiarse cuando se agreguen/modifiquen módulos, rutas o datos de arquitectura/base (no para ajustes locales de pantalla). Otros cambios funcionales van al README/AGENTS del módulo afectado.
 
 ## Arquitectura general
 - Enfoque feature-based en `lib/features`.

@@ -6,6 +6,7 @@
 - App Flutter feature-based (`lib/features`) con Riverpod, go_router y Dio.
 - Consume `ioe-api` (NestJS + MSSQL) para auth, maestros, inventarios, control de cuentas y punto de venta.
 - Entorno: `lib/core/env.dart` y `assets/.env` (solo release).
+- Alcance de cambios en este AGENTS: actualizar aquí solo cuando se modifique estructura global, rutas base o se creen/eliminan módulos. Cambios funcionales específicos se documentan en los AGENTS/README del módulo impactado.
 
 ## Pruebas automatizadas
 - `flutter test`

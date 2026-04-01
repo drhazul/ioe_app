@@ -21,7 +21,7 @@ class FacturacionPendientesPage {
         data: [],
         total: 0,
         page: 1,
-        pageSize: 20,
+        pageSize: 60,
         totalPages: 0,
       );
     }
@@ -37,7 +37,7 @@ class FacturacionPendientesPage {
     final total = _toInt(map['total']) ?? rows.length;
     final page = _clampInt(_toInt(map['page']) ?? 1, min: 1, max: 2147483647);
     final pageSize =
-        _clampInt(_toInt(map['pageSize']) ?? 20, min: 1, max: 2147483647);
+        _clampInt(_toInt(map['pageSize']) ?? 60, min: 1, max: 2147483647);
     final totalPages = _clampInt(
       _toInt(map['totalPages']) ?? (total == 0 ? 0 : (total / pageSize).ceil()),
       min: 0,
