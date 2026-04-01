@@ -1,0 +1,124 @@
+# Base de módulos (AGENTS front)
+
+Navega a otros README/AGENTS solo cuando la tarea lo requiera.
+
+Enlaces relacionados:
+- AGENTS principal del frontend: `AGENTS.md`
+- README de este módulo: `docs/modules/base_modulos/README.md`
+- Otros AGENTS vinculados: `docs/modules/core_seguridad/AGENTS.md`, `docs/modules/punto_venta/AGENTS.md`, `docs/modules/ordenes_trabajo/AGENTS.md`, `docs/modules/reloj_checador/AGENTS.md`
+
+## Mapa funcional (feature -> API -> tablas/campos)
+- Home/Menu: `/access/me/front-menu` -> `MOD_FRONT`, `GRUPMOD_FRONT`, `GRUPMOD_FRONT_MOD`, `ROL_GRUPMOD_FRONT`.
+- Auth:
+- `/auth/login`, `/auth/refresh` -> `USUARIO`, `USUARIO_TOKEN`.
+- payload JWT esperado: `sub`, `username`, `roleId`, `nivel`, `suc`, `mustChangePassword`.
+- primer acceso (2026-03): cuando `mustChangePassword=true`, la app fuerza ruta `/auth/change-password` hasta completar `POST /auth/change-password`.
+- Maestros:
+- Roles `/roles` -> `ROL`: `IDROL`, `CODIGO`, `NOMBRE`, `DESCRIPCION`, `ACTIVO`, `FCNR`.
+- Deptos `/deptos` -> `DEPARTAMENTO`: `IDDEPTO`, `NOMBRE`, `ACTIVO`, `FCNR`.
+- Puestos `/puestos` -> `PUESTO`: `IDPUESTO`, `IDDEPTO`, `NOMBRE`, `ACTIVO`, `FCNR`.
+- Usuarios `/users` -> `USUARIO`: `IDUSUARIO`, `USERNAME`, `NOMBRE`, `APELLIDOS`, `MAIL`, `ESTATUS`, `NIVEL`, `IDROL`, `IDDEPTO`, `IDPUESTO`, `SUC`, `FORZAR_CAMBIO_PASS`.
+- Validacion UI usuarios: el formulario de alta/edicion exige `USERNAME` con minimo 3 caracteres para alinear con validacion backend de `/users`.
+- UI usuarios (2026-03): en alta se genera contraseña temporal aleatoria de 6 dígitos, con botón para regenerar y mostrar/ocultar.
+- UI usuarios (2026-03): el formulario permite controlar `FORZAR_CAMBIO_PASS` para exigir cambio de contraseña en próximo acceso.
+- UI usuarios (2026-03): el listado soporta visualización agrupada por sucursal/departamento y filtros por ambas vistas.
+- Sucursales `/dat-suc` (en backend) -> `DAT_SUC`: `SUC`, `DESC`, `ENCAR`, `ZONA`, `RFC`, `DIRECCION`, `CONTACTO`, `IVA_INTEGRADO`.
+- Datmodulos `/datmodulos` -> `MOD_FRONT`: `IDMOD_FRONT`, `CODIGO`, `NOMBRE`, `DEPTO`, `ACTIVO`, `FCNR`.
+- Accesos `/access/*` -> `MODULO`, `GRUP_MODULO`, `GRUPMOD_MODULO`, `ROL_GRUP_MODULO_PERM`, `MOD_FRONT`, `GRUPMOD_FRONT`, `GRUPMOD_FRONT_MOD`, `ROL_GRUPMOD_FRONT`.
+- Acceso regional por sucursal `/usr-mod-suc` -> `USR_MOD_SUC`: `MODULO`, `USUARIO`, `SUC`, `ACTIVO`, `FCNR`.
+- Cat. cuentas `/cat-ctas` -> `DAT_CAT_CTAS`: `CTA`, `DCTA`, `RELACION`, `SUC`.
+- Inventarios:
+- `/conteos`, `/conteos/:cont/*`, `/datcontctrl`, `/datdetsvr/:id`, `/capturas*`.
+- tablas: `DAT_CONT_CTRL`, `DAT_DET_SVR`, `DAT_CONT_CAPTURA`, `USR_MOD_SUC`.
+- campos clave: `CONT`, `SUC`, `ESTA`, `TIPOCONT`, `TOTAL_ITEMS`, `EXT`, `ALMACEN`, `CANT`, `CAPTURA_UUID`.
+- Catalogo articulos:
+- `/datart`, `/datart/massive-upload`, `/articulos/alta-masiva/*`.
+- tablas: `DAT_ART`, `DAT_ART_MASIVA_TMP`.
+- campos clave: `SUC`, `ART`, `UPC`, `DES`, `TIPO`, `PVTA`, `CTOP`, `DEPA`, `SUBD`, `CLAS`, `SCLA`, `SCLA2`.
+- Alta masiva: la validación del endpoint `/articulos/alta-masiva/validate` sólo considera duplicados dentro de la misma sucursal (`SUC` + `ART`/`UPC`), permitiendo que un `ART` o `UPC` aparezcan en varias sucursales.
+- Impresion etiquetas DAT_ART (2026-03):
+- UI en `lib/features/modulos/catalogo/datart_page.dart` con seleccion local por renglón (casilla), seleccion masiva de artículos filtrados en grilla y boton de impresión por artículo/seleccionados.
+- La etiqueta se renderiza en PDF para vista previa/seleccion de impresora con tamaño fijo `76mm x 56mm`, una pagina por artículo seleccionado.
+- Código de barras `EAN13`: se sanitiza `UPC` a digitos, se toman los 12 digitos derechos cuando excede longitud y se calcula digito verificador para formar EAN13 valido.
+- Campos impresos en etiqueta: encabezado de distribuidora/sucursal, `ART`, fecha-hora de impresión, `DES`, bloque de ubicación física (`UMUE`, `UTRA`, `UNIV`) y código de barras.
+- MB51/MB52:
+- `/dat-mb51/search`, `/dat-mb52/resumen`, `/dat-almacen`, `/dat-cmov`.
+- tablas/fuentes: `DAT_MB51`, `DAT_ALMACEN`, `DAT_CMOV`, `DAT_ART`.
+- compatibilidad backend MB51 (2026-03): el script `ioe-api/sql/mb51transmicion.sql` habilita `MB51PROCES`/`ANULADO` en homologación de `ESTA`, preserva `TRANSMITIR` para PS y define `sp_mb51_transmitir_folio` para MB51 + stock sin cambiar contrato API consumido por app.
+- Control de cuentas:
+- `/ctrl-ctas/config`, `/ctrl-ctas/catalog/*`, `/ctrl-ctas/consulta/*`.
+- tablas/fuentes: `DAT_CTRL_CTAS`, `DAT_CAT_CTAS`, `FACT_CLIENT_SHP`, `PV_OPV`, `USR_MOD_SUC`.
+- compatibilidad histórica ctrl-ctas (2026-03): backend ejecuta SQL directo en `/ctrl-ctas/consulta/*`, normaliza `FCND`, completa faltantes de fecha con `1900-01-01` y `2100-12-31`, e incluye filas legacy con `SUC` nulo/vacío bajo filtro de sucursal.
+- Punto de venta:
+- Clientes `/factclientshp` -> `FACT_CLIENT_SHP`.
+- Facturación `/facturacion/*` -> `FAC_SVR_SHAP`, `FACT_TICKET_SHP`, `FACT_CLIENT_SHP`, `DAT_SUC`.
+- Facturación mantenimiento de clientes `/facturacion/mtto-clientes` (`FACTURA_MTTOCLIENTE`): panel tripa de clientes con dropdown de sucursal (solo las autorizadas por `USR_MOD_SUC`), filtros por nombre/RFC/IDC y formulario embebido para editar `UsoCfdi`, `RegimenFiscal` y demás campos fiscales sin cambiar IDC/SUC.
+- Facturación compat (2026-03-13): frontend usa `IDFOL` textual y codifica el path parameter; backend soporta `FAC_SVR_SHAP` sin columna `AUT` con fallback a `TIPOVTA` para evitar `500` en `/facturacion/pendientes`.
+- Facturación pendientes paginada (2026-03-13): frontend consulta `GET /facturacion/pendientes` con `page`, `pageSize`, `suc`, `estatus`, `razonSocialReceptor`, `rfcReceptor`, `clien`, `idFol`, `tipoFact`.
+- Facturación pendientes paginada (2026-03-13): los filtros aplican server-side sobre toda la consulta y la respuesta incluye `data`, `total`, `page`, `pageSize`, `totalPages`.
+- Facturación pendientes paginada (2026-03-13): la grilla muestra contador absoluto de renglón y botones de desplazamiento por páginas.
+- Facturación filtros UI (2026-03-13): la captura de criterios ya no aplica consulta por tecla; la pantalla usa botones `APLICAR FILTROS` y `LIMPIAR FILTROS` para evitar desincronización entre consulta y paginación.
+- Facturación tabla UI (2026-03-15): la tabla principal habilita scrollbar horizontal visible para navegación de todas las columnas y se corrige alineación entre encabezados y valores.
+- Facturación tabla UI (2026-03-15): `IMPT` se renderiza con formato monetario de 2 decimales.
+- Facturación tabla UI (2026-03-15): se agrega `gap` horizontal entre celdas para evitar que encabezados contiguos se perciban unidos al hacer scroll (`IMPT` / `F. Pago`).
+- Facturación configuración visual (2026-03-15): la pantalla agrega botón `Configurar` que abre modal para ajustar escala global y tamaños de fuente por componente (AppBar, títulos, labels, body, botones y tabla) sin cambiar contrato API.
+- Facturación anchos persistentes (2026-03-15): el modal incluye controles de ancho por columna y separación entre campos; la configuración se persiste en `SharedPreferences` (cache local del navegador en web).
+- Facturación resize directo (2026-03-15): el header de la grilla agrega separadores arrastrables entre columnas para redimensionar en vivo y guardar al soltar.
+- Facturación validar detalle (2026-03-14): al presionar `Validar` sobre un folio seleccionado, la pantalla abre modal `Vista detalle factura` con renglones de `FACT_TICKET_SHP` (`IDFOL`, `UPC`, `Descripcion`, `ClaveProdServ`, `Unidad`, `Cantidad`, `ValorUnitario`, `PVTAT`, `Impuesto`, `Total`) y bloque de `Total factura`.
+- Facturación validar importes (2026-03-14): el modal de validación presenta `Cabecera`, `Detalle` y `Diferencia` redondeados a 2 decimales para análisis de discrepancias.
+- Facturación conciliación de centavos (2026-03-15): para nuevos folios VF, backend ajusta `FAC_SVR_SHAP.IMPT` desde el detalle de `FACT_TICKET_SHP`; la UI de validación debe reflejar `Diferencia` cero salvo datos históricos no saneados.
+- Facturación prevención CFDI40108 (2026-03-23): la UI muestra badge `Subtotal SAT` en validación y, cuando backend indica `requiereAjusteSubtotalSat`, presenta aviso de ajuste automático en `emitir` para prevenir errores SAT en folios `PENDIENTE`.
+- Facturación filtro por error (2026-03-27): el combo `ESTATUS` del panel ya no se fija a `PENDIENTE`; la UI puede enviar `PENDIENTE`, `CANCELACION PENDIENTE`, `FACTURADO`, `FACTURADO Y CANCELACION PENDIENTE` y `CON ERROR` a `GET /facturacion/pendientes`.
+- Facturación nomenclatura CFDI (2026-03-27): la emisión usa control backend con visual `RFC4-00001`; Facturify recibe `serie=RFC4` y `folio` entero puro, por lo que la UI solo refleja el resultado del backend y no debe recomponer fecha ni consecutivo diario localmente.
+- Facturación unificación sucursal JWT (2026-03-16): backend no fuerza `user.suc` en `preview/create` de unificación para usuarios con permisos de gestión (`FACTURA`/compat), evitando bloqueos falsos de "folios fuera de la sucursal autorizada".
+- REQF sin facturar (2026-03-16): la ruta `/facturacion-sreqf` (módulo `REG_SINREQF`) consulta `GET /facturacion/reqf/folios`; backend delimita sucursales no-admin por `USR_MOD_SUC` y la UI no debe forzar `SUC` inicial desde JWT.
+- Panel clientes UI (2026-03): en alta de cliente, el modal predetermina `RfcEmisor`/`RegimenFiscalReceptor`/`UsoCfdi` con `SELECCIONAR` (en payload `RegimenFiscalReceptor=0` por tipo numérico) y `EmailReceptor` con `COLOCAR`; agrega botón `CANCELAR` y, al guardar, cierra el modal y recarga el panel.
+- Cotizaciones `/pvctrfolasvr` -> `PV_CTR_FOL_ASVR`.
+- Devoluciones `/pv/devoluciones/*` -> `PV_CTR_FOL_ASVR`, `PV_DEV_DET_TMP`, `PV_TICKET_LOG`, `PV_CTR_FOL_FORM(_SVR)`, `PV_CTR_ORDS`, `FAC_SVR_SHAP`, `FACT_IDFOLDEV`, `DAT_CTRL_CTAS`.
+- Pago de servicios `/ps/*` -> `PV_CTR_FOL_ASVR`, `PV_TICKET_LOG`, `PV_CTR_FOL_FORM`, `DAT_CTRL_CTAS`, `PV_DAT_PS`, `DAT_REF_GTO`.
+- Retiros parciales `/retiros/*` -> `DAT_RET_CTR_SVR`, `DAT_RET_DET_SVR`, `DAT_RET_DET_EFEC_SVR`, `VW_PV_FORM_TIPOTRAN_DISTINCT`.
+- Estado de cajón `/cajon-estado/*` -> `DAT_FORM`, `PV_CTR_FOL_ASVR`, `PV_CTR_FOL_FORM`, `DAT_RET_CTR_SVR`, `DAT_RET_DET_SVR`.
+- PS detalle: `Seleccione Cliente` usa `PUT /ps/folios/:idFol/cliente` y el cambio de cliente queda bloqueado cuando existen líneas en `PV_TICKET_LOG`.
+- PS SQL requerido: `PV_TIPO_ESTA` debe existir con `RELACION` para AD/AP/CR/DC/DG; el script `sp_ps_module_create.sql` lo crea/siembra para evitar error al agregar servicio.
+- PS adeudos: el backend ya soporta IDs de cliente grandes (`BIGINT`) en `/ps/clientes/:client/adeudos`.
+- PS UI (2026-03): `Adeudos` solo se muestra cuando hay servicio `AD/AP/CR` en ticket; `Referencias de gasto` solo cuando hay `DG/DC`.
+- PS adeudos UI (2026-03): si `adeudosRes` está vacío pero `adeudosR` trae datos, la lista usa `adeudosR` para mostrar resultados.
+- PS referencia de adeudo (2026-03): backend eliminó dependencia de `DAT_CTRL_CTAS_RES`; al asignar referencia de folio usa directamente el `IDFOL` elegido de la consulta de adeudos basada en `DAT_CTRL_CTAS`.
+- PS referencia de adeudo (2026-03): backend no permite reutilizar la misma referencia en múltiples líneas del mismo ticket.
+- PS origen de referencia (2026-03-21): en detalle PS, la primera referencia ligada define `ORIGEN_AUT` del folio (`CA`/`VF`); si no hay referencias previas, puede cambiar al origen de esa primera relación. Cuando ya existen referencias ligadas, se conserva el origen y se bloquea la mezcla.
+- PS cálculo de adeudo (2026-03-03): backend consolida `DAT_CTRL_CTAS` por `IDFOL/NDOC + RELACION` al validar referencia y `PVTA`, evitando falsos rechazos cuando el mismo folio tiene cargos y abonos.
+- PS regla AD/AP/CR (2026-03-03): backend bloquea `PVTA` por línea cuando supera la deuda del folio referenciado y valida consumo acumulado por `ORD` considerando todas las líneas `AD/AP/CR`.
+- PS pago UI (2026-03): en `/ps/:idFol/pago` el alta de forma se captura en modal emergente desde el bloque `Formas de pago`; las formas quedan en appstate local y no se insertan en DB hasta finalizar.
+- PS pago UI (2026-03): el modal de alta de forma toma catálogo desde `DAT_FORM` y aplica reglas de referencia igual a cotizaciones (`TARJETA/CHEQUE/TRANSFERENCIA/DEPOSITO 3RO`).
+- PS pago backend (2026-03): `POST /ps/folios/:idFol/finalizar` persiste formas en `PV_CTR_FOL_FORM` (`IMPP/IMPC/IMPD/AUT`) y registra movimientos contables en `DAT_CTRL_CTAS`; al finalizar fija `ESTA='PAGADO'`.
+- PS pago UI (2026-03): el modal de formas de pago excluye `CREDITO` y `DEUDOR`.
+- PS pago UI (2026-03): para formas no `EFECTIVO`, `Autorización / referencia` se muestra en solo lectura y se asigna reutilizando `ref_detalle_page.dart` de cotizaciones.
+- Tickets `/pvticketlog` -> `PV_TICKET_LOG`.
+- Ordenes `/pvctrords` -> `PV_CTR_ORDS`, `PV_CTR_ORDS_DET`.
+- Ordenes de trabajo `/ordenes-trabajo/*` -> `PV_CTR_ORDS`, `PV_CTR_ORDS_DET`, `DAT_EST_ORD`, `DAT_ORD_TMOV`, `DAT_MB51`, `DAT_CTRL_CTAS`.
+- Ordenes de trabajo detalle/etiquetas (2026-03-30): en el modal de detalle la matriz `JOB/ESF/CIL/EJE` se fuerza a `OD`, `OI`, `ADD`, `JOB` queda bloqueado y `Imprimir etiqueta` debe persistir primero los cambios del modal para reflejarlos en PDF.
+- Ordenes de trabajo detalle/roles (2026-03-30): el campo `TIPO` (`TALLADO`/`BISELADO`) se muestra antes de `Laboratorio` y comparte visibilidad restringida con `Imprimir etiqueta` para `admin`, `JEF_TALLER`, `ANALISTA_ORD` y `ANALISTA`.
+- Referencias `/refdetalle` -> `REF_DETALLE`.
+- Referencias PV `/pv/refdetalle` -> `REF_DETALLE` (crear/asignar/eliminar por `IDFOL`).
+- Catalogo formas `/dat-form` -> `DAT_FORM` (`IDFORM`, `ASPEL`, `FORM`, `NOM`, `ESTADO`).
+- Mantenimiento maestro DAT_FORM (UI) -> rutas `/masterdata/dat-form`, `/masterdata/dat-form/new`, `/masterdata/dat-form/:id`.
+- Clasificadores `/jrq*` -> `JRQ_DEPA`, `JRQ_SUBD`, `JRQ_CLAS`, `JRQ_SCLA`, `JRQ_SCLA2`, `JRQ_GUIA`.
+## Inventarios: autorizacion por sucursal
+- El filtro de sucursal en Inventarios se basa en `USR_MOD_SUC` para el modulo `DAT_JAA_ALM`.
+- Los componentes de filtro (sucursal, nombre, fecha, filtrar/limpiar) deben mostrarse para todos los usuarios, incluido admin.
+- La seleccion/cambio de sucursal en UI solo debe habilitarse cuando el usuario este autorizado por rol/listado (`USR_MOD_SUC`).
+- Las acciones sensibles (ej. aplicar ajuste) deben usar la sucursal seleccionada y confiar en validacion backend de autorizacion.
+
+## Control de Cuentas: autorizacion por sucursal
+- El modulo de Home que navega a `/ctrl-ctas` puede llegar como `DAT_CONS_CTAS`, `DAT_CTRL_CTAS` o `DAT_CTRL_CUENTAS`.
+- En `CtrlCtasConsultaPage`, la sucursal no debe quedar bloqueada por defecto para no-admin; debe depender de `ctrl-ctas/config` (`allowedSucs`, `canSelectSucs`, `forcedSuc`).
+- Para no-admin, mostrar y permitir elegir solo sucursales autorizadas por backend (`allowedSucs`); para admin, mantener lista completa.
+- Si `canSelectSucs` es `false`, la UI puede mostrar la sucursal forzada; si es `true`, habilitar dropdown/multiseleccion.
+- No usar la sucursal del perfil/JWT como unica fuente en frontend; la autorizacion efectiva debe venir de `USR_MOD_SUC` via API.
+- En `CtrlCtasResumenClientePage`, la exportacion Excel debe habilitarse cuando hay una sola CTA seleccionada en criterios, o cuando existe un CLIENT seleccionado en la grilla.
+- Si CTA queda en `Todas` (sin CTA) o se seleccionan multiples CTA, la exportacion debe permanecer deshabilitada hasta seleccionar un CLIENT.
+- El AppBar de `Resumen por Deudor` debe mostrar el resumen de CTA(s) enviadas desde criterios (`CTA: Todas`, una CTA, o multiples con contador).
+- En exportacion con CTA unica y sin CLIENT seleccionado, `RESUMEN_TRANS` y `DETALLE` deben incluir todos los CLIENT de la consulta (filtrados por la CTA seleccionada).
+- Para evitar errores de conexion, la consulta de `DETALLE` en exportacion debe enviarse por cliente y por bloques de `IDFOL` (secuencial), no con N llamadas concurrentes por folio.
+- La exportacion en `CtrlCtasResumenClientePage` debe mostrar modal de progreso no cerrable manualmente, con avance por etapas, y cerrarse solo al finalizar o en error.
+- En `CtrlCtasResumenClientePage` el filtro `!= 0` inicia desactivado por defecto en resumen cliente, resumen transaccion y detalle de transaccion para mostrar todos los registros; el usuario puede activarlo desde los controles del panel.
