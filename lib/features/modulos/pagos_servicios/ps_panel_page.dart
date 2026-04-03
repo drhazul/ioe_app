@@ -115,7 +115,11 @@ class _PsPanelPageState extends ConsumerState<PsPanelPage> {
                     setState(() => _selected = item);
                     final estado = (item.esta ?? '').trim().toUpperCase();
                     final idfol = Uri.encodeComponent(item.idfol);
-                    if (estado == 'PAGADO' || estado == 'TRANSMITIR') {
+                    if (
+                      estado == 'PAGADO' ||
+                      estado == 'CERRADO_PS' ||
+                      estado == 'TRANSMITIR'
+                    ) {
                       context.go('/ps/$idfol/pago');
                       return;
                     }

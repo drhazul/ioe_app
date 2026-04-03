@@ -95,4 +95,11 @@ class PagoCotizacionApi {
         .where((item) => item.form.isNotEmpty)
         .toList();
   }
+
+  Future<Map<String, dynamic>> retryMb51(String idfol) async {
+    final res = await dio.post('/pv/cotizaciones/$idfol/cierre/mb51-retry');
+    final data = res.data;
+    if (data is Map<String, dynamic>) return data;
+    return {'ok': true};
+  }
 }

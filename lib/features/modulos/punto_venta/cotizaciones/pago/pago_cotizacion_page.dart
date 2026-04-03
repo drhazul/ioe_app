@@ -54,6 +54,7 @@ class PagoCotizacionPage extends ConsumerStatefulWidget {
 
 class _PagoCotizacionPageState extends ConsumerState<PagoCotizacionPage> {
   bool _imprimiendoTicket = false;
+  bool _reenviandoCierrePagado = false;
 
   @override
   void initState() {
@@ -208,7 +209,7 @@ class _PagoCotizacionPageState extends ConsumerState<PagoCotizacionPage> {
       appBar: AppBar(
         leading: IconButton(
           icon: Icon(isEstadoPagado ? Icons.lock : Icons.arrow_back),
-          onPressed: state.submitting
+          onPressed: state.submitting || _reenviandoCierrePagado
               ? null
               : () => _onBackPressed(context, state),
         ),
@@ -416,16 +417,20 @@ class _PagoCotizacionPageState extends ConsumerState<PagoCotizacionPage> {
       if (currentIdfol != widget.idfol) {
         ref.invalidate(pvTicketLogListProvider(currentIdfol));
       }
-      final latestState = ref.read(pagoCotizacionControllerProvider(widget.idfol));
-      final estadoActual = (latestState.context?.esta ?? '').trim().toUpperCase();
-      final cierrePagado = _isEstadoPagado(estadoActual);
+      final latestState = ref.read(
+        pagoCotizacionControllerProvider(widget.idfol),
+      );
+      final estadoActual = (latestState.context?.esta ?? '')
+          .trim()
+          .toUpperCase();
+      final estadoConfirmado = _isEstadoPagado(estadoActual)
+          ? estadoActual
+          : 'PAGADO';
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            cierrePagado
-                ? 'Cierre completado. Total ${_money(result.totales.total)} | Cambio ${_money(result.cambio)}. Estado ${estadoActual.isEmpty ? 'PAGADO/TRANSMITIR' : estadoActual} confirmado. Puede imprimir ticket.'
-                : 'Cierre completado. Total ${_money(result.totales.total)} | Cambio ${_money(result.cambio)}. Recargue para confirmar estado operativo.',
+            'Cierre completado. Total ${_money(result.totales.total)} | Cambio ${_money(result.cambio)}. Estado ${estadoConfirmado.isEmpty ? 'PAGADO' : estadoConfirmado} confirmado. Puede imprimir ticket.',
           ),
         ),
       );
@@ -443,31 +448,25 @@ class _PagoCotizacionPageState extends ConsumerState<PagoCotizacionPage> {
     BuildContext context,
     PagoCotizacionState state,
   ) async {
-    if (_isEstadoPagado(state.context?.esta)) {
-      try {
-        final currentIdfol = state.visibleIdfol;
-        await ref.read(pagoCotizacionApiProvider).updateEstado(
-              idfol: currentIdfol,
-              esta: 'MB51PROCES',
-            );
-        ref.invalidate(cotizacionProvider(widget.idfol));
-        if (currentIdfol != widget.idfol) {
-          ref.invalidate(cotizacionProvider(currentIdfol));
-        }
-        ref.invalidate(cotizacionesListProvider);
-        if (!context.mounted) return;
-        context.go('/punto-venta/cotizaciones');
-      } catch (e) {
-        if (!context.mounted) return;
-        final msg = apiErrorMessage(
-          e,
-          fallback:
-              'No se pudo actualizar la cotización a MB51PROCES al regresar',
-        );
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    final estado = (state.context?.esta ?? '').trim().toUpperCase();
+    final mb51Listo = _isEstadoMb51Proces(estado);
+    if (mb51Listo) {
+      final currentIdfol = state.visibleIdfol;
+      ref.invalidate(cotizacionProvider(widget.idfol));
+      if (currentIdfol != widget.idfol) {
+        ref.invalidate(cotizacionProvider(currentIdfol));
       }
+      ref.invalidate(cotizacionesListProvider);
+      if (!context.mounted) return;
+      context.go('/punto-venta/cotizaciones');
       return;
     }
+
+    if (estado == 'PAGADO') {
+      await _salirCierrePagado(context, state);
+      return;
+    }
+
     if (context.canPop()) {
       context.pop();
       return;
@@ -476,11 +475,80 @@ class _PagoCotizacionPageState extends ConsumerState<PagoCotizacionPage> {
     context.go('/punto-venta/cotizaciones/$idfolEncoded/detalle');
   }
 
+  Future<void> _salirCierrePagado(
+    BuildContext context,
+    PagoCotizacionState state,
+  ) async {
+    if (_reenviandoCierrePagado) return;
+    setState(() => _reenviandoCierrePagado = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final idfolRuta = widget.idfol.trim();
+      final idfolVisible = state.visibleIdfol.trim();
+      final candidatos = <String>{
+        if (idfolRuta.isNotEmpty) idfolRuta,
+        if (idfolVisible.isNotEmpty) idfolVisible,
+      }.toList(growable: false);
+
+      Object? lastError;
+      String? idfolActualizado;
+      for (final idfol in candidatos) {
+        try {
+          await ref
+              .read(pagoCotizacionApiProvider)
+              .updateEstado(idfol: idfol, esta: 'MB51PROCES');
+          idfolActualizado = idfol;
+          break;
+        } catch (e) {
+          lastError = e;
+        }
+      }
+      if (idfolActualizado == null) {
+        if (lastError != null) throw lastError;
+        throw Exception('No se pudo resolver folio para salida MB51PROCES');
+      }
+
+      ref.invalidate(cotizacionProvider(widget.idfol));
+      if (idfolVisible != widget.idfol) {
+        ref.invalidate(cotizacionProvider(idfolVisible));
+      }
+      if (idfolActualizado != widget.idfol &&
+          idfolActualizado != idfolVisible) {
+        ref.invalidate(cotizacionProvider(idfolActualizado));
+      }
+      ref.invalidate(cotizacionesListProvider);
+
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Cierre operativo completado. Folio enviado a MB51PROCES.',
+          ),
+        ),
+      );
+      if (context.mounted) {
+        context.go('/punto-venta/cotizaciones');
+      }
+    } catch (e) {
+      final msg = apiErrorMessage(
+        e,
+        fallback: 'No se pudo enviar el folio a MB51PROCES',
+      );
+      messenger.showSnackBar(SnackBar(content: Text(msg)));
+    } finally {
+      if (mounted) {
+        setState(() => _reenviandoCierrePagado = false);
+      }
+    }
+  }
+
   bool _isEstadoPagado(String? value) {
     final estado = (value ?? '').trim().toUpperCase();
-    return estado == 'PAGADO' ||
-        estado == 'MB51PROCES' ||
-        estado == 'TRANSMITIR';
+    return estado == 'PAGADO' || _isEstadoMb51Proces(estado);
+  }
+
+  bool _isEstadoMb51Proces(String? value) {
+    final estado = (value ?? '').trim().toUpperCase();
+    return estado == 'MB51PROCES' || estado == 'TRANSMITIR';
   }
 
   Future<void> _imprimirTicket(BuildContext context) async {
@@ -661,16 +729,15 @@ class _PagoCotizacionPageState extends ConsumerState<PagoCotizacionPage> {
               'Sin articulos registrados',
               style: pw.TextStyle(fontSize: smallFontSize),
             )
-          else
-            ...[
-              for (var i = 0; i < data.items.length; i++)
-                _buildTicketDetalleItem(
-                  data.items[i],
-                  index: i,
-                  baseFontSize: baseFontSize,
-                  smallFontSize: smallFontSize,
-                ),
-            ],
+          else ...[
+            for (var i = 0; i < data.items.length; i++)
+              _buildTicketDetalleItem(
+                data.items[i],
+                index: i,
+                baseFontSize: baseFontSize,
+                smallFontSize: smallFontSize,
+              ),
+          ],
           pw.SizedBox(height: 4),
           pw.Text(line, style: pw.TextStyle(fontSize: smallFontSize)),
           pw.Text(
@@ -934,11 +1001,17 @@ class _PagoCotizacionPageState extends ConsumerState<PagoCotizacionPage> {
     required double baseFontSize,
     required double smallFontSize,
   }) {
-    final form = forma.form.trim().isEmpty ? '-' : forma.form.trim().toUpperCase();
+    final form = forma.form.trim().isEmpty
+        ? '-'
+        : forma.form.trim().toUpperCase();
     final impd = _money(forma.impp);
     final autRef = (forma.aut ?? '').trim().isEmpty ? '-' : forma.aut!.trim();
-    final clienteNom = (clienteNombre ?? '').trim().isEmpty ? '-' : clienteNombre!.trim();
-    final clienteCodigo = (clienteId ?? '').trim().isEmpty ? '-' : clienteId!.trim();
+    final clienteNom = (clienteNombre ?? '').trim().isEmpty
+        ? '-'
+        : clienteNombre!.trim();
+    final clienteCodigo = (clienteId ?? '').trim().isEmpty
+        ? '-'
+        : clienteId!.trim();
     final traValue = (tra ?? '').trim().isEmpty ? '-' : tra!.trim();
 
     pw.Widget lineText(String text, {bool bold = false}) {
@@ -1008,7 +1081,8 @@ class _PagoCotizacionPageState extends ConsumerState<PagoCotizacionPage> {
     final is58 = widthMm <= 58;
     final charsPerLine = is58 ? 28 : 34;
     final lineMm = is58 ? 3.3 : 3.9;
-    final isCotizacionAbierta = data.totals.tipotran.trim().toUpperCase() == 'CA';
+    final isCotizacionAbierta =
+        data.totals.tipotran.trim().toUpperCase() == 'CA';
     final footer = data.footer;
 
     double mm = 0;
@@ -1031,7 +1105,11 @@ class _PagoCotizacionPageState extends ConsumerState<PagoCotizacionPage> {
       );
     }
     if ((data.header.rfc ?? '').trim().isNotEmpty) {
-      mm += _measureTextHeightMm('RFC: ${data.header.rfc}', charsPerLine, lineMm);
+      mm += _measureTextHeightMm(
+        'RFC: ${data.header.rfc}',
+        charsPerLine,
+        lineMm,
+      );
     }
 
     // Detalle.
@@ -1084,7 +1162,11 @@ class _PagoCotizacionPageState extends ConsumerState<PagoCotizacionPage> {
       charsPerLine,
       lineMm,
     );
-    mm += _measureTextHeightMm('IDFOLIO: ${footer.idfol}', charsPerLine, lineMm);
+    mm += _measureTextHeightMm(
+      'IDFOLIO: ${footer.idfol}',
+      charsPerLine,
+      lineMm,
+    );
     mm += _measureTextHeightMm(
       'FCNM: ${_fmtDateTime(footer.fcnm)}',
       charsPerLine,
@@ -1139,11 +1221,7 @@ class _PagoCotizacionPageState extends ConsumerState<PagoCotizacionPage> {
     return mm.clamp(minMm, maxMm).toDouble();
   }
 
-  double _measureTextHeightMm(
-    String text,
-    int charsPerLine,
-    double lineMm,
-  ) {
+  double _measureTextHeightMm(String text, int charsPerLine, double lineMm) {
     final value = text.trim();
     if (value.isEmpty) return 0;
     final normalized = value.replaceAll('\r', '');
@@ -1259,7 +1337,7 @@ class _PagoCotizacionPageState extends ConsumerState<PagoCotizacionPage> {
         return;
       }
 
-    final args = RefDetallePageArgs(
+      final args = RefDetallePageArgs(
         idfol: state.visibleIdfol,
         suc: suc,
         idc: idc,
@@ -1297,7 +1375,9 @@ class _PagoCotizacionPageState extends ConsumerState<PagoCotizacionPage> {
     final initialFormNorm = (initial?.form ?? '').trim().toUpperCase();
     final editingCredito = _isCreditoForm(initialFormNorm);
     final hasCreditoEnOtras = existing.any((item) => _isCreditoForm(item.form));
-    final hasNoCreditoEnOtras = existing.any((item) => !_isCreditoForm(item.form));
+    final hasNoCreditoEnOtras = existing.any(
+      (item) => !_isCreditoForm(item.form),
+    );
 
     if (!editingCredito && hasCreditoEnOtras) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1845,7 +1925,9 @@ class _FormaDialogState extends State<_FormaDialog> {
     );
     if ((selectedIsCredito && widget.existing.isNotEmpty) ||
         (!selectedIsCredito && hasCreditoEnOtras)) {
-      _setError('La forma CREDITO no se puede combinar con otras formas de pago');
+      _setError(
+        'La forma CREDITO no se puede combinar con otras formas de pago',
+      );
       return;
     }
 
@@ -2004,4 +2086,3 @@ String _fmtDateTime(DateTime? value) {
 
 double _round2(double value) =>
     (value.isFinite ? (value * 100).roundToDouble() / 100 : 0.0);
-

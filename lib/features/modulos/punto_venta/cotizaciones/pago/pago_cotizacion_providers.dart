@@ -292,6 +292,25 @@ class PagoCotizacionController extends StateNotifier<PagoCotizacionState> {
     state = state.copyWith(formas: next, error: null);
   }
 
+  Future<void> retryMb51() async {
+    state = state.copyWith(submitting: true, error: null);
+    try {
+      await _api.retryMb51(state.idfol);
+      final refreshedContext = await _api.fetchContext(state.idfol);
+      state = state.copyWith(
+        submitting: false,
+        context: refreshedContext,
+        error: null,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        submitting: false,
+        error: apiErrorMessage(e, fallback: 'No se pudo reintentar MB51'),
+      );
+      rethrow;
+    }
+  }
+
   Future<PagoCierreResponse> finalizar({String? idopv}) async {
     if (state.totales == null || state.context == null) {
       throw Exception('No se pudo cargar el contexto de cierre');

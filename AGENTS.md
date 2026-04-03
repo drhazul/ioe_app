@@ -18,6 +18,7 @@
 - `lib/features/masterdata/`: catálogos y seguridad administrativa.
 - `lib/features/modulos/`: inventarios, catálogo `datart`, MB51/MB52, control de cuentas, taller y punto de venta.
 - Catálogo DAT_ART (2026-04): la ficha permite editar `UPC`; antes de guardar se valida que no esté asignado a otro `ART` de la misma sucursal.
+- Punto de venta / Pago de Servicios (2026-04): el cierre operativo al salir de pago usa `ESTA='CERRADO_PS'` (compatibilidad de lectura para históricos en `TRANSMITIR`).
 
 ## Documentación por módulos
 - Base de módulos: `docs/modules/base_modulos/AGENTS.md` (README: `docs/modules/base_modulos/README.md`)

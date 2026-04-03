@@ -12,10 +12,7 @@ import '../devoluciones_models.dart';
 import '../devoluciones_providers.dart';
 
 class PagoDevolucionPage extends ConsumerStatefulWidget {
-  const PagoDevolucionPage({
-    super.key,
-    required this.idfolDev,
-  });
+  const PagoDevolucionPage({super.key, required this.idfolDev});
 
   final String idfolDev;
 
@@ -33,6 +30,7 @@ class _PagoDevolucionPageState extends ConsumerState<PagoDevolucionPage> {
   bool _printEnabled = false;
   String? _estadoDev;
   String? _error;
+  bool _saliendoMb51Proces = false;
 
   @override
   void initState() {
@@ -47,14 +45,16 @@ class _PagoDevolucionPageState extends ConsumerState<PagoDevolucionPage> {
     final screenHeight = MediaQuery.of(context).size.height;
     final isWide = screenWidth >= 1200;
     final minPanelHeight = (screenHeight - 190).clamp(420.0, 1200.0);
-    final isEstadoPagado = _isEstadoPagado(_estadoDev ?? preview?.context.estaDev);
+    final isEstadoPagado = _isEstadoPagado(
+      _estadoDev ?? preview?.context.estaDev,
+    );
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
           icon: Icon(isEstadoPagado ? Icons.lock : Icons.arrow_back),
-          onPressed: (_submitting || _loading)
+          onPressed: (_submitting || _loading || _saliendoMb51Proces)
               ? null
-              : () => _onBackPressed(isEstadoPagado: isEstadoPagado),
+              : _onBackPressed,
         ),
         title: const Text('Pago devolución'),
         actions: [
@@ -76,164 +76,180 @@ class _PagoDevolucionPageState extends ConsumerState<PagoDevolucionPage> {
         child: _loading
             ? const Center(child: CircularProgressIndicator())
             : preview == null
-                ? Center(
-                    child: Text(_error ?? 'No se pudo cargar el pago'),
-                  )
-                : ListView(
-                    padding: const EdgeInsets.all(16),
-                    children: [
-                      if (isWide)
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: _SectionContainer(
-                                minHeight: minPanelHeight,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                                  children: [
-                                    _ContextCard(preview: preview),
-                                    const SizedBox(height: 10),
-                                    _TotalsCard(
-                                      totals: preview.totals,
-                                      rqfac: _rqfac,
-                                      onRqfacChanged: null,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: _SectionContainer(
-                                minHeight: minPanelHeight,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                                  children: [
-                                    _FormasCard(
-                                      formas: _formas,
-                                      total: preview.totals.total,
-                                    ),
-                                    if ((_error ?? '').isNotEmpty) ...[
-                                      const SizedBox(height: 10),
-                                      Text(
-                                        _error!,
-                                        style: TextStyle(color: Colors.red.shade700),
-                                      ),
-                                    ],
-                                    const SizedBox(height: 14),
-                                    Wrap(
-                                      spacing: 10,
-                                      runSpacing: 8,
-                                      children: [
-                                        FilledButton.icon(
-                                          onPressed: (_submitting || _printEnabled)
-                                              ? null
-                                              : _finalizar,
-                                          icon: _submitting
-                                              ? const SizedBox(
-                                                  width: 16,
-                                                  height: 16,
-                                                  child: CircularProgressIndicator(strokeWidth: 2),
-                                                )
-                                              : const Icon(Icons.check_circle_outline),
-                                          label: const Text('Devolver cotización'),
-                                        ),
-                                        OutlinedButton.icon(
-                                          onPressed: (_printEnabled && !_imprimiendoTicket)
-                                              ? () => _imprimirTicket(context)
-                                              : null,
-                                          icon: _imprimiendoTicket
-                                              ? const SizedBox(
-                                                  width: 16,
-                                                  height: 16,
-                                                  child: CircularProgressIndicator(strokeWidth: 2),
-                                                )
-                                              : const Icon(Icons.print_outlined),
-                                          label: Text(
-                                            _imprimiendoTicket ? 'Imprimiendo...' : 'Imprimir ticket',
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        )
-                      else ...[
-                        _SectionContainer(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              _ContextCard(preview: preview),
-                              const SizedBox(height: 10),
-                              _TotalsCard(
-                                totals: preview.totals,
-                                rqfac: _rqfac,
-                                onRqfacChanged: null,
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        _SectionContainer(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              _FormasCard(
-                                formas: _formas,
-                                total: preview.totals.total,
-                              ),
-                              if ((_error ?? '').isNotEmpty) ...[
+            ? Center(child: Text(_error ?? 'No se pudo cargar el pago'))
+            : ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  if (isWide)
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: _SectionContainer(
+                            minHeight: minPanelHeight,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                _ContextCard(preview: preview),
                                 const SizedBox(height: 10),
-                                Text(
-                                  _error!,
-                                  style: TextStyle(color: Colors.red.shade700),
+                                _TotalsCard(
+                                  totals: preview.totals,
+                                  rqfac: _rqfac,
+                                  onRqfacChanged: null,
                                 ),
                               ],
-                              const SizedBox(height: 14),
-                              Wrap(
-                                spacing: 10,
-                                runSpacing: 8,
-                                children: [
-                                  FilledButton.icon(
-                                    onPressed: (_submitting || _printEnabled)
-                                        ? null
-                                        : _finalizar,
-                                    icon: _submitting
-                                        ? const SizedBox(
-                                            width: 16,
-                                            height: 16,
-                                            child: CircularProgressIndicator(strokeWidth: 2),
-                                          )
-                                        : const Icon(Icons.check_circle_outline),
-                                    label: const Text('Devolver cotización'),
-                                  ),
-                                  OutlinedButton.icon(
-                                    onPressed: (_printEnabled && !_imprimiendoTicket)
-                                        ? () => _imprimirTicket(context)
-                                        : null,
-                                    icon: _imprimiendoTicket
-                                        ? const SizedBox(
-                                            width: 16,
-                                            height: 16,
-                                            child: CircularProgressIndicator(strokeWidth: 2),
-                                          )
-                                        : const Icon(Icons.print_outlined),
-                                    label: Text(
-                                      _imprimiendoTicket ? 'Imprimiendo...' : 'Imprimir ticket',
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _SectionContainer(
+                            minHeight: minPanelHeight,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                _FormasCard(
+                                  formas: _formas,
+                                  total: preview.totals.total,
+                                ),
+                                if ((_error ?? '').isNotEmpty) ...[
+                                  const SizedBox(height: 10),
+                                  Text(
+                                    _error!,
+                                    style: TextStyle(
+                                      color: Colors.red.shade700,
                                     ),
                                   ),
                                 ],
-                              ),
-                            ],
+                                const SizedBox(height: 14),
+                                Wrap(
+                                  spacing: 10,
+                                  runSpacing: 8,
+                                  children: [
+                                    FilledButton.icon(
+                                      onPressed: (_submitting || _printEnabled)
+                                          ? null
+                                          : _finalizar,
+                                      icon: _submitting
+                                          ? const SizedBox(
+                                              width: 16,
+                                              height: 16,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                              ),
+                                            )
+                                          : const Icon(
+                                              Icons.check_circle_outline,
+                                            ),
+                                      label: const Text('Devolver cotización'),
+                                    ),
+                                    OutlinedButton.icon(
+                                      onPressed:
+                                          (_printEnabled && !_imprimiendoTicket)
+                                          ? () => _imprimirTicket(context)
+                                          : null,
+                                      icon: _imprimiendoTicket
+                                          ? const SizedBox(
+                                              width: 16,
+                                              height: 16,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                              ),
+                                            )
+                                          : const Icon(Icons.print_outlined),
+                                      label: Text(
+                                        _imprimiendoTicket
+                                            ? 'Imprimiendo...'
+                                            : 'Imprimir ticket',
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ],
-                    ],
-                  ),
+                    )
+                  else ...[
+                    _SectionContainer(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _ContextCard(preview: preview),
+                          const SizedBox(height: 10),
+                          _TotalsCard(
+                            totals: preview.totals,
+                            rqfac: _rqfac,
+                            onRqfacChanged: null,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _SectionContainer(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _FormasCard(
+                            formas: _formas,
+                            total: preview.totals.total,
+                          ),
+                          if ((_error ?? '').isNotEmpty) ...[
+                            const SizedBox(height: 10),
+                            Text(
+                              _error!,
+                              style: TextStyle(color: Colors.red.shade700),
+                            ),
+                          ],
+                          const SizedBox(height: 14),
+                          Wrap(
+                            spacing: 10,
+                            runSpacing: 8,
+                            children: [
+                              FilledButton.icon(
+                                onPressed: (_submitting || _printEnabled)
+                                    ? null
+                                    : _finalizar,
+                                icon: _submitting
+                                    ? const SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Icon(Icons.check_circle_outline),
+                                label: const Text('Devolver cotización'),
+                              ),
+                              OutlinedButton.icon(
+                                onPressed:
+                                    (_printEnabled && !_imprimiendoTicket)
+                                    ? () => _imprimirTicket(context)
+                                    : null,
+                                icon: _imprimiendoTicket
+                                    ? const SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Icon(Icons.print_outlined),
+                                label: Text(
+                                  _imprimiendoTicket
+                                      ? 'Imprimiendo...'
+                                      : 'Imprimir ticket',
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
       ),
     );
   }
@@ -244,10 +260,9 @@ class _PagoDevolucionPageState extends ConsumerState<PagoDevolucionPage> {
       _error = null;
     });
     try {
-      final preview = await ref.read(devolucionesApiProvider).previewPago(
-            idfolDev: widget.idfolDev,
-            rqfac: null,
-          );
+      final preview = await ref
+          .read(devolucionesApiProvider)
+          .previewPago(idfolDev: widget.idfolDev, rqfac: null);
       if (!mounted) return;
       setState(() {
         _preview = preview;
@@ -257,9 +272,7 @@ class _PagoDevolucionPageState extends ConsumerState<PagoDevolucionPage> {
         _formas
           ..clear()
           ..addAll(
-            preview.formasSugeridas.map(
-              (item) => item.copyWith(id: _nextId()),
-            ),
+            preview.formasSugeridas.map((item) => item.copyWith(id: _nextId())),
           );
       });
     } catch (e) {
@@ -283,34 +296,105 @@ class _PagoDevolucionPageState extends ConsumerState<PagoDevolucionPage> {
 
   bool _isEstadoPagado(String? value) {
     final estado = (value ?? '').trim().toUpperCase();
-    return estado == 'PAGADO' ||
-        estado == 'MB51PROCES' ||
-        estado == 'TRANSMITIR';
+    return estado == 'PAGADO' || _isEstadoMb51Proces(estado);
   }
 
-  Future<void> _onBackPressed({required bool isEstadoPagado}) async {
-    if (isEstadoPagado) {
-      try {
-        await ref.read(devolucionesApiProvider).updateEstado(
-              idfol: widget.idfolDev,
-              esta: 'MB51PROCES',
-            );
-        if (!mounted) return;
-        ref.invalidate(devolucionesPanelProvider);
-        setState(() => _estadoDev = 'MB51PROCES');
-        context.go('/punto-venta/devoluciones');
-      } catch (e) {
-        if (!mounted) return;
-        final msg = apiErrorMessage(
-          e,
-          fallback: 'No se pudo actualizar la devolución a MB51PROCES al regresar',
-        );
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-      }
+  bool _isEstadoMb51Proces(String? value) {
+    final estado = (value ?? '').trim().toUpperCase();
+    return estado == 'MB51PROCES' || estado == 'TRANSMITIR';
+  }
+
+  Future<void> _onBackPressed() async {
+    final estadoActual = (_estadoDev ?? _preview?.context.estaDev ?? '')
+        .trim()
+        .toUpperCase();
+    final mb51Listo = _isEstadoMb51Proces(estadoActual);
+    if (mb51Listo) {
+      if (!mounted) return;
+      ref.invalidate(devolucionesPanelProvider);
+      context.go('/punto-venta/devoluciones');
+      return;
+    }
+    if (estadoActual == 'PAGADO') {
+      await _salirCierrePagado();
       return;
     }
     if (!mounted) return;
-    context.go('/punto-venta/devoluciones/${Uri.encodeComponent(widget.idfolDev)}/detalle');
+    context.go(
+      '/punto-venta/devoluciones/${Uri.encodeComponent(widget.idfolDev)}/detalle',
+    );
+  }
+
+  Future<void> _salirCierrePagado() async {
+    if (_saliendoMb51Proces) return;
+    final preview = _preview;
+    final idfolWidget = widget.idfolDev.trim();
+    final idfolPreview = (preview?.context.idfolDev ?? '').trim();
+    final candidatos = <String>{
+      if (idfolWidget.isNotEmpty) idfolWidget,
+      if (idfolPreview.isNotEmpty) idfolPreview,
+    }.toList(growable: false);
+    if (candidatos.isEmpty) return;
+
+    setState(() {
+      _saliendoMb51Proces = true;
+      _error = null;
+    });
+    final messenger = ScaffoldMessenger.of(context);
+
+    try {
+      Object? lastError;
+      String? idfolActualizado;
+      for (final idfol in candidatos) {
+        try {
+          await ref
+              .read(devolucionesApiProvider)
+              .updateEstado(idfol: idfol, esta: 'MB51PROCES');
+          idfolActualizado = idfol;
+          break;
+        } catch (e) {
+          lastError = e;
+        }
+      }
+      if (idfolActualizado == null) {
+        if (lastError != null) throw lastError;
+        throw Exception('No se pudo resolver folio para salida MB51PROCES');
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _estadoDev = 'MB51PROCES';
+        _printEnabled = true;
+      });
+      ref.invalidate(devolucionesPanelProvider);
+      ref.invalidate(devolucionDetalleProvider(widget.idfolDev));
+      if (idfolPreview.isNotEmpty && idfolPreview != widget.idfolDev) {
+        ref.invalidate(devolucionDetalleProvider(idfolPreview));
+      }
+
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Cierre operativo completado. Folio enviado a MB51PROCES.',
+          ),
+        ),
+      );
+      context.go('/punto-venta/devoluciones');
+    } catch (e) {
+      if (!mounted) return;
+      final msg = apiErrorMessage(
+        e,
+        fallback: 'No se pudo enviar el folio a MB51PROCES',
+      );
+      setState(() {
+        _error = msg;
+      });
+      messenger.showSnackBar(SnackBar(content: Text(msg)));
+    } finally {
+      if (mounted) {
+        setState(() => _saliendoMb51Proces = false);
+      }
+    }
   }
 
   Future<void> _finalizar() async {
@@ -327,7 +411,8 @@ class _PagoDevolucionPageState extends ConsumerState<PagoDevolucionPage> {
     final hasEfectivo = _formas.any((item) => item.form == 'EFECTIVO');
     if (sum + 0.0001 < total) {
       setState(() {
-        _error = 'Las formas no cubren el total (\$${total.toStringAsFixed(2)})';
+        _error =
+            'Las formas no cubren el total (\$${total.toStringAsFixed(2)})';
       });
       return;
     }
@@ -343,7 +428,9 @@ class _PagoDevolucionPageState extends ConsumerState<PagoDevolucionPage> {
       _error = null;
     });
     try {
-      final res = await ref.read(devolucionesApiProvider).finalizarPago(
+      final res = await ref
+          .read(devolucionesApiProvider)
+          .finalizarPago(
             idfolDev: widget.idfolDev,
             rqfac: _rqfac,
             formas: _formas,
@@ -358,8 +445,8 @@ class _PagoDevolucionPageState extends ConsumerState<PagoDevolucionPage> {
       final syncMessage = sync == null
           ? ''
           : sync.syncApplied
-              ? ' Facturación sincronizada para ${sync.idfol}${(sync.estatus ?? '').trim().isNotEmpty ? ' (${sync.estatus})' : ''}.'
-              : ' Facturación sin registro activo para ${sync.idfol}.';
+          ? ' Facturación sincronizada para ${sync.idfol}${(sync.estatus ?? '').trim().isNotEmpty ? ' (${sync.estatus})' : ''}.'
+          : ' Facturación sin registro activo para ${sync.idfol}.';
       if (!mounted) return;
       setState(() {
         _printEnabled = true;
@@ -380,7 +467,10 @@ class _PagoDevolucionPageState extends ConsumerState<PagoDevolucionPage> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = apiErrorMessage(e, fallback: 'No se pudo finalizar devolución');
+        _error = apiErrorMessage(
+          e,
+          fallback: 'No se pudo finalizar devolución',
+        );
       });
     } finally {
       if (mounted) {
@@ -564,16 +654,15 @@ class _PagoDevolucionPageState extends ConsumerState<PagoDevolucionPage> {
               'Sin articulos registrados',
               style: pw.TextStyle(fontSize: smallFontSize),
             )
-          else
-            ...[
-              for (var i = 0; i < data.items.length; i++)
-                _buildTicketDetalleItem(
-                  data.items[i],
-                  index: i,
-                  baseFontSize: baseFontSize,
-                  smallFontSize: smallFontSize,
-                ),
-            ],
+          else ...[
+            for (var i = 0; i < data.items.length; i++)
+              _buildTicketDetalleItem(
+                data.items[i],
+                index: i,
+                baseFontSize: baseFontSize,
+                smallFontSize: smallFontSize,
+              ),
+          ],
           pw.SizedBox(height: 4),
           pw.Text(line, style: pw.TextStyle(fontSize: smallFontSize)),
           pw.Text(
@@ -834,11 +923,17 @@ class _PagoDevolucionPageState extends ConsumerState<PagoDevolucionPage> {
     required double baseFontSize,
     required double smallFontSize,
   }) {
-    final form = forma.form.trim().isEmpty ? '-' : forma.form.trim().toUpperCase();
+    final form = forma.form.trim().isEmpty
+        ? '-'
+        : forma.form.trim().toUpperCase();
     final impd = _money(totalOperacion);
     final autRef = (forma.aut ?? '').trim().isEmpty ? '-' : forma.aut!.trim();
-    final clienteNom = (clienteNombre ?? '').trim().isEmpty ? '-' : clienteNombre!.trim();
-    final clienteCodigo = (clienteId ?? '').trim().isEmpty ? '-' : clienteId!.trim();
+    final clienteNom = (clienteNombre ?? '').trim().isEmpty
+        ? '-'
+        : clienteNombre!.trim();
+    final clienteCodigo = (clienteId ?? '').trim().isEmpty
+        ? '-'
+        : clienteId!.trim();
     final traValue = (tra ?? '').trim().isEmpty ? '-' : tra!.trim();
 
     pw.Widget lineText(String text, {bool bold = false}) {
@@ -980,11 +1075,15 @@ class _PagoDevolucionPageState extends ConsumerState<PagoDevolucionPage> {
     );
   }
 
-  double _estimateTicketHeightMm(DevolucionPrintPreviewResponse data, double widthMm) {
+  double _estimateTicketHeightMm(
+    DevolucionPrintPreviewResponse data,
+    double widthMm,
+  ) {
     final is58 = widthMm <= 58;
     final charsPerLine = is58 ? 28 : 34;
     final lineMm = is58 ? 3.3 : 3.9;
-    final isCotizacionAbierta = data.totals.tipotran.trim().toUpperCase() == 'CA';
+    final isCotizacionAbierta =
+        data.totals.tipotran.trim().toUpperCase() == 'CA';
     final ords = _collectOrdsFromItems(data.items);
     double mm = 0;
 
@@ -1061,7 +1160,11 @@ class _PagoDevolucionPageState extends ConsumerState<PagoDevolucionPage> {
       charsPerLine,
       lineMm,
     );
-    mm += _measureTextHeightMm('IDFOL DEV: ${footer.idfolDev}', charsPerLine, lineMm);
+    mm += _measureTextHeightMm(
+      'IDFOL DEV: ${footer.idfolDev}',
+      charsPerLine,
+      lineMm,
+    );
     mm += _measureTextHeightMm(
       'IDFOL ORIG: ${footer.idfolOrig}',
       charsPerLine,
@@ -1072,8 +1175,16 @@ class _PagoDevolucionPageState extends ConsumerState<PagoDevolucionPage> {
       charsPerLine,
       lineMm,
     );
-    mm += _measureTextHeightMm('ESTADO: ${footer.esta ?? '-'}', charsPerLine, lineMm);
-    mm += _measureTextHeightMm('AUT: ${footer.aut ?? '-'}', charsPerLine, lineMm);
+    mm += _measureTextHeightMm(
+      'ESTADO: ${footer.esta ?? '-'}',
+      charsPerLine,
+      lineMm,
+    );
+    mm += _measureTextHeightMm(
+      'AUT: ${footer.aut ?? '-'}',
+      charsPerLine,
+      lineMm,
+    );
     mm += _measureTextHeightMm(
       'CLIENTE: ${footer.clienteNombre ?? '-'} (${footer.clienteId?.toStringAsFixed(0) ?? '-'})',
       charsPerLine,
@@ -1165,10 +1276,7 @@ class _DevolucionTicketOrdSummary {
 }
 
 class _SectionContainer extends StatelessWidget {
-  const _SectionContainer({
-    required this.child,
-    this.minHeight,
-  });
+  const _SectionContainer({required this.child, this.minHeight});
 
   final Widget child;
   final double? minHeight;
@@ -1270,10 +1378,7 @@ class _TotalsCard extends StatelessWidget {
                 Row(
                   children: [
                     const Text('RQFAC'),
-                    Switch(
-                      value: rqfac,
-                      onChanged: onRqfacChanged,
-                    ),
+                    Switch(value: rqfac, onChanged: onRqfacChanged),
                   ],
                 ),
               ],
@@ -1306,7 +1411,10 @@ class _TotalsCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+          ),
           const SizedBox(height: 2),
           Text('\$${value.toStringAsFixed(2)}'),
         ],
@@ -1316,10 +1424,7 @@ class _TotalsCard extends StatelessWidget {
 }
 
 class _FormasCard extends StatelessWidget {
-  const _FormasCard({
-    required this.formas,
-    required this.total,
-  });
+  const _FormasCard({required this.formas, required this.total});
 
   final List<DevolucionFormaDraft> formas;
   final double total;
@@ -1360,7 +1465,10 @@ class _FormasCard extends StatelessWidget {
               ...formas.map((item) {
                 return Container(
                   margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     border: Border.all(color: Colors.grey.shade300),
                     borderRadius: BorderRadius.circular(8),
@@ -1368,7 +1476,10 @@ class _FormasCard extends StatelessWidget {
                   child: Row(
                     children: [
                       SizedBox(width: 150, child: Text(item.form)),
-                      SizedBox(width: 120, child: Text('\$${item.impp.toStringAsFixed(2)}')),
+                      SizedBox(
+                        width: 120,
+                        child: Text('\$${item.impp.toStringAsFixed(2)}'),
+                      ),
                       Expanded(
                         child: Text(
                           (item.aut ?? '').isEmpty ? '-' : item.aut!,
@@ -1395,6 +1506,3 @@ class _FormasCard extends StatelessWidget {
     );
   }
 }
-
-
-

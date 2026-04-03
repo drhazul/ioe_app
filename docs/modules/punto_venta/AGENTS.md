@@ -64,8 +64,9 @@ Enlaces relacionados:
 - El cierre exitoso persiste `PV_CTR_FOL_ASVR.ESTA='PAGADO'` (estado confirmado desde backend, no flag local de UI).
 - Política de fecha de finalización cotización (2026-03): backend registra fecha actual del sistema al cierre en `PV_CTR_FOL_FORM(_SVR).FCN`, `PV_CTR_FOL_ASVR.FCNM` y movimientos contables de `CREDITO/DEUDOR`.
 - Tras cierre exitoso se habilita boton `Imprimir ticket` (debajo de `Finalizar cierre`), que abre dialogo de ancho 58mm/80mm y luego la vista previa PDF.
-- En pago, cuando `ESTA` es `PAGADO`, el boton regresar cambia a icono de candado y al presionarlo actualiza `ESTA='MB51PROCES'` y regresa al panel.
-- Boton regresar en pago: si aun no esta en `PAGADO` vuelve a `detalle`; en `PAGADO` aplica flujo de salida a `MB51PROCES`.
+- Boton regresar en pago: si aun no esta en `PAGADO` vuelve a `detalle`.
+- En estado `PAGADO`, el botón regresar usa icono candado y actualiza `ESTA='MB51PROCES'` via `PATCH /pvctrfolasvr/:idfol` para regresar al panel.
+- En estados `MB51PROCES`/`TRANSMITIR`, el botón regresar (candado) vuelve directo al panel.
 - Desde panel de cotizaciones, si el folio ya esta en `PAGADO`, la seleccion abre directo la pantalla de pago (no detalle) para identificar el proceso de salida/cierre operativo.
 - El panel de cotizaciones lista folios en `PENDIENTE`, `EDITANDO` y `PAGADO` filtrando por `ESTA` (sin depender del valor de `AUT`); `MB51PROCES` se conserva para salida y no se muestra en panel.
 - Optimizacion panel cotizaciones (2026-03): la consulta del panel usa filtros server-side `suc`, `opv` y `search` en `GET /pvctrfolasvr`; la pagina espera contexto JWT (`_contextReady`) antes de consultar para evitar carga masiva inicial sin criterios.
@@ -176,7 +177,7 @@ Enlaces relacionados:
 - saneamiento DVF facturación (2026-03-20): al finalizar devolución, backend depura registros residuales del folio devolución en `FAC_SVR_SHAP/FACT_TICKET_SHP` para evitar filas no deseadas en módulo facturación.
 - respuesta finalización devolución (2026-03-20): la API agrega objeto `facturacionSync` y la pantalla de pago muestra en snackbar si la sincronización de facturación se aplicó para el folio origen.
 - Política de fecha de finalización devolución (2026-03): backend usa una fecha de proceso actual única al cerrar para `FACT_IDFOLDEV` (`FCN/FCNR`), `PV_CTR_FOL_FORM(_SVR).FCN`, `PV_CTR_FOL_ASVR.FCNM`, `PV_TICKET_LOG.UPDATED_AT` y movimientos contables asociados.
-- al presionar candado en pago, frontend actualiza `ESTA='MB51PROCES'` via `PATCH /pvctrfolasvr/:idfol` y regresa al panel.
+- al presionar candado en pago y el folio está en `PAGADO`, la UI actualiza `ESTA='MB51PROCES'` via `PATCH /pvctrfolasvr/:idfol` y regresa al panel.
 - al regresar a panel desde pago/candado, frontend invalida el provider del panel para forzar recarga inmediata de la consulta.
 - el panel de devoluciones solo muestra folios con `ESTA IN ('PENDIENTE','EDITANDO','PAGADO')`; `MB51PROCES` se mantiene como estado operativo de salida y ya no se lista en panel.
 - desde panel de devoluciones, si un folio ya está en `PAGADO`, la selección abre directo `/pago` (sin pasar por selección de artículos/detalle).
@@ -238,7 +239,7 @@ Enlaces relacionados:
 - la referencia de adeudo/gasto se asigna a la línea seleccionada (`psSelectedArtProvider`).
 - en detalle, `Seleccione Cliente` usa `GET /factclientshp` + filtro por `header.suc`; para `admin` multisucursal, backend debe devolver catálogo sin forzar `user.suc` para evitar lista vacía al cambiar sucursal.
 - en detalle, `Procesar servicio` se ejecuta desde el AppBar (no dentro del bloque de acciones del body).
-- en detalle, si `ESTA IN ('PAGADO','TRANSMITIR')` la pantalla se bloquea (sin edición/selección) y solo permanecen activos el botón `Procesar servicio` y el regreso del AppBar.
+- en detalle, si `ESTA IN ('PAGADO','CERRADO_PS','TRANSMITIR')` la pantalla se bloquea (sin edición/selección) y solo permanecen activos el botón `Procesar servicio` y el regreso del AppBar.
 - en detalle, los servicios `AD/AP/CR` exigen cliente seleccionado (`CLIEN != 1`) antes de agregar línea.
 - en detalle, el backend también rechaza `AD/AP/CR` cuando `CLIEN <= 1` (mensaje `Seleccione Cliente`) para evitar bypass por API directa.
 - en detalle/adeudos, cada fila muestra botón `Ver registros` que abre popup tabular (listado por renglones y columnas) con movimientos de `DAT_CTRL_CTAS` del folio seleccionado.
@@ -251,7 +252,8 @@ Enlaces relacionados:
 - en pago, al finalizar se envía el lote local de formas a `POST /ps/folios/:idFol/finalizar`; backend inserta `PV_CTR_FOL_FORM`, genera `DAT_CTRL_CTAS` y confirma `ESTA='PAGADO'`.
 - Política de fecha de finalización PS (2026-03): backend toma fecha actual del sistema al finalizar para `PV_CTR_FOL_FORM.FCN`, `PV_CTR_FOL_ASVR.FCNM` y movimientos `DAT_CTRL_CTAS` del cierre.
 - en pago, `DAT_CTRL_CTAS.CLSD` se determina por `DAT_CMOV.CMOV` con `RELACION=<servicio UPC>` y `TIPO='ABONO'`; si no existe mapeo, backend rechaza finalizar.
-- en pago, el AppBar muestra flecha mientras `ESTA != PAGADO`; al quedar `PAGADO` (o entrar así desde panel) cambia a candado y al presionarlo actualiza `ESTA='TRANSMITIR'`.
+- en pago, el AppBar muestra flecha mientras `ESTA != PAGADO`; al quedar `PAGADO` (o entrar así desde panel) cambia a candado y al presionarlo actualiza `ESTA='CERRADO_PS'`.
+- compatibilidad PS (2026-04): la UI mantiene lectura de `TRANSMITIR` como estado cerrado legacy para folios históricos, pero los nuevos cierres operativos salen en `CERRADO_PS`.
 - en pago, el botón secundario es `Imprimir ticket` (reemplaza `Regresar a detalle`).
 - Ticket PS voucher (2026-03): al imprimir, si existen formas no `EFECTIVO`, el PDF agrega al final un voucher `SOPORTE RECEPCION PAGO` por cada forma no efectivo.
 - Ticket PS voucher (2026-03): el voucher incluye espacio en blanco para firma y renglón `Firma cliente` debajo de `FCN`.
@@ -260,6 +262,7 @@ Enlaces relacionados:
 - Ticket PS impresion (2026-03-04): se retira del PDF el bloque detallado `ORDS` (barcode `CODE39` + tabla `JOB/ESF/CIL/EJE`); se conserva `RESUMEN DE ORDS` y vouchers. El diseño retirado queda respaldado en `lib/features/modulos/taller/etiqueta/ticket_ords_legacy_layout.dart`.
 - Ticket PS formato (2026-03): el PDF se homologa a cotizaciones con bloques `DETALLE`, `TOTALES`, `FORMAS`, `TRANSACCION`, `RESUMEN DE ORDS`, `ORDS` (barcode `CODE39` + tabla `JOB/ESF/CIL/EJE`) y vouchers para formas no `EFECTIVO`.
 - en panel PS, al seleccionar folio con `ESTA='PAGADO'` la navegación abre directo `/ps/:idFol/pago` (sin pasar por detalle).
+- en panel PS, `CERRADO_PS` no forma parte del listado principal (`PENDIENTE/EDITANDO/PAGADO`); solo se conserva para salida operativa/auditoría.
 
 ## Retiros Parciales (implementado 2026-03)
 - Rutas UI:

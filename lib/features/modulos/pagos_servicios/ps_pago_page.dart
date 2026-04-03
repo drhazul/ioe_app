@@ -481,7 +481,7 @@ class _PsPagoPageState extends ConsumerState<PsPagoPage> {
     try {
       await ref.read(psApiProvider).updateEstado(
             idFol: widget.idFol,
-            esta: 'TRANSMITIR',
+            esta: 'CERRADO_PS',
           );
       ref.invalidate(psFoliosProvider);
       ref.invalidate(psPagoSummaryProvider(widget.idFol));
@@ -494,7 +494,7 @@ class _PsPagoPageState extends ConsumerState<PsPagoPage> {
       _showError(
         apiErrorMessage(
           e,
-          fallback: 'No se pudo cambiar el folio a TRANSMITIR al regresar',
+          fallback: 'No se pudo cambiar el folio a CERRADO_PS al regresar',
         ),
       );
     } finally {
@@ -1080,7 +1080,7 @@ class _PsPagoPageState extends ConsumerState<PsPagoPage> {
 
   bool _isEstadoPagado(String? value) {
     final estado = (value ?? '').trim().toUpperCase();
-    return estado == 'PAGADO' || estado == 'TRANSMITIR';
+    return estado == 'PAGADO' || estado == 'CERRADO_PS' || estado == 'TRANSMITIR';
   }
 }
 

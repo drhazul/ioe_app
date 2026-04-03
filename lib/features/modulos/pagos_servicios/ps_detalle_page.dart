@@ -59,7 +59,7 @@ class _PsDetallePageState extends ConsumerState<PsDetallePage> {
     final appBarBlockedByStatus = detailAsync.maybeWhen(
       data: (detail) {
         final estado = (detail.header.esta ?? '').trim().toUpperCase();
-        return estado == 'PAGADO' || estado == 'TRANSMITIR';
+        return estado == 'PAGADO' || estado == 'CERRADO_PS' || estado == 'TRANSMITIR';
       },
       orElse: () => false,
     );
@@ -104,7 +104,8 @@ class _PsDetallePageState extends ConsumerState<PsDetallePage> {
         data: (detail) {
           final header = detail.header;
           final estado = (header.esta ?? '').trim().toUpperCase();
-          final blockedByStatus = estado == 'PAGADO' || estado == 'TRANSMITIR';
+          final blockedByStatus =
+              estado == 'PAGADO' || estado == 'CERRADO_PS' || estado == 'TRANSMITIR';
           final editable = estado == 'PENDIENTE' && !blockedByStatus;
           final client = header.clien ?? 0;
           final ticketTypes = detail.ticket

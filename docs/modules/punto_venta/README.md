@@ -79,7 +79,7 @@ Enlaces relacionados:
 - en detalle, `Procesar servicio` se movió al AppBar.
 - en detalle, al agregar servicios `AD/AP/CR` se exige cliente seleccionado (`CLIEN != 1`); si no, la UI bloquea el alta y muestra `Seleccione Cliente`.
 - en detalle, el backend valida la misma regla (`AD/AP/CR` con `CLIEN > 1`) y rechaza API directa con `Seleccione Cliente`.
-- en detalle, cuando `ESTA IN ('PAGADO','TRANSMITIR')` se bloquea toda la pantalla (sin edición/selección), quedando activos solo `Procesar servicio` y el regreso del AppBar.
+- en detalle, cuando `ESTA IN ('PAGADO','CERRADO_PS','TRANSMITIR')` se bloquea toda la pantalla (sin edición/selección), quedando activos solo `Procesar servicio` y el regreso del AppBar.
 - en detalle/adeudos, cada renglón incluye botón `Ver registros` para abrir un popup tabular (listado por columnas) con todos los movimientos de `DAT_CTRL_CTAS` del `IDFOL` seleccionado.
 - en pago, la vista usa dos contenedores (resumen y formas); el botón `Agregar` está dentro de `Formas de pago` y abre modal emergente para capturar `Forma/Importe/Autorización`.
 - el modal de formas PS usa catálogo dinámico `DAT_FORM` (`GET /dat-form`) y la regla de referencia igual a cotizaciones (`TARJETA/CHEQUE/TRANSFERENCIA/DEPOSITO 3RO`).
@@ -91,7 +91,8 @@ Enlaces relacionados:
 - en pago, al cubrir total se habilita `Finalizar Pago de servicio`; este botón envía el lote local a `POST /ps/folios/:idFol/finalizar` para insertar `PV_CTR_FOL_FORM` (`IMPP/IMPC/IMPD/AUT`) y generar `DAT_CTRL_CTAS` antes de fijar `ESTA='PAGADO'`.
 - política de fecha de finalización PS (2026-03): backend toma la fecha actual del sistema al finalizar para `PV_CTR_FOL_FORM.FCN`, `PV_CTR_FOL_ASVR.FCNM` y movimientos `DAT_CTRL_CTAS` del cierre.
 - en pago, al generar `DAT_CTRL_CTAS`, el backend toma `CLSD` desde `DAT_CMOV.CMOV` filtrando `RELACION=<servicio>` y `TIPO='ABONO'`; si no encuentra mapeo, rechaza el cierre.
-- en pago, el AppBar usa flecha mientras no está `PAGADO`; al quedar `PAGADO` (o al abrir un folio `PAGADO` desde panel) cambia a candado y habilita la salida a `TRANSMITIR`.
+- en pago, el AppBar usa flecha mientras no está `PAGADO`; al quedar `PAGADO` (o al abrir un folio `PAGADO` desde panel) cambia a candado y habilita la salida a `CERRADO_PS`.
+- compatibilidad PS (2026-04): la UI mantiene lectura de `TRANSMITIR` como estado cerrado legacy para folios históricos, pero el cierre operativo vigente usa `CERRADO_PS`.
 - en pago, el botón secundario es `Imprimir ticket` (sustituye `Regresar a detalle`).
 - en impresión de ticket PS (2026-03): cuando existe al menos una forma distinta de `EFECTIVO`, el PDF agrega al final un bloque `SOPORTE RECEPCION PAGO` (voucher) con `FORM`, `IMPD`, `AUT o REF`, `AUT`, datos de cliente y folio.
 - en impresión de ticket PS (2026-03): el voucher agrega espacio en blanco para firma y renglón `Firma cliente` después de `FCN`.
@@ -100,6 +101,7 @@ Enlaces relacionados:
 - en impresión de ticket PS (2026-03-04): se retira del PDF el bloque detallado `ORDS` (barcode `CODE39` + tabla `JOB/ESF/CIL/EJE`); se conserva `RESUMEN DE ORDS` y vouchers. El diseño retirado queda respaldado en `lib/features/modulos/taller/etiqueta/ticket_ords_legacy_layout.dart`.
 - en impresión de ticket PS (2026-03): se homologó el formato con cotizaciones/devoluciones usando bloques `DETALLE`, `TOTALES`, `FORMAS`, `TRANSACCION`, `RESUMEN DE ORDS`, `ORDS` (barcode `CODE39` + tabla `JOB/ESF/CIL/EJE`) y vouchers para formas no `EFECTIVO`.
 - en panel, folios PS en estado `PAGADO` abren directo la página de pago (`/ps/:idFol/pago`).
+- en panel PS, `CERRADO_PS` no se lista (el listado operativo sigue en `PENDIENTE`, `EDITANDO`, `PAGADO`).
 - compatibilidad backend PS (2026-03): `sql/sp_ps_module_create.sql` crea/siembra `PV_TIPO_ESTA` para resolver alta de servicio cuando faltaba ese catálogo.
 - compatibilidad backend PS (2026-03): consulta de adeudos acepta `CLIENT` grande (`BIGINT`) para evitar fallos de conversión por IDs altos.
 - detalle PS (2026-03): el panel muestra `Adeudos` solo si el ticket contiene `AD/AP/CR`; muestra `Referencias de gasto` solo si contiene `DG/DC`.
