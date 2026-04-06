@@ -19,6 +19,9 @@
 - `lib/features/modulos/`: inventarios, catálogo `datart`, MB51/MB52, control de cuentas, taller y punto de venta.
 - Catálogo DAT_ART (2026-04): la ficha permite editar `UPC`; antes de guardar se valida que no esté asignado a otro `ART` de la misma sucursal.
 - Punto de venta / Pago de Servicios (2026-04): el cierre operativo al salir de pago usa `ESTA='CERRADO_PS'` (compatibilidad de lectura para históricos en `TRANSMITIR`).
+- Facturación / Cliente fiscal (2026-04-06): en edición de datos fiscales (módulo `FACTURA_MTTOCLIENTE` y diálogo de validación) la `SUC` del cliente es inmutable; no se envía `SUC` desde frontend al actualizar.
+- Ordenes de trabajo / Asignar (2026-04-05): para usuario `admin`, la selección de colaborador toma la sucursal elegida en el filtro del panel ORDs (prioriza sucursal de ORDs seleccionadas cuando aplica), evitando usar por defecto la sucursal base del token.
+- Ordenes de trabajo / Incidencia (2026-04-05): el flujo `Regresar incidencia` mantiene contrato UI/API y se estabiliza con ajuste de SP backend (`sp_ordenes_trabajo_regresar_incidencia_lote`) para cambios `9 -> 9.1` con motivo.
 
 ## Documentación por módulos
 - Base de módulos: `docs/modules/base_modulos/AGENTS.md` (README: `docs/modules/base_modulos/README.md`)

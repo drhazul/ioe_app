@@ -826,7 +826,7 @@ extension on OrdenesTrabajoInitialAction {
       case OrdenesTrabajoInitialAction.asignar:
         return 'Captura o escanea una ORD para validarla en estatus 7 (RECIBIDA A TALLER) y asignar colaborador.';
       case OrdenesTrabajoInitialAction.regresarTienda:
-        return 'Captura o escanea una ORD para validarla en estatus 9 (TRABAJO TERMINADO) y recibirla en tienda.';
+        return 'Captura o escanea una ORD para validarla en estatus 9 (TRABAJO TERMINADO) y recibirla en tienda. Si tiene TIPOM, pasará a 9.1 o 9.2 según corresponda.';
       case OrdenesTrabajoInitialAction.recibir:
         return 'Captura o escanea una ORD para validarla en estatus 5 (ENTREGADA A MAQ O BISEL) y recibirla en taller.\n\n$_recibirRolHint';
       case OrdenesTrabajoInitialAction.entregar:
@@ -931,7 +931,7 @@ extension on OrdenesTrabajoInitialAction {
       case OrdenesTrabajoInitialAction.asignar:
         return '8';
       case OrdenesTrabajoInitialAction.regresarTienda:
-        return '10';
+        return '9.1 / 9.2 (según TIPOM) o 10';
       case OrdenesTrabajoInitialAction.recibir:
         return '7';
       case OrdenesTrabajoInitialAction.entregar:

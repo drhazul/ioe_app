@@ -71,47 +71,58 @@ List<pw.Widget> buildTicketOrdsLegacySection({
       final deliveryDate = (ord.deliveryDate ?? '').trim();
       final deliveryTime = (ord.deliveryTime ?? '').trim();
       final comment = (ord.comment ?? '').trim();
-      final barcodeData = _sanitizeCode39Data(ord.ord);
+      final qrData = _sanitizeQrData(ord.ord);
+      final qrSide = _resolveQrSidePt(widthMm);
       return pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
-          pw.Text(
-            'ORD: ${ord.ord}',
-            style: pw.TextStyle(
-              fontSize: baseFontSize + 0.6,
-              fontWeight: pw.FontWeight.bold,
-            ),
+          pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              if (qrData.isNotEmpty)
+                pw.Container(
+                  width: qrSide,
+                  height: qrSide,
+                  alignment: pw.Alignment.topLeft,
+                  child: pw.BarcodeWidget(
+                    barcode: pw.Barcode.qrCode(),
+                    data: qrData,
+                    drawText: false,
+                  ),
+                ),
+              if (qrData.isNotEmpty) pw.SizedBox(width: 4),
+              pw.Expanded(
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(
+                      'ORD: ${ord.ord}',
+                      style: pw.TextStyle(
+                        fontSize: baseFontSize + 0.6,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                    if (ordDesc.isNotEmpty)
+                      pw.Text(
+                        ordDesc,
+                        style: pw.TextStyle(fontSize: baseFontSize - 0.2),
+                        maxLines: 1,
+                      ),
+                    if (ordTipo.isNotEmpty)
+                      pw.Text(
+                        'TIPO: $ordTipo',
+                        style: pw.TextStyle(fontSize: baseFontSize - 0.2),
+                      ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          if (ordDesc.isNotEmpty)
-            pw.Text(
-              ordDesc,
-              style: pw.TextStyle(fontSize: baseFontSize - 0.2),
-              maxLines: 1,
-            ),
-          if (ordTipo.isNotEmpty)
-            pw.Text(
-              'TIPO: $ordTipo',
-              style: pw.TextStyle(fontSize: baseFontSize - 0.2),
-            ),
           if (clientNumber.isNotEmpty || clientName.isNotEmpty)
             _buildClientRow(
               clientNumber: clientNumber,
               clientName: clientName,
               fontSize: smallFontSize + 0.3,
-            ),
-          if (barcodeData.isNotEmpty)
-            pw.Padding(
-              padding: const pw.EdgeInsets.only(top: 1.2, bottom: 1.2),
-              child: pw.Center(
-                child: pw.BarcodeWidget(
-                  barcode: pw.Barcode.code39(),
-                  data: barcodeData,
-                  drawText: true,
-                  textStyle: pw.TextStyle(fontSize: smallFontSize + 0.1),
-                  width: _mmToPt(widthMm <= 58 ? widthMm - 8 : widthMm - 16),
-                  height: widthMm <= 58 ? 12 : (widthMm <= 76 ? 14 : 18),
-                ),
-              ),
             ),
           pw.Row(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -153,17 +164,14 @@ int _legacyJobSortWeight(String? value) {
 
 double _mmToPt(double mm) => mm * PdfPageFormat.mm;
 
-String _sanitizeCode39Data(String value) {
-  final raw = value.trim().toUpperCase();
-  if (raw.isEmpty) return '';
-  final reg = RegExp(r'^[0-9A-Z\-\.\ \$\/\+\%]$');
-  final sb = StringBuffer();
-  for (final codeUnit in raw.codeUnits) {
-    final ch = String.fromCharCode(codeUnit);
-    sb.write(reg.hasMatch(ch) ? ch : '-');
-  }
-  final sanitized = sb.toString().trim();
-  return sanitized.isEmpty ? '' : sanitized;
+double _resolveQrSidePt(double widthMm) {
+  final mm = widthMm <= 58 ? 10.0 : (widthMm <= 76 ? 12.0 : 16.0);
+  return _mmToPt(mm);
+}
+
+String _sanitizeQrData(String value) {
+  final raw = value.trim();
+  return raw.isEmpty ? '' : raw;
 }
 
 pw.Widget _buildOrdDetailsTable({
@@ -332,6 +340,7 @@ pw.Widget _buildCommentBox({
   required double smallFontSize,
 }) {
   final content = comment.trim().isEmpty ? 'SIN COMENTARIO' : comment.trim();
+  final detailFontSize = smallFontSize + 1.8;
   return pw.Padding(
     padding: const pw.EdgeInsets.only(top: 0.4),
     child: pw.Container(
@@ -340,7 +349,10 @@ pw.Widget _buildCommentBox({
       padding: const pw.EdgeInsets.symmetric(horizontal: 1, vertical: 0.6),
       child: pw.Text(
         'COMENTARIO: $content',
-        style: pw.TextStyle(fontSize: smallFontSize),
+        style: pw.TextStyle(
+          fontSize: detailFontSize,
+          fontWeight: pw.FontWeight.bold,
+        ),
         maxLines: 2,
       ),
     ),

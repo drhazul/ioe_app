@@ -233,16 +233,23 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
     if (confirmed != true) return;
     if (!context.mounted) return;
 
-    final sucUsuario = (_userSuc ?? '').trim();
-    if (sucUsuario.isEmpty) {
+    final isAdmin = _isAdmin;
+    final suc = isAdmin ? _sucCtrl.text.trim() : (_userSuc ?? '').trim();
+    final opv = _selectedOpv();
+
+    if (suc.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No se encontró la sucursal del usuario.')),
+        const SnackBar(
+          content: Text('Debe seleccionar una sucursal para crear la cotización.'),
+        ),
       );
       return;
     }
-    if ((_userOpv ?? '').trim().isEmpty) {
+    if (opv.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No se encontró el usuario (OPV).')),
+        const SnackBar(
+          content: Text('Debe seleccionar un usuario (OPV / Supervisor).'),
+        ),
       );
       return;
     }
@@ -250,14 +257,18 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
     final cliente = await _pickClienteParaNuevaCotizacion(
       context,
       ref,
-      suc: sucUsuario,
+      suc: suc,
     );
     if (cliente == null) return;
     if (!context.mounted) return;
 
-    final terminal = _resolveTerminalName();
+    final terminal = _resolveTerminalName(opv: opv, suc: suc);
     try {
-      final created = await ref.read(cotizacionesApiProvider).createCotizacionAuto(ter: terminal);
+      final created = await ref.read(cotizacionesApiProvider).createCotizacionAuto(
+            ter: terminal,
+            suc: suc,
+            opv: opv,
+          );
       await ref.read(cotizacionesApiProvider).updateCotizacion(
             created.idfol,
             {'CLIEN': cliente.idc.toInt()},
@@ -273,13 +284,17 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
     }
   }
 
-  String _resolveTerminalName() {
+  String _resolveTerminalName({required String opv, required String suc}) {
     final systemName = getTerminalName().trim();
     if (systemName.isNotEmpty) return systemName;
-    final opv = (_userOpv ?? '').trim();
-    if (opv.isNotEmpty) return opv;
-    final suc = (_userSuc ?? '').trim();
-    if (suc.isNotEmpty) return suc;
+    final opvContext = opv.trim();
+    if (opvContext.isNotEmpty) return opvContext;
+    final sucContext = suc.trim();
+    if (sucContext.isNotEmpty) return sucContext;
+    final userOpv = (_userOpv ?? '').trim();
+    if (userOpv.isNotEmpty) return userOpv;
+    final userSuc = (_userSuc ?? '').trim();
+    if (userSuc.isNotEmpty) return userSuc;
     return 'APP';
   }
 
@@ -290,7 +305,9 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
   }) async {
     final sucNormalized = suc.trim().toUpperCase();
     try {
-      final clientes = await ref.read(clientesApiProvider).fetchClientes();
+      final clientes = await ref.read(clientesApiProvider).fetchClientes(
+            suc: sucNormalized,
+          );
       final bySuc = clientes.where((c) {
         return (c.suc ?? '').trim().toUpperCase() == sucNormalized;
       }).toList()
@@ -358,7 +375,7 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
     final opv = (payload['opv'] ?? payload['OPV'] ?? payload['username'] ?? '')
         .toString()
         .trim();
-    final isAdmin = _isAdmin;
+    final isAdmin = roleId == 1 || username.toUpperCase() == 'ADMIN';
     final query = CotizacionesPanelQuery(
       suc: suc,
       opv: isAdmin ? '' : opv,

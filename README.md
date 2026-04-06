@@ -9,6 +9,9 @@ Frontend Flutter del ecosistema IOE. Consume `ioe-api` para autenticación, maes
 - Mantener UI desacoplada de persistencia usando contratos HTTP definidos por `ioe-api`.
 - Garantizar navegación protegida con sesión JWT y refresh.
 - Punto de venta / Pago de Servicios (2026-04): la salida operativa de folios pagados utiliza `ESTA='CERRADO_PS'` (con lectura compatible de históricos en `TRANSMITIR`).
+- Facturación / Mantenimiento y validación cliente (2026-04-06): al editar datos fiscales de cliente se conserva la `SUC` original del registro; el frontend ya no envía `SUC` en la edición desde validación.
+- Ordenes de trabajo / Asignar (2026-04-05): cuando el usuario es `admin`, el catálogo de colaboradores se consulta por la sucursal seleccionada en el filtro del panel ORDs (con prioridad a la sucursal de ORDs seleccionadas cuando aplique).
+- Ordenes de trabajo / Incidencia (2026-04-05): el flujo de regreso por incidencia (`9 -> 9.1`) conserva contrato frontend y depende de fix aplicado al SP backend para motivo (`TIPOM`).
 - Notas de documentación viva: este README solo debe cambiarse cuando se agreguen/modifiquen módulos, rutas o datos de arquitectura/base (no para ajustes locales de pantalla). Otros cambios funcionales van al README/AGENTS del módulo afectado.
 
 ## Arquitectura general

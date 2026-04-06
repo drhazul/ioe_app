@@ -508,17 +508,19 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
     ref.read(cotizacionLocalProvider(widget.idfol).notifier).removeItem(item.id);
   }
 
-  Future<void> _markPendiente() async {
+  Future<bool> _markPendiente() async {
     try {
       await ref.read(cotizacionesApiProvider).updateCotizacion(widget.idfol, {'ESTA': 'PENDIENTE'});
       ref.invalidate(cotizacionProvider(widget.idfol));
       ref.invalidate(cotizacionesListProvider);
+      return true;
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('No se pudo regularizar a PENDIENTE: $e')),
         );
       }
+      return false;
     }
   }
 
@@ -1077,16 +1079,26 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
     return value.toStringAsFixed(2);
   }
 
-  Future<void> _syncPendingItems() async {
-    if (_syncingPending) return;
-    _syncingPending = true;
-    final items = ref.read(cotizacionLocalProvider(widget.idfol)).items;
-    for (final item in items) {
-      if (item.syncStatus != SyncStatus.synced) {
-        await _syncItem(item);
-      }
+  Future<bool> _syncPendingItems() async {
+    while (_syncingPending) {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
     }
-    _syncingPending = false;
+    _syncingPending = true;
+    try {
+      final items = ref.read(cotizacionLocalProvider(widget.idfol)).items;
+      for (final item in items) {
+        if (item.syncStatus != SyncStatus.synced) {
+          await _syncItem(item);
+        }
+      }
+    } finally {
+      _syncingPending = false;
+    }
+    final hasUnsynced = ref
+        .read(cotizacionLocalProvider(widget.idfol))
+        .items
+        .any((item) => item.syncStatus != SyncStatus.synced);
+    return !hasUnsynced;
   }
 
   Future<String?> _showSuperPvAuthDialog() async {
@@ -1241,14 +1253,48 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
     if (_openingCierre) return;
     setState(() => _openingCierre = true);
     try {
-      await _syncPendingItems();
+      final selectedTipo = await _showTipoCierreDialog(context);
+      if (selectedTipo == null || !mounted) return;
+
+      if (selectedTipo == 'PENDIENTE') {
+        final synced = await _syncPendingItems();
+        if (!mounted) return;
+        if (!synced) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Hay renglones sin sincronizar. Verifica conexión e intenta de nuevo.',
+              ),
+            ),
+          );
+          return;
+        }
+
+        final pendingSaved = await _markPendiente();
+        if (!mounted || !pendingSaved) return;
+
+        ref.invalidate(pvTicketLogListProvider(widget.idfol));
+        ref.invalidate(cotizacionesListProvider);
+        context.go('/punto-venta/cotizaciones');
+        return;
+      }
+
+      final synced = await _syncPendingItems();
+      if (!mounted) return;
+      if (!synced) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Hay renglones sin sincronizar. Verifica conexión e intenta de nuevo.',
+            ),
+          ),
+        );
+        return;
+      }
 
       final cierreContext =
           await ref.read(pagoCotizacionApiProvider).fetchContext(widget.idfol);
       if (!mounted) return;
-
-      final selectedTipo = await _showTipoCierreDialog(context);
-      if (selectedTipo == null || !mounted) return;
 
       final rqfacDefault =
           selectedTipo == 'CA' ? false : cierreContext.rqfacDefault;
@@ -1298,6 +1344,11 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
                 leading: const Icon(Icons.sell_outlined),
                 title: const Text('VF - Venta Finalizada'),
                 onTap: () => Navigator.of(ctx).pop('VF'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.save_as_outlined),
+                title: const Text('Guardar como pendiente'),
+                onTap: () => Navigator.of(ctx).pop('PENDIENTE'),
               ),
             ],
           ),

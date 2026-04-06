@@ -54,10 +54,18 @@ class CotizacionesApi {
     return PvCtrFolAsvrModel.fromJson(Map<String, dynamic>.from(res.data as Map));
   }
 
-  Future<PvCtrFolAsvrModel> createCotizacionAuto({String? ter}) async {
+  Future<PvCtrFolAsvrModel> createCotizacionAuto({
+    String? ter,
+    String? suc,
+    String? opv,
+  }) async {
     final payload = <String, dynamic>{};
     final terTrim = (ter ?? '').trim();
+    final sucTrim = (suc ?? '').trim();
+    final opvTrim = (opv ?? '').trim();
     if (terTrim.isNotEmpty) payload['TER'] = terTrim;
+    if (sucTrim.isNotEmpty) payload['SUC'] = sucTrim;
+    if (opvTrim.isNotEmpty) payload['OPV'] = opvTrim;
     final res = await dio.post('/pvctrfolasvr/auto', data: payload);
     return PvCtrFolAsvrModel.fromJson(Map<String, dynamic>.from(res.data as Map));
   }

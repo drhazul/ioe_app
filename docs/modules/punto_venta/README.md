@@ -8,6 +8,13 @@ Enlaces relacionados:
 - AGENTS de este módulo: `docs/modules/punto_venta/AGENTS.md`
 - Otros módulos vinculados: `docs/modules/base_modulos/README.md`, `docs/modules/core_seguridad/README.md`, `docs/modules/ordenes_trabajo/README.md`
 
+## Facturación: edición fiscal de cliente (2026-04-06)
+- Pantallas:
+- `lib/features/modulos/facturacion/factura_mtto_cliente_page.dart`
+- `lib/features/modulos/facturacion/facturacion_page.dart` (diálogo `Edición de datos fiscales del cliente`)
+- Regla UI:
+- al guardar edición fiscal no se envía `SUC` en payload; la sucursal del cliente se conserva del registro original.
+
 ## Estado de Cajón OPV (nuevo flujo 2026-03)
 - Ruta:
 - `/estado-cajon`
@@ -151,11 +158,11 @@ Enlaces relacionados:
 - Al presionar `Agregar`:
 - primero se confirma la creacion de nueva cotizacion.
 - si se confirma, se abre modal de busqueda/seleccion de cliente.
-- La seleccion de cliente se limita a la sucursal del usuario logueado.
-- Compatibilidad admin multi-sucursal (2026-03-21): cuando `admin` cambia `SUC` en panel (cotizaciones/PS), la carga de clientes depende de `GET /factclientshp`; backend reconoce admin por `username='ADMIN'` y/o `ADMIN_ROLE_IDS`/`ADMIN_NIVELES` para no restringir el catálogo a `user.suc`.
+- La seleccion de cliente se limita a la sucursal activa del panel (si es admin usa `SUC` seleccionada; en no-admin usa `SUC` del JWT).
+- Compatibilidad admin multi-sucursal (2026-04-06): cuando `admin` cambia `SUC/OPV` en panel de cotizaciones, la carga de clientes usa `GET /factclientshp?suc=<SUC>` para devolver únicamente clientes de la sucursal elegida.
 - Secuencia API:
-- `GET /factclientshp` para cargar clientes y filtrar por SUC.
-- `POST /pvctrfolasvr/auto` para crear folio.
+- `GET /factclientshp?suc=<SUC>` para cargar catálogo de clientes de la sucursal activa.
+- `POST /pvctrfolasvr/auto` para crear folio (`admin` envía `SUC/OPV` seleccionados; no-admin conserva contexto JWT).
 - `PATCH /pvctrfolasvr/:idfol` para asignar `CLIEN` al folio creado.
 - Correccion de integracion (2026-02): cuando `CLIEN` supera el rango `int32`, backend trata `PV_CTR_FOL_ASVR.CLIEN` como `float` para evitar error `500` al asignar cliente en este flujo.
 

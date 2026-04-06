@@ -136,6 +136,18 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
         titleSpacing: 8,
         title: _buildAppBarTitle(selectedItem),
         actions: [
+          if (panelData != null && _canAccessViewDetail(panelData))
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: TextButton.icon(
+                onPressed: _canOpenViewDetailFromAppBar(selectedItem, panelData)
+                    ? () => _openSelectedDetailFromAppBar(selectedItem, panelData)
+                    : null,
+                style: _appBarActionButtonStyle(),
+                icon: const Icon(Icons.info_outline),
+                label: const Text('Ver detalle'),
+              ),
+            ),
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: TextButton.icon(
@@ -624,39 +636,9 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       );
     }
 
-    if (widget.panelMode == OrdenesTrabajoPanelMode.anulados) {
-      actions.add(
-        _OrdenTrabajoToolbarAction(
-          label: 'VER DETALLE',
-          icon: Icons.info_outline,
-          enabled: hasSingleSelection,
-          onPressed: () {
-            if (!hasSingleSelection) {
-              _showError('Selecciona una ORD anulada para ver detalle.');
-              return;
-            }
-            _showDetail(selected.iord, panel);
-          },
-        ),
-      );
-      return actions;
-    }
+    if (widget.panelMode == OrdenesTrabajoPanelMode.anulados) return actions;
 
     if (widget.panelMode == OrdenesTrabajoPanelMode.entregadas) {
-      actions.add(
-        _OrdenTrabajoToolbarAction(
-          label: 'VER DETALLE',
-          icon: Icons.info_outline,
-          enabled: hasSingleSelection,
-          onPressed: () {
-            if (!hasSingleSelection) {
-              _showError('Selecciona una ORD entregada para ver detalle.');
-              return;
-            }
-            _showDetail(selected.iord, panel);
-          },
-        ),
-      );
       actions.add(
         _OrdenTrabajoToolbarAction(
           label: 'Garantia',
@@ -676,14 +658,6 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       return actions;
     }
 
-    addAction(
-      action: 'VER_DETALLE',
-      label: 'VER DETALLE',
-      icon: Icons.info_outline,
-      requiresSelection: true,
-      requiresSingleSelection: true,
-      onPressed: () => _showDetail(selected!.iord, panel),
-    );
     addAction(
       action: 'AUTORIZAR',
       label: 'AUTORIZAR',
@@ -766,6 +740,45 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     }
 
     return actions;
+  }
+
+  bool _canAccessViewDetail(OrdenTrabajoPanelResponse panel) {
+    if (widget.panelMode != OrdenesTrabajoPanelMode.operativo) return true;
+    return _isAdmin || panel.allowedActions.contains('VER_DETALLE');
+  }
+
+  bool _canOpenViewDetailFromAppBar(
+    OrdenTrabajoItem? selected,
+    OrdenTrabajoPanelResponse? panel,
+  ) {
+    if (panel == null || !_canAccessViewDetail(panel)) return false;
+    return _selectedIords.length == 1 && selected != null;
+  }
+
+  String _viewDetailSelectionHint() {
+    if (widget.panelMode == OrdenesTrabajoPanelMode.anulados) {
+      return 'Selecciona una ORD anulada para ver detalle.';
+    }
+    if (widget.panelMode == OrdenesTrabajoPanelMode.entregadas) {
+      return 'Selecciona una ORD entregada para ver detalle.';
+    }
+    return 'Selecciona una sola ORD para ver detalle.';
+  }
+
+  void _openSelectedDetailFromAppBar(
+    OrdenTrabajoItem? selected,
+    OrdenTrabajoPanelResponse? panel,
+  ) {
+    if (panel == null) return;
+    if (!_canAccessViewDetail(panel)) {
+      _showError('Tu usuario no tiene permiso para ver detalle.');
+      return;
+    }
+    if (_selectedIords.length != 1 || selected == null) {
+      _showError(_viewDetailSelectionHint());
+      return;
+    }
+    _showDetail(selected.iord, panel);
   }
 
   Future<void> _showOpcionesTrabajoDialog(
@@ -2022,6 +2035,15 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     return _selectedFilterSuc;
   }
 
+  String _resolveColaboradorSuc({String? preferredSuc}) {
+    final candidates = <String?>[preferredSuc, _selectedFilterSuc, _userSuc];
+    for (final candidate in candidates) {
+      final normalized = (candidate ?? '').trim().toUpperCase();
+      if (normalized.isNotEmpty) return normalized;
+    }
+    return '';
+  }
+
   List<DropdownMenuItem<String>> _buildSucursalFilterItems(
     OrdenTrabajoPanelResponse panel,
   ) {
@@ -2247,10 +2269,11 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
           !canEditDetail;
       final allowedActions = panel?.allowedActions ?? const <String>{};
       bool can(String action) => _isAdmin || allowedActions.contains(action);
+      final isRegresoFlow =
+          _isFlowStatus(flujoCode, 9.1) || _isFlowStatus(flujoCode, 9.2);
       final showCambioMaterialBtn =
-          _isFlowStatus(flujoCode, 9.1) && tipom == 1 && can('CAMBIO_MATERIAL');
-      final showMermaBtn =
-          _isFlowStatus(flujoCode, 9.1) && tipom == 2 && can('MERMA');
+          isRegresoFlow && tipom == 1 && can('CAMBIO_MATERIAL');
+      final showMermaBtn = isRegresoFlow && tipom == 2 && can('MERMA');
 
       Future<bool> saveCurrentDetail({required bool showSuccessMessage}) async {
         try {
@@ -2393,22 +2416,14 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                                       ],
                                       onChanged: (value) {
                                         setDialogState(() {
-                                          selectedTipo = value ?? selectedTipo;
-                                          final compatibles =
-                                              _laboratoriosDetallePorTipo(
-                                                laboratorios,
-                                                selectedTipo,
-                                                sucOrd,
-                                                selectedLab,
-                                              );
-                                          if (compatibles.isNotEmpty &&
-                                              !compatibles.any(
-                                                (lab) =>
-                                                    lab.id.toString() ==
-                                                    selectedLab,
-                                              )) {
-                                            selectedLab = '';
-                                          }
+                                          final nextTipo =
+                                              (value ?? selectedTipo).trim();
+                                          if (nextTipo == selectedTipo) return;
+                                          selectedTipo = nextTipo;
+                                          // Al cambiar tipo, el laboratorio se
+                                          // reinicia para forzar selección
+                                          // compatible con el nuevo tipo.
+                                          selectedLab = '';
                                         });
                                       },
                                     ),
@@ -3163,7 +3178,12 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       return;
     }
 
-    final colaborador = await _selectColaboradorDialog();
+    final selectedSucs = selectedRows
+        .map((row) => row.suc.trim().toUpperCase())
+        .where((item) => item.isNotEmpty)
+        .toSet();
+    final preferredSuc = selectedSucs.length == 1 ? selectedSucs.first : null;
+    final colaborador = await _selectColaboradorDialog(sucHint: preferredSuc);
     if (colaborador == null) return;
     final confirm = await _confirmAsignarAColaborador(
       iords.length,
@@ -3233,7 +3253,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
   Future<bool?> _confirmRegresarIncidencia(int total, {String? motivoLabel}) {
     return _confirmCambioEstatus(
       title: 'Confirmar regreso por incidencia',
-      targetStatus: '9.1 (REGRESAR POR INCIDENCIA)',
+      targetStatus: '9 (PENDIENTE RECIBIR EN ANALISTA)',
       total: total,
       extraMessage: (motivoLabel ?? '').trim().isEmpty
           ? null
@@ -3244,7 +3264,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
   Future<bool?> _confirmRegresarTienda(int total) {
     return _confirmCambioEstatus(
       title: 'Confirmar recepción en tienda',
-      targetStatus: '10 (REGRESADO A TIENDA)',
+      targetStatus: '9.1/9.2 (según TIPOM) o 10 (sin incidencia)',
       total: total,
     );
   }
@@ -3479,11 +3499,11 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     String? colaboradorId;
     List<OrdenTrabajoColaboradorOption> colaboradores =
         const <OrdenTrabajoColaboradorOption>[];
-    final colaboradorSuc = _userSuc.trim().toUpperCase();
+    final colaboradorSuc = _resolveColaboradorSuc();
 
     if (colaboradorSuc.isEmpty) {
       _showError(
-        'No se pudo determinar la sucursal base del usuario para asignar colaborador.',
+        'No se pudo determinar la sucursal para asignar colaborador. Selecciona una sucursal en el filtro del panel.',
       );
       return;
     }
@@ -4682,11 +4702,13 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     await _showEntregarRelacionDialog();
   }
 
-  Future<OrdenTrabajoColaboradorOption?> _selectColaboradorDialog() async {
-    final suc = _userSuc.trim().toUpperCase();
+  Future<OrdenTrabajoColaboradorOption?> _selectColaboradorDialog({
+    String? sucHint,
+  }) async {
+    final suc = _resolveColaboradorSuc(preferredSuc: sucHint);
     if (suc.isEmpty) {
       _showError(
-        'No se pudo determinar la sucursal base del usuario para asignar colaborador.',
+        'No se pudo determinar la sucursal para asignar colaborador. Selecciona una sucursal en el filtro del panel.',
       );
       return null;
     }
@@ -4712,8 +4734,8 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                 key: ValueKey('select-colab-$selectedId'),
                 initialValue: selectedId,
                 isExpanded: true,
-                decoration: const InputDecoration(
-                  labelText: 'Colaborador',
+                decoration: InputDecoration(
+                  labelText: 'Colaborador ($suc)',
                   border: OutlineInputBorder(),
                 ),
                 items: colaboradores

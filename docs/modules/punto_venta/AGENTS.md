@@ -7,11 +7,15 @@ Enlaces relacionados:
 - README de este módulo: `docs/modules/punto_venta/README.md`
 - Otros AGENTS relevantes: `docs/modules/base_modulos/AGENTS.md`, `docs/modules/core_seguridad/AGENTS.md`, `docs/modules/ordenes_trabajo/AGENTS.md`
 
+## Facturación: edición fiscal de cliente (2026-04-06)
+- En `FACTURA_MTTOCLIENTE` y en el diálogo de validación de facturación, los updates de cliente fiscal no deben enviar `SUC`.
+- La sucursal original del cliente se considera inmutable durante la edición fiscal.
+
 ## Punto de venta: alta de cotizacion desde panel
 - En `CotizacionesPage`, al presionar `Agregar` primero se confirma la creacion y, al aceptar, se abre un segundo modal para buscar/seleccionar cliente.
-- El modal de cliente filtra por la sucursal del usuario logueado (SUC del contexto JWT).
-- Compatibilidad admin multi-sucursal (2026-03-21): cuando `admin` cambia `SUC` en panel (cotizaciones/PS), el modal de clientes depende de `GET /factclientshp`; backend reconoce admin por `username='ADMIN'` y/o `ADMIN_ROLE_IDS`/`ADMIN_NIVELES` para no limitar clientes a `user.suc` en esos casos.
-- Al crear (`POST /pvctrfolasvr/auto`) se asigna el cliente seleccionado con `PATCH /pvctrfolasvr/:idfol` enviando `CLIEN`.
+- El modal de cliente filtra por la sucursal activa del panel (`SUC` seleccionada por admin o `SUC` del usuario no-admin).
+- Compatibilidad admin multi-sucursal (2026-04-06): cuando `admin` cambia `SUC/OPV` en panel de cotizaciones, el modal consulta `GET /factclientshp?suc=<SUC>` y muestra únicamente clientes de esa sucursal.
+- Al crear (`POST /pvctrfolasvr/auto`) se envía contexto `SUC/OPV` del panel para admin (en no-admin se conserva contexto JWT) y después se asigna el cliente con `PATCH /pvctrfolasvr/:idfol` enviando `CLIEN`.
 - Correccion de integracion (2026-02): para IDs de cliente mayores a `2,147,483,647`, backend mapea `PV_CTR_FOL_ASVR.CLIEN` como `float` (no `int`) para evitar `500 EPARAM` al asignar cliente en el alta.
 
 ## Punto de venta: edicion de precio en detalle de cotizacion

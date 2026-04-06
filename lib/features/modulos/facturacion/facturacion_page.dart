@@ -3657,8 +3657,6 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
                       ? null
                       : domicilioCtrl.text.trim(),
                   'NCEL': ncelCtrl.text.trim().isEmpty ? null : ncelCtrl.text.trim(),
-                  if (_asCleanText(cliente['SUC']).isNotEmpty)
-                    'SUC': _asCleanText(cliente['SUC']),
                 };
                 try {
                   await api.actualizarClienteFiscal(clienteId, payload);
