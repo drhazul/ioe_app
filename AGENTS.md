@@ -21,7 +21,9 @@
 - Punto de venta / Pago de Servicios (2026-04): el cierre operativo al salir de pago usa `ESTA='CERRADO_PS'` (compatibilidad de lectura para históricos en `TRANSMITIR`).
 - Facturación / Cliente fiscal (2026-04-06): en edición de datos fiscales (módulo `FACTURA_MTTOCLIENTE` y diálogo de validación) la `SUC` del cliente es inmutable; no se envía `SUC` desde frontend al actualizar.
 - Ordenes de trabajo / Asignar (2026-04-05): para usuario `admin`, la selección de colaborador toma la sucursal elegida en el filtro del panel ORDs (prioriza sucursal de ORDs seleccionadas cuando aplica), evitando usar por defecto la sucursal base del token.
-- Ordenes de trabajo / Incidencia (2026-04-05): el flujo `Regresar incidencia` mantiene contrato UI/API y se estabiliza con ajuste de SP backend (`sp_ordenes_trabajo_regresar_incidencia_lote`) para cambios `9 -> 9.1` con motivo.
+- Ordenes de trabajo / Incidencia (2026-04-07): `Regresar incidencia` valida `ESTSEGU=8` con colaborador asignado y cambia a `ESTSEGU=9`; `Regresar a tienda` desde `9` decide `9.1/9.2` por `TIPOM`.
+- Ordenes de trabajo / Cambio material y Merma (2026-04-08): el modal de detalle usa `GET/POST /ordenes-trabajo/:iord/cambio-merma/*` para contexto/preparación/autorización/creación con `selCtrlOrd` (`NULL/0/13/14/15/16`), `CTD_C_M` (`1|0.5`), resumen enriquecido y cálculo homologado (`subtotal/iva/total/diferencia`).
+- Ordenes de trabajo / Cambio material y Merma (2026-04-09): la captura refleja cálculo homologado a cotizaciones abiertas usando tipo/fiscalidad del folio origen (`AUT/ORIGEN_AUT`, `REQF/RQFAC`) junto con `DAT_SUC.IVA_INTEGRADO`.
 
 ## Documentación por módulos
 - Base de módulos: `docs/modules/base_modulos/AGENTS.md` (README: `docs/modules/base_modulos/README.md`)

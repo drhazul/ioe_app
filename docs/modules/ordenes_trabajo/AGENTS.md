@@ -11,6 +11,7 @@
 - `lib/features/home/home_page.dart` resuelve módulos de taller (`DAT_JAO_ORD`, `DAT_JAO_ORDS`, `DAT_JAO_TALLER`, `DAT_JAO_BISEL`) hacia la ruta.
 - Endpoints consumidos:
 - `GET /ordenes-trabajo`, `GET /ordenes-trabajo/:iord`, `GET /ordenes-trabajo/:iord/detalle`.
+- `GET /ordenes-trabajo/:iord/cambio-merma/context?tipo=1|2`, `POST /ordenes-trabajo/:iord/cambio-merma/preparar`, `POST /ordenes-trabajo/:iord/cambio-merma/solicitar-autorizacion`, `POST /ordenes-trabajo/:iord/cambio-merma/crear`.
 - `POST /ordenes-trabajo/:iord/autorizar|enviar|recibir|entregar|garantia|cambio-material|merma`.
 - `POST /ordenes-trabajo/enviar/validar`, `POST /ordenes-trabajo/enviar/lote`.
 - `GET /ordenes-trabajo/asignar/colaboradores`, `POST /ordenes-trabajo/asignar/validar`, `POST /ordenes-trabajo/asignar/lote`.
@@ -35,11 +36,12 @@
 - panel ORD UI (2026-03-30): el modal `DETALLE DE ORDEN DE TRABAJO` y la impresión de etiqueta fuerzan el orden `OD`, `OI`, `ADD` en `JOB/ESF/CIL/EJE`; `JOB` queda bloqueado sin foco/edición, `ESF/CIL/EJE` mantienen navegación por campos y el bloque se muestra en negritas con fuente mayor.
 - panel ORD UI (2026-03-30): el modal `DETALLE DE ORDEN DE TRABAJO` agrega botón `Imprimir etiqueta` cuando el rol tiene permiso `IMPRIMIR_ETIQUETA`.
 - panel ORD UI (2026-04-05): en `Asignar a colaborador`, cuando el usuario es `admin`, la carga de colaboradores usa primero la sucursal seleccionada en el filtro del panel (y no la sucursal base del token); si hay selección en grilla, se prioriza la sucursal de esas ORDs.
-- panel ORD incidencia (2026-04-05): `Regresar incidencia` corrige error backend de argumentos (`sp_ordenes_trabajo_regresar_incidencia_lote`) al confirmar el cambio a `9.1`; no requiere ajuste de contrato en frontend.
+- panel ORD incidencia (2026-04-05): `Regresar incidencia` corrige error backend de argumentos (`sp_ordenes_trabajo_regresar_incidencia_lote`) y mantiene contrato frontend con motivo `tipom`.
 - Home ORDs (2026-03-24): `home_page.dart` agrega accesos directos a `Enviar`, `Asignar`, `Regresar a tienda`, `Recibir` y `Entregar`; se muestran solo cuando `GET /ordenes-trabajo` devuelve el permiso correspondiente en `allowedActions`.
 - Home ORDs (2026-03-24): `router.dart` registra `/taller/ordenes-trabajo/enviar|asignar|regresar-tienda|recibir|entregar` como páginas standalone (`ordenes_trabajo_action_page.dart`) para operación directa sin mostrar el panel principal ni navegar hacia él.
 - Home ORDs (2026-03-24): las páginas standalone replican la estructura y validaciones de los popups del panel (`captura/escaneo`, validación de estado, relación de ORDs, confirmación y transición de `ESTSEGU`), mientras `ordenes_trabajo_page.dart` conserva intactos los botones y mensajes emergentes del panel.
 - Home ORDs (2026-03-24): la página directa de `Entregar` exige firma digital del cliente y reutiliza `POST /ordenes-trabajo/:iord/entregar` por cada ORD relacionada; no requiere cambios backend, DB ni ejecución de SP adicional.
+- regla obligatoria de paridad (2026-04-07): cuando se modifique una validacion o transicion de flujo en las botoneras del panel, se debe aplicar la misma regla en los modulos equivalentes de Home (`enviar`, `asignar`, `regresar-tienda`, `recibir`, `entregar`) y validar mensajes/confirmaciones en ambos frentes en el mismo cambio.
 - matriz visible ORDs (2026-03-24): `JEF_TALLER/TALLER` conserva todo el flujo operativo e impresión; `ANALISTA_ORD/ANALISTA` solo muestra `Ver detalle`, `Autorizar`, `Enviar`, `Asignar laboratorio`, `Entregar` e `Imprimir etiqueta`; `ENC_MAQUILA/ENCARGADO_MAQUILA/ENC_BISEL/ENCARGADO_BISELADO` solo muestra `Ver detalle`, `Asignar`, `Trabajo terminado`, `Regresar incidencia`, `Regresar a tienda` y `Recibir`.
 - etiqueta ORD legado (2026-03-24): `Imprimir etiqueta` usa `lib/features/modulos/taller/etiqueta/ticket_ords_legacy_layout.dart` con formato fijo `76mm x 51mm`, una etiqueta por ORD seleccionada.
 - botón `Enviar` siempre habilitado para roles con permiso `ENVIAR`; si no hay selección abre modal para digitar/escanear ORD.
@@ -54,10 +56,14 @@
 - se unifica recepción eliminando selección de destino en UI; el concepto de recibo se concentra en `Scan recibir`.
 - botón `Asignar` replica la mecánica modal de `Enviar`; valida estatus previo `7`, permite seleccionar colaborador (`PV_OPV.IDOPV` con etiqueta `NOMB+APELM+APELP`, `NIVEL=41`, misma `SUC`) y confirma cambio masivo a `ESTSEGU=8`.
 - botón `Trabajo terminado` replica la mecánica modal; valida estatus previo `8` y confirma cambio masivo a `ESTSEGU=9`.
-- botón `Regresar incidencia` replica la mecánica modal; valida estatus previo `9`, obliga seleccionar motivo desde `DAT_ORD_TMOV` y persiste `PV_CTR_ORDS.TIPOM` al confirmar cambio masivo a `ESTSEGU=9.1`.
-- botón `Regresar a tienda` replica la mecánica modal; valida estatus previo `9` y confirma cambio masivo a `ESTSEGU=10`.
+- botón `Regresar incidencia` replica la mecánica modal; valida estatus previo `8` con colaborador asignado, obliga seleccionar motivo desde `DAT_ORD_TMOV` y persiste `PV_CTR_ORDS.TIPOM` al confirmar cambio masivo a `ESTSEGU=9`.
+- botón `Regresar a tienda` replica la mecánica modal; valida estatus previo `9` y confirma recepción en tienda con mapeo fijo por `TIPOM`: `1 -> ESTSEGU=9.1`, `2 -> ESTSEGU=9.2`, sin `TIPOM` válido -> `ESTSEGU=10`.
 - botón `Asignar laboratorio` opera en lote sobre ORDs seleccionadas para asignar `LABOR` desde catálogo `DAT_LAB` (misma sucursal).
 - columna `Asignado` del panel muestra el label del colaborador (`PV_OPV.NOMB + APELM + APELP`) en lugar del `IDOPV` crudo.
 - los botones `Cambio material` y `Merma` se mueven al modal `DETALLE DE ORDEN DE TRABAJO`; solo aparecen cuando la ORD está en flujo `9.1` y se muestra el botón correspondiente según `TIPOM` (`1=CAMBIO DE ARTICULO`, `2=MERMA DE ART Y CAMBIO`).
+- cambio/merma UI (2026-04-08): el modal invierte visualización (izquierda `Resumen ORD original`, derecha `Nueva ORD`) y consume contexto enriquecido (`DESCFLUJO`, `DESAUTO`, `PVTAT_BASE`, `CTD_C_M`).
+- cambio/merma UI (2026-04-08): flujo interno por `selCtrlOrd` (`NULL/0/13/15` editable, `14` bloqueado, `16` habilita `Crear nueva ORD`) con pasos separados `Editar nueva ORD -> Solicitar autorización -> Crear nueva ORD`.
+- cambio/merma UI (2026-04-08): la captura usa `CTD_C_M` restringido a `1|0.5`, muestra `Subtotal/IVA/Total` + `Diferencia económica`, y mantiene `Buscar Articulo para cambiar` reutilizando `DAT_ART`.
+- cambio/merma UI (2026-04-09): el cálculo mostrado depende de `DAT_SUC.IVA_INTEGRADO` + fiscalidad/tipo del folio origen (`REQF/RQFAC`, `AUT/ORIGEN_AUT`), sin inferir `tipotran` por el texto de `IDFOL`.
 - el botón `Garantia` deja de mostrarse en el panel operativo; queda reservado para el panel de entregadas (`DAT_JAO_ORD_ENTREGADAS`, estado `11`).
 

@@ -275,6 +275,31 @@ class OrdenTrabajoIncidenciaOption {
   }
 }
 
+class OrdenTrabajoMotivoMovimientoOption {
+  OrdenTrabajoMotivoMovimientoOption({
+    required this.id,
+    required this.label,
+    required this.tipo,
+    required this.responsable,
+  });
+
+  final int id;
+  final String label;
+  final int tipo;
+  final String responsable;
+
+  factory OrdenTrabajoMotivoMovimientoOption.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    return OrdenTrabajoMotivoMovimientoOption(
+      id: _toInt(json['id']) ?? 0,
+      label: _toText(json['label']) ?? '',
+      tipo: _toInt(json['tipo']) ?? 0,
+      responsable: _toText(json['responsable']) ?? '',
+    );
+  }
+}
+
 class OrdenTrabajoLaboratorioOption {
   OrdenTrabajoLaboratorioOption({
     required this.id,
@@ -385,6 +410,74 @@ class OrdenTrabajoDetalleResponse {
           .whereType<Map>()
           .map((item) => Map<String, dynamic>.from(item))
           .toList(growable: false),
+    );
+  }
+}
+
+class OrdenTrabajoCambioMermaContext {
+  OrdenTrabajoCambioMermaContext({
+    required this.tipo,
+    required this.selCtrlOrd,
+    required this.editable,
+    required this.blockedByAuthorization,
+    required this.canCreateNewOrd,
+    required this.autoAutorizada,
+    required this.message,
+    required this.subtotalOriginal,
+    required this.ivaOriginal,
+    required this.totalOriginal,
+    required this.subtotalNuevo,
+    required this.ivaNuevo,
+    required this.totalNuevo,
+    required this.diferenciaEconomica,
+    required this.generaAfectacionContable,
+    required this.original,
+    required this.draft,
+  });
+
+  final int tipo;
+  final int? selCtrlOrd;
+  final bool editable;
+  final bool blockedByAuthorization;
+  final bool canCreateNewOrd;
+  final bool autoAutorizada;
+  final String message;
+  final double subtotalOriginal;
+  final double ivaOriginal;
+  final double totalOriginal;
+  final double subtotalNuevo;
+  final double ivaNuevo;
+  final double totalNuevo;
+  final double diferenciaEconomica;
+  final bool generaAfectacionContable;
+  final Map<String, dynamic> original;
+  final Map<String, dynamic> draft;
+
+  factory OrdenTrabajoCambioMermaContext.fromJson(Map<String, dynamic> json) {
+    final rawOriginal = json['original'];
+    final rawDraft = json['draft'];
+    return OrdenTrabajoCambioMermaContext(
+      tipo: _toInt(json['tipo']) ?? 0,
+      selCtrlOrd: _toInt(json['selCtrlOrd']),
+      editable: json['editable'] == true,
+      blockedByAuthorization: json['blockedByAuthorization'] == true,
+      canCreateNewOrd: json['canCreateNewOrd'] == true,
+      autoAutorizada: json['autoAutorizada'] == true,
+      message: _toText(json['message']) ?? '',
+      subtotalOriginal: _toDouble(json['subtotalOriginal']) ?? 0,
+      ivaOriginal: _toDouble(json['ivaOriginal']) ?? 0,
+      totalOriginal: _toDouble(json['totalOriginal']) ?? 0,
+      subtotalNuevo: _toDouble(json['subtotalNuevo']) ?? 0,
+      ivaNuevo: _toDouble(json['ivaNuevo']) ?? 0,
+      totalNuevo: _toDouble(json['totalNuevo']) ?? 0,
+      diferenciaEconomica: _toDouble(json['diferenciaEconomica']) ?? 0,
+      generaAfectacionContable: json['generaAfectacionContable'] == true,
+      original: rawOriginal is Map
+          ? Map<String, dynamic>.from(rawOriginal)
+          : <String, dynamic>{},
+      draft: rawDraft is Map
+          ? Map<String, dynamic>.from(rawDraft)
+          : <String, dynamic>{},
     );
   }
 }

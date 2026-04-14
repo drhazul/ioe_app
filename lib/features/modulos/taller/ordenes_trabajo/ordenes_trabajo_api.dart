@@ -28,6 +28,83 @@ class OrdenesTrabajoApi {
     );
   }
 
+  Future<OrdenTrabajoCambioMermaContext> fetchCambioMermaContext(
+    String iord, {
+    required int tipo,
+  }) async {
+    final res = await dio.get(
+      '/ordenes-trabajo/${Uri.encodeComponent(iord)}/cambio-merma/context',
+      queryParameters: {'tipo': tipo},
+    );
+    return OrdenTrabajoCambioMermaContext.fromJson(
+      Map<String, dynamic>.from(res.data as Map),
+    );
+  }
+
+  Future<OrdenTrabajoCambioMermaContext> prepararCambioMerma(
+    String iord, {
+    required int tipo,
+    double? ctdCM,
+  }) async {
+    final res = await dio.post(
+      '/ordenes-trabajo/${Uri.encodeComponent(iord)}/cambio-merma/preparar',
+      data: {
+        'tipo': tipo,
+        if (ctdCM != null) 'ctdCM': ctdCM,
+      },
+    );
+    return OrdenTrabajoCambioMermaContext.fromJson(
+      Map<String, dynamic>.from(res.data as Map),
+    );
+  }
+
+  Future<OrdenTrabajoCambioMermaContext> solicitarAutorizacionCambioMerma(
+    String iord, {
+    required int tipo,
+    required double ctdCM,
+    String? artNuevo,
+    String? motivo,
+    int? motr,
+    int? labor,
+    String? docDif,
+    bool? crearNuevaOrd,
+  }) async {
+    final cleanArtNuevo = (artNuevo ?? '').trim();
+    final cleanMotivo = (motivo ?? '').trim();
+    final cleanDocDif = (docDif ?? '').trim();
+    final res = await dio.post(
+      '/ordenes-trabajo/${Uri.encodeComponent(iord)}/cambio-merma/solicitar-autorizacion',
+      data: {
+        'tipo': tipo,
+        'ctdCM': ctdCM,
+        if (cleanArtNuevo.isNotEmpty) 'artNuevo': cleanArtNuevo,
+        if (cleanMotivo.isNotEmpty) 'motivo': cleanMotivo,
+        if (motr != null) 'motr': motr,
+        if (labor != null) 'labor': labor,
+        if (cleanDocDif.isNotEmpty) 'docDif': cleanDocDif,
+        if (crearNuevaOrd != null) 'crearNuevaOrd': crearNuevaOrd,
+      },
+    );
+    return OrdenTrabajoCambioMermaContext.fromJson(
+      Map<String, dynamic>.from(res.data as Map),
+    );
+  }
+
+  Future<OrdenTrabajoActionResult> crearCambioMerma(
+    String iord, {
+    required int tipo,
+    double? ctdCM,
+  }) async {
+    final res = await dio.post(
+      '/ordenes-trabajo/${Uri.encodeComponent(iord)}/cambio-merma/crear',
+      data: {
+        'tipo': tipo,
+        if (ctdCM != null) 'ctdCM': ctdCM,
+      },
+    );
+    return _actionFrom(res);
+  }
+
   Future<OrdenTrabajoDetalleResponse> saveDetail(
     String iord, {
     int? labor,
@@ -246,6 +323,26 @@ class OrdenesTrabajoApi {
     );
   }
 
+  Future<List<OrdenTrabajoMotivoMovimientoOption>> fetchMotivosMovimiento({
+    required int tipo,
+  }) async {
+    final res = await dio.get(
+      '/ordenes-trabajo/motivos-movimiento',
+      queryParameters: {'tipo': tipo},
+    );
+    final map = Map<String, dynamic>.from(res.data as Map);
+    final rawItems = (map['items'] as List?) ?? const [];
+    return rawItems
+        .whereType<Map>()
+        .map(
+          (item) => OrdenTrabajoMotivoMovimientoOption.fromJson(
+            Map<String, dynamic>.from(item),
+          ),
+        )
+        .where((item) => item.id > 0 && item.label.trim().isNotEmpty)
+        .toList(growable: false);
+  }
+
   Future<OrdenTrabajoActionResult> enviarLote(List<String> iords) async {
     final normalized = iords
         .map((item) => item.trim().toUpperCase())
@@ -416,6 +513,7 @@ class OrdenesTrabajoApi {
     String iord, {
     required String artNuevo,
     required String motivo,
+    int? motr,
     double? labor,
     String? docDif,
   }) async {
@@ -425,6 +523,7 @@ class OrdenesTrabajoApi {
       data: {
         'artNuevo': artNuevo.trim(),
         'motivo': motivo.trim(),
+        if (motr != null) 'motr': motr,
         if (labor != null) 'labor': labor,
         if (docDifValue.isNotEmpty) 'docDif': docDifValue,
       },
@@ -436,6 +535,7 @@ class OrdenesTrabajoApi {
     String iord, {
     required double cantidadMerma,
     required String motivo,
+    int? motr,
     bool crearNuevaOrd = true,
   }) async {
     final res = await dio.post(
@@ -443,6 +543,7 @@ class OrdenesTrabajoApi {
       data: {
         'cantidadMerma': cantidadMerma,
         'motivo': motivo.trim(),
+        if (motr != null) 'motr': motr,
         'crearNuevaOrd': crearNuevaOrd,
       },
     );

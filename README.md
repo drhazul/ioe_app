@@ -11,7 +11,9 @@ Frontend Flutter del ecosistema IOE. Consume `ioe-api` para autenticación, maes
 - Punto de venta / Pago de Servicios (2026-04): la salida operativa de folios pagados utiliza `ESTA='CERRADO_PS'` (con lectura compatible de históricos en `TRANSMITIR`).
 - Facturación / Mantenimiento y validación cliente (2026-04-06): al editar datos fiscales de cliente se conserva la `SUC` original del registro; el frontend ya no envía `SUC` en la edición desde validación.
 - Ordenes de trabajo / Asignar (2026-04-05): cuando el usuario es `admin`, el catálogo de colaboradores se consulta por la sucursal seleccionada en el filtro del panel ORDs (con prioridad a la sucursal de ORDs seleccionadas cuando aplique).
-- Ordenes de trabajo / Incidencia (2026-04-05): el flujo de regreso por incidencia (`9 -> 9.1`) conserva contrato frontend y depende de fix aplicado al SP backend para motivo (`TIPOM`).
+- Ordenes de trabajo / Incidencia (2026-04-07): el flujo de regreso por incidencia valida `ESTSEGU=8` con colaborador asignado y confirma transición a `ESTSEGU=9` (pendiente recibir en analista); la recepción en tienda resuelve `9.1/9.2` según `TIPOM`.
+- Ordenes de trabajo / Cambio material y Merma (2026-04-08): el modal opera con semáforo interno `selCtrlOrd` (`NULL/0/13/14/15/16`) y flujo separado `Editar nueva ORD -> Solicitar autorización -> Crear nueva ORD`; muestra resumen enriquecido de origen + captura derivada con `Subtotal/IVA/Total`, `Diferencia económica` y `CTD_C_M` (`1|0.5`).
+- Ordenes de trabajo / Cambio material y Merma (2026-04-09): el cálculo mostrado en captura toma fiscalidad del folio origen (`REQF/RQFAC`, `AUT/ORIGEN_AUT`) además de `DAT_SUC.IVA_INTEGRADO`, corrigiendo casos donde `PV_CTR_ORDS.RQFAC` está `NULL`.
 - Notas de documentación viva: este README solo debe cambiarse cuando se agreguen/modifiquen módulos, rutas o datos de arquitectura/base (no para ajustes locales de pantalla). Otros cambios funcionales van al README/AGENTS del módulo afectado.
 
 ## Arquitectura general

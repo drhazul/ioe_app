@@ -822,11 +822,11 @@ extension on OrdenesTrabajoInitialAction {
   String get helperText {
     switch (this) {
       case OrdenesTrabajoInitialAction.enviar:
-        return 'Captura o escanea una ORD para validarla en estatus 3 (NUEVA AUTORIZADA) y relacionarla para envío.';
+        return 'Captura o escanea una ORD para validarla en estatus 3 (NUEVA AUTORIZADA) y relacionarla para envío. La ORD debe tener laboratorio asignado.';
       case OrdenesTrabajoInitialAction.asignar:
         return 'Captura o escanea una ORD para validarla en estatus 7 (RECIBIDA A TALLER) y asignar colaborador.';
       case OrdenesTrabajoInitialAction.regresarTienda:
-        return 'Captura o escanea una ORD para validarla en estatus 9 (TRABAJO TERMINADO) y recibirla en tienda. Si tiene TIPOM, pasará a 9.1 o 9.2 según corresponda.';
+        return 'Captura o escanea una ORD para validarla en estatus 9 (TRABAJO TERMINADO) y recibirla en tienda. Mapeo: TIPOM=1 -> 9.1, TIPOM=2 -> 9.2.';
       case OrdenesTrabajoInitialAction.recibir:
         return 'Captura o escanea una ORD para validarla en estatus 5 (ENTREGADA A MAQ O BISEL) y recibirla en taller.\n\n$_recibirRolHint';
       case OrdenesTrabajoInitialAction.entregar:
@@ -882,7 +882,7 @@ extension on OrdenesTrabajoInitialAction {
   String get validateFallbackError {
     switch (this) {
       case OrdenesTrabajoInitialAction.enviar:
-        return 'No se pudo validar la ORD. Debe estar en estatus 3.';
+        return 'No se pudo validar la ORD. Debe estar en estatus 3 y tener laboratorio asignado.';
       case OrdenesTrabajoInitialAction.asignar:
         return 'No se pudo validar la ORD. Debe estar en estatus 7 (RECIBIDA A TALLER).';
       case OrdenesTrabajoInitialAction.regresarTienda:
@@ -931,7 +931,7 @@ extension on OrdenesTrabajoInitialAction {
       case OrdenesTrabajoInitialAction.asignar:
         return '8';
       case OrdenesTrabajoInitialAction.regresarTienda:
-        return '9.1 / 9.2 (según TIPOM) o 10';
+        return 'TIPOM=1 -> 9.1, TIPOM=2 -> 9.2, o 10';
       case OrdenesTrabajoInitialAction.recibir:
         return '7';
       case OrdenesTrabajoInitialAction.entregar:

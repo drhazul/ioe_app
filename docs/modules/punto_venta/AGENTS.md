@@ -61,6 +61,7 @@ Enlaces relacionados:
 - `DELETE /pv/refdetalle/:idref`
 - Dependencia backend de cierre:
 - `POST /pv/cotizaciones/:idfol/cierre` se procesa en API via `dbo.sp_pv_cotizacion_cerrar`; si ese SP no existe, backend responde `409` indicando ejecutar `ioe-api/sql/sp_pv_cotizacion_cerrar_create.sql`.
+- en cierre exitoso, backend sincroniza `PV_CTR_ORDS.RQFAC` con `REQF/RQFAC` del folio final al pasar la ORD a `ESTATUS=2`.
 - el backend resuelve el folio de pago por `IDFOL` actual o `IDFOLINICIAL`; esto mantiene compatibilidad cuando el cierre cambia el folio visible de `CP` a `CA/VF`.
 - En fallos de validacion SQL del SP de cierre, backend responde `400/409` con mensaje de negocio (en lugar de `500` por abortos transaccionales internos).
 - Totales y validaciones criticas siempre se confirman en backend (no confiar en calculo frontend).

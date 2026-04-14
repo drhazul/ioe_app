@@ -23,6 +23,10 @@ Enlaces relacionados:
 - `GET /ordenes-trabajo`
 - `GET /ordenes-trabajo/:iord`
 - `GET /ordenes-trabajo/:iord/detalle`
+- `GET /ordenes-trabajo/:iord/cambio-merma/context?tipo=1|2`
+- `POST /ordenes-trabajo/:iord/cambio-merma/preparar`
+- `POST /ordenes-trabajo/:iord/cambio-merma/solicitar-autorizacion`
+- `POST /ordenes-trabajo/:iord/cambio-merma/crear`
 - `POST /ordenes-trabajo/:iord/autorizar|enviar|recibir|entregar|garantia|cambio-material|merma`
 - `POST /ordenes-trabajo/enviar/validar`
 - `POST /ordenes-trabajo/enviar/lote`
@@ -62,6 +66,7 @@ Enlaces relacionados:
 - panel ORD UI/Home (2026-03-24): `router.dart` registra rutas directas `/taller/ordenes-trabajo/enviar|asignar|regresar-tienda|recibir|entregar` hacia páginas adicionales standalone (`ordenes_trabajo_action_page.dart`) que no muestran el panel principal ni redirigen a él.
 - panel ORD UI/Home (2026-03-24): las páginas standalone replican la mecánica de los popups del panel (`captura/escaneo`, validación de estado, lista relacionada, confirmación y cambio de `ESTSEGU`) y el panel principal conserva intactos sus botones y mensajes emergentes.
 - panel ORD UI/Home (2026-03-24): la página directa de `Entregar` agrega captura de firma digital del cliente y procesa las ORDs relacionadas una por una con `POST /ordenes-trabajo/:iord/entregar`, reutilizando el mismo contrato API sin cambios backend ni SP adicional.
+- regla de mantenimiento (2026-04-07): cualquier cambio de flujo/validacion de estado (incluyendo requisitos de laboratorio o colaborador) aplicado en botoneras del panel debe aplicarse tambien en los modulos equivalentes de Home (`/enviar`, `/asignar`, `/regresar-tienda`, `/recibir`, `/entregar`) dentro del mismo ajuste.
 - matriz botones ORD (2026-03-24): `JEF_TALLER/TALLER` conserva flujo completo e impresión; `ANALISTA_ORD/ANALISTA` ve `Ver detalle`, `Autorizar`, `Enviar`, `Asignar laboratorio`, `Entregar` e `Imprimir etiqueta`; `ENC_MAQUILA/ENCARGADO_MAQUILA/ENC_BISEL/ENCARGADO_BISELADO` ve `Ver detalle`, `Asignar`, `Trabajo terminado`, `Regresar incidencia`, `Regresar a tienda` y `Recibir`.
 - etiqueta ORD legado (2026-03-24): `Imprimir etiqueta` genera una página por ORD seleccionada con tamaño fijo `76mm x 51mm`, reutilizando `ticket_ords_legacy_layout.dart`.
 - escaneo con captura manual (lector físico por Enter) y opción de cámara (`mobile_scanner`) para recepción/entrega.
@@ -76,10 +81,16 @@ Enlaces relacionados:
 - el flujo de recepción elimina selección de destino (`TALLER/ANALISTA`) y unifica operación desde `Scan recibir`.
 - `Asignar` usa modal equivalente a `Enviar`: valida `ESTSEGU=7`, permite seleccionar colaborador (`PV_OPV.IDOPV`, etiqueta `NOMB+APELM+APELP`, `NIVEL=41`, misma sucursal) y confirma cambio a `ESTSEGU=8`.
 - `Trabajo terminado` usa modal equivalente: valida `ESTSEGU=8` y confirma cambio a `ESTSEGU=9`.
-- `Regresar incidencia` usa modal equivalente: valida `ESTSEGU=9`, obliga seleccionar motivo desde `DAT_ORD_TMOV` y confirma cambio a `ESTSEGU=9.1` persistiendo `PV_CTR_ORDS.TIPOM`.
-- `Regresar a tienda` usa modal equivalente: valida `ESTSEGU=9` y confirma cambio a `ESTSEGU=10`.
+- `Regresar incidencia` usa modal equivalente: valida `ESTSEGU=8` con colaborador asignado, obliga seleccionar motivo desde `DAT_ORD_TMOV` y confirma cambio a `ESTSEGU=9` (pendiente recibir en analista), persistiendo `PV_CTR_ORDS.TIPOM`.
+- `Regresar a tienda` usa modal equivalente: valida `ESTSEGU=9` y confirma recepción en tienda; mapeo fijo por `TIPOM`: `1 (CAMBIO DE ARTICULO) -> 9.1`, `2 (MERMA DE ART Y CAMBIO) -> 9.2`, sin `TIPOM` válido -> `10`.
 - `Asignar laboratorio` permite selección masiva en grilla para actualizar `LABOR` sobre ORDs de la misma sucursal.
 - la columna `Asignado` del panel muestra el nombre legible del colaborador (`NOMB + APELM + APELP`) en vez del `IDOPV`.
-- `Cambio material` y `Merma` ya no viven en el toolbar del panel operativo: se muestran dentro del modal de detalle únicamente cuando la ORD está en flujo `9.1` y según `TIPOM` (`1` muestra `Cambio material`, `2` muestra `Merma`).
+- `Cambio material` y `Merma` ya no viven en el toolbar del panel operativo: se muestran dentro del modal de detalle únicamente cuando la ORD está en flujo `9.1/9.2` y según `TIPOM` (`1` muestra `Cambio material`, `2` muestra `Merma`).
+- `Cambio material/Merma` (2026-04-08): ambos botones abren modal en dos zonas con distribución obligatoria `Resumen ORD original` (izquierda) y `Nueva ORD (captura)` (derecha), usando contexto enriquecido (`DESCFLUJO`, `DESAUTO`, `PVTAT_BASE`, `CTD_C_M`).
+- `Cambio material/Merma` (2026-04-08): el flujo se separa en `Editar nueva ORD` (preparar/staging, habilitado con `selCtrlOrd=NULL/0/13`, fija `selCtrlOrd=13`) -> `Solicitar autorización` (`selCtrlOrd=14` o `16` por auto-autorización) -> `Crear nueva ORD` (solo visible en `selCtrlOrd=16`).
+- `Cambio material/Merma` (2026-04-08): la captura se bloquea cuando `selCtrlOrd=14`; los cálculos se muestran como `Subtotal/IVA/Total` + `Diferencia económica`, y `CTD_C_M` se restringe visualmente a `1` o `0.5`.
+- `Cambio material/Merma` (2026-04-09): cálculo económico homologado a pago de cotizaciones usando configuración IVA de sucursal (`DAT_SUC.IVA_INTEGRADO`) y fiscalidad del folio origen (`REQF/RQFAC`, `AUT/ORIGEN_AUT`); no se infiere `tipotran` por el texto de `IDFOL`.
+- `Cambio material` (2026-04-08): mantiene `Buscar Articulo para cambiar` reutilizando `DAT_ART`, con un solo artículo activo y opción `Limpiar artículo`.
+- `Merma` (2026-04-08): conserva `Crear nueva ORD derivada` en captura y usa el mismo semáforo/autorización que cambio material.
 - `Garantia` deja de mostrarse en el panel operativo y queda reservada para el panel de entregadas con estado `11`.
 

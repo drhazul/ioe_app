@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ioe_app/core/api_error.dart';
 import 'package:ioe_app/core/dio_provider.dart';
+import 'package:ioe_app/features/modulos/catalogo/datart_models.dart';
+import 'package:ioe_app/features/modulos/catalogo/datart_providers.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -2785,38 +2787,29 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                             ),
                         ],
                       ),
-                      if (showCambioMaterialBtn || showMermaBtn) ...[
-                        const SizedBox(height: 14),
-                        Wrap(
-                          spacing: 10,
-                          runSpacing: 10,
-                          children: [
-                            if (showCambioMaterialBtn)
-                              OutlinedButton.icon(
-                                onPressed: () async {
-                                  Navigator.of(ctx).pop();
-                                  await _doCambioMaterial(ordId);
-                                },
-                                icon: const Icon(Icons.swap_horiz),
-                                label: const Text('Cambio material'),
-                              ),
-                            if (showMermaBtn)
-                              OutlinedButton.icon(
-                                onPressed: () async {
-                                  Navigator.of(ctx).pop();
-                                  await _doMerma(ordId);
-                                },
-                                icon: const Icon(Icons.warning_amber),
-                                label: const Text('Merma'),
-                              ),
-                          ],
-                        ),
-                      ],
                     ],
                   ),
                 ),
               ),
               actions: [
+                if (showCambioMaterialBtn)
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      Navigator.of(ctx).pop();
+                      await _doCambioMaterial(ordId);
+                    },
+                    icon: const Icon(Icons.swap_horiz),
+                    label: const Text('Cambio material'),
+                  ),
+                if (showMermaBtn)
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      Navigator.of(ctx).pop();
+                      await _doMerma(ordId);
+                    },
+                    icon: const Icon(Icons.warning_amber),
+                    label: const Text('Merma'),
+                  ),
                 if (canManageTipoAndPrint)
                   OutlinedButton.icon(
                     onPressed: () async {
@@ -3203,6 +3196,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       title: 'Confirmar envío a taller',
       targetStatus: '5 (ENTREGADA A MAQ O BISEL)',
       total: total,
+      extraMessage: 'Requiere laboratorio asignado en cada ORD.',
     );
   }
 
@@ -3255,16 +3249,18 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       title: 'Confirmar regreso por incidencia',
       targetStatus: '9 (PENDIENTE RECIBIR EN ANALISTA)',
       total: total,
-      extraMessage: (motivoLabel ?? '').trim().isEmpty
-          ? null
-          : 'Motivo: ${motivoLabel!.trim()}',
+      extraMessage: [
+        if ((motivoLabel ?? '').trim().isNotEmpty)
+          'Motivo: ${motivoLabel!.trim()}',
+        'Solo aplica para ORDs en estatus 8 con colaborador asignado.',
+      ].join('\n'),
     );
   }
 
   Future<bool?> _confirmRegresarTienda(int total) {
     return _confirmCambioEstatus(
       title: 'Confirmar recepción en tienda',
-      targetStatus: '9.1/9.2 (según TIPOM) o 10 (sin incidencia)',
+      targetStatus: 'TIPOM=1 -> 9.1, TIPOM=2 -> 9.2, o 10 (sin incidencia)',
       total: total,
     );
   }
@@ -3382,12 +3378,12 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       _RelacionDialogConfig(
         title: 'ORDs: Enviar a taller',
         helperText:
-            'Captura o escanea una ORD para validarla en estatus 3 (NUEVA AUTORIZADA) y relacionarla en appstate.',
+            'Captura o escanea una ORD para validarla en estatus 3 (NUEVA AUTORIZADA), con laboratorio asignado, y relacionarla en appstate.',
         submitLabel: 'Enviar a taller',
         submitIcon: Icons.outbound,
         emptySubmitError: 'No hay ORDs relacionadas para enviar.',
         validateFallbackError:
-            'No se pudo validar la ORD. Debe estar en estatus 3.',
+            'No se pudo validar la ORD. Debe estar en estatus 3 y tener laboratorio asignado.',
         executeFallbackError: 'No se pudo enviar las ORDs.',
         relacionProvider: ordenesTrabajoEnviarRelacionProvider,
         validateOrd: (code) =>
@@ -3475,7 +3471,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       _RelacionDialogConfig(
         title: 'ORDs: Recibir en tienda',
         helperText:
-            'Captura o escanea una ORD para validarla en estatus 9 (TRABAJO TERMINADO) y relacionarla en appstate para recibirla en tienda.',
+            'Captura o escanea una ORD para validarla en estatus 9 (TRABAJO TERMINADO) y relacionarla en appstate para recibirla en tienda. Mapeo: TIPOM=1 -> 9.1, TIPOM=2 -> 9.2.',
         submitLabel: 'Recibir en tienda',
         submitIcon: Icons.storefront_outlined,
         emptySubmitError: 'No hay ORDs relacionadas para recibir en tienda.',
@@ -4204,7 +4200,8 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
         _showError(
           apiErrorMessage(
             e,
-            fallback: 'No se pudo validar la ORD. Debe estar en estatus 9.',
+            fallback:
+                'No se pudo validar la ORD. Debe estar en estatus 8 y tener colaborador asignado.',
           ),
         );
       } finally {
@@ -4291,7 +4288,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Captura o escanea una ORD para validarla en estatus 9 (TRABAJO TERMINADO) y relacionarla en appstate.',
+                      'Captura o escanea una ORD para validarla en estatus 8 (ASIGNADA), con colaborador asignado, y relacionarla en appstate.',
                     ),
                     const SizedBox(height: 12),
                     Row(
@@ -4531,157 +4528,1158 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
   }
 
   Future<void> _doCambioMaterial(String iord) async {
-    final artCtrl = TextEditingController();
-    final motivoCtrl = TextEditingController();
-    final laborCtrl = TextEditingController();
-    final docCtrl = TextEditingController();
-
-    final ok = await _showSimpleForm(
-      title: 'Cambio de material',
-      childrenBuilder: (_) => [
-        TextField(
-          controller: artCtrl,
-          decoration: const InputDecoration(
-            labelText: 'Articulo nuevo',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: motivoCtrl,
-          decoration: const InputDecoration(
-            labelText: 'Motivo',
-            border: OutlineInputBorder(),
-          ),
-          minLines: 2,
-          maxLines: 3,
-        ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: laborCtrl,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(
-            labelText: 'Labor (opcional)',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: docCtrl,
-          decoration: const InputDecoration(
-            labelText: 'DOCDIF (opcional)',
-            border: OutlineInputBorder(),
-          ),
-        ),
-      ],
-      validate: () {
-        if (artCtrl.text.trim().isEmpty || motivoCtrl.text.trim().length < 3) {
-          _showError('Articulo nuevo y motivo son obligatorios.');
-          return false;
-        }
-        return true;
-      },
-    );
-    if (ok != true) return;
-
-    final labor = double.tryParse(laborCtrl.text.trim());
-    await _executeAction(
-      () => ref
-          .read(ordenesTrabajoApiProvider)
-          .cambioMaterial(
-            iord,
-            artNuevo: artCtrl.text,
-            motivo: motivoCtrl.text,
-            labor: labor,
-            docDif: docCtrl.text,
-          ),
+    await _showCambioMermaDialog(
+      iord: iord,
+      mode: _OrdCambioMermaMode.cambioMaterial,
     );
   }
 
   Future<void> _doMerma(String iord) async {
-    final cantidadCtrl = TextEditingController();
-    final motivoCtrl = TextEditingController();
-    bool crearNuevaOrd = true;
+    await _showCambioMermaDialog(
+      iord: iord,
+      mode: _OrdCambioMermaMode.merma,
+    );
+  }
 
-    final ok = await showDialog<bool>(
+  Future<void> _showCambioMermaDialog({
+    required String iord,
+    required _OrdCambioMermaMode mode,
+  }) async {
+    final api = ref.read(ordenesTrabajoApiProvider);
+    final detail = await api.fetchDetail(iord);
+    if (!mounted) return;
+    final header = detail.header;
+
+    final flujoCode = _textOf(header['ESTSEGU']);
+    final tipomValue = _parseIntLike(
+      _textOf(header['TIPOM'], fallback: _textOf(header['TPOM'])),
+    );
+    if (!_isFlowStatus(flujoCode, mode.requiredFlow) ||
+        tipomValue != mode.tipom) {
+      _showError(mode.invalidFlowMessage(iord));
+      return;
+    }
+
+    List<OrdenTrabajoMotivoMovimientoOption> motivoOptions =
+        const <OrdenTrabajoMotivoMovimientoOption>[];
+    try {
+      motivoOptions = await api.fetchMotivosMovimiento(tipo: mode.tipom);
+    } catch (_) {
+      motivoOptions = const <OrdenTrabajoMotivoMovimientoOption>[];
+    }
+    if (!mounted) return;
+
+    late OrdenTrabajoCambioMermaContext cmContext;
+    try {
+      cmContext = await api.fetchCambioMermaContext(iord, tipo: mode.tipom);
+    } catch (e) {
+      if (!mounted) return;
+      _showError(
+        apiErrorMessage(
+          e,
+          fallback: 'No se pudo cargar el contexto de cambio material/merma.',
+        ),
+      );
+      return;
+    }
+    if (!mounted) return;
+
+    Map<String, dynamic> original = cmContext.original;
+    Map<String, dynamic> draft = cmContext.draft;
+
+    final panel = ref.read(ordenesTrabajoPanelProvider).valueOrNull;
+    final laboratoriosPanel =
+        panel?.laboratorios ?? const <OrdenTrabajoLaboratorioOption>[];
+    final sucOrd = _textOf(original['SUC'], fallback: _textOf(header['SUC']));
+    final tipoOrd = _textOf(draft['TIPO'], fallback: _textOf(header['TIPO']));
+    final ctdOriginal = _toNum(original['CTD']) ?? _toNum(header['CTD']) ?? 0;
+    final pvtaOriginal = _toNum(original['PVTAT_BASE']) ?? 0;
+    final pvtarOriginal = _toNum(draft['PVTA']);
+    final artOriginal = _textOf(
+      original['ART'],
+      fallback: _textOf(header['ART']),
+    );
+    final upcOriginal = _textOf(original['UPC'], fallback: _textOf(header['UPC']));
+    final desOriginal = _textOf(
+      original['DES'],
+      fallback: _textOf(
+        original['DESCART'],
+        fallback: _textOf(header['DESCART'], fallback: _textOf(header['DESCRT'])),
+      ),
+    );
+
+    final artNuevoCtrl = TextEditingController(
+      text: _textOf(draft['ART'], fallback: artOriginal),
+    );
+    final upcNuevoCtrl = TextEditingController(
+      text: _textOf(draft['UPC'], fallback: upcOriginal),
+    );
+    final desNuevoCtrl = TextEditingController(
+      text: _textOf(draft['DES'], fallback: desOriginal),
+    );
+    final motivoCtrl = TextEditingController();
+    final docDifCtrl = TextEditingController(text: _textOf(draft['DOCDIF']));
+
+    final initialMotr = _parseIntLike(
+      _textOf(draft['MOTR'], fallback: _textOf(original['MOTR'])),
+    );
+    int? selectedMotr = motivoOptions.any((item) => item.id == initialMotr)
+        ? initialMotr
+        : (motivoOptions.isNotEmpty ? motivoOptions.first.id : null);
+    if (selectedMotr != null) {
+      final selected = motivoOptions.firstWhere((item) => item.id == selectedMotr);
+      motivoCtrl.text = selected.label;
+    } else {
+      motivoCtrl.text = _textOf(
+        draft['MOTIVO'],
+        fallback: _textOf(original['MOTR']),
+      );
+    }
+
+    String selectedLabor = _normalizeLaboratorioValue(_textOf(draft['LABOR']));
+    bool crearNuevaOrd = (_toNum(draft['CREAR_NUEVA_ORD']) ?? 1) != 0;
+    double? normalizeCtdCMValue(num? value) {
+      if (value == null) return null;
+      final numeric = value.toDouble();
+      if ((numeric - 0.5).abs() <= 0.0001) return 0.5;
+      if ((numeric - 1).abs() <= 0.0001) return 1;
+      return null;
+    }
+
+    double? selectedCtdCM;
+    bool processingArticulo = false;
+    bool submitting = false;
+    bool dirty = false;
+    DatArtModel? selectedArticulo;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          final laboratoriosByTipo = _laboratoriosDetallePorTipo(
+            laboratoriosPanel,
+            tipoOrd,
+            sucOrd,
+            selectedLabor,
+          );
+          final editableLaboratorios = laboratoriosByTipo.isNotEmpty
+              ? laboratoriosByTipo
+              : laboratoriosPanel;
+          final laborValue =
+              editableLaboratorios.any((lab) => lab.id.toString() == selectedLabor)
+                  ? selectedLabor
+                  : null;
+          final hasPreparedCapture =
+              cmContext.selCtrlOrd != null && cmContext.selCtrlOrd != 0;
+          final editableCapture =
+              hasPreparedCapture && cmContext.editable && !submitting;
+          final canPrepareCapture =
+              (cmContext.selCtrlOrd == null ||
+                  cmContext.selCtrlOrd == 0 ||
+                  cmContext.selCtrlOrd == 13) &&
+                  !submitting;
+          final canRequestAuthorization =
+              editableCapture &&
+              (cmContext.selCtrlOrd == 13 || cmContext.selCtrlOrd == 15);
+          final canCreateNewOrd = cmContext.canCreateNewOrd && !submitting;
+
+          Widget roField(String label, String value, {int maxLines = 1}) {
+            return TextFormField(
+              key: ValueKey('$label::$value::$maxLines'),
+              initialValue: value,
+              readOnly: true,
+              maxLines: maxLines,
+              decoration: InputDecoration(
+                labelText: label,
+                border: const OutlineInputBorder(),
+                isDense: true,
+              ),
+            );
+          }
+
+          return AlertDialog(
+            title: Text(mode.dialogTitle),
+            content: SizedBox(
+              width: 1240,
+              child: SingleChildScrollView(
+                child: Row(
+                  textDirection: TextDirection.rtl,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Nueva ORD (captura)',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: Colors.teal.shade900,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          if (cmContext.message.trim().isNotEmpty)
+                            Text(
+                              cmContext.message.trim(),
+                              style: TextStyle(
+                                color: cmContext.blockedByAuthorization
+                                    ? Colors.orange.shade800
+                                    : Colors.teal.shade700,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          if (!hasPreparedCapture)
+                            Text(
+                              'Presiona "Editar nueva ORD" para preparar la captura.',
+                              style: TextStyle(
+                                color: Colors.orange.shade800,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 10,
+                            runSpacing: 8,
+                            children: [
+                              SizedBox(
+                                width: 220,
+                                child: roField(
+                                  'IORD original',
+                                  _textOf(draft['IORD_ORIGINAL'], fallback: iord),
+                                ),
+                              ),
+                              SizedBox(
+                                width: 220,
+                                child: roField(
+                                  'IDFOL',
+                                  _textOf(draft['IDFOL'], fallback: _textOf(header['IDFOL'])),
+                                ),
+                              ),
+                              SizedBox(
+                                width: 280,
+                                child: roField(
+                                  'NCLIENTE',
+                                  _textOf(
+                                    draft['NCLIENTE'],
+                                    fallback: _textOf(
+                                      original['NCLIENTE'],
+                                      fallback: _textOf(header['CLIEN']),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              SizedBox(
+                                width: 190,
+                                child: TextField(
+                                  controller: artNuevoCtrl,
+                                  readOnly: true,
+                                  enabled: !submitting,
+                                  decoration: const InputDecoration(
+                                    labelText: 'ART actual',
+                                    border: OutlineInputBorder(),
+                                    isDense: true,
+                                  ),
+                                ),
+                              ),
+                              SizedBox(
+                                width: 180,
+                                child: TextField(
+                                  controller: upcNuevoCtrl,
+                                  readOnly: true,
+                                  enabled: !submitting,
+                                  decoration: const InputDecoration(
+                                    labelText: 'UPC',
+                                    border: OutlineInputBorder(),
+                                    isDense: true,
+                                  ),
+                                ),
+                              ),
+                              SizedBox(
+                                width: 320,
+                                child: TextField(
+                                  controller: desNuevoCtrl,
+                                  readOnly: true,
+                                  enabled: !submitting,
+                                  maxLines: 2,
+                                  decoration: const InputDecoration(
+                                    labelText: 'DES',
+                                    border: OutlineInputBorder(),
+                                    isDense: true,
+                                  ),
+                                ),
+                              ),
+                              SizedBox(
+                                width: 130,
+                                child: roField(
+                                  'PVTA',
+                                  _money(
+                                    selectedArticulo?.pvta ??
+                                        pvtarOriginal ??
+                                        pvtaOriginal,
+                                  ),
+                                ),
+                              ),
+                              SizedBox(
+                                width: 130,
+                                child: roField('Subtotal', _money(cmContext.subtotalNuevo)),
+                              ),
+                              SizedBox(
+                                width: 120,
+                                child: roField('IVA', _money(cmContext.ivaNuevo)),
+                              ),
+                              SizedBox(
+                                width: 130,
+                                child: roField('Total', _money(cmContext.totalNuevo)),
+                              ),
+                              SizedBox(
+                                width: 200,
+                                child: roField(
+                                  'Diferencia económica',
+                                  _money(cmContext.diferenciaEconomica),
+                                ),
+                              ),
+                              SizedBox(width: 140, child: roField('TIPO', _textOf(draft['TIPO'], fallback: tipoOrd))),
+                              SizedBox(
+                                width: 230,
+                                child: editableLaboratorios.isEmpty
+                                    ? roField('LAB', selectedLabor)
+                                    : DropdownButtonFormField<String>(
+                                        initialValue: laborValue,
+                                        isExpanded: true,
+                                        decoration: const InputDecoration(
+                                          labelText: 'LAB',
+                                          border: OutlineInputBorder(),
+                                          isDense: true,
+                                        ),
+                                        items: editableLaboratorios
+                                            .map(
+                                              (lab) => DropdownMenuItem<String>(
+                                                value: lab.id.toString(),
+                                                child: Text(
+                                                  lab.lab.trim().isEmpty
+                                                      ? lab.id.toString()
+                                                      : lab.lab.trim(),
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            )
+                                            .toList(growable: false),
+                                        onChanged: editableCapture
+                                            ? (value) => setDialogState(() {
+                                                  selectedLabor = value ?? '';
+                                                  dirty = true;
+                                                })
+                                            : null,
+                                      ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          if (mode == _OrdCambioMermaMode.merma)
+                            CheckboxListTile(
+                              contentPadding: EdgeInsets.zero,
+                              dense: true,
+                              value: crearNuevaOrd,
+                              onChanged: editableCapture
+                                  ? (value) => setDialogState(() {
+                                        crearNuevaOrd = value ?? true;
+                                        dirty = true;
+                                      })
+                                  : null,
+                              title: const Text('Crear nueva ORD derivada'),
+                            ),
+                          Row(
+                            children: [
+                              OutlinedButton.icon(
+                                onPressed:
+                                    mode == _OrdCambioMermaMode.merma ||
+                                            !editableCapture ||
+                                            processingArticulo ||
+                                            submitting
+                                        ? null
+                                        : () async {
+                                            setDialogState(
+                                              () => processingArticulo = true,
+                                            );
+                                            try {
+                                              final picked =
+                                                  await _showBuscarArticuloCambioMermaDialog(
+                                                suc: sucOrd,
+                                                tipoHint: tipoOrd,
+                                              );
+                                              if (!ctx.mounted || picked == null) {
+                                                return;
+                                              }
+                                              setDialogState(() {
+                                                selectedArticulo = picked;
+                                                artNuevoCtrl.text = picked.art;
+                                                upcNuevoCtrl.text = picked.upc;
+                                                desNuevoCtrl.text =
+                                                    (picked.des ?? '').trim();
+                                                dirty = true;
+                                              });
+                                            } finally {
+                                              if (ctx.mounted) {
+                                                setDialogState(
+                                                  () => processingArticulo = false,
+                                                );
+                                              }
+                                            }
+                                          },
+                                icon: const Icon(Icons.search),
+                                label: const Text('Buscar Articulo para cambiar'),
+                              ),
+                              const SizedBox(width: 8),
+                              TextButton(
+                                onPressed: mode == _OrdCambioMermaMode.merma
+                                    ? null
+                                    : !editableCapture
+                                    ? null
+                                    : artNuevoCtrl.text.trim().isEmpty
+                                        ? null
+                                        : () {
+                                            setDialogState(() {
+                                              selectedArticulo = null;
+                                              artNuevoCtrl.clear();
+                                              upcNuevoCtrl.clear();
+                                              desNuevoCtrl.clear();
+                                              dirty = true;
+                                            });
+                                          },
+                                child: const Text('Limpiar artículo'),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Resumen ORD original',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: Colors.deepPurple.shade700,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Wrap(
+                              spacing: 8,
+                              runSpacing: 6,
+                              children: [
+                                SizedBox(
+                                  width: 130,
+                                  child: roField(
+                                    'Orden',
+                                    _textOf(
+                                      original['IORD'],
+                                      fallback: _textOf(header['IORD']),
+                                    ),
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: 185,
+                                  child: roField(
+                                    'IDFOL',
+                                    _textOf(
+                                      original['IDFOL'],
+                                      fallback: _textOf(header['IDFOL']),
+                                    ),
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: 125,
+                                  child: roField(
+                                    'Fecha creación',
+                                    _fmtDate(_toDate(original['FCNS'])),
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: 125,
+                                  child: roField(
+                                    'Fecha entrega',
+                                    _fmtDate(
+                                      _toDate(
+                                        original['FCNM'] ??
+                                            original['FCNMOD'] ??
+                                            original['FCNS'],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Wrap(
+                              spacing: 8,
+                              runSpacing: 6,
+                              children: [
+                                SizedBox(
+                                  width: 518,
+                                  child: roField(
+                                    'Cliente',
+                                    _textOf(
+                                      original['NCLIENTE'],
+                                      fallback: _textOf(original['CLIEN']),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Wrap(
+                              spacing: 8,
+                              runSpacing: 6,
+                              children: [
+                                SizedBox(
+                                  width: 180,
+                                  child: roField('Artículo', artOriginal),
+                                ),
+                                SizedBox(
+                                  width: 330,
+                                  child: roField(
+                                    'Descripción',
+                                    desOriginal,
+                                    maxLines: 2,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Wrap(
+                              spacing: 8,
+                              runSpacing: 6,
+                              children: [
+                                SizedBox(
+                                  width: 100,
+                                  child: roField('Cantidad', _money(ctdOriginal)),
+                                ),
+                                SizedBox(
+                                  width: 100,
+                                  child: roField('PVTAT base', _money(pvtaOriginal)),
+                                ),
+                                SizedBox(
+                                  width: 100,
+                                  child: roField(
+                                    'Subtotal',
+                                    _money(cmContext.subtotalOriginal),
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: 100,
+                                  child: roField('IVA', _money(cmContext.ivaOriginal)),
+                                ),
+                                SizedBox(
+                                  width: 100,
+                                  child: roField('Total', _money(cmContext.totalOriginal)),
+                                ),
+                              ],
+                            ),
+                          ),
+                          roField(
+                            'Comentarios',
+                            _textOf(original['COMAD'], fallback: _textOf(header['COMAD'])),
+                            maxLines: 2,
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Wrap(
+                              spacing: 8,
+                              runSpacing: 6,
+                              children: [
+                                SizedBox(
+                                  width: 320,
+                                  child: roField(
+                                    'Estatus flujo',
+                                    _flowDescripcion(
+                                      _textOf(
+                                        original['ESTSEGU'],
+                                        fallback: _textOf(header['ESTSEGU']),
+                                      ),
+                                      _textOf(
+                                        original['ESTSEGU_DESC'],
+                                        fallback: _textOf(original['DESCFLUJO']),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: 190,
+                                  child: roField(
+                                    'selCtrlOrd / DESAUTO',
+                                    [
+                                      _textOf(cmContext.selCtrlOrd),
+                                      _textOf(original['DESAUTO']),
+                                    ].where((item) => item.trim().isNotEmpty).join(' - '),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: SizedBox(
+                              width: 250,
+                              child: DropdownButtonFormField<double>(
+                                initialValue: selectedCtdCM,
+                                isExpanded: true,
+                                decoration: const InputDecoration(
+                                  labelText: 'CTD_C_M',
+                                  border: OutlineInputBorder(),
+                                  isDense: true,
+                                ),
+                                items: const [
+                                  DropdownMenuItem<double>(
+                                    value: 1,
+                                    child: Text('1'),
+                                  ),
+                                  DropdownMenuItem<double>(
+                                    value: 0.5,
+                                    child: Text('0.5'),
+                                  ),
+                                ],
+                                onChanged: !submitting
+                                    ? (value) => setDialogState(() {
+                                          selectedCtdCM = value;
+                                          dirty = true;
+                                        })
+                                    : null,
+                              ),
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: SizedBox(
+                              width: 510,
+                              child: motivoOptions.isEmpty
+                                  ? TextField(
+                                      controller: motivoCtrl,
+                                      enabled: !submitting,
+                                      maxLines: 2,
+                                      decoration: const InputDecoration(
+                                        labelText: 'MOTR (motivo)',
+                                        border: OutlineInputBorder(),
+                                        isDense: true,
+                                      ),
+                                      onChanged: (_) => dirty = true,
+                                    )
+                                  : DropdownButtonFormField<int>(
+                                      initialValue: selectedMotr,
+                                      isExpanded: true,
+                                      decoration: const InputDecoration(
+                                        labelText: 'MOTR (motivo)',
+                                        border: OutlineInputBorder(),
+                                        isDense: true,
+                                      ),
+                                      items: motivoOptions
+                                          .map(
+                                            (item) => DropdownMenuItem<int>(
+                                              value: item.id,
+                                              child: Text(
+                                                '${item.id} - ${item.label}',
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          )
+                                          .toList(growable: false),
+                                      onChanged: !submitting
+                                          ? (value) {
+                                              setDialogState(() {
+                                                selectedMotr = value;
+                                                final selected = value == null
+                                                    ? null
+                                                    : motivoOptions.firstWhere(
+                                                        (item) => item.id == value,
+                                                      );
+                                                motivoCtrl.text = selected?.label ?? '';
+                                                dirty = true;
+                                              });
+                                            }
+                                          : null,
+                                    ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              OutlinedButton.icon(
+                onPressed: canPrepareCapture
+                    ? () async {
+                        final ctdCMValue = selectedCtdCM;
+                        if (ctdCMValue == null) {
+                          _showError('Selecciona CTD_C_M para continuar.');
+                          return;
+                        }
+                        setDialogState(() => submitting = true);
+                        try {
+                          final updated = await api.prepararCambioMerma(
+                            iord,
+                            tipo: mode.tipom,
+                            ctdCM: ctdCMValue,
+                          );
+                          if (!ctx.mounted || !mounted) return;
+                          setDialogState(() {
+                            cmContext = updated;
+                            original = cmContext.original;
+                            draft = cmContext.draft;
+                            selectedLabor = _normalizeLaboratorioValue(
+                              _textOf(updated.draft['LABOR']),
+                            );
+                            selectedCtdCM = normalizeCtdCMValue(
+                              _toNum(updated.draft['CTD_C_M']),
+                            );
+                            crearNuevaOrd =
+                                (_toNum(updated.draft['CREAR_NUEVA_ORD']) ?? 1) != 0;
+                            artNuevoCtrl.text = _textOf(updated.draft['ART']);
+                            upcNuevoCtrl.text = _textOf(updated.draft['UPC']);
+                            desNuevoCtrl.text = _textOf(updated.draft['DES']);
+                            docDifCtrl.text = _textOf(updated.draft['DOCDIF']);
+                            final motrFromDraft =
+                                _parseIntLike(_textOf(updated.draft['MOTR']));
+                            selectedMotr = motrFromDraft;
+                            if (motrFromDraft != null &&
+                                motivoOptions.any((item) => item.id == motrFromDraft)) {
+                              motivoCtrl.text = motivoOptions
+                                  .firstWhere((item) => item.id == motrFromDraft)
+                                  .label;
+                            } else {
+                              motivoCtrl.text = _textOf(updated.draft['MOTIVO']);
+                            }
+                            dirty = false;
+                            submitting = false;
+                          });
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                updated.message.isEmpty
+                                    ? 'Nueva ORD en edición/captura'
+                                    : updated.message,
+                              ),
+                            ),
+                          );
+                        } catch (e) {
+                          if (!ctx.mounted || !mounted) return;
+                          setDialogState(() => submitting = false);
+                          _showError(
+                            apiErrorMessage(
+                              e,
+                              fallback: 'No se pudo preparar la captura.',
+                            ),
+                          );
+                        }
+                      }
+                    : null,
+                icon: const Icon(Icons.edit_note),
+                label: const Text('Editar nueva ORD'),
+              ),
+              OutlinedButton(
+                onPressed: canRequestAuthorization
+                    ? () async {
+                        final motivoTexto = motivoCtrl.text.trim();
+                        final ctdCMValue = selectedCtdCM;
+                        if (motivoOptions.isNotEmpty && selectedMotr == null) {
+                          _showError('Selecciona un motivo válido para continuar.');
+                          return;
+                        }
+                        if (motivoTexto.length < 3) {
+                          _showError('Selecciona o captura un motivo válido.');
+                          return;
+                        }
+                        if (ctdCMValue == null) {
+                          _showError('Selecciona CTD_C_M para continuar.');
+                          return;
+                        }
+                        if ((ctdCMValue - 1).abs() > 0.0001 &&
+                            (ctdCMValue - 0.5).abs() > 0.0001) {
+                          _showError('CTD_C_M solo permite 1 o 0.5.');
+                          return;
+                        }
+                        final artNuevo = artNuevoCtrl.text.trim();
+                        if (mode == _OrdCambioMermaMode.cambioMaterial) {
+                          if (artNuevo.isEmpty) {
+                            _showError(
+                              'Debes seleccionar un artículo nuevo para cambio material.',
+                            );
+                            return;
+                          }
+                          if (artNuevo.toUpperCase() == artOriginal.toUpperCase()) {
+                            _showError(
+                              'El artículo nuevo debe ser distinto al artículo original.',
+                            );
+                            return;
+                          }
+                        }
+                        final confirm = await _confirmCambioEstatus(
+                          title: 'Solicitar autorización',
+                          targetStatus:
+                              'selCtrlOrd=14 (o 16 si aplica auto-autorización)',
+                          total: 1,
+                          extraMessage: [
+                            'IORD origen: $iord',
+                            'CTD_C_M: ${_money(ctdCMValue)}',
+                            'Motivo: $motivoTexto',
+                          ].join('\n'),
+                        );
+                        if (confirm != true || !ctx.mounted) return;
+                        setDialogState(() => submitting = true);
+                        try {
+                          final updated =
+                              await api.solicitarAutorizacionCambioMerma(
+                            iord,
+                            tipo: mode.tipom,
+                            ctdCM: ctdCMValue,
+                            artNuevo: artNuevo,
+                            motivo: motivoTexto,
+                            motr: selectedMotr,
+                            labor: _parseLaboratorioId(selectedLabor),
+                            docDif: docDifCtrl.text.trim(),
+                            crearNuevaOrd:
+                                mode == _OrdCambioMermaMode.merma
+                                    ? crearNuevaOrd
+                                    : true,
+                          );
+                          if (!ctx.mounted || !mounted) return;
+                          setDialogState(() {
+                            cmContext = updated;
+                            original = cmContext.original;
+                            draft = cmContext.draft;
+                            selectedLabor = _normalizeLaboratorioValue(
+                              _textOf(updated.draft['LABOR']),
+                            );
+                            selectedCtdCM = normalizeCtdCMValue(
+                              _toNum(updated.draft['CTD_C_M']),
+                            );
+                            crearNuevaOrd =
+                                (_toNum(updated.draft['CREAR_NUEVA_ORD']) ?? 1) != 0;
+                            artNuevoCtrl.text = _textOf(updated.draft['ART']);
+                            upcNuevoCtrl.text = _textOf(updated.draft['UPC']);
+                            desNuevoCtrl.text = _textOf(updated.draft['DES']);
+                            docDifCtrl.text = _textOf(updated.draft['DOCDIF']);
+                            final motrFromDraft =
+                                _parseIntLike(_textOf(updated.draft['MOTR']));
+                            selectedMotr = motrFromDraft;
+                            if (motrFromDraft != null &&
+                                motivoOptions.any((item) => item.id == motrFromDraft)) {
+                              motivoCtrl.text = motivoOptions
+                                  .firstWhere((item) => item.id == motrFromDraft)
+                                  .label;
+                            } else {
+                              motivoCtrl.text = _textOf(updated.draft['MOTIVO']);
+                            }
+                            dirty = false;
+                            submitting = false;
+                          });
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                updated.message.isEmpty
+                                    ? 'Autorización solicitada.'
+                                    : updated.message,
+                              ),
+                            ),
+                          );
+                          await _reload();
+                        } catch (e) {
+                          if (!ctx.mounted || !mounted) return;
+                          setDialogState(() => submitting = false);
+                          _showError(
+                            apiErrorMessage(
+                              e,
+                              fallback: 'No se pudo solicitar autorización.',
+                            ),
+                          );
+                        }
+                      }
+                    : null,
+                child: const Text('Solicitar autorización'),
+              ),
+              TextButton(
+                onPressed: () async {
+                  if (dirty) {
+                    final confirmClose = await showDialog<bool>(
+                      context: context,
+                      builder: (dialogCtx) => AlertDialog(
+                        title: const Text('Cerrar captura'),
+                        content: const Text(
+                          'Hay cambios sin solicitar autorización. ¿Cerrar de todas formas?',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(dialogCtx).pop(false),
+                            child: const Text('Continuar editando'),
+                          ),
+                          ElevatedButton(
+                            onPressed: () => Navigator.of(dialogCtx).pop(true),
+                            child: const Text('Cerrar'),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (confirmClose != true || !ctx.mounted) return;
+                  }
+                  Navigator.of(ctx).pop();
+                },
+                child: const Text('Cerrar'),
+              ),
+              if (canCreateNewOrd)
+                ElevatedButton(
+                  onPressed: () async {
+                    final ctdCMValue = selectedCtdCM;
+                    if (ctdCMValue == null) {
+                      _showError('Selecciona CTD_C_M para continuar.');
+                      return;
+                    }
+                    final confirm = await _confirmCambioEstatus(
+                      title: 'Crear nueva ORD',
+                      targetStatus: 'ORD derivada creada',
+                      total: 1,
+                      extraMessage: [
+                        'IORD origen: $iord',
+                        'CTD_C_M: ${_money(ctdCMValue)}',
+                        'Diferencia económica: ${_money(cmContext.diferenciaEconomica)}',
+                      ].join('\n'),
+                    );
+                    if (confirm != true || !ctx.mounted) return;
+                    setDialogState(() => submitting = true);
+                    try {
+                      final result = await api.crearCambioMerma(
+                        iord,
+                        tipo: mode.tipom,
+                        ctdCM: ctdCMValue,
+                      );
+                      if (!ctx.mounted || !mounted) return;
+                      setDialogState(() {
+                        submitting = false;
+                        dirty = false;
+                      });
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            result.message.isEmpty
+                                ? 'Nueva ORD creada correctamente.'
+                                : result.message,
+                          ),
+                        ),
+                      );
+                      await _reload();
+                      if (ctx.mounted) Navigator.of(ctx).pop();
+                    } catch (e) {
+                      if (!ctx.mounted || !mounted) return;
+                      setDialogState(() => submitting = false);
+                      _showError(
+                        apiErrorMessage(
+                          e,
+                          fallback: 'No se pudo crear la nueva ORD.',
+                        ),
+                      );
+                    }
+                  },
+                  child: const Text('Crear nueva ORD'),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+
+    artNuevoCtrl.dispose();
+    upcNuevoCtrl.dispose();
+    desNuevoCtrl.dispose();
+    motivoCtrl.dispose();
+    docDifCtrl.dispose();
+  }
+
+  Future<DatArtModel?> _showBuscarArticuloCambioMermaDialog({
+    required String suc,
+    String? tipoHint,
+  }) async {
+    final artCtrl = TextEditingController();
+    final upcCtrl = TextEditingController();
+    final desCtrl = TextEditingController();
+    var loading = false;
+    String? errorText;
+    List<DatArtModel> items = const <DatArtModel>[];
+
+    Future<void> runSearch(StateSetter setDialogState) async {
+      final art = artCtrl.text.trim();
+      final upc = upcCtrl.text.trim();
+      final des = desCtrl.text.trim();
+      if (art.isEmpty && upc.isEmpty && des.isEmpty) {
+        setDialogState(
+          () => errorText =
+              'Captura al menos un criterio: Articulo, UPC o Descripción.',
+        );
+        return;
+      }
+      setDialogState(() {
+        loading = true;
+        errorText = null;
+      });
+      try {
+        final found = await ref.read(datArtApiProvider).fetchArticulos(
+              suc: suc,
+              sucExact: true,
+              tipo: (tipoHint ?? '').trim().isEmpty ? null : tipoHint,
+              art: art.isEmpty ? null : art,
+              upc: upc.isEmpty ? null : upc,
+              des: des.isEmpty ? null : des,
+              page: 1,
+              limit: 30,
+            );
+        if (!mounted) return;
+        setDialogState(() {
+          items = found;
+          if (items.isEmpty) {
+            errorText = 'No se encontraron artículos para el criterio capturado.';
+          }
+        });
+      } catch (e) {
+        if (!mounted) return;
+        setDialogState(
+          () => errorText = apiErrorMessage(
+            e,
+            fallback: 'No se pudo consultar DAT_ART.',
+          ),
+        );
+      } finally {
+        if (mounted) {
+          setDialogState(() => loading = false);
+        }
+      }
+    }
+
+    final selected = await showDialog<DatArtModel>(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setStateDialog) => AlertDialog(
-          title: const Text('Procesar merma'),
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Buscar artículo'),
           content: SizedBox(
-            width: 420,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: cantidadCtrl,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
+            width: 840,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    SizedBox(
+                      width: 160,
+                      child: TextField(
+                        controller: artCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Articulo',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                      ),
                     ),
-                    decoration: const InputDecoration(
-                      labelText: 'Cantidad merma',
-                      border: OutlineInputBorder(),
+                    SizedBox(
+                      width: 180,
+                      child: TextField(
+                        controller: upcCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'UPC',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                      ),
                     ),
-                  ),
+                    SizedBox(
+                      width: 280,
+                      child: TextField(
+                        controller: desCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Descripción',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+                    SizedBox(
+                      height: 40,
+                      child: ElevatedButton.icon(
+                        onPressed: loading
+                            ? null
+                            : () => runSearch(setDialogState),
+                        icon: const Icon(Icons.search),
+                        label: const Text('Buscar'),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                if (loading) const LinearProgressIndicator(),
+                if ((errorText ?? '').isNotEmpty) ...[
                   const SizedBox(height: 8),
-                  TextField(
-                    controller: motivoCtrl,
-                    minLines: 2,
-                    maxLines: 3,
-                    decoration: const InputDecoration(
-                      labelText: 'Motivo',
-                      border: OutlineInputBorder(),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      errorText!,
+                      style: const TextStyle(color: Colors.red),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  CheckboxListTile(
-                    value: crearNuevaOrd,
-                    onChanged: (v) =>
-                        setStateDialog(() => crearNuevaOrd = v ?? true),
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Crear nueva ORD derivada'),
                   ),
                 ],
-              ),
+                const SizedBox(height: 8),
+                Flexible(
+                  child: SizedBox(
+                    height: 360,
+                    child: items.isEmpty
+                        ? const Center(
+                            child: Text('Sin resultados para mostrar.'),
+                          )
+                        : ListView.separated(
+                            itemCount: items.length,
+                            separatorBuilder: (_, _) => const Divider(height: 1),
+                            itemBuilder: (context, index) {
+                              final item = items[index];
+                              return ListTile(
+                                dense: true,
+                                title: Text('${item.art} - ${item.des ?? '-'}'),
+                                subtitle: Text(
+                                  'UPC: ${item.upc} | PVTA: ${_money(item.pvta ?? 0)}',
+                                ),
+                                onTap: () => Navigator.of(ctx).pop(item),
+                              );
+                            },
+                          ),
+                  ),
+                ),
+              ],
             ),
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
+              onPressed: () => Navigator.of(ctx).pop(),
               child: const Text('Cancelar'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                final qty = double.tryParse(cantidadCtrl.text.trim());
-                if (qty == null ||
-                    qty <= 0 ||
-                    motivoCtrl.text.trim().length < 3) {
-                  _showError('Cantidad y motivo valido son obligatorios.');
-                  return;
-                }
-                Navigator.of(ctx).pop(true);
-              },
-              child: const Text('Aplicar'),
             ),
           ],
         ),
       ),
     );
 
-    if (ok != true) return;
-
-    final qty = double.parse(cantidadCtrl.text.trim());
-    await _executeAction(
-      () => ref
-          .read(ordenesTrabajoApiProvider)
-          .merma(
-            iord,
-            cantidadMerma: qty,
-            motivo: motivoCtrl.text,
-            crearNuevaOrd: crearNuevaOrd,
-          ),
-    );
+    artCtrl.dispose();
+    upcCtrl.dispose();
+    desCtrl.dispose();
+    return selected;
   }
 
   Future<void> _doScanRecibir() async {
@@ -5070,6 +6068,15 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     return int.tryParse(value?.toString() ?? '');
   }
 
+  double? _toNum(dynamic value) {
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is num) return value.toDouble();
+    final text = value?.toString().trim() ?? '';
+    if (text.isEmpty) return null;
+    return double.tryParse(text);
+  }
+
   void _showError(String message) {
     ScaffoldMessenger.of(
       context,
@@ -5131,4 +6138,24 @@ class _OrdenTrabajoToolbarAction {
   final IconData icon;
   final bool enabled;
   final VoidCallback onPressed;
+}
+
+enum _OrdCambioMermaMode {
+  cambioMaterial(1, 9.1),
+  merma(2, 9.2);
+
+  const _OrdCambioMermaMode(this.tipom, this.requiredFlow);
+
+  final int tipom;
+  final double requiredFlow;
+
+  String get dialogTitle =>
+      this == _OrdCambioMermaMode.cambioMaterial ? 'Cambio de material' : 'Merma';
+
+  String invalidFlowMessage(String iord) {
+    if (this == _OrdCambioMermaMode.cambioMaterial) {
+      return 'La ORD $iord debe estar en flujo 9.1 con TIPOM=1 para cambio material.';
+    }
+    return 'La ORD $iord debe estar en flujo 9.2 con TIPOM=2 para merma.';
+  }
 }

@@ -211,6 +211,7 @@ Enlaces relacionados:
 - `DELETE /pv/refdetalle/:idref`
 - Dependencia backend:
 - `POST /pv/cotizaciones/:idfol/cierre` se ejecuta en API mediante `dbo.sp_pv_cotizacion_cerrar`.
+- en cierre exitoso, backend sincroniza `PV_CTR_ORDS.RQFAC` con `REQF/RQFAC` del folio final cuando mueve la ORD a `ESTATUS=2`.
 - backend resuelve el folio de pago por `IDFOL` actual o `IDFOLINICIAL`, para que la UI siga operando cuando el cierre cambia el folio visible de `CP` a `CA/VF`.
 - Si el SP no existe en SQL Server, la API devuelve `409` y se debe ejecutar `ioe-api/sql/sp_pv_cotizacion_cerrar_create.sql`.
 - Si el SP rechaza el cierre por validacion de negocio, la API devuelve `400/409` con mensaje legible (ya no `500` por abortos de transaccion).
