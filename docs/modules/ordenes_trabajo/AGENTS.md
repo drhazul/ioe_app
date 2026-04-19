@@ -65,5 +65,8 @@
 - cambio/merma UI (2026-04-08): flujo interno por `selCtrlOrd` (`NULL/0/13/15` editable, `14` bloqueado, `16` habilita `Crear nueva ORD`) con pasos separados `Editar nueva ORD -> Solicitar autorización -> Crear nueva ORD`.
 - cambio/merma UI (2026-04-08): la captura usa `CTD_C_M` restringido a `1|0.5`, muestra `Subtotal/IVA/Total` + `Diferencia económica`, y mantiene `Buscar Articulo para cambiar` reutilizando `DAT_ART`.
 - cambio/merma UI (2026-04-09): el cálculo mostrado depende de `DAT_SUC.IVA_INTEGRADO` + fiscalidad/tipo del folio origen (`REQF/RQFAC`, `AUT/ORIGEN_AUT`), sin inferir `tipotran` por el texto de `IDFOL`.
+- cambio/merma UI (2026-04-19): `Editar nueva ORD` permanece habilitado también con `selCtrlOrd=15` para permitir recaptura/reenvío de autorización cuando el flujo regresa a retrabajo.
+- cambio/merma UI (2026-04-19): nuevo botón `Crear Nueva ORD` inserta el registro temporal; sin staging (`PV_ORD_CAMBIO_MERMA_TMP`) no se visualizan campos ni botones de captura/autorización.
+- cambio/merma UI (2026-04-19): `PVTA` de la nueva ORD en captura se mantiene igual al costo base de la ORD original.
 - el botón `Garantia` deja de mostrarse en el panel operativo; queda reservado para el panel de entregadas (`DAT_JAO_ORD_ENTREGADAS`, estado `11`).
 

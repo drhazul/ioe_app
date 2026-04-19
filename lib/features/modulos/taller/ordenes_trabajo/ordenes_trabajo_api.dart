@@ -62,6 +62,7 @@ class OrdenesTrabajoApi {
     String iord, {
     required int tipo,
     required double ctdCM,
+    double? pvtaNuevo,
     String? artNuevo,
     String? motivo,
     int? motr,
@@ -77,6 +78,7 @@ class OrdenesTrabajoApi {
       data: {
         'tipo': tipo,
         'ctdCM': ctdCM,
+        if (pvtaNuevo != null) 'pvtaNuevo': pvtaNuevo,
         if (cleanArtNuevo.isNotEmpty) 'artNuevo': cleanArtNuevo,
         if (cleanMotivo.isNotEmpty) 'motivo': cleanMotivo,
         if (motr != null) 'motr': motr,

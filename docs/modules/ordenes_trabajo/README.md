@@ -90,6 +90,9 @@ Enlaces relacionados:
 - `Cambio material/Merma` (2026-04-08): el flujo se separa en `Editar nueva ORD` (preparar/staging, habilitado con `selCtrlOrd=NULL/0/13`, fija `selCtrlOrd=13`) -> `Solicitar autorización` (`selCtrlOrd=14` o `16` por auto-autorización) -> `Crear nueva ORD` (solo visible en `selCtrlOrd=16`).
 - `Cambio material/Merma` (2026-04-08): la captura se bloquea cuando `selCtrlOrd=14`; los cálculos se muestran como `Subtotal/IVA/Total` + `Diferencia económica`, y `CTD_C_M` se restringe visualmente a `1` o `0.5`.
 - `Cambio material/Merma` (2026-04-09): cálculo económico homologado a pago de cotizaciones usando configuración IVA de sucursal (`DAT_SUC.IVA_INTEGRADO`) y fiscalidad del folio origen (`REQF/RQFAC`, `AUT/ORIGEN_AUT`); no se infiere `tipotran` por el texto de `IDFOL`.
+- `Cambio material/Merma` (2026-04-19): `Editar nueva ORD` también puede ejecutarse con `selCtrlOrd=15`, para recaptura en retrabajo antes de volver a solicitar autorización.
+- `Cambio material/Merma` (2026-04-19): se agrega botón `Crear Nueva ORD` para crear staging de preparación; sin staging no se muestran campos/botones de captura y autorización.
+- `Cambio material/Merma` (2026-04-19): el costo de la nueva ORD en captura usa el mismo `PVTA` de la ORD original para evitar diferencias de precio.
 - `Cambio material` (2026-04-08): mantiene `Buscar Articulo para cambiar` reutilizando `DAT_ART`, con un solo artículo activo y opción `Limpiar artículo`.
 - `Merma` (2026-04-08): conserva `Crear nueva ORD derivada` en captura y usa el mismo semáforo/autorización que cambio material.
 - `Garantia` deja de mostrarse en el panel operativo y queda reservada para el panel de entregadas con estado `11`.

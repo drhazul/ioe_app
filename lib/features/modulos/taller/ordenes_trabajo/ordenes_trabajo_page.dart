@@ -4567,6 +4567,12 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     } catch (_) {
       motivoOptions = const <OrdenTrabajoMotivoMovimientoOption>[];
     }
+    final motivoPorId = <int, OrdenTrabajoMotivoMovimientoOption>{};
+    for (final item in motivoOptions) {
+      if (item.id <= 0) continue;
+      motivoPorId.putIfAbsent(item.id, () => item);
+    }
+    motivoOptions = motivoPorId.values.toList(growable: false);
     if (!mounted) return;
 
     late OrdenTrabajoCambioMermaContext cmContext;
@@ -4594,7 +4600,6 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     final tipoOrd = _textOf(draft['TIPO'], fallback: _textOf(header['TIPO']));
     final ctdOriginal = _toNum(original['CTD']) ?? _toNum(header['CTD']) ?? 0;
     final pvtaOriginal = _toNum(original['PVTAT_BASE']) ?? 0;
-    final pvtarOriginal = _toNum(draft['PVTA']);
     final artOriginal = _textOf(
       original['ART'],
       fallback: _textOf(header['ART']),
@@ -4620,9 +4625,11 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     final motivoCtrl = TextEditingController();
     final docDifCtrl = TextEditingController(text: _textOf(draft['DOCDIF']));
 
-    final initialMotr = _parseIntLike(
+    final initialMotrRaw = _parseIntLike(
       _textOf(draft['MOTR'], fallback: _textOf(original['MOTR'])),
     );
+    final initialMotr =
+        (initialMotrRaw != null && initialMotrRaw > 0) ? initialMotrRaw : null;
     int? selectedMotr = motivoOptions.any((item) => item.id == initialMotr)
         ? initialMotr
         : (motivoOptions.isNotEmpty ? motivoOptions.first.id : null);
@@ -4646,11 +4653,15 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       return null;
     }
 
-    double? selectedCtdCM;
+    double? selectedCtdCM = normalizeCtdCMValue(
+      _toNum(draft['CTD_C_M']) ?? _toNum(original['CTD_C_M']),
+    );
+    double? selectedPvtaNuevo =
+        _toNum(draft['PVTA'])?.toDouble() ??
+        _toNum(original['PVTAT_BASE'])?.toDouble();
     bool processingArticulo = false;
     bool submitting = false;
     bool dirty = false;
-    DatArtModel? selectedArticulo;
 
     await showDialog<void>(
       context: context,
@@ -4670,19 +4681,47 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
               editableLaboratorios.any((lab) => lab.id.toString() == selectedLabor)
                   ? selectedLabor
                   : null;
+          final hasStagingRecord = cmContext.hasStagingRecord;
+          final createdIord = _textOf(draft['NVA_IORD']);
+          final hasCreatedOrd = cmContext.hasCreatedOrd || createdIord.isNotEmpty;
           final hasPreparedCapture =
-              cmContext.selCtrlOrd != null && cmContext.selCtrlOrd != 0;
+              hasStagingRecord &&
+              cmContext.selCtrlOrd != null &&
+              cmContext.selCtrlOrd != 0;
+          final canCreateDraftRecord = !hasStagingRecord && !submitting;
           final editableCapture =
-              hasPreparedCapture && cmContext.editable && !submitting;
+              hasPreparedCapture &&
+              cmContext.editable &&
+              !hasCreatedOrd &&
+              !submitting;
           final canPrepareCapture =
+              hasStagingRecord &&
+              !hasCreatedOrd &&
               (cmContext.selCtrlOrd == null ||
                   cmContext.selCtrlOrd == 0 ||
-                  cmContext.selCtrlOrd == 13) &&
+                  cmContext.selCtrlOrd == 13 ||
+                  cmContext.selCtrlOrd == 15) &&
                   !submitting;
           final canRequestAuthorization =
+              hasStagingRecord &&
+              !hasCreatedOrd &&
               editableCapture &&
               (cmContext.selCtrlOrd == 13 || cmContext.selCtrlOrd == 15);
-          final canCreateNewOrd = cmContext.canCreateNewOrd && !submitting;
+          final canCreateNewOrd =
+              hasStagingRecord &&
+              !hasCreatedOrd &&
+              cmContext.canCreateNewOrd &&
+              !submitting;
+          final selectedMotrValue =
+              selectedMotr != null &&
+                  motivoOptions.any((item) => item.id == selectedMotr)
+              ? selectedMotr
+              : null;
+          final pvtaCaptura =
+              _toNum(draft['PVTA']) ??
+              selectedPvtaNuevo ??
+              _toNum(original['PVTAT_BASE']) ??
+              0;
 
           Widget roField(String label, String value, {int maxLines = 1}) {
             return TextFormField(
@@ -4729,16 +4768,43 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
-                          if (!hasPreparedCapture)
+                          if (hasCreatedOrd)
                             Text(
-                              'Presiona "Editar nueva ORD" para preparar la captura.',
+                              'Nueva ORD ya creada: $createdIord. CTD_C_M y MOTR bloqueados.',
+                              style: TextStyle(
+                                color: Colors.green.shade700,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          if (!hasStagingRecord)
+                            Text(
+                              'Presiona "Crear Nueva ORD" para generar registro temporal.',
                               style: TextStyle(
                                 color: Colors.orange.shade800,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
                           const SizedBox(height: 10),
-                          Wrap(
+                          if (!hasStagingRecord)
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.orange.shade300),
+                                color: Colors.orange.shade50,
+                              ),
+                              child: Text(
+                                'Sin registro temporal para esta ORD. '
+                                'Crea primero la nueva ORD para habilitar la captura y acciones.',
+                                style: TextStyle(
+                                  color: Colors.orange.shade900,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          if (hasStagingRecord)
+                            Wrap(
                             spacing: 10,
                             runSpacing: 8,
                             children: [
@@ -4813,11 +4879,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                                 width: 130,
                                 child: roField(
                                   'PVTA',
-                                  _money(
-                                    selectedArticulo?.pvta ??
-                                        pvtarOriginal ??
-                                        pvtaOriginal,
-                                  ),
+                                  _money(pvtaCaptura),
                                 ),
                               ),
                               SizedBox(
@@ -4876,8 +4938,8 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 10),
-                          if (mode == _OrdCambioMermaMode.merma)
+                          if (hasStagingRecord) const SizedBox(height: 10),
+                          if (hasStagingRecord && mode == _OrdCambioMermaMode.merma)
                             CheckboxListTile(
                               contentPadding: EdgeInsets.zero,
                               dense: true,
@@ -4890,7 +4952,8 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                                   : null,
                               title: const Text('Crear nueva ORD derivada'),
                             ),
-                          Row(
+                          if (hasStagingRecord)
+                            Row(
                             children: [
                               OutlinedButton.icon(
                                 onPressed:
@@ -4913,11 +4976,12 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                                                 return;
                                               }
                                               setDialogState(() {
-                                                selectedArticulo = picked;
                                                 artNuevoCtrl.text = picked.art;
                                                 upcNuevoCtrl.text = picked.upc;
                                                 desNuevoCtrl.text =
                                                     (picked.des ?? '').trim();
+                                                selectedPvtaNuevo =
+                                                    picked.pvta?.toDouble();
                                                 dirty = true;
                                               });
                                             } finally {
@@ -4941,10 +5005,12 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                                         ? null
                                         : () {
                                             setDialogState(() {
-                                              selectedArticulo = null;
                                               artNuevoCtrl.clear();
                                               upcNuevoCtrl.clear();
                                               desNuevoCtrl.clear();
+                                              selectedPvtaNuevo =
+                                                  _toNum(original['PVTAT_BASE'])
+                                                      ?.toDouble();
                                               dirty = true;
                                             });
                                           },
@@ -5151,7 +5217,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                                     child: Text('0.5'),
                                   ),
                                 ],
-                                onChanged: !submitting
+                                onChanged: editableCapture
                                     ? (value) => setDialogState(() {
                                           selectedCtdCM = value;
                                           dirty = true;
@@ -5167,7 +5233,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                               child: motivoOptions.isEmpty
                                   ? TextField(
                                       controller: motivoCtrl,
-                                      enabled: !submitting,
+                                      enabled: editableCapture,
                                       maxLines: 2,
                                       decoration: const InputDecoration(
                                         labelText: 'MOTR (motivo)',
@@ -5177,7 +5243,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                                       onChanged: (_) => dirty = true,
                                     )
                                   : DropdownButtonFormField<int>(
-                                      initialValue: selectedMotr,
+                                      initialValue: selectedMotrValue,
                                       isExpanded: true,
                                       decoration: const InputDecoration(
                                         labelText: 'MOTR (motivo)',
@@ -5196,7 +5262,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                                             ),
                                           )
                                           .toList(growable: false),
-                                      onChanged: !submitting
+                                      onChanged: editableCapture
                                           ? (value) {
                                               setDialogState(() {
                                                 selectedMotr = value;
@@ -5222,7 +5288,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
             ),
             actions: [
               OutlinedButton.icon(
-                onPressed: canPrepareCapture
+                onPressed: (canCreateDraftRecord || canPrepareCapture)
                     ? () async {
                         final ctdCMValue = selectedCtdCM;
                         if (ctdCMValue == null) {
@@ -5247,6 +5313,10 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                             selectedCtdCM = normalizeCtdCMValue(
                               _toNum(updated.draft['CTD_C_M']),
                             );
+                            selectedPvtaNuevo =
+                                _toNum(updated.draft['PVTA'])?.toDouble() ??
+                                _toNum(updated.original['PVTAT_BASE'])
+                                    ?.toDouble();
                             crearNuevaOrd =
                                 (_toNum(updated.draft['CREAR_NUEVA_ORD']) ?? 1) != 0;
                             artNuevoCtrl.text = _textOf(updated.draft['ART']);
@@ -5255,11 +5325,17 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                             docDifCtrl.text = _textOf(updated.draft['DOCDIF']);
                             final motrFromDraft =
                                 _parseIntLike(_textOf(updated.draft['MOTR']));
-                            selectedMotr = motrFromDraft;
-                            if (motrFromDraft != null &&
-                                motivoOptions.any((item) => item.id == motrFromDraft)) {
+                            selectedMotr =
+                                (motrFromDraft != null &&
+                                    motrFromDraft > 0 &&
+                                    motivoOptions.any(
+                                      (item) => item.id == motrFromDraft,
+                                    ))
+                                ? motrFromDraft
+                                : null;
+                            if (selectedMotr != null) {
                               motivoCtrl.text = motivoOptions
-                                  .firstWhere((item) => item.id == motrFromDraft)
+                                  .firstWhere((item) => item.id == selectedMotr)
                                   .label;
                             } else {
                               motivoCtrl.text = _textOf(updated.draft['MOTIVO']);
@@ -5271,7 +5347,9 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                             SnackBar(
                               content: Text(
                                 updated.message.isEmpty
-                                    ? 'Nueva ORD en edición/captura'
+                                    ? (hasStagingRecord
+                                          ? 'Nueva ORD en edición/captura'
+                                          : 'Registro temporal creado para nueva ORD.')
                                     : updated.message,
                               ),
                             ),
@@ -5288,12 +5366,17 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                         }
                       }
                     : null,
-                icon: const Icon(Icons.edit_note),
-                label: const Text('Editar nueva ORD'),
+                icon: Icon(
+                  hasStagingRecord ? Icons.edit_note : Icons.add_box_outlined,
+                ),
+                label: Text(
+                  hasStagingRecord ? 'Editar nueva ORD' : 'Crear Nueva ORD',
+                ),
               ),
-              OutlinedButton(
-                onPressed: canRequestAuthorization
-                    ? () async {
+              if (hasStagingRecord)
+                OutlinedButton(
+                  onPressed: canRequestAuthorization
+                      ? () async {
                         final motivoTexto = motivoCtrl.text.trim();
                         final ctdCMValue = selectedCtdCM;
                         if (motivoOptions.isNotEmpty && selectedMotr == null) {
@@ -5340,6 +5423,10 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                           ].join('\n'),
                         );
                         if (confirm != true || !ctx.mounted) return;
+                        final pvtaNuevoValue =
+                            selectedPvtaNuevo ??
+                            _toNum(draft['PVTA'])?.toDouble() ??
+                            _toNum(original['PVTAT_BASE'])?.toDouble();
                         setDialogState(() => submitting = true);
                         try {
                           final updated =
@@ -5347,6 +5434,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                             iord,
                             tipo: mode.tipom,
                             ctdCM: ctdCMValue,
+                            pvtaNuevo: pvtaNuevoValue,
                             artNuevo: artNuevo,
                             motivo: motivoTexto,
                             motr: selectedMotr,
@@ -5368,6 +5456,10 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                             selectedCtdCM = normalizeCtdCMValue(
                               _toNum(updated.draft['CTD_C_M']),
                             );
+                            selectedPvtaNuevo =
+                                _toNum(updated.draft['PVTA'])?.toDouble() ??
+                                _toNum(updated.original['PVTAT_BASE'])
+                                    ?.toDouble();
                             crearNuevaOrd =
                                 (_toNum(updated.draft['CREAR_NUEVA_ORD']) ?? 1) != 0;
                             artNuevoCtrl.text = _textOf(updated.draft['ART']);
@@ -5376,11 +5468,17 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                             docDifCtrl.text = _textOf(updated.draft['DOCDIF']);
                             final motrFromDraft =
                                 _parseIntLike(_textOf(updated.draft['MOTR']));
-                            selectedMotr = motrFromDraft;
-                            if (motrFromDraft != null &&
-                                motivoOptions.any((item) => item.id == motrFromDraft)) {
+                            selectedMotr =
+                                (motrFromDraft != null &&
+                                    motrFromDraft > 0 &&
+                                    motivoOptions.any(
+                                      (item) => item.id == motrFromDraft,
+                                    ))
+                                ? motrFromDraft
+                                : null;
+                            if (selectedMotr != null) {
                               motivoCtrl.text = motivoOptions
-                                  .firstWhere((item) => item.id == motrFromDraft)
+                                  .firstWhere((item) => item.id == selectedMotr)
                                   .label;
                             } else {
                               motivoCtrl.text = _textOf(updated.draft['MOTIVO']);
@@ -5409,9 +5507,9 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                           );
                         }
                       }
-                    : null,
-                child: const Text('Solicitar autorización'),
-              ),
+                      : null,
+                  child: const Text('Solicitar autorización'),
+                ),
               TextButton(
                 onPressed: () async {
                   if (dirty) {

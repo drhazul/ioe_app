@@ -418,6 +418,8 @@ class OrdenTrabajoCambioMermaContext {
   OrdenTrabajoCambioMermaContext({
     required this.tipo,
     required this.selCtrlOrd,
+    required this.hasStagingRecord,
+    required this.hasCreatedOrd,
     required this.editable,
     required this.blockedByAuthorization,
     required this.canCreateNewOrd,
@@ -437,6 +439,8 @@ class OrdenTrabajoCambioMermaContext {
 
   final int tipo;
   final int? selCtrlOrd;
+  final bool hasStagingRecord;
+  final bool hasCreatedOrd;
   final bool editable;
   final bool blockedByAuthorization;
   final bool canCreateNewOrd;
@@ -459,6 +463,8 @@ class OrdenTrabajoCambioMermaContext {
     return OrdenTrabajoCambioMermaContext(
       tipo: _toInt(json['tipo']) ?? 0,
       selCtrlOrd: _toInt(json['selCtrlOrd']),
+      hasStagingRecord: json['hasStagingRecord'] == true,
+      hasCreatedOrd: json['hasCreatedOrd'] == true,
       editable: json['editable'] == true,
       blockedByAuthorization: json['blockedByAuthorization'] == true,
       canCreateNewOrd: json['canCreateNewOrd'] == true,
