@@ -45,12 +45,17 @@ class OrdenesTrabajoApi {
     String iord, {
     required int tipo,
     double? ctdCM,
+    String? motivo,
+    int? motr,
   }) async {
+    final cleanMotivo = (motivo ?? '').trim();
     final res = await dio.post(
       '/ordenes-trabajo/${Uri.encodeComponent(iord)}/cambio-merma/preparar',
       data: {
         'tipo': tipo,
         if (ctdCM != null) 'ctdCM': ctdCM,
+        if (cleanMotivo.isNotEmpty) 'motivo': cleanMotivo,
+        if (motr != null) 'motr': motr,
       },
     );
     return OrdenTrabajoCambioMermaContext.fromJson(
@@ -86,6 +91,52 @@ class OrdenesTrabajoApi {
         if (cleanDocDif.isNotEmpty) 'docDif': cleanDocDif,
         if (crearNuevaOrd != null) 'crearNuevaOrd': crearNuevaOrd,
       },
+    );
+    return OrdenTrabajoCambioMermaContext.fromJson(
+      Map<String, dynamic>.from(res.data as Map),
+    );
+  }
+
+  Future<OrdenTrabajoCambioMermaContext> actualizarArticuloCambioMerma(
+    String iord, {
+    required int tipo,
+    required String artNuevo,
+    double? pvtaNuevo,
+  }) async {
+    final cleanArtNuevo = artNuevo.trim();
+    final res = await dio.post(
+      '/ordenes-trabajo/${Uri.encodeComponent(iord)}/cambio-merma/actualizar-articulo',
+      data: {
+        'tipo': tipo,
+        'artNuevo': cleanArtNuevo,
+        if (pvtaNuevo != null) 'pvtaNuevo': pvtaNuevo,
+      },
+    );
+    return OrdenTrabajoCambioMermaContext.fromJson(
+      Map<String, dynamic>.from(res.data as Map),
+    );
+  }
+
+  Future<OrdenTrabajoCambioMermaContext> autorizarCambioMerma(
+    String iord, {
+    required int tipo,
+  }) async {
+    final res = await dio.post(
+      '/ordenes-trabajo/${Uri.encodeComponent(iord)}/cambio-merma/autorizar',
+      data: {'tipo': tipo},
+    );
+    return OrdenTrabajoCambioMermaContext.fromJson(
+      Map<String, dynamic>.from(res.data as Map),
+    );
+  }
+
+  Future<OrdenTrabajoCambioMermaContext> retrabajoCambioMerma(
+    String iord, {
+    required int tipo,
+  }) async {
+    final res = await dio.post(
+      '/ordenes-trabajo/${Uri.encodeComponent(iord)}/cambio-merma/retrabajo',
+      data: {'tipo': tipo},
     );
     return OrdenTrabajoCambioMermaContext.fromJson(
       Map<String, dynamic>.from(res.data as Map),

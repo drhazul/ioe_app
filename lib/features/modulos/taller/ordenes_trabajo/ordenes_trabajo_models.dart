@@ -306,12 +306,14 @@ class OrdenTrabajoLaboratorioOption {
     required this.lab,
     required this.tipoLab,
     required this.suc,
+    required this.labSuc,
   });
 
   final int id;
   final String lab;
   final String tipoLab;
   final String suc;
+  final String labSuc;
 
   factory OrdenTrabajoLaboratorioOption.fromJson(Map<String, dynamic> json) {
     return OrdenTrabajoLaboratorioOption(
@@ -319,6 +321,7 @@ class OrdenTrabajoLaboratorioOption {
       lab: _toText(json['lab']) ?? '',
       tipoLab: _toText(json['tipoLab']) ?? '',
       suc: _toText(json['suc']) ?? '',
+      labSuc: _toText(json['labSuc']) ?? _toText(json['suc']) ?? '',
     );
   }
 }
@@ -420,9 +423,12 @@ class OrdenTrabajoCambioMermaContext {
     required this.selCtrlOrd,
     required this.hasStagingRecord,
     required this.hasCreatedOrd,
+    required this.finalized,
     required this.editable,
     required this.blockedByAuthorization,
     required this.canCreateNewOrd,
+    required this.canPrintFormato,
+    required this.canPrintSaldo,
     required this.autoAutorizada,
     required this.message,
     required this.subtotalOriginal,
@@ -441,9 +447,12 @@ class OrdenTrabajoCambioMermaContext {
   final int? selCtrlOrd;
   final bool hasStagingRecord;
   final bool hasCreatedOrd;
+  final bool finalized;
   final bool editable;
   final bool blockedByAuthorization;
   final bool canCreateNewOrd;
+  final bool canPrintFormato;
+  final bool canPrintSaldo;
   final bool autoAutorizada;
   final String message;
   final double subtotalOriginal;
@@ -465,9 +474,12 @@ class OrdenTrabajoCambioMermaContext {
       selCtrlOrd: _toInt(json['selCtrlOrd']),
       hasStagingRecord: json['hasStagingRecord'] == true,
       hasCreatedOrd: json['hasCreatedOrd'] == true,
+      finalized: json['finalized'] == true,
       editable: json['editable'] == true,
       blockedByAuthorization: json['blockedByAuthorization'] == true,
       canCreateNewOrd: json['canCreateNewOrd'] == true,
+      canPrintFormato: json['canPrintFormato'] == true,
+      canPrintSaldo: json['canPrintSaldo'] == true,
       autoAutorizada: json['autoAutorizada'] == true,
       message: _toText(json['message']) ?? '',
       subtotalOriginal: _toDouble(json['subtotalOriginal']) ?? 0,
@@ -516,6 +528,7 @@ class OrdenTrabajoEnviarRelacionItem {
     required this.iord,
     required this.idfol,
     required this.suc,
+    required this.labor,
     required this.clien,
     required this.ncliente,
     required this.art,
@@ -528,6 +541,7 @@ class OrdenTrabajoEnviarRelacionItem {
   final String iord;
   final String idfol;
   final String suc;
+  final String labor;
   final String clien;
   final String ncliente;
   final String art;
@@ -541,6 +555,7 @@ class OrdenTrabajoEnviarRelacionItem {
       iord: _toText(json['IORD']) ?? '',
       idfol: _toText(json['IDFOL']) ?? '',
       suc: _toText(json['SUC']) ?? '',
+      labor: _toText(json['LABOR']) ?? '',
       clien: _toText(json['CLIEN']) ?? '',
       ncliente: _toText(json['NCLIENTE']) ?? '',
       art: _toText(json['ART']) ?? '',

@@ -20,12 +20,14 @@
 - Catálogo DAT_ART (2026-04): la ficha permite editar `UPC`; antes de guardar se valida que no esté asignado a otro `ART` de la misma sucursal.
 - Punto de venta / Pago de Servicios (2026-04): el cierre operativo al salir de pago usa `ESTA='CERRADO_PS'` (compatibilidad de lectura para históricos en `TRANSMITIR`).
 - Facturación / Cliente fiscal (2026-04-06): en edición de datos fiscales (módulo `FACTURA_MTTOCLIENTE` y diálogo de validación) la `SUC` del cliente es inmutable; no se envía `SUC` desde frontend al actualizar.
-- Ordenes de trabajo / Asignar (2026-04-05): para usuario `admin`, la selección de colaborador toma la sucursal elegida en el filtro del panel ORDs (prioriza sucursal de ORDs seleccionadas cuando aplica), evitando usar por defecto la sucursal base del token.
+- Ordenes de trabajo / Asignar (2026-04-21): la selección de colaborador toma `DAT_LAB.SUC` del laboratorio asignado a cada ORD; si se mezclan ORDs de laboratorios en sucursales distintas, el flujo se bloquea hasta separarlas.
 - Ordenes de trabajo / Incidencia (2026-04-07): `Regresar incidencia` valida `ESTSEGU=8` con colaborador asignado y cambia a `ESTSEGU=9`; `Regresar a tienda` desde `9` decide `9.1/9.2` por `TIPOM`.
-- Ordenes de trabajo / Cambio material y Merma (2026-04-08): el modal de detalle usa `GET/POST /ordenes-trabajo/:iord/cambio-merma/*` para contexto/preparación/autorización/creación con `selCtrlOrd` (`NULL/0/13/14/15/16`), `CTD_C_M` (`1|0.5`), resumen enriquecido y cálculo homologado (`subtotal/iva/total/diferencia`).
+- Ordenes de trabajo / Cambio material y Merma (2026-04-08): el modal de detalle usa `GET/POST /ordenes-trabajo/:iord/cambio-merma/*` para contexto/preparación/retrabajo/autorización final con `selCtrlOrd` (`NULL/0/13/14/15`), `CTD_C_M` (`1|0.5`), resumen enriquecido y cálculo homologado (`subtotal/iva/total/diferencia`).
 - Ordenes de trabajo / Cambio material y Merma (2026-04-09): la captura refleja cálculo homologado a cotizaciones abiertas usando tipo/fiscalidad del folio origen (`AUT/ORIGEN_AUT`, `REQF/RQFAC`) junto con `DAT_SUC.IVA_INTEGRADO`.
-- Ordenes de trabajo / Cambio material y Merma (2026-04-19): se agrega botón `Crear Nueva ORD` para crear staging (`PV_ORD_CAMBIO_MERMA_TMP`); sin staging no se muestran campos/acciones de captura, y `Editar nueva ORD` también aplica para `selCtrlOrd=15`.
+- Ordenes de trabajo / Cambio material y Merma (2026-04-19): se agrega botón `Crear Nueva ORD` para crear staging (`PV_ORD_CAMBIO_MERMA_TMP`); sin staging no se muestran campos/acciones de captura, y la recaptura sigue permitida cuando `selCtrlOrd=15`.
 - Ordenes de trabajo / Cambio material y Merma (2026-04-19): el costo de la nueva ORD se alinea al costo de la ORD original para evitar diferencias de precio en captura.
+- Ordenes de trabajo / Cambio material y Merma (2026-04-21): `Solicitar autorización` fija `selCtrlOrd=14`; `Retrabajo` devuelve a `15`; `Autorizar` visible solo para `admin`, `ANALISTA_INV` e `INVJEF` crea la nueva ORD y anula la original.
+- Ordenes de trabajo / Panel ORDs (2026-04-21): `ANALISTA_INV` e `INVJEF` operan una cola dedicada de revisión (`selCtrlOrd=14`) sin cambiar la vista del resto de roles.
 
 ## Documentación por módulos
 - Base de módulos: `docs/modules/base_modulos/AGENTS.md` (README: `docs/modules/base_modulos/README.md`)
@@ -59,3 +61,4 @@
 
 ## Documentacion viva obligatoria
 - Cada cambio funcional debe reflejarse en el README/AGENTS principal y en los README/AGENTS del módulo afectado (app y API) en el mismo trabajo.
+

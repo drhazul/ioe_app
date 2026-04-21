@@ -8,6 +8,8 @@ import 'package:ioe_app/core/api_error.dart';
 import 'package:ioe_app/core/dio_provider.dart';
 import 'package:ioe_app/features/modulos/catalogo/datart_models.dart';
 import 'package:ioe_app/features/modulos/catalogo/datart_providers.dart';
+import 'package:ioe_app/features/modulos/punto_venta/cotizaciones/detalle_cot/jrq_api.dart';
+import 'package:ioe_app/features/modulos/punto_venta/cotizaciones/detalle_cot/jrq_models.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -1718,6 +1720,88 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     return laborId?.toString() ?? clean;
   }
 
+  String? _resolveLaboratorioSucursal(
+    String laborValue,
+    List<OrdenTrabajoLaboratorioOption> laboratorios,
+  ) {
+    final laborId = _parseLaboratorioId(laborValue.trim());
+    if (laborId == null || laborId <= 0) return null;
+    for (final item in laboratorios) {
+      if (item.id != laborId) continue;
+      final suc = (item.labSuc.trim().isNotEmpty ? item.labSuc : item.suc)
+          .trim()
+          .toUpperCase();
+      return suc.isEmpty ? null : suc;
+    }
+    return null;
+  }
+
+  String _resolveColaboradorSucForPanelRows(
+    List<OrdenTrabajoItem> rows,
+    List<OrdenTrabajoLaboratorioOption> laboratorios,
+  ) {
+    if (rows.isEmpty) {
+      throw StateError(
+        'No se identificaron ORDs seleccionadas para asignar colaborador.',
+      );
+    }
+    final sucs = <String>{};
+    for (final row in rows) {
+      final labor = row.labor.trim();
+      if (labor.isEmpty) {
+        throw StateError(
+          'La ORD ${row.iord} no tiene laboratorio asignado. Asigna laboratorio antes de seleccionar colaborador.',
+        );
+      }
+      final suc = _resolveLaboratorioSucursal(labor, laboratorios);
+      if (suc == null) {
+        throw StateError(
+          'No se pudo determinar la sucursal del laboratorio de la ORD ${row.iord}.',
+        );
+      }
+      sucs.add(suc);
+    }
+    if (sucs.length != 1) {
+      throw StateError(
+        'Las ORDs seleccionadas pertenecen a laboratorios de sucursales distintas. Asigna colaborador por sucursal de laboratorio.',
+      );
+    }
+    return sucs.first;
+  }
+
+  String? _resolveColaboradorSucForRelacionRows(
+    List<OrdenTrabajoEnviarRelacionItem> rows,
+    List<OrdenTrabajoLaboratorioOption> laboratorios,
+  ) {
+    if (rows.isEmpty) return null;
+    final sucs = <String>{};
+    for (final row in rows) {
+      final labor = row.labor.trim();
+      if (labor.isEmpty) {
+        throw StateError(
+          'La ORD ${row.iord} no tiene laboratorio asignado. Asigna laboratorio antes de seleccionar colaborador.',
+        );
+      }
+      final suc = _resolveLaboratorioSucursal(labor, laboratorios);
+      if (suc == null) {
+        throw StateError(
+          'No se pudo determinar la sucursal del laboratorio de la ORD ${row.iord}.',
+        );
+      }
+      sucs.add(suc);
+    }
+    if (sucs.length != 1) {
+      throw StateError(
+        'Las ORDs relacionadas pertenecen a laboratorios de sucursales distintas. Captura solo ORDs de la misma sucursal de laboratorio.',
+      );
+    }
+    return sucs.first;
+  }
+
+  String _stateErrorText(StateError error) {
+    return error.toString().replaceFirst('Bad state: ', '').trim();
+  }
+
   String _flowDescripcion(String estsegu, String estseguDesc) {
     final code = estsegu.trim();
     final desc = estseguDesc.trim();
@@ -1889,6 +1973,11 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     final role = roleCodeRaw.trim().toUpperCase();
     if (_isAdmin) return true;
     return role == 'JEF_TALLER' || role == 'ANALISTA_ORD' || role == 'ANALISTA';
+  }
+
+  bool _isCambioMermaAuthorizationRole(String roleCodeRaw) {
+    final role = roleCodeRaw.trim().toUpperCase();
+    return role == 'ANALISTA_INV' || role == 'INVJEF';
   }
 
   Widget _dateChip({
@@ -3035,6 +3124,175 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     return doc;
   }
 
+  Future<void> _printCambioMermaFormato({
+    required _OrdCambioMermaMode mode,
+    required OrdenTrabajoCambioMermaContext contextData,
+  }) async {
+    final doc = _buildCambioMermaFormatoPdf(
+      mode: mode,
+      contextData: contextData,
+    );
+    final now = DateTime.now();
+    final y = now.year.toString().padLeft(4, '0');
+    final m = now.month.toString().padLeft(2, '0');
+    final d = now.day.toString().padLeft(2, '0');
+    final hh = now.hour.toString().padLeft(2, '0');
+    final mm = now.minute.toString().padLeft(2, '0');
+    await Printing.layoutPdf(
+      name:
+          'ord_${mode == _OrdCambioMermaMode.cambioMaterial ? 'cambio' : 'merma'}_$y$m$d-$hh$mm.pdf',
+      onLayout: (_) => doc.save(),
+    );
+  }
+
+  Future<void> _printCambioMermaSaldo({
+    required _OrdCambioMermaMode mode,
+    required OrdenTrabajoCambioMermaContext contextData,
+  }) async {
+    final doc = _buildCambioMermaSaldoPdf(
+      mode: mode,
+      contextData: contextData,
+    );
+    final now = DateTime.now();
+    final y = now.year.toString().padLeft(4, '0');
+    final m = now.month.toString().padLeft(2, '0');
+    final d = now.day.toString().padLeft(2, '0');
+    final hh = now.hour.toString().padLeft(2, '0');
+    final mm = now.minute.toString().padLeft(2, '0');
+    await Printing.layoutPdf(
+      name: 'saldo_${mode == _OrdCambioMermaMode.cambioMaterial ? 'cambio' : 'merma'}_$y$m$d-$hh$mm.pdf',
+      onLayout: (_) => doc.save(),
+    );
+  }
+
+  pw.Document _buildCambioMermaFormatoPdf({
+    required _OrdCambioMermaMode mode,
+    required OrdenTrabajoCambioMermaContext contextData,
+  }) {
+    final original = contextData.original;
+    final draft = contextData.draft;
+    final doc = pw.Document();
+    final title = mode == _OrdCambioMermaMode.cambioMaterial
+        ? 'FORMATO CAMBIO DE MATERIAL'
+        : 'FORMATO DE MERMA';
+
+    pw.Widget row(String label, String value) => pw.Padding(
+          padding: const pw.EdgeInsets.only(bottom: 6),
+          child: pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.SizedBox(
+                width: 150,
+                child: pw.Text(
+                  label,
+                  style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                ),
+              ),
+              pw.Expanded(child: pw.Text(value.isEmpty ? 'N/D' : value)),
+            ],
+          ),
+        );
+
+    doc.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(24),
+        build: (_) => [
+          pw.Text(
+            title,
+            style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
+          ),
+          pw.SizedBox(height: 12),
+          row('ORD original', _textOf(original['IORD'])),
+          row('Nueva ORD', _textOf(draft['NVA_IORD'])),
+          row('Cliente', _textOf(original['NCLIENTE'])),
+          row('Artículo original', _textOf(original['ART'])),
+          row('Descripción original', _textOf(original['DES'])),
+          row('Artículo nuevo', _textOf(draft['ART'])),
+          row('Descripción nueva', _textOf(draft['DES'])),
+          row('CTD original', _money(_toNum(original['CTD']) ?? 0)),
+          row('CTD_C_M', _money(_toNum(original['CTD_C_M']) ?? 0)),
+          row('Motivo', _textOf(original['MOTR'], fallback: _textOf(draft['MOTIVO']))),
+          row('Laboratorio', _textOf(draft['LABOR'])),
+          row('PVTA original', _money(_toNum(original['PVTAT_BASE']) ?? 0)),
+          row('PVTA nuevo', _money(_toNum(draft['PVTA']) ?? 0)),
+          row('Subtotal original', _money(contextData.subtotalOriginal)),
+          row('IVA original', _money(contextData.ivaOriginal)),
+          row('Total original', _money(contextData.totalOriginal)),
+          row('Subtotal nuevo', _money(contextData.subtotalNuevo)),
+          row('IVA nuevo', _money(contextData.ivaNuevo)),
+          row('Total nuevo', _money(contextData.totalNuevo)),
+          row('Diferencia económica', _money(contextData.diferenciaEconomica)),
+          row('REEORD original', _textOf(original['REEORD'])),
+          row('Autorizó', _textOf(original['USR_AUT_CYM'])),
+          row('Fecha autorización', _fmtDate(_toDate(original['FCN_AUT_CYM']))),
+          row('Comentarios', _textOf(original['COMAD'])),
+        ],
+      ),
+    );
+    return doc;
+  }
+
+  pw.Document _buildCambioMermaSaldoPdf({
+    required _OrdCambioMermaMode mode,
+    required OrdenTrabajoCambioMermaContext contextData,
+  }) {
+    final original = contextData.original;
+    final draft = contextData.draft;
+    final doc = pw.Document();
+    final diff = contextData.diferenciaEconomica;
+    final tipoSaldo = diff > 0
+        ? 'SALDO EN CONTRA DEL CLIENTE'
+        : diff < 0
+            ? 'SALDO A FAVOR DEL CLIENTE'
+            : 'SIN DIFERENCIA ECONOMICA';
+
+    doc.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(24),
+        build: (_) => [
+          pw.Text(
+            mode == _OrdCambioMermaMode.cambioMaterial
+                ? 'FORMATO DE SALDO POR CAMBIO DE MATERIAL'
+                : 'FORMATO DE SALDO POR MERMA',
+            style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
+          ),
+          pw.SizedBox(height: 12),
+          pw.Text(
+            tipoSaldo,
+            style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
+          ),
+          pw.SizedBox(height: 16),
+          pw.Text('ORD original: ${_textOf(original['IORD'])}'),
+          pw.Text('Nueva ORD: ${_textOf(draft['NVA_IORD'])}'),
+          pw.Text('Cliente: ${_textOf(original['NCLIENTE'])}'),
+          pw.Text('Artículo original: ${_textOf(original['ART'])}'),
+          pw.Text('Artículo nuevo: ${_textOf(draft['ART'])}'),
+          pw.Text('Total original: ${_money(contextData.totalOriginal)}'),
+          pw.Text('Total nuevo: ${_money(contextData.totalNuevo)}'),
+          pw.SizedBox(height: 10),
+          pw.Container(
+            padding: const pw.EdgeInsets.all(12),
+            decoration: pw.BoxDecoration(
+              border: pw.Border.all(color: PdfColors.black),
+            ),
+            child: pw.Text(
+              'Diferencia económica autorizada: ${_money(diff)}',
+              style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
+            ),
+          ),
+          pw.SizedBox(height: 16),
+          pw.Text('Autorizó: ${_textOf(original['USR_AUT_CYM'])}'),
+          pw.Text(
+            'Fecha autorización: ${_fmtDate(_toDate(original['FCN_AUT_CYM']))}',
+          ),
+        ],
+      ),
+    );
+    return doc;
+  }
+
   Future<void> _doEnviar() async {
     final selectedIords = _selectedIords.toList(growable: false);
     if (selectedIords.isNotEmpty) {
@@ -3171,11 +3429,18 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       return;
     }
 
-    final selectedSucs = selectedRows
-        .map((row) => row.suc.trim().toUpperCase())
-        .where((item) => item.isNotEmpty)
-        .toSet();
-    final preferredSuc = selectedSucs.length == 1 ? selectedSucs.first : null;
+    final preferredSuc = () {
+      try {
+        return _resolveColaboradorSucForPanelRows(
+          selectedRows,
+          panel.laboratorios,
+        );
+      } on StateError catch (e) {
+        _showError(_stateErrorText(e));
+        return null;
+      }
+    }();
+    if (preferredSuc == null) return;
     final colaborador = await _selectColaboradorDialog(sucHint: preferredSuc);
     if (colaborador == null) return;
     final confirm = await _confirmAsignarAColaborador(
@@ -3493,29 +3758,69 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     var processing = false;
     var loadingCollaborators = false;
     String? colaboradorId;
+    String? colaboradorSuc;
     List<OrdenTrabajoColaboradorOption> colaboradores =
         const <OrdenTrabajoColaboradorOption>[];
-    final colaboradorSuc = _resolveColaboradorSuc();
+    final panel = ref.read(ordenesTrabajoPanelProvider).valueOrNull;
+    final laboratoriosPanel =
+        panel?.laboratorios ?? const <OrdenTrabajoLaboratorioOption>[];
 
-    if (colaboradorSuc.isEmpty) {
-      _showError(
-        'No se pudo determinar la sucursal para asignar colaborador. Selecciona una sucursal en el filtro del panel.',
-      );
-      return;
-    }
-
-    Future<void> loadCollaborators({
-      required BuildContext dialogContext,
+    Future<void> syncCollaboratorsForRelations({
+      required NavigatorState dialogNavigator,
+      required WidgetRef dialogRef,
       required StateSetter setDialogState,
+      bool forceReload = false,
     }) async {
+      final relaciones = dialogRef.read(ordenesTrabajoAsignarRelacionProvider);
+      if (relaciones.isEmpty) {
+        if (!dialogNavigator.mounted) return;
+        setDialogState(() {
+          colaboradores = const <OrdenTrabajoColaboradorOption>[];
+          colaboradorId = null;
+          colaboradorSuc = null;
+          loadingCollaborators = false;
+        });
+        return;
+      }
+      String nextSuc;
+      try {
+        nextSuc = _resolveColaboradorSucForRelacionRows(
+              relaciones,
+              laboratoriosPanel,
+            ) ??
+            '';
+      } on StateError catch (e) {
+        _showError(_stateErrorText(e));
+        if (!dialogNavigator.mounted) return;
+        setDialogState(() {
+          colaboradores = const <OrdenTrabajoColaboradorOption>[];
+          colaboradorId = null;
+          colaboradorSuc = null;
+          loadingCollaborators = false;
+        });
+        return;
+      }
+      if (nextSuc.isEmpty) {
+        _showError(
+          'No se pudo determinar la sucursal del laboratorio para asignar colaborador.',
+        );
+        return;
+      }
+      if (!forceReload &&
+          !loadingCollaborators &&
+          colaboradorSuc == nextSuc &&
+          colaboradores.isNotEmpty) {
+        return;
+      }
       if (loadingCollaborators) return;
       setDialogState(() => loadingCollaborators = true);
       try {
         final items = await ref
             .read(ordenesTrabajoApiProvider)
-            .fetchAsignarColaboradores(colaboradorSuc);
-        if (!dialogContext.mounted) return;
+            .fetchAsignarColaboradores(nextSuc);
+        if (!dialogNavigator.mounted) return;
         setDialogState(() {
+          colaboradorSuc = nextSuc;
           colaboradores = items;
           if (!colaboradores.any((item) => item.idopv == colaboradorId)) {
             colaboradorId = colaboradores.isEmpty
@@ -3528,7 +3833,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
           apiErrorMessage(e, fallback: 'No se pudo cargar colaboradores.'),
         );
       } finally {
-        if (dialogContext.mounted) {
+        if (dialogNavigator.mounted) {
           setDialogState(() => loadingCollaborators = false);
         }
       }
@@ -3541,6 +3846,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       String? codeOverride,
     }) async {
       final code = (codeOverride ?? _ordEnviarCtrl.text).trim();
+      final dialogNavigator = Navigator.of(dialogContext);
       if (code.isEmpty) {
         _showError('Digita o escanea una ORD para continuar.');
         return;
@@ -3560,11 +3866,25 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
           _showError('La ORD ${item.iord} ya está relacionada.');
           return;
         }
-        dialogRef.read(ordenesTrabajoAsignarRelacionProvider.notifier).state = [
-          ...current,
-          item,
-        ];
+        final nextRelaciones = [...current, item];
+        try {
+          _resolveColaboradorSucForRelacionRows(
+            nextRelaciones,
+            laboratoriosPanel,
+          );
+        } on StateError catch (e) {
+          _showError(_stateErrorText(e));
+          return;
+        }
+        dialogRef.read(ordenesTrabajoAsignarRelacionProvider.notifier).state =
+            nextRelaciones;
         _ordEnviarCtrl.clear();
+        await syncCollaboratorsForRelations(
+          dialogNavigator: dialogNavigator,
+          dialogRef: dialogRef,
+          setDialogState: setDialogState,
+          forceReload: true,
+        );
       } catch (e) {
         _showError(
           apiErrorMessage(
@@ -3648,17 +3968,27 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       builder: (dialogContext) => StatefulBuilder(
         builder: (dialogContext, setDialogState) => Consumer(
           builder: (dialogContext, dialogRef, _) {
-            if (!loadingCollaborators && colaboradores.isEmpty) {
+            final relaciones = dialogRef.watch(
+              ordenesTrabajoAsignarRelacionProvider,
+            );
+            if (!loadingCollaborators &&
+                relaciones.isNotEmpty &&
+                (colaboradorSuc == null || colaboradores.isEmpty)) {
               unawaited(
-                loadCollaborators(
-                  dialogContext: dialogContext,
+                syncCollaboratorsForRelations(
+                  dialogNavigator: Navigator.of(dialogContext),
+                  dialogRef: dialogRef,
                   setDialogState: setDialogState,
                 ),
               );
             }
-            final relaciones = dialogRef.watch(
-              ordenesTrabajoAsignarRelacionProvider,
-            );
+            final colaboradorScopeText = colaboradorSuc == null
+                ? 'Agrega una ORD con laboratorio asignado para cargar colaboradores.'
+                : 'Colaboradores disponibles para la sucursal $colaboradorSuc.';
+            final selectedColaboradorId =
+                colaboradores.any((item) => item.idopv == colaboradorId)
+                ? colaboradorId
+                : null;
             return AlertDialog(
               title: const Text('Asignar ORDs a colaborador'),
               content: SizedBox(
@@ -3672,7 +4002,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Colaboradores disponibles para la sucursal $colaboradorSuc.',
+                      colaboradorScopeText,
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                     const SizedBox(height: 12),
@@ -3721,11 +4051,15 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                     ),
                     const SizedBox(height: 10),
                     DropdownButtonFormField<String>(
-                      key: ValueKey('asignar-colab-${colaboradorId ?? 'NONE'}'),
-                      initialValue: colaboradorId,
+                      key: ValueKey(
+                        'asignar-colab-${colaboradorSuc ?? 'NONE'}-${selectedColaboradorId ?? 'NONE'}',
+                      ),
+                      initialValue: selectedColaboradorId,
                       isExpanded: true,
                       decoration: InputDecoration(
-                        labelText: 'Colaborador a asignar ($colaboradorSuc)',
+                        labelText: colaboradorSuc == null
+                            ? 'Colaborador a asignar'
+                            : 'Colaborador a asignar ($colaboradorSuc)',
                         border: const OutlineInputBorder(),
                       ),
                       items: colaboradores
@@ -3740,7 +4074,10 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                             ),
                           )
                           .toList(growable: false),
-                      onChanged: processing || loadingCollaborators
+                      onChanged:
+                          processing ||
+                              loadingCollaborators ||
+                              colaboradores.isEmpty
                           ? null
                           : (value) =>
                                 setDialogState(() => colaboradorId = value),
@@ -3817,6 +4154,17 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                                                                 )
                                                                 .state =
                                                             remaining;
+                                                        unawaited(
+                                                          syncCollaboratorsForRelations(
+                                                            dialogNavigator: Navigator.of(
+                                                              dialogContext,
+                                                            ),
+                                                            dialogRef: dialogRef,
+                                                            setDialogState:
+                                                                setDialogState,
+                                                            forceReload: true,
+                                                          ),
+                                                        );
                                                       },
                                                 icon: const Icon(
                                                   Icons.delete_outline,
@@ -4626,13 +4974,13 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     final docDifCtrl = TextEditingController(text: _textOf(draft['DOCDIF']));
 
     final initialMotrRaw = _parseIntLike(
-      _textOf(draft['MOTR'], fallback: _textOf(original['MOTR'])),
+      _textOf(original['MOTR'], fallback: _textOf(draft['MOTR'])),
     );
     final initialMotr =
         (initialMotrRaw != null && initialMotrRaw > 0) ? initialMotrRaw : null;
     int? selectedMotr = motivoOptions.any((item) => item.id == initialMotr)
         ? initialMotr
-        : (motivoOptions.isNotEmpty ? motivoOptions.first.id : null);
+        : null;
     if (selectedMotr != null) {
       final selected = motivoOptions.firstWhere((item) => item.id == selectedMotr);
       motivoCtrl.text = selected.label;
@@ -4644,7 +4992,6 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     }
 
     String selectedLabor = _normalizeLaboratorioValue(_textOf(draft['LABOR']));
-    bool crearNuevaOrd = (_toNum(draft['CREAR_NUEVA_ORD']) ?? 1) != 0;
     double? normalizeCtdCMValue(num? value) {
       if (value == null) return null;
       final numeric = value.toDouble();
@@ -4654,7 +5001,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     }
 
     double? selectedCtdCM = normalizeCtdCMValue(
-      _toNum(draft['CTD_C_M']) ?? _toNum(original['CTD_C_M']),
+      _toNum(original['CTD_C_M']),
     );
     double? selectedPvtaNuevo =
         _toNum(draft['PVTA'])?.toDouble() ??
@@ -4663,11 +5010,54 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     bool submitting = false;
     bool dirty = false;
 
+    void applyCambioMermaContext(OrdenTrabajoCambioMermaContext updated) {
+      cmContext = updated;
+      original = cmContext.original;
+      draft = cmContext.draft;
+      selectedLabor = _normalizeLaboratorioValue(
+        _textOf(updated.draft['LABOR']),
+      );
+      selectedCtdCM = normalizeCtdCMValue(
+        _toNum(updated.original['CTD_C_M']),
+      );
+      selectedPvtaNuevo =
+          _toNum(updated.draft['PVTA'])?.toDouble() ??
+          _toNum(updated.original['PVTAT_BASE'])?.toDouble();
+      artNuevoCtrl.text = _textOf(updated.draft['ART']);
+      upcNuevoCtrl.text = _textOf(updated.draft['UPC']);
+      desNuevoCtrl.text = _textOf(updated.draft['DES']);
+      docDifCtrl.text = _textOf(updated.draft['DOCDIF']);
+      final motrFromDraft = _parseIntLike(
+        _textOf(
+          updated.original['MOTR'],
+          fallback: _textOf(updated.draft['MOTR']),
+        ),
+      );
+      selectedMotr =
+          (motrFromDraft != null &&
+              motrFromDraft > 0 &&
+              motivoOptions.any((item) => item.id == motrFromDraft))
+          ? motrFromDraft
+          : null;
+      if (selectedMotr != null) {
+        motivoCtrl.text = motivoOptions
+            .firstWhere((item) => item.id == selectedMotr)
+            .label;
+      } else {
+        motivoCtrl.text = _textOf(updated.draft['MOTIVO']);
+      }
+    }
+
     await showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) {
+          final panelRoleCode = (panel?.roleCode ?? '').trim().toUpperCase();
+          final isCambioMermaAuthorizationRole =
+              _isCambioMermaAuthorizationRole(panelRoleCode);
+          final canAuthorizeCambioMerma =
+              _isAdmin || isCambioMermaAuthorizationRole;
           final laboratoriosByTipo = _laboratoriosDetallePorTipo(
             laboratoriosPanel,
             tipoOrd,
@@ -4682,36 +5072,49 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                   ? selectedLabor
                   : null;
           final hasStagingRecord = cmContext.hasStagingRecord;
-          final createdIord = _textOf(draft['NVA_IORD']);
-          final hasCreatedOrd = cmContext.hasCreatedOrd || createdIord.isNotEmpty;
+          final nvaIord = _textOf(draft['NVA_IORD']);
+          final hasCreatedOrd = cmContext.hasCreatedOrd;
           final hasPreparedCapture =
               hasStagingRecord &&
               cmContext.selCtrlOrd != null &&
               cmContext.selCtrlOrd != 0;
-          final canCreateDraftRecord = !hasStagingRecord && !submitting;
+          final canCreateDraftRecord =
+              !isCambioMermaAuthorizationRole && !hasStagingRecord && !submitting;
           final editableCapture =
               hasPreparedCapture &&
               cmContext.editable &&
               !hasCreatedOrd &&
               !submitting;
-          final canPrepareCapture =
-              hasStagingRecord &&
+          final canEditBaseFields =
+              !isCambioMermaAuthorizationRole &&
               !hasCreatedOrd &&
+              !submitting &&
               (cmContext.selCtrlOrd == null ||
                   cmContext.selCtrlOrd == 0 ||
                   cmContext.selCtrlOrd == 13 ||
-                  cmContext.selCtrlOrd == 15) &&
-                  !submitting;
+                  cmContext.selCtrlOrd == 15);
           final canRequestAuthorization =
+              !isCambioMermaAuthorizationRole &&
               hasStagingRecord &&
               !hasCreatedOrd &&
               editableCapture &&
               (cmContext.selCtrlOrd == 13 || cmContext.selCtrlOrd == 15);
-          final canCreateNewOrd =
+          final canAuthorizeCapture =
+              canAuthorizeCambioMerma &&
               hasStagingRecord &&
               !hasCreatedOrd &&
-              cmContext.canCreateNewOrd &&
+              cmContext.selCtrlOrd == 14 &&
               !submitting;
+          final canRetrabajoCapture =
+              canAuthorizeCambioMerma &&
+              hasStagingRecord &&
+              !hasCreatedOrd &&
+              cmContext.selCtrlOrd == 14 &&
+              !submitting;
+          final canPrintFormato =
+              hasCreatedOrd && cmContext.canPrintFormato && !submitting;
+          final canPrintSaldo =
+              hasCreatedOrd && cmContext.canPrintSaldo && !submitting;
           final selectedMotrValue =
               selectedMotr != null &&
                   motivoOptions.any((item) => item.id == selectedMotr)
@@ -4770,9 +5173,30 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                             ),
                           if (hasCreatedOrd)
                             Text(
-                              'Nueva ORD ya creada: $createdIord. CTD_C_M y MOTR bloqueados.',
+                              'Nueva ORD ya creada: $nvaIord. CTD_C_M y MOTR bloqueados.',
                               style: TextStyle(
                                 color: Colors.green.shade700,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          if (hasCreatedOrd &&
+                              (_textOf(original['USR_AUT_CYM']).isNotEmpty ||
+                                  _toDate(original['FCN_AUT_CYM']) != null))
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text(
+                                'Autorizó: ${_textOf(original['USR_AUT_CYM'], fallback: 'N/D')}  ${_fmtDate(_toDate(original['FCN_AUT_CYM']))}',
+                                style: TextStyle(
+                                  color: Colors.green.shade800,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          if (!hasCreatedOrd && nvaIord.isNotEmpty)
+                            Text(
+                              'NVA_IORD reservada: $nvaIord',
+                              style: TextStyle(
+                                color: Colors.teal.shade700,
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
@@ -4811,28 +5235,8 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                               SizedBox(
                                 width: 220,
                                 child: roField(
-                                  'IORD original',
-                                  _textOf(draft['IORD_ORIGINAL'], fallback: iord),
-                                ),
-                              ),
-                              SizedBox(
-                                width: 220,
-                                child: roField(
-                                  'IDFOL',
-                                  _textOf(draft['IDFOL'], fallback: _textOf(header['IDFOL'])),
-                                ),
-                              ),
-                              SizedBox(
-                                width: 280,
-                                child: roField(
-                                  'NCLIENTE',
-                                  _textOf(
-                                    draft['NCLIENTE'],
-                                    fallback: _textOf(
-                                      original['NCLIENTE'],
-                                      fallback: _textOf(header['CLIEN']),
-                                    ),
-                                  ),
+                                  'NVA_IORD',
+                                  nvaIord,
                                 ),
                               ),
                               SizedBox(
@@ -4894,13 +5298,6 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                                 width: 130,
                                 child: roField('Total', _money(cmContext.totalNuevo)),
                               ),
-                              SizedBox(
-                                width: 200,
-                                child: roField(
-                                  'Diferencia económica',
-                                  _money(cmContext.diferenciaEconomica),
-                                ),
-                              ),
                               SizedBox(width: 140, child: roField('TIPO', _textOf(draft['TIPO'], fallback: tipoOrd))),
                               SizedBox(
                                 width: 230,
@@ -4939,26 +5336,12 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                             ],
                           ),
                           if (hasStagingRecord) const SizedBox(height: 10),
-                          if (hasStagingRecord && mode == _OrdCambioMermaMode.merma)
-                            CheckboxListTile(
-                              contentPadding: EdgeInsets.zero,
-                              dense: true,
-                              value: crearNuevaOrd,
-                              onChanged: editableCapture
-                                  ? (value) => setDialogState(() {
-                                        crearNuevaOrd = value ?? true;
-                                        dirty = true;
-                                      })
-                                  : null,
-                              title: const Text('Crear nueva ORD derivada'),
-                            ),
                           if (hasStagingRecord)
                             Row(
                             children: [
                               OutlinedButton.icon(
                                 onPressed:
-                                    mode == _OrdCambioMermaMode.merma ||
-                                            !editableCapture ||
+                                    !editableCapture ||
                                             processingArticulo ||
                                             submitting
                                         ? null
@@ -4975,15 +5358,37 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                                               if (!ctx.mounted || picked == null) {
                                                 return;
                                               }
+                                              final updated = await api
+                                                  .actualizarArticuloCambioMerma(
+                                                iord,
+                                                tipo: mode.tipom,
+                                                artNuevo: picked.art,
+                                                pvtaNuevo: picked.pvta?.toDouble(),
+                                              );
+                                              if (!ctx.mounted || !mounted) return;
                                               setDialogState(() {
-                                                artNuevoCtrl.text = picked.art;
-                                                upcNuevoCtrl.text = picked.upc;
-                                                desNuevoCtrl.text =
-                                                    (picked.des ?? '').trim();
-                                                selectedPvtaNuevo =
-                                                    picked.pvta?.toDouble();
-                                                dirty = true;
+                                                applyCambioMermaContext(updated);
+                                                dirty = false;
                                               });
+                                              ScaffoldMessenger.of(context)
+                                                  .showSnackBar(
+                                                SnackBar(
+                                                  content: Text(
+                                                    updated.message.isEmpty
+                                                        ? 'Artículo actualizado en captura temporal.'
+                                                        : updated.message,
+                                                  ),
+                                                ),
+                                              );
+                                            } catch (e) {
+                                              if (!ctx.mounted || !mounted) return;
+                                              _showError(
+                                                apiErrorMessage(
+                                                  e,
+                                                  fallback:
+                                                      'No se pudo actualizar el artículo en la captura.',
+                                                ),
+                                              );
                                             } finally {
                                               if (ctx.mounted) {
                                                 setDialogState(
@@ -4994,27 +5399,6 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                                           },
                                 icon: const Icon(Icons.search),
                                 label: const Text('Buscar Articulo para cambiar'),
-                              ),
-                              const SizedBox(width: 8),
-                              TextButton(
-                                onPressed: mode == _OrdCambioMermaMode.merma
-                                    ? null
-                                    : !editableCapture
-                                    ? null
-                                    : artNuevoCtrl.text.trim().isEmpty
-                                        ? null
-                                        : () {
-                                            setDialogState(() {
-                                              artNuevoCtrl.clear();
-                                              upcNuevoCtrl.clear();
-                                              desNuevoCtrl.clear();
-                                              selectedPvtaNuevo =
-                                                  _toNum(original['PVTAT_BASE'])
-                                                      ?.toDouble();
-                                              dirty = true;
-                                            });
-                                          },
-                                child: const Text('Limpiar artículo'),
                               ),
                             ],
                           ),
@@ -5202,6 +5586,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                               child: DropdownButtonFormField<double>(
                                 initialValue: selectedCtdCM,
                                 isExpanded: true,
+                                hint: const Text('Seleccionar'),
                                 decoration: const InputDecoration(
                                   labelText: 'CTD_C_M',
                                   border: OutlineInputBorder(),
@@ -5217,7 +5602,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                                     child: Text('0.5'),
                                   ),
                                 ],
-                                onChanged: editableCapture
+                                onChanged: canEditBaseFields
                                     ? (value) => setDialogState(() {
                                           selectedCtdCM = value;
                                           dirty = true;
@@ -5233,7 +5618,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                               child: motivoOptions.isEmpty
                                   ? TextField(
                                       controller: motivoCtrl,
-                                      enabled: editableCapture,
+                                      enabled: canEditBaseFields,
                                       maxLines: 2,
                                       decoration: const InputDecoration(
                                         labelText: 'MOTR (motivo)',
@@ -5245,6 +5630,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                                   : DropdownButtonFormField<int>(
                                       initialValue: selectedMotrValue,
                                       isExpanded: true,
+                                      hint: const Text('Seleccionar'),
                                       decoration: const InputDecoration(
                                         labelText: 'MOTR (motivo)',
                                         border: OutlineInputBorder(),
@@ -5262,7 +5648,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                                             ),
                                           )
                                           .toList(growable: false),
-                                      onChanged: editableCapture
+                                      onChanged: canEditBaseFields
                                           ? (value) {
                                               setDialogState(() {
                                                 selectedMotr = value;
@@ -5287,93 +5673,64 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
               ),
             ),
             actions: [
-              OutlinedButton.icon(
-                onPressed: (canCreateDraftRecord || canPrepareCapture)
-                    ? () async {
-                        final ctdCMValue = selectedCtdCM;
-                        if (ctdCMValue == null) {
-                          _showError('Selecciona CTD_C_M para continuar.');
-                          return;
-                        }
-                        setDialogState(() => submitting = true);
-                        try {
-                          final updated = await api.prepararCambioMerma(
-                            iord,
-                            tipo: mode.tipom,
-                            ctdCM: ctdCMValue,
-                          );
-                          if (!ctx.mounted || !mounted) return;
-                          setDialogState(() {
-                            cmContext = updated;
-                            original = cmContext.original;
-                            draft = cmContext.draft;
-                            selectedLabor = _normalizeLaboratorioValue(
-                              _textOf(updated.draft['LABOR']),
+              if (!hasStagingRecord)
+                OutlinedButton.icon(
+                  onPressed: canCreateDraftRecord
+                      ? () async {
+                          final ctdCMValue = selectedCtdCM;
+                          final motivoTexto = motivoCtrl.text.trim();
+                          if (ctdCMValue == null) {
+                            _showError('Selecciona CTD_C_M para continuar.');
+                            return;
+                          }
+                          if (motivoOptions.isNotEmpty && selectedMotr == null) {
+                            _showError('Selecciona un motivo válido para continuar.');
+                            return;
+                          }
+                          if (motivoTexto.length < 3) {
+                            _showError('Selecciona o captura un motivo válido.');
+                            return;
+                          }
+                          setDialogState(() => submitting = true);
+                          try {
+                            final updated = await api.prepararCambioMerma(
+                              iord,
+                              tipo: mode.tipom,
+                              ctdCM: ctdCMValue,
+                              motivo: motivoTexto,
+                              motr: selectedMotr,
                             );
-                            selectedCtdCM = normalizeCtdCMValue(
-                              _toNum(updated.draft['CTD_C_M']),
-                            );
-                            selectedPvtaNuevo =
-                                _toNum(updated.draft['PVTA'])?.toDouble() ??
-                                _toNum(updated.original['PVTAT_BASE'])
-                                    ?.toDouble();
-                            crearNuevaOrd =
-                                (_toNum(updated.draft['CREAR_NUEVA_ORD']) ?? 1) != 0;
-                            artNuevoCtrl.text = _textOf(updated.draft['ART']);
-                            upcNuevoCtrl.text = _textOf(updated.draft['UPC']);
-                            desNuevoCtrl.text = _textOf(updated.draft['DES']);
-                            docDifCtrl.text = _textOf(updated.draft['DOCDIF']);
-                            final motrFromDraft =
-                                _parseIntLike(_textOf(updated.draft['MOTR']));
-                            selectedMotr =
-                                (motrFromDraft != null &&
-                                    motrFromDraft > 0 &&
-                                    motivoOptions.any(
-                                      (item) => item.id == motrFromDraft,
-                                    ))
-                                ? motrFromDraft
-                                : null;
-                            if (selectedMotr != null) {
-                              motivoCtrl.text = motivoOptions
-                                  .firstWhere((item) => item.id == selectedMotr)
-                                  .label;
-                            } else {
-                              motivoCtrl.text = _textOf(updated.draft['MOTIVO']);
-                            }
-                            dirty = false;
-                            submitting = false;
-                          });
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                updated.message.isEmpty
-                                    ? (hasStagingRecord
-                                          ? 'Nueva ORD en edición/captura'
-                                          : 'Registro temporal creado para nueva ORD.')
-                                    : updated.message,
+                            if (!ctx.mounted || !mounted) return;
+                            setDialogState(() {
+                              applyCambioMermaContext(updated);
+                              dirty = false;
+                              submitting = false;
+                            });
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  updated.message.isEmpty
+                                      ? 'Registro temporal creado para nueva ORD.'
+                                      : updated.message,
+                                ),
                               ),
-                            ),
-                          );
-                        } catch (e) {
-                          if (!ctx.mounted || !mounted) return;
-                          setDialogState(() => submitting = false);
-                          _showError(
-                            apiErrorMessage(
-                              e,
-                              fallback: 'No se pudo preparar la captura.',
-                            ),
-                          );
+                            );
+                          } catch (e) {
+                            if (!ctx.mounted || !mounted) return;
+                            setDialogState(() => submitting = false);
+                            _showError(
+                              apiErrorMessage(
+                                e,
+                                fallback: 'No se pudo preparar la captura.',
+                              ),
+                            );
+                          }
                         }
-                      }
-                    : null,
-                icon: Icon(
-                  hasStagingRecord ? Icons.edit_note : Icons.add_box_outlined,
+                      : null,
+                  icon: const Icon(Icons.add_box_outlined),
+                  label: const Text('Crear Nueva ORD'),
                 ),
-                label: Text(
-                  hasStagingRecord ? 'Editar nueva ORD' : 'Crear Nueva ORD',
-                ),
-              ),
-              if (hasStagingRecord)
+              if (hasStagingRecord && !isCambioMermaAuthorizationRole)
                 OutlinedButton(
                   onPressed: canRequestAuthorization
                       ? () async {
@@ -5413,8 +5770,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                         }
                         final confirm = await _confirmCambioEstatus(
                           title: 'Solicitar autorización',
-                          targetStatus:
-                              'selCtrlOrd=14 (o 16 si aplica auto-autorización)',
+                          targetStatus: 'selCtrlOrd=14',
                           total: 1,
                           extraMessage: [
                             'IORD origen: $iord',
@@ -5440,49 +5796,11 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                             motr: selectedMotr,
                             labor: _parseLaboratorioId(selectedLabor),
                             docDif: docDifCtrl.text.trim(),
-                            crearNuevaOrd:
-                                mode == _OrdCambioMermaMode.merma
-                                    ? crearNuevaOrd
-                                    : true,
+                            crearNuevaOrd: true,
                           );
                           if (!ctx.mounted || !mounted) return;
                           setDialogState(() {
-                            cmContext = updated;
-                            original = cmContext.original;
-                            draft = cmContext.draft;
-                            selectedLabor = _normalizeLaboratorioValue(
-                              _textOf(updated.draft['LABOR']),
-                            );
-                            selectedCtdCM = normalizeCtdCMValue(
-                              _toNum(updated.draft['CTD_C_M']),
-                            );
-                            selectedPvtaNuevo =
-                                _toNum(updated.draft['PVTA'])?.toDouble() ??
-                                _toNum(updated.original['PVTAT_BASE'])
-                                    ?.toDouble();
-                            crearNuevaOrd =
-                                (_toNum(updated.draft['CREAR_NUEVA_ORD']) ?? 1) != 0;
-                            artNuevoCtrl.text = _textOf(updated.draft['ART']);
-                            upcNuevoCtrl.text = _textOf(updated.draft['UPC']);
-                            desNuevoCtrl.text = _textOf(updated.draft['DES']);
-                            docDifCtrl.text = _textOf(updated.draft['DOCDIF']);
-                            final motrFromDraft =
-                                _parseIntLike(_textOf(updated.draft['MOTR']));
-                            selectedMotr =
-                                (motrFromDraft != null &&
-                                    motrFromDraft > 0 &&
-                                    motivoOptions.any(
-                                      (item) => item.id == motrFromDraft,
-                                    ))
-                                ? motrFromDraft
-                                : null;
-                            if (selectedMotr != null) {
-                              motivoCtrl.text = motivoOptions
-                                  .firstWhere((item) => item.id == selectedMotr)
-                                  .label;
-                            } else {
-                              motivoCtrl.text = _textOf(updated.draft['MOTIVO']);
-                            }
+                            applyCambioMermaContext(updated);
                             dirty = false;
                             submitting = false;
                           });
@@ -5509,6 +5827,134 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                       }
                       : null,
                   child: const Text('Solicitar autorización'),
+                ),
+              if (hasStagingRecord && canAuthorizeCambioMerma)
+                OutlinedButton.icon(
+                  onPressed: canRetrabajoCapture
+                      ? () async {
+                          final confirm = await _confirmCambioEstatus(
+                            title: 'Enviar a retrabajo',
+                            targetStatus: 'selCtrlOrd=15',
+                            total: 1,
+                            extraMessage:
+                                'La captura volverá a edición para que el usuario operativo la corrija.',
+                          );
+                          if (confirm != true || !ctx.mounted) return;
+                          setDialogState(() => submitting = true);
+                          try {
+                            final updated = await api.retrabajoCambioMerma(
+                              iord,
+                              tipo: mode.tipom,
+                            );
+                            if (!ctx.mounted || !mounted) return;
+                            setDialogState(() {
+                              applyCambioMermaContext(updated);
+                              dirty = false;
+                              submitting = false;
+                            });
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  updated.message.isEmpty
+                                      ? 'Captura enviada a retrabajo.'
+                                      : updated.message,
+                                ),
+                              ),
+                            );
+                            await _reload();
+                          } catch (e) {
+                            if (!ctx.mounted || !mounted) return;
+                            setDialogState(() => submitting = false);
+                            _showError(
+                              apiErrorMessage(
+                                e,
+                                fallback:
+                                    'No se pudo devolver la captura a retrabajo.',
+                              ),
+                            );
+                          }
+                        }
+                      : null,
+                  icon: const Icon(Icons.undo_outlined),
+                  label: const Text('Retrabajo'),
+                ),
+              if (hasCreatedOrd)
+                OutlinedButton.icon(
+                  onPressed: canPrintFormato
+                      ? () => _printCambioMermaFormato(
+                            mode: mode,
+                            contextData: cmContext,
+                          )
+                      : null,
+                  icon: const Icon(Icons.print_outlined),
+                  label: Text(
+                    mode == _OrdCambioMermaMode.cambioMaterial
+                        ? 'Imprimir formato cambio'
+                        : 'Imprimir formato merma',
+                  ),
+                ),
+              if (hasCreatedOrd)
+                OutlinedButton.icon(
+                  onPressed: canPrintSaldo
+                      ? () => _printCambioMermaSaldo(
+                            mode: mode,
+                            contextData: cmContext,
+                          )
+                      : null,
+                  icon: const Icon(Icons.receipt_long_outlined),
+                  label: const Text('Imprimir saldo'),
+                ),
+              if (hasStagingRecord && canAuthorizeCambioMerma)
+                OutlinedButton.icon(
+                  onPressed: canAuthorizeCapture
+                      ? () async {
+                          final confirm = await _confirmCambioEstatus(
+                            title: 'Autorizar',
+                            targetStatus: 'Crear ORD final y anular ORD origen',
+                            total: 1,
+                            extraMessage: [
+                              'IORD origen: $iord',
+                              'NVA_IORD reservada: ${nvaIord.isEmpty ? 'Se validará al autorizar' : nvaIord}',
+                              'La autorización ejecutará el proceso final, registrará MB51 y anulará la ORD original.',
+                            ].join('\n'),
+                          );
+                          if (confirm != true || !ctx.mounted) return;
+                          setDialogState(() => submitting = true);
+                          try {
+                            final updated = await api.autorizarCambioMerma(
+                              iord,
+                              tipo: mode.tipom,
+                            );
+                            if (!ctx.mounted || !mounted) return;
+                            setDialogState(() {
+                              applyCambioMermaContext(updated);
+                              dirty = false;
+                              submitting = false;
+                            });
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  updated.message.isEmpty
+                                      ? 'Cambio/merma autorizado y ORD final creada.'
+                                      : updated.message,
+                                ),
+                              ),
+                            );
+                            await _reload();
+                          } catch (e) {
+                            if (!ctx.mounted || !mounted) return;
+                            setDialogState(() => submitting = false);
+                            _showError(
+                              apiErrorMessage(
+                                e,
+                                fallback: 'No se pudo autorizar la nueva ORD.',
+                              ),
+                            );
+                          }
+                        }
+                      : null,
+                  icon: const Icon(Icons.verified_outlined),
+                  label: const Text('Autorizar'),
                 ),
               TextButton(
                 onPressed: () async {
@@ -5538,61 +5984,6 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                 },
                 child: const Text('Cerrar'),
               ),
-              if (canCreateNewOrd)
-                ElevatedButton(
-                  onPressed: () async {
-                    final ctdCMValue = selectedCtdCM;
-                    if (ctdCMValue == null) {
-                      _showError('Selecciona CTD_C_M para continuar.');
-                      return;
-                    }
-                    final confirm = await _confirmCambioEstatus(
-                      title: 'Crear nueva ORD',
-                      targetStatus: 'ORD derivada creada',
-                      total: 1,
-                      extraMessage: [
-                        'IORD origen: $iord',
-                        'CTD_C_M: ${_money(ctdCMValue)}',
-                        'Diferencia económica: ${_money(cmContext.diferenciaEconomica)}',
-                      ].join('\n'),
-                    );
-                    if (confirm != true || !ctx.mounted) return;
-                    setDialogState(() => submitting = true);
-                    try {
-                      final result = await api.crearCambioMerma(
-                        iord,
-                        tipo: mode.tipom,
-                        ctdCM: ctdCMValue,
-                      );
-                      if (!ctx.mounted || !mounted) return;
-                      setDialogState(() {
-                        submitting = false;
-                        dirty = false;
-                      });
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            result.message.isEmpty
-                                ? 'Nueva ORD creada correctamente.'
-                                : result.message,
-                          ),
-                        ),
-                      );
-                      await _reload();
-                      if (ctx.mounted) Navigator.of(ctx).pop();
-                    } catch (e) {
-                      if (!ctx.mounted || !mounted) return;
-                      setDialogState(() => submitting = false);
-                      _showError(
-                        apiErrorMessage(
-                          e,
-                          fallback: 'No se pudo crear la nueva ORD.',
-                        ),
-                      );
-                    }
-                  },
-                  child: const Text('Crear nueva ORD'),
-                ),
             ],
           );
         },
@@ -5610,44 +6001,295 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     required String suc,
     String? tipoHint,
   }) async {
-    final artCtrl = TextEditingController();
-    final upcCtrl = TextEditingController();
-    final desCtrl = TextEditingController();
-    var loading = false;
+    final searchCtrl = TextEditingController();
+    final searchFocus = FocusNode();
+    final sphCtrl = TextEditingController();
+    final cylCtrl = TextEditingController();
+    final adicCtrl = TextEditingController();
+    final datArtApi = ref.read(datArtApiProvider);
+    final jrqApi = JrqApi(ref.read(dioProvider));
+
+    var searchBy = 'DES';
+    var loadingResults = false;
+    var loadingFilters = false;
+    var initialized = false;
     String? errorText;
+    String? filterError;
+    var hasAppliedSearch = false;
     List<DatArtModel> items = const <DatArtModel>[];
+    List<JrqDepaModel> depaItems = const <JrqDepaModel>[];
+    List<JrqSubdModel> subdItems = const <JrqSubdModel>[];
+    List<JrqClasModel> clasItems = const <JrqClasModel>[];
+    List<JrqSclaModel> sclaItems = const <JrqSclaModel>[];
+    List<JrqScla2Model> scla2Items = const <JrqScla2Model>[];
+    double? selectedDepa;
+    double? selectedSubd;
+    double? selectedClas;
+    double? selectedScla;
+    double? selectedScla2;
+
+    double? parseFilterNumber(String value) {
+      final normalized = value.trim().replaceAll(',', '.');
+      if (normalized.isEmpty) return null;
+      return double.tryParse(normalized);
+    }
+
+    bool hasCriteria() {
+      return searchCtrl.text.trim().isNotEmpty ||
+          selectedDepa != null ||
+          selectedSubd != null ||
+          selectedClas != null ||
+          selectedScla != null ||
+          selectedScla2 != null ||
+          parseFilterNumber(sphCtrl.text) != null ||
+          parseFilterNumber(cylCtrl.text) != null ||
+          parseFilterNumber(adicCtrl.text) != null;
+    }
+
+    Future<void> loadDepa(StateSetter setDialogState) async {
+      setDialogState(() {
+        loadingFilters = true;
+        filterError = null;
+      });
+      try {
+        final found = await jrqApi.fetchDepa();
+        if (!mounted) return;
+        setDialogState(() => depaItems = found);
+      } catch (e) {
+        if (!mounted) return;
+        setDialogState(
+          () => filterError = apiErrorMessage(
+            e,
+            fallback: 'No se pudieron cargar los filtros de artículos.',
+          ),
+        );
+      } finally {
+        if (mounted) {
+          setDialogState(() => loadingFilters = false);
+        }
+      }
+    }
+
+    Future<void> loadSubd(StateSetter setDialogState, double? depa) async {
+      if (depa == null) {
+        setDialogState(() {
+          subdItems = const <JrqSubdModel>[];
+          clasItems = const <JrqClasModel>[];
+          sclaItems = const <JrqSclaModel>[];
+          scla2Items = const <JrqScla2Model>[];
+          selectedSubd = null;
+          selectedClas = null;
+          selectedScla = null;
+          selectedScla2 = null;
+        });
+        return;
+      }
+      setDialogState(() {
+        loadingFilters = true;
+        filterError = null;
+        selectedSubd = null;
+        selectedClas = null;
+        selectedScla = null;
+        selectedScla2 = null;
+        subdItems = const <JrqSubdModel>[];
+        clasItems = const <JrqClasModel>[];
+        sclaItems = const <JrqSclaModel>[];
+        scla2Items = const <JrqScla2Model>[];
+      });
+      try {
+        final found = await jrqApi.fetchSubd(depa: depa);
+        if (!mounted) return;
+        setDialogState(() => subdItems = found);
+      } catch (e) {
+        if (!mounted) return;
+        setDialogState(
+          () => filterError = apiErrorMessage(
+            e,
+            fallback: 'No se pudo cargar SDEP.',
+          ),
+        );
+      } finally {
+        if (mounted) {
+          setDialogState(() => loadingFilters = false);
+        }
+      }
+    }
+
+    Future<void> loadClas(StateSetter setDialogState, double? subd) async {
+      if (subd == null) {
+        setDialogState(() {
+          clasItems = const <JrqClasModel>[];
+          sclaItems = const <JrqSclaModel>[];
+          scla2Items = const <JrqScla2Model>[];
+          selectedClas = null;
+          selectedScla = null;
+          selectedScla2 = null;
+        });
+        return;
+      }
+      setDialogState(() {
+        loadingFilters = true;
+        filterError = null;
+        selectedClas = null;
+        selectedScla = null;
+        selectedScla2 = null;
+        clasItems = const <JrqClasModel>[];
+        sclaItems = const <JrqSclaModel>[];
+        scla2Items = const <JrqScla2Model>[];
+      });
+      try {
+        final found = await jrqApi.fetchClas(subd: subd);
+        if (!mounted) return;
+        setDialogState(() => clasItems = found);
+      } catch (e) {
+        if (!mounted) return;
+        setDialogState(
+          () => filterError = apiErrorMessage(
+            e,
+            fallback: 'No se pudo cargar CLS.',
+          ),
+        );
+      } finally {
+        if (mounted) {
+          setDialogState(() => loadingFilters = false);
+        }
+      }
+    }
+
+    Future<void> loadScla(StateSetter setDialogState, double? clas) async {
+      if (clas == null) {
+        setDialogState(() {
+          sclaItems = const <JrqSclaModel>[];
+          scla2Items = const <JrqScla2Model>[];
+          selectedScla = null;
+          selectedScla2 = null;
+        });
+        return;
+      }
+      setDialogState(() {
+        loadingFilters = true;
+        filterError = null;
+        selectedScla = null;
+        selectedScla2 = null;
+        sclaItems = const <JrqSclaModel>[];
+        scla2Items = const <JrqScla2Model>[];
+      });
+      try {
+        final found = await jrqApi.fetchScla(clas: clas);
+        if (!mounted) return;
+        setDialogState(() => sclaItems = found);
+      } catch (e) {
+        if (!mounted) return;
+        setDialogState(
+          () => filterError = apiErrorMessage(
+            e,
+            fallback: 'No se pudo cargar SCLS.',
+          ),
+        );
+      } finally {
+        if (mounted) {
+          setDialogState(() => loadingFilters = false);
+        }
+      }
+    }
+
+    Future<void> loadScla2(StateSetter setDialogState, double? scla) async {
+      if (scla == null) {
+        setDialogState(() {
+          scla2Items = const <JrqScla2Model>[];
+          selectedScla2 = null;
+        });
+        return;
+      }
+      setDialogState(() {
+        loadingFilters = true;
+        filterError = null;
+        selectedScla2 = null;
+        scla2Items = const <JrqScla2Model>[];
+      });
+      try {
+        final found = await jrqApi.fetchScla2(scla: scla);
+        if (!mounted) return;
+        setDialogState(() => scla2Items = found);
+      } catch (e) {
+        if (!mounted) return;
+        setDialogState(
+          () => filterError = apiErrorMessage(
+            e,
+            fallback: 'No se pudo cargar SCLS2.',
+          ),
+        );
+      } finally {
+        if (mounted) {
+          setDialogState(() => loadingFilters = false);
+        }
+      }
+    }
+
+    Future<void> clearSearch(StateSetter setDialogState) async {
+      setDialogState(() {
+        searchBy = 'DES';
+        searchCtrl.clear();
+        sphCtrl.clear();
+        cylCtrl.clear();
+        adicCtrl.clear();
+        selectedDepa = null;
+        selectedSubd = null;
+        selectedClas = null;
+        selectedScla = null;
+        selectedScla2 = null;
+        subdItems = const <JrqSubdModel>[];
+        clasItems = const <JrqClasModel>[];
+        sclaItems = const <JrqSclaModel>[];
+        scla2Items = const <JrqScla2Model>[];
+        items = const <DatArtModel>[];
+        hasAppliedSearch = false;
+        errorText = null;
+        filterError = null;
+      });
+    }
 
     Future<void> runSearch(StateSetter setDialogState) async {
-      final art = artCtrl.text.trim();
-      final upc = upcCtrl.text.trim();
-      final des = desCtrl.text.trim();
-      if (art.isEmpty && upc.isEmpty && des.isEmpty) {
+      final term = searchCtrl.text.trim();
+      final sph = parseFilterNumber(sphCtrl.text);
+      final cyl = parseFilterNumber(cylCtrl.text);
+      final adic = parseFilterNumber(adicCtrl.text);
+      if (!hasCriteria()) {
         setDialogState(
           () => errorText =
-              'Captura al menos un criterio: Articulo, UPC o Descripción.',
+              'Captura un criterio o selecciona filtros para buscar artículos.',
         );
         return;
       }
       setDialogState(() {
-        loading = true;
+        loadingResults = true;
         errorText = null;
+        hasAppliedSearch = true;
       });
       try {
-        final found = await ref.read(datArtApiProvider).fetchArticulos(
-              suc: suc,
-              sucExact: true,
-              tipo: (tipoHint ?? '').trim().isEmpty ? null : tipoHint,
-              art: art.isEmpty ? null : art,
-              upc: upc.isEmpty ? null : upc,
-              des: des.isEmpty ? null : des,
-              page: 1,
-              limit: 30,
-            );
+        final found = await datArtApi.fetchArticulos(
+          suc: suc,
+          sucExact: true,
+          art: searchBy == 'ART' && term.isNotEmpty ? term : null,
+          upc: searchBy == 'UPC' && term.isNotEmpty ? term : null,
+          des: searchBy == 'DES' && term.isNotEmpty ? term : null,
+          modelo: searchBy == 'MODELO' && term.isNotEmpty ? term : null,
+          depa: selectedDepa,
+          subd: selectedSubd,
+          clas: selectedClas,
+          scla: selectedScla,
+          scla2: selectedScla2,
+          sph: sph,
+          cyl: cyl,
+          adic: adic,
+          limit: 200,
+          view: 'lite',
+        );
         if (!mounted) return;
         setDialogState(() {
           items = found;
           if (items.isEmpty) {
-            errorText = 'No se encontraron artículos para el criterio capturado.';
+            errorText = 'Sin artículos para el criterio capturado.';
           }
         });
       } catch (e) {
@@ -5660,7 +6302,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
         );
       } finally {
         if (mounted) {
-          setDialogState(() => loading = false);
+          setDialogState(() => loadingResults = false);
         }
       }
     }
@@ -5668,115 +6310,129 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     final selected = await showDialog<DatArtModel>(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          title: const Text('Buscar artículo'),
-          content: SizedBox(
-            width: 840,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    SizedBox(
-                      width: 160,
-                      child: TextField(
-                        controller: artCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Articulo',
-                          border: OutlineInputBorder(),
-                          isDense: true,
-                        ),
-                      ),
-                    ),
-                    SizedBox(
-                      width: 180,
-                      child: TextField(
-                        controller: upcCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'UPC',
-                          border: OutlineInputBorder(),
-                          isDense: true,
-                        ),
-                      ),
-                    ),
-                    SizedBox(
-                      width: 280,
-                      child: TextField(
-                        controller: desCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Descripción',
-                          border: OutlineInputBorder(),
-                          isDense: true,
-                        ),
-                      ),
-                    ),
-                    SizedBox(
-                      height: 40,
-                      child: ElevatedButton.icon(
-                        onPressed: loading
-                            ? null
-                            : () => runSearch(setDialogState),
-                        icon: const Icon(Icons.search),
-                        label: const Text('Buscar'),
+        builder: (ctx, setDialogState) {
+          if (!initialized) {
+            initialized = true;
+            unawaited(loadDepa(setDialogState));
+          }
+          final enabled = !loadingResults;
+          return AlertDialog(
+            title: const Text('Buscar artículo'),
+            contentPadding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            content: SizedBox(
+              width: 1080,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _CambioMermaArticuloSearchFilters(
+                    searchCtrl: searchCtrl,
+                    searchFocus: searchFocus,
+                    sphCtrl: sphCtrl,
+                    cylCtrl: cylCtrl,
+                    adicCtrl: adicCtrl,
+                    searchBy: searchBy,
+                    enabled: enabled,
+                    loadingFilters: loadingFilters,
+                    depaItems: depaItems,
+                    subdItems: subdItems,
+                    clasItems: clasItems,
+                    sclaItems: sclaItems,
+                    scla2Items: scla2Items,
+                    selectedDepa: selectedDepa,
+                    selectedSubd: selectedSubd,
+                    selectedClas: selectedClas,
+                    selectedScla: selectedScla,
+                    selectedScla2: selectedScla2,
+                    onSearchByChanged: (value) {
+                      setDialogState(() => searchBy = value ?? 'DES');
+                    },
+                    onDepaChanged: (value) async {
+                      setDialogState(() => selectedDepa = value);
+                      await loadSubd(setDialogState, value);
+                    },
+                    onSubdChanged: (value) async {
+                      setDialogState(() => selectedSubd = value);
+                      await loadClas(setDialogState, value);
+                    },
+                    onClasChanged: (value) async {
+                      setDialogState(() => selectedClas = value);
+                      await loadScla(setDialogState, value);
+                    },
+                    onSclaChanged: (value) async {
+                      setDialogState(() => selectedScla = value);
+                      await loadScla2(setDialogState, value);
+                    },
+                    onScla2Changed: (value) {
+                      setDialogState(() => selectedScla2 = value);
+                    },
+                    onSearchApply: () => runSearch(setDialogState),
+                    onClearSearch: () => clearSearch(setDialogState),
+                  ),
+                  if ((filterError ?? '').isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        filterError!,
+                        style: const TextStyle(color: Colors.red),
                       ),
                     ),
                   ],
-                ),
-                const SizedBox(height: 10),
-                if (loading) const LinearProgressIndicator(),
-                if ((errorText ?? '').isNotEmpty) ...[
+                  if ((tipoHint ?? '').trim().isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Consulta clonada de cotizaciones para sucursal $suc.',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey.shade700,
+                        ),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  if (loadingResults) const LinearProgressIndicator(),
+                  if ((errorText ?? '').isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        errorText!,
+                        style: TextStyle(
+                          color: items.isEmpty ? Colors.black54 : Colors.red,
+                        ),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 8),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      errorText!,
-                      style: const TextStyle(color: Colors.red),
+                  Flexible(
+                    child: _CambioMermaArticuloResultsTable(
+                      items: items,
+                      loading: loadingResults,
+                      hasSearchCriteria: hasAppliedSearch || hasCriteria(),
+                      onAdd: (item) => Navigator.of(ctx).pop(item),
                     ),
                   ),
                 ],
-                const SizedBox(height: 8),
-                Flexible(
-                  child: SizedBox(
-                    height: 360,
-                    child: items.isEmpty
-                        ? const Center(
-                            child: Text('Sin resultados para mostrar.'),
-                          )
-                        : ListView.separated(
-                            itemCount: items.length,
-                            separatorBuilder: (_, _) => const Divider(height: 1),
-                            itemBuilder: (context, index) {
-                              final item = items[index];
-                              return ListTile(
-                                dense: true,
-                                title: Text('${item.art} - ${item.des ?? '-'}'),
-                                subtitle: Text(
-                                  'UPC: ${item.upc} | PVTA: ${_money(item.pvta ?? 0)}',
-                                ),
-                                onTap: () => Navigator.of(ctx).pop(item),
-                              );
-                            },
-                          ),
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Cancelar'),
-            ),
-          ],
-        ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('Cancelar'),
+              ),
+            ],
+          );
+        },
       ),
     );
 
-    artCtrl.dispose();
-    upcCtrl.dispose();
-    desCtrl.dispose();
+    searchCtrl.dispose();
+    searchFocus.dispose();
+    sphCtrl.dispose();
+    cylCtrl.dispose();
+    adicCtrl.dispose();
     return selected;
   }
 
@@ -6191,6 +6847,483 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
 
   String _money(num value) {
     return value % 1 == 0 ? value.toInt().toString() : value.toStringAsFixed(2);
+  }
+}
+
+class _CambioMermaArticuloSearchFilters extends StatelessWidget {
+  const _CambioMermaArticuloSearchFilters({
+    required this.searchCtrl,
+    required this.searchFocus,
+    required this.sphCtrl,
+    required this.cylCtrl,
+    required this.adicCtrl,
+    required this.searchBy,
+    required this.enabled,
+    required this.loadingFilters,
+    required this.depaItems,
+    required this.subdItems,
+    required this.clasItems,
+    required this.sclaItems,
+    required this.scla2Items,
+    required this.selectedDepa,
+    required this.selectedSubd,
+    required this.selectedClas,
+    required this.selectedScla,
+    required this.selectedScla2,
+    required this.onSearchByChanged,
+    required this.onDepaChanged,
+    required this.onSubdChanged,
+    required this.onClasChanged,
+    required this.onSclaChanged,
+    required this.onScla2Changed,
+    required this.onSearchApply,
+    required this.onClearSearch,
+  });
+
+  static const double _filterHeight = 36;
+  static const double _filterFontSize = 11;
+  static const EdgeInsets _filterPadding =
+      EdgeInsets.symmetric(horizontal: 8, vertical: 8);
+
+  final TextEditingController searchCtrl;
+  final FocusNode searchFocus;
+  final TextEditingController sphCtrl;
+  final TextEditingController cylCtrl;
+  final TextEditingController adicCtrl;
+  final String searchBy;
+  final bool enabled;
+  final bool loadingFilters;
+  final List<JrqDepaModel> depaItems;
+  final List<JrqSubdModel> subdItems;
+  final List<JrqClasModel> clasItems;
+  final List<JrqSclaModel> sclaItems;
+  final List<JrqScla2Model> scla2Items;
+  final double? selectedDepa;
+  final double? selectedSubd;
+  final double? selectedClas;
+  final double? selectedScla;
+  final double? selectedScla2;
+  final ValueChanged<String?> onSearchByChanged;
+  final ValueChanged<double?> onDepaChanged;
+  final ValueChanged<double?> onSubdChanged;
+  final ValueChanged<double?> onClasChanged;
+  final ValueChanged<double?> onSclaChanged;
+  final ValueChanged<double?> onScla2Changed;
+  final VoidCallback onSearchApply;
+  final VoidCallback onClearSearch;
+
+  static String _formatOption(double value, String? description) {
+    final intValue = value.toInt();
+    final left = value == intValue ? intValue.toString() : value.toString();
+    final desc = (description ?? '').trim();
+    return desc.isEmpty ? left : '$left - $desc';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final filtersEnabled = enabled && !loadingFilters;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFD5EEF9),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Buscar por:', style: TextStyle(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              SizedBox(
+                width: 120,
+                child: DropdownButtonFormField<String>(
+                  initialValue: searchBy,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                    contentPadding: _filterPadding,
+                    constraints: BoxConstraints.tightFor(height: _filterHeight),
+                  ),
+                  style: const TextStyle(
+                    fontSize: _filterFontSize,
+                    color: Colors.black87,
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'ART', child: Text('ART')),
+                    DropdownMenuItem(value: 'UPC', child: Text('UPC')),
+                    DropdownMenuItem(value: 'DES', child: Text('DES')),
+                    DropdownMenuItem(value: 'MODELO', child: Text('MODELO')),
+                  ],
+                  onChanged: filtersEnabled ? onSearchByChanged : null,
+                ),
+              ),
+              SizedBox(
+                width: 140,
+                child: TextField(
+                  controller: searchCtrl,
+                  focusNode: searchFocus,
+                  enabled: filtersEnabled,
+                  onSubmitted: filtersEnabled ? (_) => onSearchApply() : null,
+                  style: const TextStyle(fontSize: _filterFontSize),
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                    contentPadding: _filterPadding,
+                    constraints: BoxConstraints.tightFor(height: _filterHeight),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _CambioMermaJrqDropdown<JrqDepaModel>(
+                label: 'DEP',
+                width: 82,
+                items: depaItems,
+                value: selectedDepa,
+                enabled: filtersEnabled,
+                itemValue: (item) => item.depa,
+                itemLabel: (item) => _formatOption(item.depa, item.ddepa),
+                onChanged: onDepaChanged,
+              ),
+              _CambioMermaJrqDropdown<JrqSubdModel>(
+                label: 'SDEP',
+                width: 82,
+                items: subdItems,
+                value: selectedSubd,
+                enabled: filtersEnabled && selectedDepa != null,
+                itemValue: (item) => item.subd,
+                itemLabel: (item) => _formatOption(item.subd, item.dsubd),
+                onChanged: onSubdChanged,
+              ),
+              _CambioMermaJrqDropdown<JrqClasModel>(
+                label: 'CLS',
+                width: 82,
+                items: clasItems,
+                value: selectedClas,
+                enabled: filtersEnabled && selectedSubd != null,
+                itemValue: (item) => item.clas,
+                itemLabel: (item) => _formatOption(item.clas, item.dclas),
+                onChanged: onClasChanged,
+              ),
+              _CambioMermaJrqDropdown<JrqSclaModel>(
+                label: 'SCLS',
+                width: 82,
+                items: sclaItems,
+                value: selectedScla,
+                enabled: filtersEnabled && selectedClas != null,
+                itemValue: (item) => item.scla,
+                itemLabel: (item) => _formatOption(item.scla, item.dscla),
+                onChanged: onSclaChanged,
+              ),
+              _CambioMermaJrqDropdown<JrqScla2Model>(
+                label: 'SCLS2',
+                width: 92,
+                items: scla2Items,
+                value: selectedScla2,
+                enabled: filtersEnabled && selectedScla != null,
+                itemValue: (item) => item.scla2,
+                itemLabel: (item) => _formatOption(item.scla2, item.dscla2),
+                onChanged: onScla2Changed,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              _CambioMermaMiniField(
+                label: 'SPH',
+                controller: sphCtrl,
+                enabled: filtersEnabled,
+              ),
+              _CambioMermaMiniField(
+                label: 'CYL',
+                controller: cylCtrl,
+                enabled: filtersEnabled,
+              ),
+              _CambioMermaMiniField(
+                label: 'ADIC',
+                controller: adicCtrl,
+                enabled: filtersEnabled,
+              ),
+              IconButton(
+                tooltip: 'Buscar',
+                onPressed: filtersEnabled ? onSearchApply : null,
+                icon: const Icon(Icons.search),
+              ),
+              IconButton(
+                tooltip: 'Limpiar',
+                onPressed: filtersEnabled ? onClearSearch : null,
+                icon: const Icon(Icons.clear),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CambioMermaMiniField extends StatelessWidget {
+  const _CambioMermaMiniField({
+    required this.label,
+    required this.controller,
+    required this.enabled,
+  });
+
+  final String label;
+  final TextEditingController controller;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 72,
+      child: TextField(
+        controller: controller,
+        enabled: enabled,
+        keyboardType: const TextInputType.numberWithOptions(
+          decimal: true,
+          signed: true,
+        ),
+        decoration: const InputDecoration(
+          border: OutlineInputBorder(),
+          isDense: true,
+          contentPadding: _CambioMermaArticuloSearchFilters._filterPadding,
+        ).copyWith(labelText: label),
+        style: const TextStyle(
+          fontSize: _CambioMermaArticuloSearchFilters._filterFontSize,
+        ),
+      ),
+    );
+  }
+}
+
+class _CambioMermaJrqDropdown<T> extends StatelessWidget {
+  const _CambioMermaJrqDropdown({
+    required this.label,
+    required this.width,
+    required this.items,
+    required this.value,
+    required this.enabled,
+    required this.itemValue,
+    required this.itemLabel,
+    required this.onChanged,
+  });
+
+  final String label;
+  final double width;
+  final List<T> items;
+  final double? value;
+  final bool enabled;
+  final double Function(T item) itemValue;
+  final String Function(T item) itemLabel;
+  final ValueChanged<double?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final menuItems = <DropdownMenuItem<double?>>[
+      const DropdownMenuItem<double?>(value: null, child: Text('')),
+      ...items.map(
+        (item) => DropdownMenuItem<double?>(
+          value: itemValue(item),
+          child: Text(
+            itemLabel(item),
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: _CambioMermaArticuloSearchFilters._filterFontSize,
+            ),
+          ),
+        ),
+      ),
+    ];
+    final selectedValue =
+        value != null && menuItems.any((item) => item.value == value)
+        ? value
+        : null;
+    return SizedBox(
+      width: width,
+      child: DropdownButtonFormField<double?>(
+        key: ValueKey<double?>(selectedValue),
+        initialValue: selectedValue,
+        isExpanded: true,
+        style: const TextStyle(
+          fontSize: _CambioMermaArticuloSearchFilters._filterFontSize,
+          color: Colors.black87,
+        ),
+        decoration: InputDecoration(
+          labelText: label,
+          border: const OutlineInputBorder(),
+          isDense: true,
+          contentPadding: _CambioMermaArticuloSearchFilters._filterPadding,
+          constraints: const BoxConstraints.tightFor(
+            height: _CambioMermaArticuloSearchFilters._filterHeight,
+          ),
+        ),
+        items: menuItems,
+        onChanged: enabled ? onChanged : null,
+      ),
+    );
+  }
+}
+
+class _CambioMermaArticuloResultsTable extends StatelessWidget {
+  const _CambioMermaArticuloResultsTable({
+    required this.items,
+    required this.loading,
+    required this.hasSearchCriteria,
+    required this.onAdd,
+  });
+
+  final List<DatArtModel> items;
+  final bool loading;
+  final bool hasSearchCriteria;
+  final ValueChanged<DatArtModel> onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 0,
+      child: Padding(
+        padding: const EdgeInsets.all(8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const _CambioMermaResultHeader(),
+            const Divider(height: 1),
+            Expanded(
+              child: loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : !hasSearchCriteria
+                  ? const Padding(
+                      padding: EdgeInsets.all(12),
+                      child: Text(
+                        'Ingresa un criterio o selecciona filtros para ver artículos.',
+                      ),
+                    )
+                  : items.isEmpty
+                  ? const Padding(
+                      padding: EdgeInsets.all(12),
+                      child: Text('Sin resultados para mostrar.'),
+                    )
+                  : ListView.separated(
+                      itemCount: items.length,
+                      separatorBuilder: (_, _) => const Divider(height: 1),
+                      itemBuilder: (_, index) {
+                        final item = items[index];
+                        final stock = item.stock == null
+                            ? '-'
+                            : item.stock!.toStringAsFixed(2);
+                        final pvta = item.pvta == null
+                            ? '-'
+                            : '\$${item.pvta!.toStringAsFixed(2)}';
+                        return SizedBox(
+                          height: 34,
+                          child: Row(
+                            children: [
+                              SizedBox(
+                                width: 40,
+                                child: IconButton(
+                                  tooltip: 'Agregar',
+                                  icon: const Icon(
+                                    Icons.add_circle_outline,
+                                    size: 18,
+                                  ),
+                                  onPressed: () => onAdd(item),
+                                ),
+                              ),
+                              _CambioMermaResultCell(width: 90, text: item.art),
+                              _CambioMermaResultCell(width: 120, text: item.upc),
+                              Expanded(
+                                child: _CambioMermaResultCell(
+                                  width: null,
+                                  text: item.des ?? '-',
+                                ),
+                              ),
+                              _CambioMermaResultCell(width: 100, text: stock),
+                              _CambioMermaResultCell(width: 90, text: pvta),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CambioMermaResultHeader extends StatelessWidget {
+  const _CambioMermaResultHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    const headerStyle = TextStyle(fontWeight: FontWeight.w600);
+    return SizedBox(
+      height: 30,
+      child: Row(
+        children: const [
+          SizedBox(width: 40),
+          _CambioMermaResultCell(width: 90, text: 'ART', style: headerStyle),
+          _CambioMermaResultCell(width: 120, text: 'UPC', style: headerStyle),
+          Expanded(
+            child: _CambioMermaResultCell(
+              width: null,
+              text: 'DES',
+              style: headerStyle,
+            ),
+          ),
+          _CambioMermaResultCell(width: 100, text: 'STOCK', style: headerStyle),
+          _CambioMermaResultCell(width: 90, text: 'PVTA', style: headerStyle),
+        ],
+      ),
+    );
+  }
+}
+
+class _CambioMermaResultCell extends StatelessWidget {
+  const _CambioMermaResultCell({
+    required this.width,
+    required this.text,
+    this.style,
+  });
+
+  final double? width;
+  final String text;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) {
+    final child = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          text,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: style,
+        ),
+      ),
+    );
+    if (width == null) {
+      return child;
+    }
+    return SizedBox(width: width, child: child);
   }
 }
 
