@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ioe_app/core/api_error.dart';
@@ -40,6 +41,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
   static const Map<String, double> _defaultColumnWidths = <String, double>{
     'SUC': 80,
     'TIPO': 95,
+    'OPV': 170,
     'LABORATORIO': 170,
     'IORD': 145,
     'CLIENTE': 260,
@@ -54,6 +56,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
   static const Map<String, String> _columnTitles = <String, String>{
     'SUC': 'SUC',
     'TIPO': 'Tipo',
+    'OPV': 'OPV',
     'LABORATORIO': 'Laboratorio',
     'IORD': 'IORD',
     'CLIENTE': 'Cliente',
@@ -115,13 +118,26 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     super.dispose();
   }
 
+  void _restoreFilterInputs(OrdenesTrabajoFilter filter) {
+    _iordCtrl.text = filter.iord ?? '';
+    _idfolCtrl.text = filter.idfol ?? '';
+    _clientCtrl.text = filter.client ?? '';
+    _sucCtrl.text = filter.suc ?? '';
+    _tipoValue = filter.tipo;
+    _laboratorioId = filter.labor;
+    _estseguValue = filter.estsegu;
+    _asignValue = filter.asign;
+    _fecIni = filter.fecIni;
+    _fecFin = filter.fecFin;
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!_contextReady) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    final panelAsync = ref.watch(ordenesTrabajoPanelProvider);
+    final panelAsync = ref.watch(ordenesTrabajoPanelProvider(widget.panelMode));
     final panelData = panelAsync.valueOrNull;
     final selectedItem = _findSelected(
       panelData?.items ?? const <OrdenTrabajoItem>[],
@@ -145,7 +161,8 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: TextButton.icon(
                 onPressed: _canOpenViewDetailFromAppBar(selectedItem, panelData)
-                    ? () => _openSelectedDetailFromAppBar(selectedItem, panelData)
+                    ? () =>
+                          _openSelectedDetailFromAppBar(selectedItem, panelData)
                     : null,
                 style: _appBarActionButtonStyle(),
                 icon: const Icon(Icons.info_outline),
@@ -512,6 +529,8 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
 
   String _panelTitle() {
     switch (widget.panelMode) {
+      case OrdenesTrabajoPanelMode.estado:
+        return 'Consulta Estado de ORDs';
       case OrdenesTrabajoPanelMode.anulados:
         return 'Ordenes de Trabajo Anuladas';
       case OrdenesTrabajoPanelMode.entregadas:
@@ -559,6 +578,9 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
         case OrdenesTrabajoInitialAction.asignar:
           await _showAsignarRelacionDialog();
           break;
+        case OrdenesTrabajoInitialAction.trabajoTerminado:
+          await _showTrabajoTerminadoRelacionDialog();
+          break;
         case OrdenesTrabajoInitialAction.regresarTienda:
           await _showRegresarTiendaRelacionDialog();
           break;
@@ -583,6 +605,8 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
         return allowedActions.contains('ENVIAR');
       case OrdenesTrabajoInitialAction.asignar:
         return allowedActions.contains('ASIGNAR');
+      case OrdenesTrabajoInitialAction.trabajoTerminado:
+        return allowedActions.contains('TRABAJO_TERMINADO');
       case OrdenesTrabajoInitialAction.regresarTienda:
         return allowedActions.contains('REGRESAR_TIENDA');
       case OrdenesTrabajoInitialAction.recibir:
@@ -598,6 +622,8 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
         return 'Enviar a taller';
       case OrdenesTrabajoInitialAction.asignar:
         return 'Asignar a colaborador';
+      case OrdenesTrabajoInitialAction.trabajoTerminado:
+        return 'Trabajo terminado';
       case OrdenesTrabajoInitialAction.regresarTienda:
         return 'Recibir en tienda';
       case OrdenesTrabajoInitialAction.recibir:
@@ -640,25 +666,12 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       );
     }
 
-    if (widget.panelMode == OrdenesTrabajoPanelMode.anulados) return actions;
+    if (widget.panelMode == OrdenesTrabajoPanelMode.anulados ||
+        widget.panelMode == OrdenesTrabajoPanelMode.estado) {
+      return actions;
+    }
 
     if (widget.panelMode == OrdenesTrabajoPanelMode.entregadas) {
-      actions.add(
-        _OrdenTrabajoToolbarAction(
-          label: 'Garantia',
-          icon: Icons.assignment_turned_in,
-          enabled: hasSingleSelection,
-          onPressed: () {
-            if (!hasSingleSelection) {
-              _showError(
-                'Selecciona una ORD entregada para registrar garantia.',
-              );
-              return;
-            }
-            _doGarantia(selected.iord);
-          },
-        ),
-      );
       return actions;
     }
 
@@ -747,7 +760,6 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
   }
 
   bool _canAccessViewDetail(OrdenTrabajoPanelResponse panel) {
-    if (widget.panelMode != OrdenesTrabajoPanelMode.operativo) return true;
     return _isAdmin || panel.allowedActions.contains('VER_DETALLE');
   }
 
@@ -760,6 +772,9 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
   }
 
   String _viewDetailSelectionHint() {
+    if (widget.panelMode == OrdenesTrabajoPanelMode.estado) {
+      return 'Selecciona una ORD para consultar detalle.';
+    }
     if (widget.panelMode == OrdenesTrabajoPanelMode.anulados) {
       return 'Selecciona una ORD anulada para ver detalle.';
     }
@@ -790,6 +805,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     OrdenTrabajoPanelResponse? panel,
   ) async {
     final actions = _buildToolbarActions(selected, panel);
+    if (!mounted || !context.mounted) return;
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -856,14 +872,15 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
   }
 
   Widget _buildTable(OrdenTrabajoPanelResponse panel) {
-    final currentFilter = ref.watch(ordenesTrabajoFilterProvider);
-    if (_shouldDeferEntregadasResults(currentFilter)) {
-      return const Card(
+    final currentFilter = ref.watch(
+      ordenesTrabajoFilterProvider(widget.panelMode),
+    );
+    final deferMessage = _deferredLoadMessage(currentFilter);
+    if (deferMessage != null) {
+      return Card(
         child: Padding(
-          padding: EdgeInsets.all(20),
-          child: Text(
-            'El panel de entregadas no carga registros automáticamente. Aplica al menos un filtro para consultar.',
-          ),
+          padding: const EdgeInsets.all(20),
+          child: Text(deferMessage),
         ),
       );
     }
@@ -907,6 +924,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       ),
       _tableDataColumn('SUC', widthFor('SUC')),
       _tableDataColumn('TIPO', widthFor('TIPO')),
+      _tableDataColumn('OPV', widthFor('OPV')),
       _tableDataColumn('LABORATORIO', widthFor('LABORATORIO')),
       _tableDataColumn('IORD', widthFor('IORD')),
       _tableDataColumn('CLIENTE', widthFor('CLIENTE')),
@@ -962,6 +980,13 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                       DataCell(_tableCellText(row.suc, width: widthFor('SUC'))),
                       DataCell(
                         _tableCellText(row.tipo, width: widthFor('TIPO')),
+                      ),
+                      DataCell(
+                        _tableCellText(
+                          row.opv,
+                          width: widthFor('OPV'),
+                          maxLines: rowMaxLines,
+                        ),
                       ),
                       DataCell(
                         _tableCellText(
@@ -1147,6 +1172,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     final keys = <String>[
       'SUC',
       'TIPO',
+      'OPV',
       'LABORATORIO',
       'IORD',
       'CLIENTE',
@@ -1169,6 +1195,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       case 'DESCRIPCION':
         return compact + 40;
       case 'CLIENTE':
+      case 'OPV':
       case 'LABORATORIO':
         return compact + 28;
       default:
@@ -1182,6 +1209,8 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
         return 460;
       case 'CLIENTE':
         return 360;
+      case 'OPV':
+        return 240;
       case 'LABORATORIO':
         return 260;
       case 'FLUJO':
@@ -1225,6 +1254,8 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
         return row.suc;
       case 'TIPO':
         return row.tipo;
+      case 'OPV':
+        return row.opv;
       case 'LABORATORIO':
         return _resolveLaboratorioDescripcion(row.labor, panel.laboratorios);
       case 'IORD':
@@ -1262,6 +1293,10 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     var maxLines = 1;
     for (final row in sample) {
       final lines = <int>[
+        _estimateCellLines(
+          _columnValueText(panel, row, 'OPV'),
+          widthFor('OPV'),
+        ),
         _estimateCellLines(
           _columnValueText(panel, row, 'LABORATORIO'),
           widthFor('LABORATORIO'),
@@ -1689,12 +1724,26 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     return truncated;
   }
 
-  bool _shouldDeferEntregadasResults(OrdenesTrabajoFilter filter) {
-    if (widget.panelMode != OrdenesTrabajoPanelMode.entregadas) return false;
-    return !_hasManualEntregadasFilters(filter);
+  String? _deferredLoadMessage(OrdenesTrabajoFilter filter) {
+    if (!_shouldDeferPanelResults(filter)) return null;
+    if (widget.panelMode == OrdenesTrabajoPanelMode.entregadas) {
+      return 'El panel de entregadas no carga registros automáticamente. Aplica al menos un filtro para consultar.';
+    }
+    if (widget.panelMode == OrdenesTrabajoPanelMode.estado) {
+      return 'El panel de estado no carga registros automáticamente. Aplica al menos un filtro para consultar.';
+    }
+    return null;
   }
 
-  bool _hasManualEntregadasFilters(OrdenesTrabajoFilter filter) {
+  bool _shouldDeferPanelResults(OrdenesTrabajoFilter filter) {
+    if (widget.panelMode != OrdenesTrabajoPanelMode.entregadas &&
+        widget.panelMode != OrdenesTrabajoPanelMode.estado) {
+      return false;
+    }
+    return !_hasManualPanelFilters(filter);
+  }
+
+  bool _hasManualPanelFilters(OrdenesTrabajoFilter filter) {
     bool hasText(String? value) => (value ?? '').trim().isNotEmpty;
     return hasText(filter.iord) ||
         hasText(filter.idfol) ||
@@ -2063,21 +2112,26 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
   }
 
   Future<void> _reload() async {
-    ref.invalidate(ordenesTrabajoPanelProvider);
-    await ref.read(ordenesTrabajoPanelProvider.future);
+    ref.invalidate(ordenesTrabajoPanelProvider(widget.panelMode));
+    await ref.read(ordenesTrabajoPanelProvider(widget.panelMode).future);
     if (!mounted) return;
     setState(() {
       // Mantener selección solamente del resultado visible tras recarga.
       _syncSelection(
-        ref.read(ordenesTrabajoPanelProvider).valueOrNull?.items ??
+        ref
+                .read(ordenesTrabajoPanelProvider(widget.panelMode))
+                .valueOrNull
+                ?.items ??
             const <OrdenTrabajoItem>[],
       );
     });
   }
 
   void _applyFilters({required bool showAsign}) {
-    final current = ref.read(ordenesTrabajoFilterProvider);
-    ref.read(ordenesTrabajoFilterProvider.notifier).state = current.copyWith(
+    final current = ref.read(ordenesTrabajoFilterProvider(widget.panelMode));
+    ref
+        .read(ordenesTrabajoFilterProvider(widget.panelMode).notifier)
+        .state = current.copyWith(
       iord: _iordCtrl.text,
       idfol: _idfolCtrl.text,
       client: _clientCtrl.text,
@@ -2113,7 +2167,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       _selectedIords.clear();
     });
 
-    ref.read(ordenesTrabajoFilterProvider.notifier).state =
+    ref.read(ordenesTrabajoFilterProvider(widget.panelMode).notifier).state =
         OrdenesTrabajoFilter(suc: null, panelMode: widget.panelMode);
   }
 
@@ -2298,10 +2352,9 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
   }
 
   void _changePage(int page) {
-    final current = ref.read(ordenesTrabajoFilterProvider);
-    ref.read(ordenesTrabajoFilterProvider.notifier).state = current.copyWith(
-      page: page,
-    );
+    final current = ref.read(ordenesTrabajoFilterProvider(widget.panelMode));
+    ref.read(ordenesTrabajoFilterProvider(widget.panelMode).notifier).state =
+        current.copyWith(page: page);
     setState(() => _selectedIords.clear());
   }
 
@@ -2327,6 +2380,10 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       );
       final createdAt = _fmtDate(_toDate(header['FCNS']));
       final fEntrega = _fmtDate(_toDate(header['FCNM']));
+      var hrEnt = _formatHourMinuteValue(
+        header['HR_ENT'],
+        fallback: _formatHourMinuteValue(header['HREN']),
+      );
       final articulo = _textOf(header['ART']);
       final descArticulo = _textOf(
         header['DESCART'],
@@ -2350,24 +2407,40 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       final availableJobs = <String>{'OD', 'OI', 'ADD'};
       const detailGridFontSize = 18.0;
       const detailGridHeaderFontSize = 18.0;
-      final canEditDetail =
-          _isAdmin || _canEditOrdDetail(panel?.roleCode ?? '');
+      final isGarantiaPanel =
+          widget.panelMode == OrdenesTrabajoPanelMode.entregadas;
+      final allowedActions = panel?.allowedActions ?? const <String>{};
+      bool can(String action) => _isAdmin || allowedActions.contains(action);
+      final canGarantiaPanelDetail = can('GARANTIA');
+      final canEditDetail = isGarantiaPanel
+          ? canGarantiaPanelDetail
+          : (_isAdmin || _canEditOrdDetail(panel?.roleCode ?? ''));
       final canManageTipoAndPrint = _canManageOrdTipoAndPrint(
         panel?.roleCode ?? '',
       );
       final isConsultaDetalle =
+          widget.panelMode == OrdenesTrabajoPanelMode.estado ||
           widget.panelMode == OrdenesTrabajoPanelMode.anulados ||
           !canEditDetail;
-      final allowedActions = panel?.allowedActions ?? const <String>{};
-      bool can(String action) => _isAdmin || allowedActions.contains(action);
       final isRegresoFlow =
           _isFlowStatus(flujoCode, 9.1) || _isFlowStatus(flujoCode, 9.2);
+      final isFlowGarantiaPendiente = _isFlowStatus(flujoCode, 9.3);
+      final showGarantiaBtn =
+          isGarantiaPanel && canGarantiaPanelDetail && _isFlowStatus(flujoCode, 11);
       final showCambioMaterialBtn =
           isRegresoFlow && tipom == 1 && can('CAMBIO_MATERIAL');
       final showMermaBtn = isRegresoFlow && tipom == 2 && can('MERMA');
+      final showAplicarMermaCambioBtn =
+          isFlowGarantiaPendiente &&
+          (can('CAMBIO_MATERIAL') || can('MERMA'));
 
       Future<bool> saveCurrentDetail({required bool showSuccessMessage}) async {
         try {
+          final hrEntValue = hrEnt.trim();
+          if (hrEntValue.isNotEmpty && !_isValidHourMinute(hrEntValue)) {
+            _showError('HR_ENT debe capturarse en formato HH:MM.');
+            return false;
+          }
           final laborId = _parseLaboratorioId(selectedLab);
           await ref
               .read(ordenesTrabajoApiProvider)
@@ -2375,6 +2448,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                 ordId,
                 labor: laborId,
                 tipo: canManageTipoAndPrint ? selectedTipo : null,
+                hrEnt: hrEntValue.isEmpty ? null : hrEntValue,
                 comentarios: comentarios,
                 details: jobRows,
               );
@@ -2660,6 +2734,29 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                               ),
                             ),
                           ),
+                          SizedBox(
+                            width: 140,
+                            child: TextFormField(
+                              initialValue: hrEnt,
+                              readOnly: isConsultaDetalle,
+                              keyboardType: TextInputType.datetime,
+                              inputFormatters: isConsultaDetalle
+                                  ? const <TextInputFormatter>[]
+                                  : <TextInputFormatter>[
+                                      _HourMinuteTextInputFormatter(),
+                                      LengthLimitingTextInputFormatter(5),
+                                    ],
+                              decoration: const InputDecoration(
+                                labelText: 'HR_ENT',
+                                hintText: 'HH:MM',
+                                border: OutlineInputBorder(),
+                                isDense: true,
+                              ),
+                              onChanged: isConsultaDetalle
+                                  ? null
+                                  : (value) => hrEnt = value,
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 10),
@@ -2881,6 +2978,32 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                 ),
               ),
               actions: [
+                if (showGarantiaBtn)
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      final confirm = await _confirmCambioEstatus(
+                        title: 'Confirmar garantia',
+                        targetStatus: '9.3 (GARANTIA APLICADA)',
+                        total: 1,
+                        extraMessage:
+                            'Se cambiará la ORD $ordId a estado 9.3 (GARANTIA APLICADA). ¿Deseas continuar?',
+                      );
+                      if (confirm != true) return;
+                      final saved =
+                          isConsultaDetalle ||
+                          await saveCurrentDetail(showSuccessMessage: false);
+                      if (!saved || !mounted || !ctx.mounted) return;
+                      Navigator.of(ctx).pop();
+                      await _doGarantia(
+                        ordId,
+                        motivo: comentarios,
+                        validateCurrentFlow: false,
+                        confirmRequired: false,
+                      );
+                    },
+                    icon: const Icon(Icons.assignment_turned_in),
+                    label: const Text('Garantia'),
+                  ),
                 if (showCambioMaterialBtn)
                   OutlinedButton.icon(
                     onPressed: () async {
@@ -2899,7 +3022,20 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                     icon: const Icon(Icons.warning_amber),
                     label: const Text('Merma'),
                   ),
-                if (canManageTipoAndPrint)
+                if (showAplicarMermaCambioBtn)
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      final saved =
+                          isConsultaDetalle ||
+                          await saveCurrentDetail(showSuccessMessage: false);
+                      if (!saved || !mounted || !ctx.mounted) return;
+                      Navigator.of(ctx).pop();
+                      await _showAplicarMermaCambioDialog(ordId);
+                    },
+                    icon: const Icon(Icons.rule_folder_outlined),
+                    label: const Text('Aplicar merma o cambio'),
+                  ),
+                if (canManageTipoAndPrint && !isGarantiaPanel)
                   OutlinedButton.icon(
                     onPressed: () async {
                       final canPrint =
@@ -3029,6 +3165,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
               header['RAZONSOCIALRECEPTOR'],
               fallback: _textOf(header['NCLIENTE']),
             ),
+            fcns: _fmtDate(_toDate(header['FCNS'])),
             deliveryDate: _textOf(
               header['FCNTE'],
               fallback: _textOf(
@@ -3149,10 +3286,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     required _OrdCambioMermaMode mode,
     required OrdenTrabajoCambioMermaContext contextData,
   }) async {
-    final doc = _buildCambioMermaSaldoPdf(
-      mode: mode,
-      contextData: contextData,
-    );
+    final doc = _buildCambioMermaSaldoPdf(mode: mode, contextData: contextData);
     final now = DateTime.now();
     final y = now.year.toString().padLeft(4, '0');
     final m = now.month.toString().padLeft(2, '0');
@@ -3160,7 +3294,8 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     final hh = now.hour.toString().padLeft(2, '0');
     final mm = now.minute.toString().padLeft(2, '0');
     await Printing.layoutPdf(
-      name: 'saldo_${mode == _OrdCambioMermaMode.cambioMaterial ? 'cambio' : 'merma'}_$y$m$d-$hh$mm.pdf',
+      name:
+          'saldo_${mode == _OrdCambioMermaMode.cambioMaterial ? 'cambio' : 'merma'}_$y$m$d-$hh$mm.pdf',
       onLayout: (_) => doc.save(),
     );
   }
@@ -3175,23 +3310,35 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     final title = mode == _OrdCambioMermaMode.cambioMaterial
         ? 'FORMATO CAMBIO DE MATERIAL'
         : 'FORMATO DE MERMA';
+    final totalOriginalContable =
+        _toNum(original['TOTAL_CONTABLE']) ?? contextData.totalOriginal;
+    final totalNuevoContable =
+        _toNum(draft['TOTAL_CONTABLE']) ?? contextData.totalNuevo;
+    final subtotalOriginalContable =
+        _toNum(original['SUBTOTAL_CONTABLE']) ?? contextData.subtotalOriginal;
+    final subtotalNuevoContable =
+        _toNum(draft['SUBTOTAL_CONTABLE']) ?? contextData.subtotalNuevo;
+    final ivaOriginalContable =
+        _toNum(original['IVA_CONTABLE']) ?? contextData.ivaOriginal;
+    final ivaNuevoContable =
+        _toNum(draft['IVA_CONTABLE']) ?? contextData.ivaNuevo;
 
     pw.Widget row(String label, String value) => pw.Padding(
-          padding: const pw.EdgeInsets.only(bottom: 6),
-          child: pw.Row(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              pw.SizedBox(
-                width: 150,
-                child: pw.Text(
-                  label,
-                  style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                ),
-              ),
-              pw.Expanded(child: pw.Text(value.isEmpty ? 'N/D' : value)),
-            ],
+      padding: const pw.EdgeInsets.only(bottom: 6),
+      child: pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.SizedBox(
+            width: 150,
+            child: pw.Text(
+              label,
+              style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+            ),
           ),
-        );
+          pw.Expanded(child: pw.Text(value.isEmpty ? 'N/D' : value)),
+        ],
+      ),
+    );
 
     doc.addPage(
       pw.MultiPage(
@@ -3212,7 +3359,10 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
           row('Descripción nueva', _textOf(draft['DES'])),
           row('CTD original', _money(_toNum(original['CTD']) ?? 0)),
           row('CTD_C_M', _money(_toNum(original['CTD_C_M']) ?? 0)),
-          row('Motivo', _textOf(original['MOTR'], fallback: _textOf(draft['MOTIVO']))),
+          row(
+            'Motivo',
+            _textOf(original['MOTR'], fallback: _textOf(draft['MOTIVO'])),
+          ),
           row('Laboratorio', _textOf(draft['LABOR'])),
           row('PVTA original', _money(_toNum(original['PVTAT_BASE']) ?? 0)),
           row('PVTA nuevo', _money(_toNum(draft['PVTA']) ?? 0)),
@@ -3222,7 +3372,25 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
           row('Subtotal nuevo', _money(contextData.subtotalNuevo)),
           row('IVA nuevo', _money(contextData.ivaNuevo)),
           row('Total nuevo', _money(contextData.totalNuevo)),
-          row('Diferencia económica', _money(contextData.diferenciaEconomica)),
+          row(
+            'Subtotal original afectación contable',
+            _money(subtotalOriginalContable),
+          ),
+          row('IVA original afectación contable', _money(ivaOriginalContable)),
+          row(
+            'Total original afectación contable',
+            _money(totalOriginalContable),
+          ),
+          row(
+            'Subtotal nuevo afectación contable',
+            _money(subtotalNuevoContable),
+          ),
+          row('IVA nuevo afectación contable', _money(ivaNuevoContable)),
+          row('Total nuevo afectación contable', _money(totalNuevoContable)),
+          row(
+            'Diferencia económica autorizada',
+            _money(contextData.diferenciaEconomica),
+          ),
           row('REEORD original', _textOf(original['REEORD'])),
           row('Autorizó', _textOf(original['USR_AUT_CYM'])),
           row('Fecha autorización', _fmtDate(_toDate(original['FCN_AUT_CYM']))),
@@ -3241,11 +3409,15 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     final draft = contextData.draft;
     final doc = pw.Document();
     final diff = contextData.diferenciaEconomica;
+    final totalOriginalContable =
+        _toNum(original['TOTAL_CONTABLE']) ?? contextData.totalOriginal;
+    final totalNuevoContable =
+        _toNum(draft['TOTAL_CONTABLE']) ?? contextData.totalNuevo;
     final tipoSaldo = diff > 0
         ? 'SALDO EN CONTRA DEL CLIENTE'
         : diff < 0
-            ? 'SALDO A FAVOR DEL CLIENTE'
-            : 'SIN DIFERENCIA ECONOMICA';
+        ? 'SALDO A FAVOR DEL CLIENTE'
+        : 'SIN DIFERENCIA ECONOMICA';
 
     doc.addPage(
       pw.MultiPage(
@@ -3269,8 +3441,12 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
           pw.Text('Cliente: ${_textOf(original['NCLIENTE'])}'),
           pw.Text('Artículo original: ${_textOf(original['ART'])}'),
           pw.Text('Artículo nuevo: ${_textOf(draft['ART'])}'),
-          pw.Text('Total original: ${_money(contextData.totalOriginal)}'),
-          pw.Text('Total nuevo: ${_money(contextData.totalNuevo)}'),
+          pw.Text(
+            'Total original afectación contable: ${_money(totalOriginalContable)}',
+          ),
+          pw.Text(
+            'Total nuevo afectación contable: ${_money(totalNuevoContable)}',
+          ),
           pw.SizedBox(height: 10),
           pw.Container(
             padding: const pw.EdgeInsets.all(12),
@@ -3339,7 +3515,9 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
   }
 
   Future<void> _doAsignarLaboratorio() async {
-    final panel = ref.read(ordenesTrabajoPanelProvider).valueOrNull;
+    final panel = ref
+        .read(ordenesTrabajoPanelProvider(widget.panelMode))
+        .valueOrNull;
     if (panel == null) {
       _showError(
         'No hay datos del panel disponibles para asignar laboratorio.',
@@ -3414,7 +3592,9 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
 
   Future<void> _doAsignarSeleccionados(List<String> iords) async {
     if (iords.isEmpty) return;
-    final panel = ref.read(ordenesTrabajoPanelProvider).valueOrNull;
+    final panel = ref
+        .read(ordenesTrabajoPanelProvider(widget.panelMode))
+        .valueOrNull;
     if (panel == null) {
       _showError('No hay datos del panel disponibles para asignar.');
       return;
@@ -3761,7 +3941,9 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     String? colaboradorSuc;
     List<OrdenTrabajoColaboradorOption> colaboradores =
         const <OrdenTrabajoColaboradorOption>[];
-    final panel = ref.read(ordenesTrabajoPanelProvider).valueOrNull;
+    final panel = ref
+        .read(ordenesTrabajoPanelProvider(widget.panelMode))
+        .valueOrNull;
     final laboratoriosPanel =
         panel?.laboratorios ?? const <OrdenTrabajoLaboratorioOption>[];
 
@@ -3784,7 +3966,8 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       }
       String nextSuc;
       try {
-        nextSuc = _resolveColaboradorSucForRelacionRows(
+        nextSuc =
+            _resolveColaboradorSucForRelacionRows(
               relaciones,
               laboratoriosPanel,
             ) ??
@@ -4156,10 +4339,12 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                                                             remaining;
                                                         unawaited(
                                                           syncCollaboratorsForRelations(
-                                                            dialogNavigator: Navigator.of(
-                                                              dialogContext,
-                                                            ),
-                                                            dialogRef: dialogRef,
+                                                            dialogNavigator:
+                                                                Navigator.of(
+                                                                  dialogContext,
+                                                                ),
+                                                            dialogRef:
+                                                                dialogRef,
                                                             setDialogState:
                                                                 setDialogState,
                                                             forceReload: true,
@@ -4814,64 +4999,49 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     );
   }
 
-  Future<void> _doGarantia(String iord) async {
-    try {
-      final detail = await ref
-          .read(ordenesTrabajoApiProvider)
-          .fetchDetail(iord);
-      final flujoCode = _textOf(detail.header['ESTSEGU']);
-      if (!_isFlowStatus(flujoCode, 11)) {
+  Future<void> _doGarantia(
+    String iord, {
+    String? motivo,
+    bool validateCurrentFlow = true,
+    bool confirmRequired = true,
+  }) async {
+    if (validateCurrentFlow) {
+      try {
+        final detail = await ref
+            .read(ordenesTrabajoApiProvider)
+            .fetchDetail(iord);
+        final flujoCode = _textOf(detail.header['ESTSEGU']);
+        if (!_isFlowStatus(flujoCode, 11)) {
+          _showError(
+            'La ORD $iord debe estar en flujo 11 (ENTREGADA A CLIENTE) para registrar garantia.',
+          );
+          return;
+        }
+      } catch (e) {
         _showError(
-          'La ORD $iord debe estar en flujo 11 (ENTREGADA A CLIENTE) para registrar garantia.',
+          apiErrorMessage(
+            e,
+            fallback: 'No se pudo validar el flujo actual de la ORD',
+          ),
         );
         return;
       }
-    } catch (e) {
-      _showError(
-        apiErrorMessage(
-          e,
-          fallback: 'No se pudo validar el flujo actual de la ORD',
-        ),
-      );
-      return;
     }
-
-    final motivoCtrl = TextEditingController();
-    final ok = await _showSimpleForm(
-      title: 'Registrar garantia',
-      childrenBuilder: (_) => [
-        TextField(
-          controller: motivoCtrl,
-          minLines: 2,
-          maxLines: 3,
-          decoration: const InputDecoration(
-            labelText: 'Motivo (requerido)',
-            border: OutlineInputBorder(),
-          ),
-        ),
-      ],
-      validate: () {
-        if (motivoCtrl.text.trim().length < 3) {
-          _showError('Captura un motivo valido.');
-          return false;
-        }
-        return true;
-      },
-    );
-    if (ok != true) return;
-    final confirm = await _confirmCambioEstatus(
-      title: 'Confirmar garantia',
-      targetStatus: '12 (GARANTIA)',
-      total: 1,
-      extraMessage:
-          'Se cambiará la ORD $iord a estado 12 (GARANTIA). ¿Deseas continuar?',
-    );
-    if (confirm != true) return;
+    if (confirmRequired) {
+      final confirm = await _confirmCambioEstatus(
+        title: 'Confirmar garantia',
+        targetStatus: '9.3 (GARANTIA APLICADA)',
+        total: 1,
+        extraMessage:
+            'Se cambiará la ORD $iord a estado 9.3 (GARANTIA APLICADA). ¿Deseas continuar?',
+      );
+      if (confirm != true) return;
+    }
 
     await _executeAction(
       () => ref
           .read(ordenesTrabajoApiProvider)
-          .garantia(iord, motivo: motivoCtrl.text),
+          .garantia(iord, motivo: motivo),
     );
   }
 
@@ -4883,9 +5053,208 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
   }
 
   Future<void> _doMerma(String iord) async {
-    await _showCambioMermaDialog(
-      iord: iord,
-      mode: _OrdCambioMermaMode.merma,
+    await _showCambioMermaDialog(iord: iord, mode: _OrdCambioMermaMode.merma);
+  }
+
+  Future<void> _showAplicarMermaCambioDialog(String iord) async {
+    final api = ref.read(ordenesTrabajoApiProvider);
+    final detail = await api.fetchDetail(iord);
+    if (!mounted) return;
+    final flujoCode = _textOf(detail.header['ESTSEGU']);
+    if (!_isFlowStatus(flujoCode, 9.3)) {
+      _showError(
+        'La ORD $iord debe estar en flujo 9.3 (GARANTIA APLICADA) para aplicar merma o cambio.',
+      );
+      return;
+    }
+
+    const tipoOptions = <Map<String, Object>>[
+      {'id': 1, 'label': '1 - Cambio de articulo'},
+      {'id': 2, 'label': '2 - Merma de art y cambio'},
+    ];
+
+    final motivosByTipo = <int, List<OrdenTrabajoMotivoMovimientoOption>>{};
+    int selectedTipo = 1;
+    int? selectedMotr;
+    bool loadingMotivos = false;
+    String? errorMotivos;
+
+    try {
+      final initialMotivos = await api.fetchMotivosMovimiento(tipo: selectedTipo);
+      final uniqueById = <int, OrdenTrabajoMotivoMovimientoOption>{};
+      for (final item in initialMotivos) {
+        if (item.id <= 0) continue;
+        uniqueById[item.id] = item;
+      }
+      motivosByTipo[selectedTipo] = uniqueById.values.toList(growable: false);
+    } catch (e) {
+      errorMotivos = apiErrorMessage(
+        e,
+        fallback: 'No se pudieron cargar los motivos (MOTR).',
+      );
+    }
+
+    Future<void> loadMotivosForTipo(
+      StateSetter setDialogState,
+      int tipo,
+    ) async {
+      if (motivosByTipo.containsKey(tipo)) return;
+      setDialogState(() {
+        loadingMotivos = true;
+        errorMotivos = null;
+        selectedMotr = null;
+      });
+      try {
+        final options = await api.fetchMotivosMovimiento(tipo: tipo);
+        final uniqueById = <int, OrdenTrabajoMotivoMovimientoOption>{};
+        for (final item in options) {
+          if (item.id <= 0) continue;
+          uniqueById[item.id] = item;
+        }
+        motivosByTipo[tipo] = uniqueById.values.toList(growable: false);
+      } catch (e) {
+        errorMotivos = apiErrorMessage(
+          e,
+          fallback: 'No se pudieron cargar los motivos (MOTR).',
+        );
+      } finally {
+        setDialogState(() {
+          loadingMotivos = false;
+        });
+      }
+    }
+
+    if (!mounted || !context.mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogCtx) {
+        return StatefulBuilder(
+          builder: (dialogCtx, setDialogState) {
+            final motivos = motivosByTipo[selectedTipo] ?? const [];
+            final motrDropdownValue = (selectedMotr != null &&
+                    motivos.any((item) => item.id == selectedMotr))
+                ? selectedMotr
+                : null;
+
+            return AlertDialog(
+              title: const Text('Aplicar merma o cambio'),
+              content: SizedBox(
+                width: 520,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    DropdownButtonFormField<int>(
+                      initialValue: selectedTipo,
+                      decoration: const InputDecoration(
+                        labelText: 'TIPOM (flujo)',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: tipoOptions
+                          .map(
+                            (item) => DropdownMenuItem<int>(
+                              value: item['id'] as int,
+                              child: Text(item['label']! as String),
+                            ),
+                          )
+                          .toList(growable: false),
+                      onChanged: (value) async {
+                        final nextTipo = value ?? 1;
+                        setDialogState(() {
+                          selectedTipo = nextTipo;
+                          selectedMotr = null;
+                        });
+                        await loadMotivosForTipo(setDialogState, nextTipo);
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    if (loadingMotivos)
+                      const Center(child: CircularProgressIndicator())
+                    else
+                      DropdownButtonFormField<int>(
+                        initialValue: motrDropdownValue,
+                        decoration: const InputDecoration(
+                          labelText: 'MOTR (motivo)',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: motivos
+                            .map(
+                              (item) => DropdownMenuItem<int>(
+                                value: item.id,
+                                child: Text(
+                                  '${item.id} - ${item.label}',
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            )
+                            .toList(growable: false),
+                        onChanged: (value) {
+                          setDialogState(() {
+                            selectedMotr = value;
+                          });
+                        },
+                      ),
+                    if ((errorMotivos ?? '').trim().isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        errorMotivos!,
+                        style: const TextStyle(color: Colors.red),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogCtx).pop(),
+                  child: const Text('Cancelar'),
+                ),
+                ElevatedButton(
+                  onPressed: loadingMotivos
+                      ? null
+                      : () async {
+                          final motr = selectedMotr;
+                          if (motr == null || motr <= 0) {
+                            _showError('Selecciona un MOTR válido.');
+                            return;
+                          }
+                          final targetFlow = selectedTipo == 1 ? '9.1' : '9.2';
+                          final targetLabel = selectedTipo == 1
+                              ? 'REGRESADO PARA CAMBIO'
+                              : 'REGRESADO PARA MERMA';
+                          final confirm = await _confirmCambioEstatus(
+                            title: 'Confirmar aplicación',
+                            targetStatus: '$targetFlow ($targetLabel)',
+                            total: 1,
+                            extraMessage:
+                                'La ORD $iord avanzará al flujo $targetFlow usando TIPOM=$selectedTipo y MOTR=$motr.',
+                          );
+                          if (confirm != true) return;
+                          if (!mounted || !dialogCtx.mounted) return;
+                          Navigator.of(dialogCtx).pop();
+                          await _executeAction(
+                            () => api.aplicarMermaCambio(
+                              iord,
+                              tipom: selectedTipo,
+                              motr: motr,
+                            ),
+                          );
+                          if (!mounted) return;
+                          await _showCambioMermaDialog(
+                            iord: iord,
+                            mode: selectedTipo == 1
+                                ? _OrdCambioMermaMode.cambioMaterial
+                                : _OrdCambioMermaMode.merma,
+                          );
+                        },
+                  child: const Text('Aplicar'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
@@ -4941,7 +5310,9 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     Map<String, dynamic> original = cmContext.original;
     Map<String, dynamic> draft = cmContext.draft;
 
-    final panel = ref.read(ordenesTrabajoPanelProvider).valueOrNull;
+    final panel = ref
+        .read(ordenesTrabajoPanelProvider(widget.panelMode))
+        .valueOrNull;
     final laboratoriosPanel =
         panel?.laboratorios ?? const <OrdenTrabajoLaboratorioOption>[];
     final sucOrd = _textOf(original['SUC'], fallback: _textOf(header['SUC']));
@@ -4952,12 +5323,18 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       original['ART'],
       fallback: _textOf(header['ART']),
     );
-    final upcOriginal = _textOf(original['UPC'], fallback: _textOf(header['UPC']));
+    final upcOriginal = _textOf(
+      original['UPC'],
+      fallback: _textOf(header['UPC']),
+    );
     final desOriginal = _textOf(
       original['DES'],
       fallback: _textOf(
         original['DESCART'],
-        fallback: _textOf(header['DESCART'], fallback: _textOf(header['DESCRT'])),
+        fallback: _textOf(
+          header['DESCART'],
+          fallback: _textOf(header['DESCRT']),
+        ),
       ),
     );
 
@@ -4976,13 +5353,16 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     final initialMotrRaw = _parseIntLike(
       _textOf(original['MOTR'], fallback: _textOf(draft['MOTR'])),
     );
-    final initialMotr =
-        (initialMotrRaw != null && initialMotrRaw > 0) ? initialMotrRaw : null;
+    final initialMotr = (initialMotrRaw != null && initialMotrRaw > 0)
+        ? initialMotrRaw
+        : null;
     int? selectedMotr = motivoOptions.any((item) => item.id == initialMotr)
         ? initialMotr
         : null;
     if (selectedMotr != null) {
-      final selected = motivoOptions.firstWhere((item) => item.id == selectedMotr);
+      final selected = motivoOptions.firstWhere(
+        (item) => item.id == selectedMotr,
+      );
       motivoCtrl.text = selected.label;
     } else {
       motivoCtrl.text = _textOf(
@@ -5000,9 +5380,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       return null;
     }
 
-    double? selectedCtdCM = normalizeCtdCMValue(
-      _toNum(original['CTD_C_M']),
-    );
+    double? selectedCtdCM = normalizeCtdCMValue(_toNum(original['CTD_C_M']));
     double? selectedPvtaNuevo =
         _toNum(draft['PVTA'])?.toDouble() ??
         _toNum(original['PVTAT_BASE'])?.toDouble();
@@ -5017,9 +5395,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       selectedLabor = _normalizeLaboratorioValue(
         _textOf(updated.draft['LABOR']),
       );
-      selectedCtdCM = normalizeCtdCMValue(
-        _toNum(updated.original['CTD_C_M']),
-      );
+      selectedCtdCM = normalizeCtdCMValue(_toNum(updated.original['CTD_C_M']));
       selectedPvtaNuevo =
           _toNum(updated.draft['PVTA'])?.toDouble() ??
           _toNum(updated.original['PVTAT_BASE'])?.toDouble();
@@ -5068,9 +5444,11 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
               ? laboratoriosByTipo
               : laboratoriosPanel;
           final laborValue =
-              editableLaboratorios.any((lab) => lab.id.toString() == selectedLabor)
-                  ? selectedLabor
-                  : null;
+              editableLaboratorios.any(
+                (lab) => lab.id.toString() == selectedLabor,
+              )
+              ? selectedLabor
+              : null;
           final hasStagingRecord = cmContext.hasStagingRecord;
           final nvaIord = _textOf(draft['NVA_IORD']);
           final hasCreatedOrd = cmContext.hasCreatedOrd;
@@ -5079,7 +5457,9 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
               cmContext.selCtrlOrd != null &&
               cmContext.selCtrlOrd != 0;
           final canCreateDraftRecord =
-              !isCambioMermaAuthorizationRole && !hasStagingRecord && !submitting;
+              !isCambioMermaAuthorizationRole &&
+              !hasStagingRecord &&
+              !submitting;
           final editableCapture =
               hasPreparedCapture &&
               cmContext.editable &&
@@ -5115,6 +5495,12 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
               hasCreatedOrd && cmContext.canPrintFormato && !submitting;
           final canPrintSaldo =
               hasCreatedOrd && cmContext.canPrintSaldo && !submitting;
+          final diferenciaCaptura = cmContext.diferenciaEconomica;
+          final saldoCapturaLabel = diferenciaCaptura > 0.009
+              ? 'SALDO EN CONTRA DEL CLIENTE'
+              : diferenciaCaptura < -0.009
+              ? 'SALDO A FAVOR DEL CLIENTE'
+              : 'SIN DIFERENCIA';
           final selectedMotrValue =
               selectedMotr != null &&
                   motivoOptions.any((item) => item.id == selectedMotr)
@@ -5215,7 +5601,9 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.orange.shade300),
+                                border: Border.all(
+                                  color: Colors.orange.shade300,
+                                ),
                                 color: Colors.orange.shade50,
                               ),
                               child: Text(
@@ -5229,179 +5617,215 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                             ),
                           if (hasStagingRecord)
                             Wrap(
-                            spacing: 10,
-                            runSpacing: 8,
-                            children: [
-                              SizedBox(
-                                width: 220,
-                                child: roField(
-                                  'NVA_IORD',
-                                  nvaIord,
+                              spacing: 10,
+                              runSpacing: 8,
+                              children: [
+                                SizedBox(
+                                  width: 220,
+                                  child: roField('NVA_IORD', nvaIord),
                                 ),
-                              ),
-                              SizedBox(
-                                width: 190,
-                                child: TextField(
-                                  controller: artNuevoCtrl,
-                                  readOnly: true,
-                                  enabled: !submitting,
-                                  decoration: const InputDecoration(
-                                    labelText: 'ART actual',
-                                    border: OutlineInputBorder(),
-                                    isDense: true,
+                                SizedBox(
+                                  width: 190,
+                                  child: TextField(
+                                    controller: artNuevoCtrl,
+                                    readOnly: true,
+                                    enabled: !submitting,
+                                    decoration: const InputDecoration(
+                                      labelText: 'ART actual',
+                                      border: OutlineInputBorder(),
+                                      isDense: true,
+                                    ),
                                   ),
                                 ),
-                              ),
-                              SizedBox(
-                                width: 180,
-                                child: TextField(
-                                  controller: upcNuevoCtrl,
-                                  readOnly: true,
-                                  enabled: !submitting,
-                                  decoration: const InputDecoration(
-                                    labelText: 'UPC',
-                                    border: OutlineInputBorder(),
-                                    isDense: true,
+                                SizedBox(
+                                  width: 180,
+                                  child: TextField(
+                                    controller: upcNuevoCtrl,
+                                    readOnly: true,
+                                    enabled: !submitting,
+                                    decoration: const InputDecoration(
+                                      labelText: 'UPC',
+                                      border: OutlineInputBorder(),
+                                      isDense: true,
+                                    ),
                                   ),
                                 ),
-                              ),
-                              SizedBox(
-                                width: 320,
-                                child: TextField(
-                                  controller: desNuevoCtrl,
-                                  readOnly: true,
-                                  enabled: !submitting,
-                                  maxLines: 2,
-                                  decoration: const InputDecoration(
-                                    labelText: 'DES',
-                                    border: OutlineInputBorder(),
-                                    isDense: true,
+                                SizedBox(
+                                  width: 320,
+                                  child: TextField(
+                                    controller: desNuevoCtrl,
+                                    readOnly: true,
+                                    enabled: !submitting,
+                                    maxLines: 2,
+                                    decoration: const InputDecoration(
+                                      labelText: 'DES',
+                                      border: OutlineInputBorder(),
+                                      isDense: true,
+                                    ),
                                   ),
                                 ),
-                              ),
-                              SizedBox(
-                                width: 130,
-                                child: roField(
-                                  'PVTA',
-                                  _money(pvtaCaptura),
+                                SizedBox(
+                                  width: 130,
+                                  child: roField('PVTA', _money(pvtaCaptura)),
                                 ),
-                              ),
-                              SizedBox(
-                                width: 130,
-                                child: roField('Subtotal', _money(cmContext.subtotalNuevo)),
-                              ),
-                              SizedBox(
-                                width: 120,
-                                child: roField('IVA', _money(cmContext.ivaNuevo)),
-                              ),
-                              SizedBox(
-                                width: 130,
-                                child: roField('Total', _money(cmContext.totalNuevo)),
-                              ),
-                              SizedBox(width: 140, child: roField('TIPO', _textOf(draft['TIPO'], fallback: tipoOrd))),
-                              SizedBox(
-                                width: 230,
-                                child: editableLaboratorios.isEmpty
-                                    ? roField('LAB', selectedLabor)
-                                    : DropdownButtonFormField<String>(
-                                        initialValue: laborValue,
-                                        isExpanded: true,
-                                        decoration: const InputDecoration(
-                                          labelText: 'LAB',
-                                          border: OutlineInputBorder(),
-                                          isDense: true,
-                                        ),
-                                        items: editableLaboratorios
-                                            .map(
-                                              (lab) => DropdownMenuItem<String>(
-                                                value: lab.id.toString(),
-                                                child: Text(
-                                                  lab.lab.trim().isEmpty
-                                                      ? lab.id.toString()
-                                                      : lab.lab.trim(),
-                                                  maxLines: 1,
-                                                  overflow: TextOverflow.ellipsis,
-                                                ),
-                                              ),
-                                            )
-                                            .toList(growable: false),
-                                        onChanged: editableCapture
-                                            ? (value) => setDialogState(() {
+                                SizedBox(
+                                  width: 130,
+                                  child: roField(
+                                    'Subtotal',
+                                    _money(cmContext.subtotalNuevo),
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: 120,
+                                  child: roField(
+                                    'IVA',
+                                    _money(cmContext.ivaNuevo),
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: 130,
+                                  child: roField(
+                                    'Total',
+                                    _money(cmContext.totalNuevo),
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: 150,
+                                  child: roField(
+                                    'Diferencia',
+                                    _money(diferenciaCaptura),
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: 260,
+                                  child: roField(
+                                    'Saldo',
+                                    saldoCapturaLabel,
+                                    maxLines: 2,
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: 140,
+                                  child: roField(
+                                    'TIPO',
+                                    _textOf(draft['TIPO'], fallback: tipoOrd),
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: 230,
+                                  child: editableLaboratorios.isEmpty
+                                      ? roField('LAB', selectedLabor)
+                                      : DropdownButtonFormField<String>(
+                                          initialValue: laborValue,
+                                          isExpanded: true,
+                                          decoration: const InputDecoration(
+                                            labelText: 'LAB',
+                                            border: OutlineInputBorder(),
+                                            isDense: true,
+                                          ),
+                                          items: editableLaboratorios
+                                              .map(
+                                                (lab) =>
+                                                    DropdownMenuItem<String>(
+                                                      value: lab.id.toString(),
+                                                      child: Text(
+                                                        lab.lab.trim().isEmpty
+                                                            ? lab.id.toString()
+                                                            : lab.lab.trim(),
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
+                                                      ),
+                                                    ),
+                                              )
+                                              .toList(growable: false),
+                                          onChanged: editableCapture
+                                              ? (value) => setDialogState(() {
                                                   selectedLabor = value ?? '';
                                                   dirty = true;
                                                 })
-                                            : null,
-                                      ),
-                              ),
-                            ],
-                          ),
+                                              : null,
+                                        ),
+                                ),
+                              ],
+                            ),
                           if (hasStagingRecord) const SizedBox(height: 10),
                           if (hasStagingRecord)
                             Row(
-                            children: [
-                              OutlinedButton.icon(
-                                onPressed:
-                                    !editableCapture ||
-                                            processingArticulo ||
-                                            submitting
-                                        ? null
-                                        : () async {
-                                            setDialogState(
-                                              () => processingArticulo = true,
-                                            );
-                                            try {
-                                              final picked =
-                                                  await _showBuscarArticuloCambioMermaDialog(
-                                                suc: sucOrd,
-                                                tipoHint: tipoOrd,
-                                              );
-                                              if (!ctx.mounted || picked == null) {
-                                                return;
-                                              }
-                                              final updated = await api
-                                                  .actualizarArticuloCambioMerma(
-                                                iord,
-                                                tipo: mode.tipom,
-                                                artNuevo: picked.art,
-                                                pvtaNuevo: picked.pvta?.toDouble(),
-                                              );
-                                              if (!ctx.mounted || !mounted) return;
-                                              setDialogState(() {
-                                                applyCambioMermaContext(updated);
-                                                dirty = false;
-                                              });
-                                              ScaffoldMessenger.of(context)
-                                                  .showSnackBar(
-                                                SnackBar(
-                                                  content: Text(
-                                                    updated.message.isEmpty
-                                                        ? 'Artículo actualizado en captura temporal.'
-                                                        : updated.message,
-                                                  ),
-                                                ),
-                                              );
-                                            } catch (e) {
-                                              if (!ctx.mounted || !mounted) return;
-                                              _showError(
-                                                apiErrorMessage(
-                                                  e,
-                                                  fallback:
-                                                      'No se pudo actualizar el artículo en la captura.',
-                                                ),
-                                              );
-                                            } finally {
-                                              if (ctx.mounted) {
-                                                setDialogState(
-                                                  () => processingArticulo = false,
+                              children: [
+                                OutlinedButton.icon(
+                                  onPressed:
+                                      !editableCapture ||
+                                          processingArticulo ||
+                                          submitting
+                                      ? null
+                                      : () async {
+                                          setDialogState(
+                                            () => processingArticulo = true,
+                                          );
+                                          try {
+                                            final picked =
+                                                await _showBuscarArticuloCambioMermaDialog(
+                                                  suc: sucOrd,
+                                                  tipoHint: tipoOrd,
                                                 );
-                                              }
+                                            if (!ctx.mounted ||
+                                                picked == null) {
+                                              return;
                                             }
-                                          },
-                                icon: const Icon(Icons.search),
-                                label: const Text('Buscar Articulo para cambiar'),
-                              ),
-                            ],
-                          ),
+                                            final updated = await api
+                                                .actualizarArticuloCambioMerma(
+                                                  iord,
+                                                  tipo: mode.tipom,
+                                                  artNuevo: picked.art,
+                                                  pvtaNuevo: picked.pvta
+                                                      ?.toDouble(),
+                                                );
+                                            if (!ctx.mounted || !mounted) {
+                                              return;
+                                            }
+                                            setDialogState(() {
+                                              applyCambioMermaContext(updated);
+                                              dirty = false;
+                                            });
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              SnackBar(
+                                                content: Text(
+                                                  updated.message.isEmpty
+                                                      ? 'Artículo actualizado en captura temporal.'
+                                                      : updated.message,
+                                                ),
+                                              ),
+                                            );
+                                          } catch (e) {
+                                            if (!ctx.mounted || !mounted) {
+                                              return;
+                                            }
+                                            _showError(
+                                              apiErrorMessage(
+                                                e,
+                                                fallback:
+                                                    'No se pudo actualizar el artículo en la captura.',
+                                              ),
+                                            );
+                                          } finally {
+                                            if (ctx.mounted) {
+                                              setDialogState(
+                                                () =>
+                                                    processingArticulo = false,
+                                              );
+                                            }
+                                          }
+                                        },
+                                  icon: const Icon(Icons.search),
+                                  label: const Text(
+                                    'Buscar Articulo para cambiar',
+                                  ),
+                                ),
+                              ],
+                            ),
                         ],
                       ),
                     ),
@@ -5515,11 +5939,17 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                               children: [
                                 SizedBox(
                                   width: 100,
-                                  child: roField('Cantidad', _money(ctdOriginal)),
+                                  child: roField(
+                                    'Cantidad',
+                                    _money(ctdOriginal),
+                                  ),
                                 ),
                                 SizedBox(
                                   width: 100,
-                                  child: roField('PVTAT base', _money(pvtaOriginal)),
+                                  child: roField(
+                                    'PVTAT base',
+                                    _money(pvtaOriginal),
+                                  ),
                                 ),
                                 SizedBox(
                                   width: 100,
@@ -5530,18 +5960,27 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                                 ),
                                 SizedBox(
                                   width: 100,
-                                  child: roField('IVA', _money(cmContext.ivaOriginal)),
+                                  child: roField(
+                                    'IVA',
+                                    _money(cmContext.ivaOriginal),
+                                  ),
                                 ),
                                 SizedBox(
                                   width: 100,
-                                  child: roField('Total', _money(cmContext.totalOriginal)),
+                                  child: roField(
+                                    'Total',
+                                    _money(cmContext.totalOriginal),
+                                  ),
                                 ),
                               ],
                             ),
                           ),
                           roField(
                             'Comentarios',
-                            _textOf(original['COMAD'], fallback: _textOf(header['COMAD'])),
+                            _textOf(
+                              original['COMAD'],
+                              fallback: _textOf(header['COMAD']),
+                            ),
                             maxLines: 2,
                           ),
                           Padding(
@@ -5561,7 +6000,9 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                                       ),
                                       _textOf(
                                         original['ESTSEGU_DESC'],
-                                        fallback: _textOf(original['DESCFLUJO']),
+                                        fallback: _textOf(
+                                          original['DESCFLUJO'],
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -5571,9 +6012,11 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                                   child: roField(
                                     'selCtrlOrd / DESAUTO',
                                     [
-                                      _textOf(cmContext.selCtrlOrd),
-                                      _textOf(original['DESAUTO']),
-                                    ].where((item) => item.trim().isNotEmpty).join(' - '),
+                                          _textOf(cmContext.selCtrlOrd),
+                                          _textOf(original['DESAUTO']),
+                                        ]
+                                        .where((item) => item.trim().isNotEmpty)
+                                        .join(' - '),
                                   ),
                                 ),
                               ],
@@ -5604,9 +6047,9 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                                 ],
                                 onChanged: canEditBaseFields
                                     ? (value) => setDialogState(() {
-                                          selectedCtdCM = value;
-                                          dirty = true;
-                                        })
+                                        selectedCtdCM = value;
+                                        dirty = true;
+                                      })
                                     : null,
                               ),
                             ),
@@ -5655,9 +6098,11 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                                                 final selected = value == null
                                                     ? null
                                                     : motivoOptions.firstWhere(
-                                                        (item) => item.id == value,
+                                                        (item) =>
+                                                            item.id == value,
                                                       );
-                                                motivoCtrl.text = selected?.label ?? '';
+                                                motivoCtrl.text =
+                                                    selected?.label ?? '';
                                                 dirty = true;
                                               });
                                             }
@@ -5683,12 +6128,17 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                             _showError('Selecciona CTD_C_M para continuar.');
                             return;
                           }
-                          if (motivoOptions.isNotEmpty && selectedMotr == null) {
-                            _showError('Selecciona un motivo válido para continuar.');
+                          if (motivoOptions.isNotEmpty &&
+                              selectedMotr == null) {
+                            _showError(
+                              'Selecciona un motivo válido para continuar.',
+                            );
                             return;
                           }
                           if (motivoTexto.length < 3) {
-                            _showError('Selecciona o captura un motivo válido.');
+                            _showError(
+                              'Selecciona o captura un motivo válido.',
+                            );
                             return;
                           }
                           setDialogState(() => submitting = true);
@@ -5734,97 +6184,103 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                 OutlinedButton(
                   onPressed: canRequestAuthorization
                       ? () async {
-                        final motivoTexto = motivoCtrl.text.trim();
-                        final ctdCMValue = selectedCtdCM;
-                        if (motivoOptions.isNotEmpty && selectedMotr == null) {
-                          _showError('Selecciona un motivo válido para continuar.');
-                          return;
-                        }
-                        if (motivoTexto.length < 3) {
-                          _showError('Selecciona o captura un motivo válido.');
-                          return;
-                        }
-                        if (ctdCMValue == null) {
-                          _showError('Selecciona CTD_C_M para continuar.');
-                          return;
-                        }
-                        if ((ctdCMValue - 1).abs() > 0.0001 &&
-                            (ctdCMValue - 0.5).abs() > 0.0001) {
-                          _showError('CTD_C_M solo permite 1 o 0.5.');
-                          return;
-                        }
-                        final artNuevo = artNuevoCtrl.text.trim();
-                        if (mode == _OrdCambioMermaMode.cambioMaterial) {
-                          if (artNuevo.isEmpty) {
+                          final motivoTexto = motivoCtrl.text.trim();
+                          final ctdCMValue = selectedCtdCM;
+                          if (motivoOptions.isNotEmpty &&
+                              selectedMotr == null) {
                             _showError(
-                              'Debes seleccionar un artículo nuevo para cambio material.',
+                              'Selecciona un motivo válido para continuar.',
                             );
                             return;
                           }
-                          if (artNuevo.toUpperCase() == artOriginal.toUpperCase()) {
+                          if (motivoTexto.length < 3) {
                             _showError(
-                              'El artículo nuevo debe ser distinto al artículo original.',
+                              'Selecciona o captura un motivo válido.',
                             );
                             return;
                           }
-                        }
-                        final confirm = await _confirmCambioEstatus(
-                          title: 'Solicitar autorización',
-                          targetStatus: 'selCtrlOrd=14',
-                          total: 1,
-                          extraMessage: [
-                            'IORD origen: $iord',
-                            'CTD_C_M: ${_money(ctdCMValue)}',
-                            'Motivo: $motivoTexto',
-                          ].join('\n'),
-                        );
-                        if (confirm != true || !ctx.mounted) return;
-                        final pvtaNuevoValue =
-                            selectedPvtaNuevo ??
-                            _toNum(draft['PVTA'])?.toDouble() ??
-                            _toNum(original['PVTAT_BASE'])?.toDouble();
-                        setDialogState(() => submitting = true);
-                        try {
-                          final updated =
-                              await api.solicitarAutorizacionCambioMerma(
-                            iord,
-                            tipo: mode.tipom,
-                            ctdCM: ctdCMValue,
-                            pvtaNuevo: pvtaNuevoValue,
-                            artNuevo: artNuevo,
-                            motivo: motivoTexto,
-                            motr: selectedMotr,
-                            labor: _parseLaboratorioId(selectedLabor),
-                            docDif: docDifCtrl.text.trim(),
-                            crearNuevaOrd: true,
+                          if (ctdCMValue == null) {
+                            _showError('Selecciona CTD_C_M para continuar.');
+                            return;
+                          }
+                          if ((ctdCMValue - 1).abs() > 0.0001 &&
+                              (ctdCMValue - 0.5).abs() > 0.0001) {
+                            _showError('CTD_C_M solo permite 1 o 0.5.');
+                            return;
+                          }
+                          final artNuevo = artNuevoCtrl.text.trim();
+                          if (mode == _OrdCambioMermaMode.cambioMaterial) {
+                            if (artNuevo.isEmpty) {
+                              _showError(
+                                'Debes seleccionar un artículo nuevo para cambio material.',
+                              );
+                              return;
+                            }
+                            if (artNuevo.toUpperCase() ==
+                                artOriginal.toUpperCase()) {
+                              _showError(
+                                'El artículo nuevo debe ser distinto al artículo original.',
+                              );
+                              return;
+                            }
+                          }
+                          final confirm = await _confirmCambioEstatus(
+                            title: 'Solicitar autorización',
+                            targetStatus: 'selCtrlOrd=14',
+                            total: 1,
+                            extraMessage: [
+                              'IORD origen: $iord',
+                              'CTD_C_M: ${_money(ctdCMValue)}',
+                              'Motivo: $motivoTexto',
+                            ].join('\n'),
                           );
-                          if (!ctx.mounted || !mounted) return;
-                          setDialogState(() {
-                            applyCambioMermaContext(updated);
-                            dirty = false;
-                            submitting = false;
-                          });
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                updated.message.isEmpty
-                                    ? 'Autorización solicitada.'
-                                    : updated.message,
+                          if (confirm != true || !ctx.mounted) return;
+                          final pvtaNuevoValue =
+                              selectedPvtaNuevo ??
+                              _toNum(draft['PVTA'])?.toDouble() ??
+                              _toNum(original['PVTAT_BASE'])?.toDouble();
+                          setDialogState(() => submitting = true);
+                          try {
+                            final updated = await api
+                                .solicitarAutorizacionCambioMerma(
+                                  iord,
+                                  tipo: mode.tipom,
+                                  ctdCM: ctdCMValue,
+                                  pvtaNuevo: pvtaNuevoValue,
+                                  artNuevo: artNuevo,
+                                  motivo: motivoTexto,
+                                  motr: selectedMotr,
+                                  labor: _parseLaboratorioId(selectedLabor),
+                                  docDif: docDifCtrl.text.trim(),
+                                  crearNuevaOrd: true,
+                                );
+                            if (!ctx.mounted || !mounted) return;
+                            setDialogState(() {
+                              applyCambioMermaContext(updated);
+                              dirty = false;
+                              submitting = false;
+                            });
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  updated.message.isEmpty
+                                      ? 'Autorización solicitada.'
+                                      : updated.message,
+                                ),
                               ),
-                            ),
-                          );
-                          await _reload();
-                        } catch (e) {
-                          if (!ctx.mounted || !mounted) return;
-                          setDialogState(() => submitting = false);
-                          _showError(
-                            apiErrorMessage(
-                              e,
-                              fallback: 'No se pudo solicitar autorización.',
-                            ),
-                          );
+                            );
+                            await _reload();
+                          } catch (e) {
+                            if (!ctx.mounted || !mounted) return;
+                            setDialogState(() => submitting = false);
+                            _showError(
+                              apiErrorMessage(
+                                e,
+                                fallback: 'No se pudo solicitar autorización.',
+                              ),
+                            );
+                          }
                         }
-                      }
                       : null,
                   child: const Text('Solicitar autorización'),
                 ),
@@ -5876,15 +6332,15 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                         }
                       : null,
                   icon: const Icon(Icons.undo_outlined),
-                  label: const Text('Retrabajo'),
+                  label: const Text('Regresar para correccion'),
                 ),
               if (hasCreatedOrd)
                 OutlinedButton.icon(
                   onPressed: canPrintFormato
                       ? () => _printCambioMermaFormato(
-                            mode: mode,
-                            contextData: cmContext,
-                          )
+                          mode: mode,
+                          contextData: cmContext,
+                        )
                       : null,
                   icon: const Icon(Icons.print_outlined),
                   label: Text(
@@ -5897,9 +6353,9 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                 OutlinedButton.icon(
                   onPressed: canPrintSaldo
                       ? () => _printCambioMermaSaldo(
-                            mode: mode,
-                            contextData: cmContext,
-                          )
+                          mode: mode,
+                          contextData: cmContext,
+                        )
                       : null,
                   icon: const Icon(Icons.receipt_long_outlined),
                   label: const Text('Imprimir saldo'),
@@ -6608,7 +7064,9 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
   }
 
   Future<OrdenTrabajoIncidenciaOption?> _selectIncidenciaOptionDialog() async {
-    final panel = ref.read(ordenesTrabajoPanelProvider).valueOrNull;
+    final panel = ref
+        .read(ordenesTrabajoPanelProvider(widget.panelMode))
+        .valueOrNull;
     final options =
         (panel?.incidenciaOptions ?? const <OrdenTrabajoIncidenciaOption>[])
             .where((item) => item.id > 0 && item.label.trim().isNotEmpty)
@@ -6710,41 +7168,6 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     );
   }
 
-  Future<bool?> _showSimpleForm({
-    required String title,
-    required List<Widget> Function(BuildContext ctx) childrenBuilder,
-    bool Function()? validate,
-  }) {
-    return showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(title),
-        content: SizedBox(
-          width: 420,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: childrenBuilder(ctx),
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (validate != null && validate() == false) return;
-              Navigator.of(ctx).pop(true);
-            },
-            child: const Text('Aplicar'),
-          ),
-        ],
-      ),
-    );
-  }
-
   Future<void> _executeAction(
     Future<OrdenTrabajoActionResult> Function() call,
   ) async {
@@ -6793,13 +7216,15 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     });
     unawaited(_loadSucursalOptions());
 
-    ref
-        .read(ordenesTrabajoFilterProvider.notifier)
-        .state = OrdenesTrabajoFilter(
-      suc: null,
-      panelMode: widget.panelMode,
-      page: 1,
-      pageSize: 25,
+    final currentFilter = ref.read(
+      ordenesTrabajoFilterProvider(widget.panelMode),
+    );
+    _restoreFilterInputs(
+      currentFilter.copyWith(
+        panelMode: widget.panelMode,
+        page: currentFilter.page <= 0 ? 1 : currentFilter.page,
+        pageSize: currentFilter.pageSize <= 0 ? 25 : currentFilter.pageSize,
+      ),
     );
   }
 
@@ -6845,8 +7270,51 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     return '$y-$m-$d';
   }
 
+  String _formatHourMinuteValue(dynamic value, {String fallback = ''}) {
+    final text = value?.toString().trim() ?? '';
+    if (text.isEmpty) return fallback;
+    final parsedDate = DateTime.tryParse(text);
+    if (parsedDate != null) {
+      final hh = parsedDate.hour.toString().padLeft(2, '0');
+      final mm = parsedDate.minute.toString().padLeft(2, '0');
+      return '$hh:$mm';
+    }
+    final match = RegExp(r'(\d{2}):(\d{2})').firstMatch(text);
+    if (match != null) {
+      return '${match.group(1)}:${match.group(2)}';
+    }
+    return fallback;
+  }
+
+  bool _isValidHourMinute(String value) {
+    return RegExp(r'^([01]\d|2[0-3]):([0-5]\d)$').hasMatch(value.trim());
+  }
+
   String _money(num value) {
     return value % 1 == 0 ? value.toInt().toString() : value.toStringAsFixed(2);
+  }
+}
+
+class _HourMinuteTextInputFormatter extends TextInputFormatter {
+  const _HourMinuteTextInputFormatter();
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final digits = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
+    final limited = digits.length > 4 ? digits.substring(0, 4) : digits;
+    final buffer = StringBuffer();
+    for (var i = 0; i < limited.length; i++) {
+      if (i == 2) buffer.write(':');
+      buffer.write(limited[i]);
+    }
+    final text = buffer.toString();
+    return TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
   }
 }
 
@@ -6882,8 +7350,10 @@ class _CambioMermaArticuloSearchFilters extends StatelessWidget {
 
   static const double _filterHeight = 36;
   static const double _filterFontSize = 11;
-  static const EdgeInsets _filterPadding =
-      EdgeInsets.symmetric(horizontal: 8, vertical: 8);
+  static const EdgeInsets _filterPadding = EdgeInsets.symmetric(
+    horizontal: 8,
+    vertical: 8,
+  );
 
   final TextEditingController searchCtrl;
   final FocusNode searchFocus;
@@ -6932,7 +7402,10 @@ class _CambioMermaArticuloSearchFilters extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Buscar por:', style: TextStyle(fontWeight: FontWeight.w600)),
+          const Text(
+            'Buscar por:',
+            style: TextStyle(fontWeight: FontWeight.w600),
+          ),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
@@ -7245,7 +7718,10 @@ class _CambioMermaArticuloResultsTable extends StatelessWidget {
                                 ),
                               ),
                               _CambioMermaResultCell(width: 90, text: item.art),
-                              _CambioMermaResultCell(width: 120, text: item.upc),
+                              _CambioMermaResultCell(
+                                width: 120,
+                                text: item.upc,
+                              ),
                               Expanded(
                                 child: _CambioMermaResultCell(
                                   width: null,
@@ -7380,8 +7856,9 @@ enum _OrdCambioMermaMode {
   final int tipom;
   final double requiredFlow;
 
-  String get dialogTitle =>
-      this == _OrdCambioMermaMode.cambioMaterial ? 'Cambio de material' : 'Merma';
+  String get dialogTitle => this == _OrdCambioMermaMode.cambioMaterial
+      ? 'Cambio de material'
+      : 'Merma';
 
   String invalidFlowMessage(String iord) {
     if (this == _OrdCambioMermaMode.cambioMaterial) {

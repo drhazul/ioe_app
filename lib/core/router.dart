@@ -117,8 +117,7 @@ final routerProvider = Provider<GoRouter>((ref) {
     ),
     redirect: (context, state) {
       final loggingIn = state.matchedLocation == '/login';
-      final changingPassword =
-          state.matchedLocation == '/auth/change-password';
+      final changingPassword = state.matchedLocation == '/auth/change-password';
       if (auth.isLoading) return null;
 
       if (!auth.isAuthenticated) return loggingIn ? null : '/login';
@@ -131,12 +130,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (auth.isAuthenticated && loggingIn) return '/';
 
       if (_isFacturacionRoute(state.matchedLocation)) {
-        final isAdmin = (auth.roleId ?? 0) == 1 ||
+        final isAdmin =
+            (auth.roleId ?? 0) == 1 ||
             (auth.username ?? '').trim().toUpperCase() == 'ADMIN';
         if (!isAdmin) {
           if (homeModulesAsync.isLoading) return null;
           if (homeModulesAsync.hasError) return '/';
-          final modules = homeModulesAsync.asData?.value.modulos ?? const <HomeModule>[];
+          final modules =
+              homeModulesAsync.asData?.value.modulos ?? const <HomeModule>[];
           if (!_hasFacturacionRouteAccess(state.matchedLocation, modules)) {
             return '/';
           }
@@ -461,15 +462,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: ':idFol/pago',
-                builder: (c, s) => PsPagoPage(
-                  idFol: s.pathParameters['idFol'] ?? '',
-                ),
+                builder: (c, s) =>
+                    PsPagoPage(idFol: s.pathParameters['idFol'] ?? ''),
               ),
               GoRoute(
                 path: ':idFol',
-                builder: (c, s) => PsDetallePage(
-                  idFol: s.pathParameters['idFol'] ?? '',
-                ),
+                builder: (c, s) =>
+                    PsDetallePage(idFol: s.pathParameters['idFol'] ?? ''),
               ),
             ],
           ),
@@ -486,9 +485,8 @@ final routerProvider = Provider<GoRouter>((ref) {
               ),
               GoRoute(
                 path: ':idret',
-                builder: (c, s) => RetiroDetallePage(
-                  idret: s.pathParameters['idret'] ?? '',
-                ),
+                builder: (c, s) =>
+                    RetiroDetallePage(idret: s.pathParameters['idret'] ?? ''),
               ),
             ],
           ),
@@ -667,6 +665,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
+            path: 'taller/ordenes-trabajo/trabajo-terminado',
+            builder: (c, s) => const OrdenesTrabajoActionPage(
+              action: OrdenesTrabajoInitialAction.trabajoTerminado,
+            ),
+          ),
+          GoRoute(
             path: 'taller/ordenes-trabajo/entregar',
             builder: (c, s) => const OrdenesTrabajoActionPage(
               action: OrdenesTrabajoInitialAction.entregar,
@@ -676,6 +680,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'taller/ordenes-trabajo/anulados',
             builder: (c, s) => const OrdenesTrabajoPage(
               panelMode: OrdenesTrabajoPanelMode.anulados,
+            ),
+          ),
+          GoRoute(
+            path: 'taller/ordenes-trabajo/estado',
+            builder: (c, s) => const OrdenesTrabajoPage(
+              panelMode: OrdenesTrabajoPanelMode.estado,
             ),
           ),
           GoRoute(
@@ -698,13 +708,9 @@ const Set<String> _facturaManageModuleCodes = <String>{
   'FACTURA_MTTOCLIENTE',
 };
 
-const Set<String> _facturaViewModuleCodes = <String>{
-  'FACTURA_VIEW',
-};
+const Set<String> _facturaViewModuleCodes = <String>{'FACTURA_VIEW'};
 
-const Set<String> _facturaReqfModuleCodes = <String>{
-  'REG_SINREQF',
-};
+const Set<String> _facturaReqfModuleCodes = <String>{'REG_SINREQF'};
 
 bool _isFacturacionRoute(String location) {
   return location == '/facturacion' ||
@@ -723,7 +729,8 @@ bool _hasFacturacionRouteAccess(String location, List<HomeModule> modules) {
       .where((code) => code.isNotEmpty)
       .toSet();
 
-  if (location == '/facturacion-view' || location.startsWith('/facturacion-view/')) {
+  if (location == '/facturacion-view' ||
+      location.startsWith('/facturacion-view/')) {
     return codes.any(_facturaViewModuleCodes.contains) ||
         codes.any(_facturaManageModuleCodes.contains);
   }

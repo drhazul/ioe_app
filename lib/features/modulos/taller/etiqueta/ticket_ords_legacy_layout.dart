@@ -10,6 +10,7 @@ class TallerEtiquetaOrdLegacy {
     this.tipo,
     this.clientNumber,
     this.clientName,
+    this.fcns,
     this.deliveryDate,
     this.deliveryTime,
     this.comment,
@@ -21,6 +22,7 @@ class TallerEtiquetaOrdLegacy {
   final String? tipo;
   final String? clientNumber;
   final String? clientName;
+  final String? fcns;
   final String? deliveryDate;
   final String? deliveryTime;
   final String? comment;
@@ -68,6 +70,7 @@ List<pw.Widget> buildTicketOrdsLegacySection({
       final ordTipo = (ord.tipo ?? '').trim();
       final clientNumber = (ord.clientNumber ?? '').trim();
       final clientName = (ord.clientName ?? '').trim();
+      final fcns = (ord.fcns ?? '').trim();
       final deliveryDate = (ord.deliveryDate ?? '').trim();
       final deliveryTime = (ord.deliveryTime ?? '').trim();
       final comment = (ord.comment ?? '').trim();
@@ -81,6 +84,10 @@ List<pw.Widget> buildTicketOrdsLegacySection({
             children: [
               if (qrData.isNotEmpty)
                 pw.Container(
+                  margin: pw.EdgeInsets.only(
+                    left: _mmToPt(1.8),
+                    right: _mmToPt(3.2),
+                  ),
                   width: qrSide,
                   height: qrSide,
                   alignment: pw.Alignment.topLeft,
@@ -90,7 +97,6 @@ List<pw.Widget> buildTicketOrdsLegacySection({
                     drawText: false,
                   ),
                 ),
-              if (qrData.isNotEmpty) pw.SizedBox(width: 4),
               pw.Expanded(
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -122,7 +128,7 @@ List<pw.Widget> buildTicketOrdsLegacySection({
             _buildClientRow(
               clientNumber: clientNumber,
               clientName: clientName,
-              fontSize: smallFontSize + 0.3,
+              fontSize: smallFontSize + 1.8,
             ),
           pw.Row(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -138,6 +144,7 @@ List<pw.Widget> buildTicketOrdsLegacySection({
               pw.Expanded(
                 flex: 4,
                 child: _buildDateTimePanel(
+                  fcns: fcns,
                   deliveryDate: deliveryDate,
                   deliveryTime: deliveryTime,
                   smallFontSize: smallFontSize - 0.1,
@@ -275,7 +282,7 @@ pw.Widget _buildClientRow({
           clientNumber,
           clientName,
         ].where((value) => value.trim().isNotEmpty).join(' '),
-        style: pw.TextStyle(fontSize: fontSize),
+        style: pw.TextStyle(fontSize: fontSize, fontWeight: pw.FontWeight.bold),
         maxLines: 1,
       ),
     ),
@@ -283,6 +290,7 @@ pw.Widget _buildClientRow({
 }
 
 pw.Widget _buildDateTimePanel({
+  required String fcns,
   required String deliveryDate,
   required String deliveryTime,
   required double smallFontSize,
@@ -330,7 +338,11 @@ pw.Widget _buildDateTimePanel({
   return pw.Padding(
     padding: const pw.EdgeInsets.only(top: 0.4),
     child: pw.Column(
-      children: [box('FCNTE', deliveryDate), box('HR_ENT', deliveryTime)],
+      children: [
+        box('FCNS', fcns),
+        box('FCNTE', deliveryDate),
+        box('HR_ENT', deliveryTime),
+      ],
     ),
   );
 }

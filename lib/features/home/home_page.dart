@@ -87,7 +87,8 @@ class _ModulesList extends StatelessWidget {
   final HomeModulesResponse response;
 
   @override
-  Widget build(BuildContext context) => _ModulesListStateful(response: response);
+  Widget build(BuildContext context) =>
+      _ModulesListStateful(response: response);
 }
 
 class _ModulesListStateful extends StatefulWidget {
@@ -177,7 +178,6 @@ class _ModulesListStatefulState extends State<_ModulesListStateful> {
       ),
     );
   }
-
 }
 
 class _SearchBar extends StatelessWidget {
@@ -359,8 +359,18 @@ class _ModuleRow extends StatelessWidget {
         moduloCode == 'DAT_JAO_ANULADAS') {
       return '/taller/ordenes-trabajo/anulados';
     }
+    if (moduloCode == 'DAT_JAO_ORD_ESTADO' ||
+        moduloCode == 'DAT_JAO_ORD_ESTADOS' ||
+        moduloCode == 'ORD_TRABAJO_ESTADO' ||
+        moduloCode == 'ORD_TRABAJO_ESTADOS') {
+      return '/taller/ordenes-trabajo/estado';
+    }
     if (moduloCode == 'DAT_JAO_ORD_ENTREGADAS' ||
         moduloCode == 'DAT_JAO_ORD_ENTREGADA_CLIENTE' ||
+        moduloCode == 'DAT_JAO_ORD_GARANTIA' ||
+        moduloCode == 'DAT_JAO_ORD_GARANTIAS' ||
+        moduloCode == 'ORD_TRABAJO_GARANTIA' ||
+        moduloCode == 'ORD_TRABAJO_GARANTIAS' ||
         moduloCode == 'ORD_TRABAJO_ENTREGADAS' ||
         moduloCode == 'ORD_TRABAJO_ENTREGADA_CLIENTE' ||
         moduloCode == 'DAT_JAO_ENTREGADAS_CLIENTE') {
@@ -385,6 +395,12 @@ class _ModuleRow extends StatelessWidget {
     }
     if (moduloCode == 'DAT_JAO_ORD_RECIBIR') {
       return '/taller/ordenes-trabajo/recibir';
+    }
+    if (moduloCode == 'DAT_JAO_ORD_TRABAJO_TERMINADO' ||
+        moduloCode == 'DAT_JAO_ORD_TERMINADO' ||
+        moduloCode == 'ORD_TRABAJO_TERMINADO' ||
+        moduloCode == 'DAT_JAO_ORD_FINALIZAR') {
+      return '/taller/ordenes-trabajo/trabajo-terminado';
     }
     if (moduloCode == 'DAT_JAO_ORD_ENTREGAR') {
       return '/taller/ordenes-trabajo/entregar';
@@ -463,6 +479,11 @@ class _ModuleRow extends StatelessWidget {
     }
     if (name.contains('pago') && name.contains('servicio')) {
       return '/ps';
+    }
+    if (name.contains('orden') &&
+        name.contains('estado') &&
+        name.contains('trabajo')) {
+      return '/taller/ordenes-trabajo/estado';
     }
     if (name.contains('orden') &&
         name.contains('anulad') &&

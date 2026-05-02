@@ -11,11 +11,13 @@ Enlaces relacionados:
 
 - Ruta:
 - `/taller/ordenes-trabajo`
+- `/taller/ordenes-trabajo/estado`
 - Archivos frontend:
 - `lib/features/modulos/taller/ordenes_trabajo/ordenes_trabajo_page.dart`
 - `lib/features/modulos/taller/ordenes_trabajo/ordenes_trabajo_api.dart`
 - `lib/features/modulos/taller/ordenes_trabajo/ordenes_trabajo_models.dart`
 - `lib/features/modulos/taller/ordenes_trabajo/ordenes_trabajo_providers.dart`
+- `lib/features/modulos/taller/etiqueta/ticket_ords_legacy_layout.dart`
 - Integración de navegación:
 - `lib/core/router.dart` registra `/taller/ordenes-trabajo`.
 - `lib/features/home/home_page.dart` resuelve códigos de módulo de taller (`DAT_JAO_ORD` y compatibles) hacia la nueva ruta.
@@ -87,11 +89,17 @@ Enlaces relacionados:
 - `Regresar a tienda` usa modal equivalente: valida `ESTSEGU=9` y confirma recepción en tienda; mapeo fijo por `TIPOM`: `1 (CAMBIO DE ARTICULO) -> 9.1`, `2 (MERMA DE ART Y CAMBIO) -> 9.2`, sin `TIPOM` válido -> `10`.
 - `Asignar laboratorio` permite selección masiva en grilla para actualizar `LABOR` sobre ORDs de la misma sucursal.
 - la columna `Asignado` del panel muestra el nombre legible del colaborador (`NOMB + APELM + APELP`) en vez del `IDOPV`.
+- la columna `OPV` ahora muestra `USUARIO.NOMBRE`; si no existe relación válida, se conserva el valor original como fallback.
+- los filtros quedan persistidos por panel y el `copyWith` del filtro ya permite limpiar criterios puntuales al volver un combo a `Todas`.
+- el módulo de consulta `/taller/ordenes-trabajo/estado` es solo lectura y filtra `ESTSEGU` con el catálogo server-side.
+- el detalle incorpora `HR_ENT` editable en formato `HH:MM` (sin time picker) y en modo `estado`/`anulados` queda solo lectura.
+- la etiqueta agrega `FCNS`, aumenta tipografía de cliente y deja más padding alrededor del QR.
 - `Cambio material` y `Merma` ya no viven en el toolbar del panel operativo: se muestran dentro del modal de detalle únicamente cuando la ORD está en flujo `9.1/9.2` y según `TIPOM` (`1` muestra `Cambio material`, `2` muestra `Merma`).
 - `Cambio material/Merma` (2026-04-08): ambos botones abren modal en dos zonas con distribución obligatoria `Resumen ORD original` (izquierda) y `Nueva ORD (captura)` (derecha), usando contexto enriquecido (`DESCFLUJO`, `DESAUTO`, `PVTAT_BASE`, `CTD_C_M`).
 - `Cambio material/Merma` (2026-04-21): el flujo queda en `Crear Nueva ORD` (staging inicial, fija `selCtrlOrd=13`) -> `Solicitar autorización` (`selCtrlOrd=14`) -> `Retrabajo` (`selCtrlOrd=15`, solo inventario/admin) -> `Autorizar` (crea ORD final, ejecuta SP, registra MB51/diferencia y anula la original).
 - `Cambio material/Merma` (2026-04-08): la captura se bloquea cuando `selCtrlOrd=14`; los cálculos se muestran como `Subtotal/IVA/Total` + `Diferencia económica`, y `CTD_C_M` se restringe visualmente a `1` o `0.5`.
 - `Cambio material/Merma` (2026-04-21): `Autorizar` y `Retrabajo` solo aparecen para `admin`, `ANALISTA_INV` e `INVJEF`; tras autorizar el modal queda solo lectura con impresión de formato y saldo.
+- `Cambio material/Merma` (2026-04-22): la tarjeta `Nueva ORD (captura)` vuelve a mostrar `Diferencia` y una leyenda de `Saldo a favor del cliente` / `Saldo en contra del cliente` / `Sin diferencia` de acuerdo al artículo seleccionado.
 - `Panel ORDs` (2026-04-21): `ANALISTA_INV` e `INVJEF` solo ven la cola interna pendiente de revisión en `selCtrlOrd=14`.
 - `Cambio material/Merma` (2026-04-09): cálculo económico homologado a pago de cotizaciones usando configuración IVA de sucursal (`DAT_SUC.IVA_INTEGRADO`) y fiscalidad del folio origen (`REQF/RQFAC`, `AUT/ORIGEN_AUT`); no se infiere `tipotran` por el texto de `IDFOL`.
 - `Cambio material/Merma` (2026-04-19): la captura temporal sigue permitiendo recaptura en `selCtrlOrd=15` antes de volver a solicitar autorización.
@@ -100,5 +108,6 @@ Enlaces relacionados:
 - `Cambio material` (2026-04-21): mantiene `Buscar Articulo para cambiar` reutilizando el panel de artículos de cotizaciones; al elegir artículo actualiza staging y recalcula diferencia/subtotal/iva/total.
 - `Merma` (2026-04-21): ya no usa checkbox `Crear nueva ORD derivada`; el proceso siempre genera nueva ORD en la autorización final.
 - `Garantia` deja de mostrarse en el panel operativo y queda reservada para el panel de entregadas con estado `11`.
-
-
+- `Garantía` (2026-04-29): el panel de entregadas/garantía queda con solo `Ver detalle` para `admin` y `JEF_TALLER`; dentro del detalle se conserva edición de comentario (`Guardar cambios`) y la acción `Garantía` confirma transición `11 -> 9.3`.
+- flujo `9.3` (2026-04-29): aparece botón `Aplicar merma o cambio` solo cuando `ESTSEGU=9.3`; abre popup para seleccionar `TIPOM` (`1|2`) y `MOTR` (`DAT_ORD_MOTM`) y luego continúa el flujo ya existente de `9.1/9.2`.
+- Cambio material / Merma (2026-04-22): la nueva ORD derivada debe quedar sin colaborador asignado y la UI/PDF deben mostrar la diferencia contable real basada en `CTD_C_M`/importe sellado, no la diferencia por `CTD` completa.

@@ -429,6 +429,8 @@ class _OrdenesTrabajoActionPageState
         return api.validarOrdEnviar(code);
       case OrdenesTrabajoInitialAction.asignar:
         return api.validarOrdAsignar(code);
+      case OrdenesTrabajoInitialAction.trabajoTerminado:
+        return api.validarOrdTrabajoTerminado(code);
       case OrdenesTrabajoInitialAction.regresarTienda:
         return api.validarOrdRegresarTienda(code);
       case OrdenesTrabajoInitialAction.recibir:
@@ -534,6 +536,14 @@ class _OrdenesTrabajoActionPageState
           result.message,
           fallback:
               '${iords.length} ORD${iords.length == 1 ? '' : 's'} asignada${iords.length == 1 ? '' : 's'} correctamente.',
+        );
+      case OrdenesTrabajoInitialAction.trabajoTerminado:
+        final result = await api.trabajoTerminadoLote(iords);
+        _resetAfterSuccess();
+        return _resolveSuccessMessage(
+          result.message,
+          fallback:
+              '${iords.length} ORD${iords.length == 1 ? '' : 's'} marcada${iords.length == 1 ? '' : 's'} como trabajo terminado.',
         );
       case OrdenesTrabajoInitialAction.regresarTienda:
         final result = await api.regresarTiendaLote(iords);
@@ -810,6 +820,8 @@ extension on OrdenesTrabajoInitialAction {
         return 'ORDs: Enviar a taller';
       case OrdenesTrabajoInitialAction.asignar:
         return 'ORDs: Asignar a colaborador';
+      case OrdenesTrabajoInitialAction.trabajoTerminado:
+        return 'ORDs: Trabajo terminado';
       case OrdenesTrabajoInitialAction.regresarTienda:
         return 'ORDs: Recibir en tienda';
       case OrdenesTrabajoInitialAction.recibir:
@@ -825,6 +837,8 @@ extension on OrdenesTrabajoInitialAction {
         return 'Captura o escanea una ORD para validarla en estatus 3 (NUEVA AUTORIZADA) y relacionarla para envío. La ORD debe tener laboratorio asignado.';
       case OrdenesTrabajoInitialAction.asignar:
         return 'Captura o escanea una ORD para validarla en estatus 7 (RECIBIDA A TALLER) y asignar colaborador.';
+      case OrdenesTrabajoInitialAction.trabajoTerminado:
+        return 'Captura o escanea una ORD para validarla en estatus 8 (ASIGNADA) y relacionarla para trabajo terminado.';
       case OrdenesTrabajoInitialAction.regresarTienda:
         return 'Captura o escanea una ORD para validarla en estatus 9 (TRABAJO TERMINADO) y recibirla en tienda. Mapeo: TIPOM=1 -> 9.1, TIPOM=2 -> 9.2.';
       case OrdenesTrabajoInitialAction.recibir:
@@ -840,6 +854,8 @@ extension on OrdenesTrabajoInitialAction {
         return 'Enviar a taller';
       case OrdenesTrabajoInitialAction.asignar:
         return 'Asignar a colaborador';
+      case OrdenesTrabajoInitialAction.trabajoTerminado:
+        return 'Trabajo terminado';
       case OrdenesTrabajoInitialAction.regresarTienda:
         return 'Recibir en tienda';
       case OrdenesTrabajoInitialAction.recibir:
@@ -855,6 +871,8 @@ extension on OrdenesTrabajoInitialAction {
         return Icons.outbound;
       case OrdenesTrabajoInitialAction.asignar:
         return Icons.assignment_ind;
+      case OrdenesTrabajoInitialAction.trabajoTerminado:
+        return Icons.task_alt;
       case OrdenesTrabajoInitialAction.regresarTienda:
         return Icons.storefront_outlined;
       case OrdenesTrabajoInitialAction.recibir:
@@ -870,6 +888,8 @@ extension on OrdenesTrabajoInitialAction {
         return 'No hay ORDs relacionadas para enviar.';
       case OrdenesTrabajoInitialAction.asignar:
         return 'No hay ORDs relacionadas para asignar.';
+      case OrdenesTrabajoInitialAction.trabajoTerminado:
+        return 'No hay ORDs relacionadas para trabajo terminado.';
       case OrdenesTrabajoInitialAction.regresarTienda:
         return 'No hay ORDs relacionadas para recibir en tienda.';
       case OrdenesTrabajoInitialAction.recibir:
@@ -885,6 +905,8 @@ extension on OrdenesTrabajoInitialAction {
         return 'No se pudo validar la ORD. Debe estar en estatus 3 y tener laboratorio asignado.';
       case OrdenesTrabajoInitialAction.asignar:
         return 'No se pudo validar la ORD. Debe estar en estatus 7 (RECIBIDA A TALLER).';
+      case OrdenesTrabajoInitialAction.trabajoTerminado:
+        return 'No se pudo validar la ORD. Debe estar en estatus 8 (ASIGNADA).';
       case OrdenesTrabajoInitialAction.regresarTienda:
         return 'No se pudo validar la ORD. Debe estar en estatus 9.';
       case OrdenesTrabajoInitialAction.recibir:
@@ -900,6 +922,8 @@ extension on OrdenesTrabajoInitialAction {
         return 'No se pudieron enviar las ORDs seleccionadas.';
       case OrdenesTrabajoInitialAction.asignar:
         return 'No se pudieron asignar las ORDs seleccionadas.';
+      case OrdenesTrabajoInitialAction.trabajoTerminado:
+        return 'No se pudo marcar trabajo terminado.';
       case OrdenesTrabajoInitialAction.regresarTienda:
         return 'No se pudieron recibir en tienda las ORDs seleccionadas.';
       case OrdenesTrabajoInitialAction.recibir:
@@ -915,6 +939,8 @@ extension on OrdenesTrabajoInitialAction {
         return 'Confirmar envío';
       case OrdenesTrabajoInitialAction.asignar:
         return 'Confirmar asignación';
+      case OrdenesTrabajoInitialAction.trabajoTerminado:
+        return 'Confirmar trabajo terminado';
       case OrdenesTrabajoInitialAction.regresarTienda:
         return 'Confirmar recepción en tienda';
       case OrdenesTrabajoInitialAction.recibir:
@@ -930,6 +956,8 @@ extension on OrdenesTrabajoInitialAction {
         return '5';
       case OrdenesTrabajoInitialAction.asignar:
         return '8';
+      case OrdenesTrabajoInitialAction.trabajoTerminado:
+        return '9 (TRABAJO TERMINADO)';
       case OrdenesTrabajoInitialAction.regresarTienda:
         return 'TIPOM=1 -> 9.1, TIPOM=2 -> 9.2, o 10';
       case OrdenesTrabajoInitialAction.recibir:

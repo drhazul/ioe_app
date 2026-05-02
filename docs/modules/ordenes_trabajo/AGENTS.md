@@ -1,6 +1,7 @@
 ## Taller: Ordenes de Trabajo (implementado 2026-03-22)
 - Ruta UI:
 - `/taller/ordenes-trabajo`.
+- `/taller/ordenes-trabajo/estado` (consulta solo lectura por estado de ORD).
 - Archivos frontend:
 - `lib/features/modulos/taller/ordenes_trabajo/ordenes_trabajo_page.dart`
 - `lib/features/modulos/taller/ordenes_trabajo/ordenes_trabajo_api.dart`
@@ -8,6 +9,7 @@
 - `lib/features/modulos/taller/ordenes_trabajo/ordenes_trabajo_providers.dart`
 - Integración en router/home:
 - `lib/core/router.dart` registra la ruta `/taller/ordenes-trabajo`.
+- `lib/core/router.dart` agrega `/taller/ordenes-trabajo/estado`; `home_page.dart` resuelve `DAT_JAO_ORD_ESTADO`.
 - `lib/features/home/home_page.dart` resuelve módulos de taller (`DAT_JAO_ORD`, `DAT_JAO_ORDS`, `DAT_JAO_TALLER`, `DAT_JAO_BISEL`) hacia la ruta.
 - Endpoints consumidos:
 - `GET /ordenes-trabajo`, `GET /ordenes-trabajo/:iord`, `GET /ordenes-trabajo/:iord/detalle`.
@@ -61,6 +63,11 @@
 - botón `Regresar a tienda` replica la mecánica modal; valida estatus previo `9` y confirma recepción en tienda con mapeo fijo por `TIPOM`: `1 -> ESTSEGU=9.1`, `2 -> ESTSEGU=9.2`, sin `TIPOM` válido -> `ESTSEGU=10`.
 - botón `Asignar laboratorio` opera en lote sobre ORDs seleccionadas para asignar `LABOR` desde catálogo `DAT_LAB` (misma sucursal).
 - columna `Asignado` del panel muestra el label del colaborador (`PV_OPV.NOMB + APELM + APELP`) en lugar del `IDOPV` crudo.
+- columna `OPV` del panel muestra `USUARIO.NOMBRE` y mantiene fallback al valor crudo solo si no existe catálogo relacionado.
+- el filtro aplicado persiste por `panelMode`; cambiar un dropdown a `Todas` limpia realmente ese criterio sin obligar a `Limpiar filtros`.
+- nuevo panel `estado`: sin acciones mutables, usa dropdown `ESTSEGU` con catálogo del backend y reemplaza funcionalmente a los módulos legacy de `anuladas`/`entregadas` en el home.
+- el detalle permite editar `HR_ENT` con máscara `HH:MM` cuando el rol puede editar; en panel `estado` el modal es solo consulta.
+- la etiqueta legacy muestra `FCNS` junto a `FCNTE/HR_ENT`, cliente en tipografía reforzada y QR con mayor separación lateral.
 - los botones `Cambio material` y `Merma` se mueven al modal `DETALLE DE ORDEN DE TRABAJO`; solo aparecen cuando la ORD está en flujo `9.1` y se muestra el botón correspondiente según `TIPOM` (`1=CAMBIO DE ARTICULO`, `2=MERMA DE ART Y CAMBIO`).
 - cambio/merma UI (2026-04-08): el modal invierte visualización (izquierda `Resumen ORD original`, derecha `Nueva ORD`) y consume contexto enriquecido (`DESCFLUJO`, `DESAUTO`, `PVTAT_BASE`, `CTD_C_M`).
 - cambio/merma UI (2026-04-21): flujo interno por `selCtrlOrd` (`NULL/0/13/15` editable, `14` pendiente revisión) con pasos `Crear Nueva ORD -> Solicitar autorización -> Retrabajo (opcional) -> Autorizar`; `Autorizar` crea la ORD final, registra MB51/diferencia y anula la original.
@@ -70,7 +77,9 @@
 - cambio/merma UI (2026-04-19): nuevo botón `Crear Nueva ORD` inserta el registro temporal; sin staging (`PV_ORD_CAMBIO_MERMA_TMP`) no se visualizan campos ni botones de captura/autorización.
 - cambio/merma UI (2026-04-19): `PVTA` de la nueva ORD en captura se mantiene igual al costo base de la ORD original.
 - cambio/merma UI (2026-04-21): `Autorizar` y `Retrabajo` solo son visibles para `admin`, `ANALISTA_INV` e `INVJEF`; `Solicitar autorización` deja siempre el caso en `selCtrlOrd=14`, y tras autorizar el modal queda solo lectura con impresión de formato/saldo.
+- cambio/merma UI (2026-04-22): en la sección `Nueva ORD` siempre mostrar `Diferencia` y el texto de saldo (`a favor`, `en contra` o `sin diferencia`) usando el cálculo del contexto actual.
 - panel ORDs (2026-04-21): `ANALISTA_INV` e `INVJEF` solo ven registros en cola de revisión interna (`selCtrlOrd=14`).
 - el botón `Garantia` deja de mostrarse en el panel operativo; queda reservado para el panel de entregadas (`DAT_JAO_ORD_ENTREGADAS`, estado `11`).
-
-
+- garantía ORD (2026-04-29): en panel `entregadas` solo queda `Ver detalle` (sin botones mutables en toolbar) y con acceso solo `admin`/`JEF_TALLER`; dentro del detalle se habilita `Garantía` para confirmar `11 -> 9.3`, junto con `Cerrar` y `Guardar cambios` (comentario editable).
+- flujo 9.3 (2026-04-29): aparece botón `Aplicar merma o cambio` únicamente cuando `ESTSEGU=9.3`; abre popup con `TIPOM` (`1=CAMBIO DE ARTICULO`, `2=MERMA DE ART Y CAMBIO`) y `MOTR` (`DAT_ORD_MOTM`) para enrutar a `9.1/9.2` y seguir el proceso existente `Crear Nueva ORD -> Solicitar autorización -> Retrabajo (opcional) -> Autorizar`.
+- Cambio material / Merma (2026-04-22): la nueva ORD derivada debe quedar sin colaborador asignado y la UI/PDF deben mostrar la diferencia contable real basada en `CTD_C_M`/importe sellado, no la diferencia por `CTD` completa.

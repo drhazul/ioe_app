@@ -11,6 +11,7 @@ Frontend Flutter del ecosistema IOE. Consume `ioe-api` para autenticación, maes
 - Punto de venta / Pago de Servicios (2026-04): la salida operativa de folios pagados utiliza `ESTA='CERRADO_PS'` (con lectura compatible de históricos en `TRANSMITIR`).
 - Facturación / Mantenimiento y validación cliente (2026-04-06): al editar datos fiscales de cliente se conserva la `SUC` original del registro; el frontend ya no envía `SUC` en la edición desde validación.
 - Ordenes de trabajo / Asignar (2026-04-21): el catálogo de colaboradores se consulta por `DAT_LAB.SUC` del laboratorio asignado a la ORD; tanto la selección en grilla como el modal de relación rechazan mezclar ORDs con laboratorios de sucursales distintas.
+- Ordenes de trabajo / Consulta estado (2026-04-23): el panel conserva filtros aplicados por modo, añade columna `OPV` con nombre tomado de `USUARIO`, expone nuevo módulo solo lectura `/taller/ordenes-trabajo/estado` para `admin`/`jefe taller`/`analista`, captura `HR_ENT` en máscara `HH:MM` dentro del detalle y refuerza la etiqueta (`FCNS`, cliente grande y QR con más padding).
 - Ordenes de trabajo / Incidencia (2026-04-07): el flujo de regreso por incidencia valida `ESTSEGU=8` con colaborador asignado y confirma transición a `ESTSEGU=9` (pendiente recibir en analista); la recepción en tienda resuelve `9.1/9.2` según `TIPOM`.
 - Ordenes de trabajo / Cambio material y Merma (2026-04-08): el modal opera con semáforo interno `selCtrlOrd` (`NULL/0/13/14/15`) y flujo `Crear Nueva ORD -> Solicitar autorización -> Retrabajo (opcional) -> Autorizar` como cierre final; muestra resumen enriquecido de origen + captura derivada con `Subtotal/IVA/Total`, `Diferencia económica` y `CTD_C_M` (`1|0.5`).
 - Ordenes de trabajo / Cambio material y Merma (2026-04-09): el cálculo mostrado en captura toma fiscalidad del folio origen (`REQF/RQFAC`, `AUT/ORIGEN_AUT`) además de `DAT_SUC.IVA_INTEGRADO`, corrigiendo casos donde `PV_CTR_ORDS.RQFAC` está `NULL`.
@@ -18,7 +19,9 @@ Frontend Flutter del ecosistema IOE. Consume `ioe-api` para autenticación, maes
 - Ordenes de trabajo / Cambio material y Merma (2026-04-19): la captura temporal puede recapturarse también con `selCtrlOrd=15` antes de volver a solicitar autorización.
 - Ordenes de trabajo / Cambio material y Merma (2026-04-19): la captura muestra costo de artículo igual al de la ORD original para evitar diferencias de precio contra la nueva ORD.
 - Ordenes de trabajo / Cambio material y Merma (2026-04-21): `Solicitar autorización` solo mueve a `selCtrlOrd=14`; `Retrabajo` devuelve a `15`; `Autorizar` queda visible solo para `admin`, `ANALISTA_INV` e `INVJEF` y ejecuta el cierre final del proceso.
+- Ordenes de trabajo / Cambio material y Merma (2026-04-22): la captura de `Nueva ORD` vuelve a mostrar `Diferencia` y leyenda `Saldo a favor/en contra` según el artículo seleccionado y el cálculo homologado del backend.
 - Ordenes de trabajo / Panel ORDs (2026-04-21): `ANALISTA_INV` e `INVJEF` ven solo la cola de revisión interna de cambio/merma pendiente en `selCtrlOrd=14`, sin alterar la visibilidad del resto de perfiles.
+- Ordenes de trabajo / Garantía (2026-04-29): se restituye el módulo de entregadas/garantía en Home; en ese panel solo se habilita `Ver detalle` para `admin` y `JEF_TALLER`, el detalle mantiene `Guardar cambios` para comentario y `Garantía` confirma transición `11 -> 9.3`. En `9.3` aparece solo el botón `Aplicar merma o cambio` para elegir `TIPOM` (1/2) y `MOTR`, continuando el flujo existente de `9.1/9.2`.
 - Notas de documentación viva: este README solo debe cambiarse cuando se agreguen/modifiquen módulos, rutas o datos de arquitectura/base (no para ajustes locales de pantalla). Otros cambios funcionales van al README/AGENTS del módulo afectado.
 
 ## Arquitectura general
@@ -60,4 +63,4 @@ Frontend Flutter del ecosistema IOE. Consume `ioe-api` para autenticación, maes
 
 ## Documentacion viva
 - Mantén este índice y los README/AGENTS de módulo actualizados cuando cambien flujos o contratos.
-
+- Cambio material / Merma (2026-04-22): la nueva ORD derivada debe quedar sin colaborador asignado y la UI/PDF deben mostrar la diferencia contable real basada en `CTD_C_M`/importe sellado, no la diferencia por `CTD` completa.
