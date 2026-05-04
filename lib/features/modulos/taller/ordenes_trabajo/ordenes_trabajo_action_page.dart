@@ -812,7 +812,7 @@ class _OrdenesTrabajoActionPageState
 
 extension on OrdenesTrabajoInitialAction {
   static const String _recibirRolHint =
-      'Los encargados de maquila solo pueden recibir ORDs TALLADO y los encargados de bisel solo ORDs BISELADO. Admin y jefe de taller pueden recibir ambas.';
+      'Los encargados de maquila solo pueden recibir ORDs TALLADO y los encargados de bisel solo ORDs BISELADO. Admin y jefe de taller pueden recibir ambas. Analista/Analista ORD solo pueden recibir ORDs con laboratorio externo.';
 
   String get pageTitle {
     switch (this) {
@@ -834,7 +834,7 @@ extension on OrdenesTrabajoInitialAction {
   String get helperText {
     switch (this) {
       case OrdenesTrabajoInitialAction.enviar:
-        return 'Captura o escanea una ORD para validarla en estatus 3 (NUEVA AUTORIZADA) y relacionarla para envío. La ORD debe tener laboratorio asignado.';
+        return 'Captura o escanea una ORD para validarla en estatus 3 (NUEVA AUTORIZADA) y relacionarla para envío. La ORD debe tener laboratorio asignado. Al enviar: interno 3 -> 5, externo 3 -> 9.';
       case OrdenesTrabajoInitialAction.asignar:
         return 'Captura o escanea una ORD para validarla en estatus 7 (RECIBIDA A TALLER) y asignar colaborador.';
       case OrdenesTrabajoInitialAction.trabajoTerminado:
@@ -842,7 +842,7 @@ extension on OrdenesTrabajoInitialAction {
       case OrdenesTrabajoInitialAction.regresarTienda:
         return 'Captura o escanea una ORD para validarla en estatus 9 (TRABAJO TERMINADO) y recibirla en tienda. Mapeo: TIPOM=1 -> 9.1, TIPOM=2 -> 9.2.';
       case OrdenesTrabajoInitialAction.recibir:
-        return 'Captura o escanea una ORD para validarla en estatus 5 (ENTREGADA A MAQ O BISEL) y recibirla en taller.\n\n$_recibirRolHint';
+        return 'Captura o escanea una ORD para validarla en estatus 5 (interno) o 9 (externo) y recibirla en taller. Recepción aplica 5 -> 7 en laboratorio interno y 9 -> 10 en laboratorio externo.\n\n$_recibirRolHint';
       case OrdenesTrabajoInitialAction.entregar:
         return 'Captura o escanea una ORD para validarla en estatus 10 (REGRESADO A TIENDA) y entregarla al cliente con firma digital.';
     }
@@ -910,7 +910,7 @@ extension on OrdenesTrabajoInitialAction {
       case OrdenesTrabajoInitialAction.regresarTienda:
         return 'No se pudo validar la ORD. Debe estar en estatus 9.';
       case OrdenesTrabajoInitialAction.recibir:
-        return 'No se pudo validar la ORD. Debe estar en estatus 5.';
+        return 'No se pudo validar la ORD. Debe estar en estatus 5 (interno) o 9 (externo).';
       case OrdenesTrabajoInitialAction.entregar:
         return 'No se pudo validar la ORD. Debe estar en estatus 10.';
     }
@@ -953,7 +953,7 @@ extension on OrdenesTrabajoInitialAction {
   String get targetStatus {
     switch (this) {
       case OrdenesTrabajoInitialAction.enviar:
-        return '5';
+        return '5 (interno) o 9 (externo)';
       case OrdenesTrabajoInitialAction.asignar:
         return '8';
       case OrdenesTrabajoInitialAction.trabajoTerminado:
@@ -961,7 +961,7 @@ extension on OrdenesTrabajoInitialAction {
       case OrdenesTrabajoInitialAction.regresarTienda:
         return 'TIPOM=1 -> 9.1, TIPOM=2 -> 9.2, o 10';
       case OrdenesTrabajoInitialAction.recibir:
-        return '7';
+        return '7 (interno) o 10 (externo)';
       case OrdenesTrabajoInitialAction.entregar:
         return '11';
     }

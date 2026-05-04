@@ -31,6 +31,14 @@
 - Ordenes de trabajo / Cambio material y Merma (2026-04-22): la sección `Nueva ORD` debe mostrar `Diferencia` y el estado `Saldo a favor/en contra` con el valor calculado para el artículo capturado.
 - Ordenes de trabajo / Panel ORDs (2026-04-21): `ANALISTA_INV` e `INVJEF` operan una cola dedicada de revisión (`selCtrlOrd=14`) sin cambiar la vista del resto de roles.
 - Ordenes de trabajo / Garantía (2026-04-29): el módulo de entregadas se restaura en Home para `admin`/`JEF_TALLER`, muestra solo `Ver detalle`; desde detalle la acción `Garantía` mueve `11 -> 9.3`, permite editar comentario y agrega `Aplicar merma o cambio` solo en `9.3` (captura `TIPOM` 1/2 + `MOTR`) para continuar el mismo flujo de `9.1/9.2`.
+- Ordenes de trabajo / Recepción laboratorio externo (2026-05-01): `Recibir en taller` habilita también a `ANALISTA_ORD/ANALISTA` para ORDs de laboratorio externo; la recepción cambia `5 -> 10` en externo y conserva `5 -> 7` en laboratorio interno.
+- Ordenes de trabajo / Envío y recepción laboratorio externo (2026-05-03): al `Enviar a taller`, si el laboratorio asignado (`DAT_LAB.UBILAB='EXTERNO'`) la ORD cambia `3 -> 9` (pendiente recibir en analista); `Recibir en taller` para `ANALISTA_ORD/ANALISTA` valida flujo `9` externo y aplica `9 -> 10`, mientras interno conserva `5 -> 7`.
+- Ordenes de trabajo / Matriz persistente de visibilidad (2026-05-03): frontend consume la visibilidad de flujos que backend resuelve desde `dbo.DAT_JAO_ORD_FLUJO_VIS` (módulo `DAT_JAO_ORD`), incluyendo excepción de flujo `9` solo para laboratorio externo.
+- Datos Maestros / Visualización por ROLL en ORD (2026-05-03): acceso en `/masterdata/ord-flujo-vis` con filtros dropdown `ROLL`/`ESTSEGU`; alta/edición con combos `ROLE_CODE` (tabla `ROL`) y `ESTA` (`DAT_EST_ORD`), campo `MODULO` bloqueado y `ORDEN` automático.
+- Datos Maestros / Módulos Front unificado (2026-05-04): se elimina acceso directo `/#/masterdata/datmodulos` del menú `/#/masterdata`; el CRUD de módulos se centraliza en `/#/masterdata/access/mod-front` reutilizando pantalla `datmodulos` (sin duplicar CRUD).
+- Datos Maestros / Enrolamiento Front por usuario (2026-05-04): se agrega gestión en `/#/masterdata/access/enrolamiento-front-usr`; Home prioriza asignaciones activas de `USR_GRUPMOD_FRONT` por usuario y, si no existen, usa fallback por rol (`ROL_GRUPMOD_FRONT`).
+- Datos Maestros / Enrolamiento Front por usuario (2026-05-04): la pantalla agrega dropdowns `Sucursal` y `Departamento` para filtrar el selector de usuario antes de asignar grupos front.
+- Datos Maestros / Acceso por sucursal (2026-05-04): `/#/masterdata/access-reg-suc` incorpora dropdowns `Sucursal (usuario)` y `Departamento` en CRUD principal y popup de vinculación para filtrar listado y catálogos (`Módulo Front` / `Usuario`) con el mismo criterio.
 
 ## Documentación por módulos
 - Base de módulos: `docs/modules/base_modulos/AGENTS.md` (README: `docs/modules/base_modulos/README.md`)

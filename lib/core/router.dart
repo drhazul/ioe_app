@@ -14,9 +14,9 @@ import '../features/masterdata/access/access_page.dart';
 import '../features/masterdata/access/modulos_backend_page.dart';
 import '../features/masterdata/access/grupos_backend_page.dart';
 import '../features/masterdata/access/permisos_rol_backend_page.dart';
-import '../features/masterdata/access/mod_front_page.dart';
 import '../features/masterdata/access/grupos_front_page.dart';
 import '../features/masterdata/access/enrolamiento_front_page.dart';
+import '../features/masterdata/access/enrolamiento_front_usuario_page.dart';
 import '../features/masterdata/roles/roles_page.dart';
 import '../features/masterdata/roles/role_form_page.dart';
 import '../features/masterdata/deptos/deptos_page.dart';
@@ -35,6 +35,8 @@ import '../features/masterdata/cat_ctas/presentation/cat_ctas_list_page.dart';
 import '../features/masterdata/cat_ctas/presentation/cat_ctas_form_page.dart';
 import '../features/masterdata/dat_form/dat_form_page.dart';
 import '../features/masterdata/dat_form/dat_form_form_page.dart';
+import '../features/masterdata/ord_flujo_vis/ord_flujo_vis_page.dart';
+import '../features/masterdata/ord_flujo_vis/ord_flujo_vis_form_page.dart';
 import '../features/modulos/inventarios/inventarios_page.dart';
 import '../features/modulos/inventarios/inventario_form_page.dart';
 import '../features/modulos/inventarios/inventario_det_page.dart';
@@ -102,11 +104,27 @@ final routerProvider = Provider<GoRouter>((ref) {
       path: 'permisos-rol-back',
       builder: (c, s) => const PermisosRolBackendPage(),
     ),
-    GoRoute(path: 'mod-front', builder: (c, s) => const ModFrontPage()),
+    GoRoute(
+      path: 'mod-front',
+      builder: (c, s) =>
+          const DatmodulosPage(baseRoute: '/masterdata/access/mod-front'),
+      routes: [
+        GoRoute(path: 'new', builder: (c, s) => const DatModuloFormPage()),
+        GoRoute(
+          path: ':modulo',
+          builder: (c, s) =>
+              DatModuloFormPage(modulo: s.pathParameters['modulo']),
+        ),
+      ],
+    ),
     GoRoute(path: 'grupos-front', builder: (c, s) => const GruposFrontPage()),
     GoRoute(
       path: 'enrolamiento-front',
       builder: (c, s) => const EnrolamientoFrontPage(),
+    ),
+    GoRoute(
+      path: 'enrolamiento-front-usr',
+      builder: (c, s) => const EnrolamientoFrontUsuarioPage(),
     ),
   ];
 
@@ -312,6 +330,22 @@ final routerProvider = Provider<GoRouter>((ref) {
                     path: ':id',
                     builder: (c, s) => DatFormFormPage(
                       idform: int.tryParse(s.pathParameters['id'] ?? ''),
+                    ),
+                  ),
+                ],
+              ),
+              GoRoute(
+                path: 'ord-flujo-vis',
+                builder: (c, s) => const OrdFlujoVisPage(),
+                routes: [
+                  GoRoute(
+                    path: 'new',
+                    builder: (c, s) => const OrdFlujoVisFormPage(),
+                  ),
+                  GoRoute(
+                    path: ':id',
+                    builder: (c, s) => OrdFlujoVisFormPage(
+                      id: int.tryParse(s.pathParameters['id'] ?? ''),
                     ),
                   ),
                 ],

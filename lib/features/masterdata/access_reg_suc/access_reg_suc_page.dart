@@ -10,26 +10,57 @@ import '../users/users_providers.dart';
 import 'access_reg_suc_models.dart';
 import 'access_reg_suc_providers.dart';
 
-class AccessRegSucPage extends ConsumerWidget {
+class AccessRegSucPage extends ConsumerStatefulWidget {
   const AccessRegSucPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final dataAsync = ref.watch(accessRegSucListProvider);
+  ConsumerState<AccessRegSucPage> createState() => _AccessRegSucPageState();
+}
+
+class _AccessRegSucPageState extends ConsumerState<AccessRegSucPage> {
+  AccessRegSucFilters _appliedFilters = const AccessRegSucFilters();
+
+  @override
+  Widget build(BuildContext context) {
+    final dataAsync = ref.watch(accessRegSucListProvider(_appliedFilters));
+    final usersAsync = ref.watch(accessUsersProvider);
+    final modulosAsync = ref.watch(frontModulosProvider);
+
+    final sucUsuarioOptions = usersAsync.maybeWhen(
+      data: (users) => _buildSucUsuarioOptions(users),
+      orElse: () => const <String>[],
+    );
+
+    final deptoOptions = usersAsync.maybeWhen(
+      data: (users) => modulosAsync.maybeWhen(
+        data: (modulos) => _buildDeptoOptions(users, modulos),
+        orElse: () => const <String>[],
+      ),
+      orElse: () => const <String>[],
+    );
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Acceso por sucursal'),
         actions: [
           IconButton(
-            onPressed: () => ref.invalidate(accessRegSucListProvider),
+            onPressed: () =>
+                ref.invalidate(accessRegSucListProvider(_appliedFilters)),
             icon: const Icon(Icons.refresh),
             tooltip: 'Refrescar',
           ),
         ],
       ),
       body: dataAsync.when(
-        data: (rows) => _AccessRegSucList(rows: rows, ref: ref),
+        data: (rows) => _AccessRegSucList(
+          rows: rows,
+          ref: ref,
+          appliedFilters: _appliedFilters,
+          sucUsuarioOptions: sucUsuarioOptions,
+          deptoOptions: deptoOptions,
+          onApplyFilters: (nextFilters) =>
+              setState(() => _appliedFilters = nextFilters),
+        ),
         error: (e, _) => Center(child: Text('Error: $e')),
         loading: () => const Center(child: CircularProgressIndicator()),
       ),
@@ -37,11 +68,50 @@ class AccessRegSucPage extends ConsumerWidget {
   }
 }
 
+List<String> _buildSucUsuarioOptions(List<AccessUser> users) {
+  final sucs = <String>{
+    for (final user in users)
+      if ((user.suc ?? '').trim().isNotEmpty) user.suc!.trim(),
+  }.toList()..sort();
+  return sucs;
+}
+
+List<String> _buildDeptoOptions(
+  List<AccessUser> users,
+  List<AccessModuloFront> modulos,
+) {
+  final deptosUsuario = <String>{
+    for (final user in users)
+      if ((user.deptoNombre ?? '').trim().isNotEmpty)
+        user.deptoNombre!.trim().toUpperCase(),
+  };
+  final deptosModulo = <String>{
+    for (final modulo in modulos)
+      if ((modulo.depto ?? '').trim().isNotEmpty)
+        modulo.depto!.trim().toUpperCase(),
+  };
+
+  final intersection = deptosUsuario.intersection(deptosModulo).toList()
+    ..sort();
+  return intersection;
+}
+
 class _AccessRegSucList extends StatefulWidget {
-  const _AccessRegSucList({required this.rows, required this.ref});
+  const _AccessRegSucList({
+    required this.rows,
+    required this.ref,
+    required this.appliedFilters,
+    required this.sucUsuarioOptions,
+    required this.deptoOptions,
+    required this.onApplyFilters,
+  });
 
   final List<AccessRegSucModel> rows;
   final WidgetRef ref;
+  final AccessRegSucFilters appliedFilters;
+  final List<String> sucUsuarioOptions;
+  final List<String> deptoOptions;
+  final ValueChanged<AccessRegSucFilters> onApplyFilters;
 
   @override
   State<_AccessRegSucList> createState() => _AccessRegSucListState();
@@ -50,6 +120,32 @@ class _AccessRegSucList extends StatefulWidget {
 class _AccessRegSucListState extends State<_AccessRegSucList> {
   final _searchCtrl = TextEditingController();
   String _searchApplied = '';
+  String _selectedSucUsuario = 'TODAS';
+  String _selectedDepto = 'TODOS';
+
+  @override
+  void initState() {
+    super.initState();
+    _hydrateLocalFilters();
+  }
+
+  @override
+  void didUpdateWidget(covariant _AccessRegSucList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.appliedFilters != widget.appliedFilters) {
+      _hydrateLocalFilters();
+    }
+  }
+
+  void _hydrateLocalFilters() {
+    _selectedSucUsuario =
+        (widget.appliedFilters.sucUsuario ?? '').trim().isEmpty
+        ? 'TODAS'
+        : widget.appliedFilters.sucUsuario!.trim();
+    _selectedDepto = (widget.appliedFilters.depto ?? '').trim().isEmpty
+        ? 'TODOS'
+        : widget.appliedFilters.depto!.trim().toUpperCase();
+  }
 
   @override
   void dispose() {
@@ -58,8 +154,30 @@ class _AccessRegSucListState extends State<_AccessRegSucList> {
   }
 
   Future<void> _refreshList() async {
-    widget.ref.invalidate(accessRegSucListProvider);
-    await widget.ref.read(accessRegSucListProvider.future);
+    widget.ref.invalidate(accessRegSucListProvider(widget.appliedFilters));
+    await widget.ref.read(
+      accessRegSucListProvider(widget.appliedFilters).future,
+    );
+  }
+
+  void _applyFilters() {
+    widget.onApplyFilters(
+      AccessRegSucFilters(
+        sucUsuario: _selectedSucUsuario == 'TODAS' ? null : _selectedSucUsuario,
+        depto: _selectedDepto == 'TODOS' ? null : _selectedDepto,
+      ),
+    );
+    setState(() => _searchApplied = _searchCtrl.text);
+  }
+
+  void _clearFilters() {
+    _searchCtrl.clear();
+    setState(() {
+      _searchApplied = '';
+      _selectedSucUsuario = 'TODAS';
+      _selectedDepto = 'TODOS';
+    });
+    widget.onApplyFilters(const AccessRegSucFilters());
   }
 
   Future<void> _createGroup() async {
@@ -95,7 +213,9 @@ class _AccessRegSucListState extends State<_AccessRegSucList> {
       usuario: created.usuario,
       previousBySucursal: previousBySucursal,
       selectedSucursales: created.selectedSucursales,
-      successMessage: previousBySucursal.isEmpty ? 'Sucursales vinculadas.' : 'Asignación actualizada.',
+      successMessage: previousBySucursal.isEmpty
+          ? 'Sucursales vinculadas.'
+          : 'Asignación actualizada.',
     );
   }
 
@@ -163,15 +283,21 @@ class _AccessRegSucListState extends State<_AccessRegSucList> {
 
       if (!mounted) return;
       if (!hasChanges) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sin cambios.')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Sin cambios.')));
         return;
       }
 
-      widget.ref.invalidate(accessRegSucListProvider);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(successMessage)));
+      widget.ref.invalidate(accessRegSucListProvider(widget.appliedFilters));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(successMessage)));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al guardar: $e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error al guardar: $e')));
     }
   }
 
@@ -180,10 +306,18 @@ class _AccessRegSucListState extends State<_AccessRegSucList> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Eliminar vínculos'),
-        content: Text('¿Eliminar todos los vínculos de ${group.modulo} para ${group.usuario}?'),
+        content: Text(
+          '¿Eliminar todos los vínculos de ${group.modulo} para ${group.usuario}?',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancelar')),
-          FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Eliminar')),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Eliminar'),
+          ),
         ],
       ),
     );
@@ -196,11 +330,15 @@ class _AccessRegSucListState extends State<_AccessRegSucList> {
         await api.delete(group.modulo, group.usuario, row.suc);
       }
       if (!mounted) return;
-      widget.ref.invalidate(accessRegSucListProvider);
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vínculos eliminados.')));
+      widget.ref.invalidate(accessRegSucListProvider(widget.appliedFilters));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Vínculos eliminados.')));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al eliminar: $e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error al eliminar: $e')));
     }
   }
 
@@ -214,15 +352,16 @@ class _AccessRegSucListState extends State<_AccessRegSucList> {
       final modulosFront = await modulosFuture;
       final usuariosRaw = await usuariosFuture;
 
-      final modulos = modulosFront
-          .map(_ModuloOption.fromAccessModuloFront)
-          .toList()
-        ..sort((a, b) => a.codigo.toLowerCase().compareTo(b.codigo.toLowerCase()));
+      final modulos =
+          modulosFront.map(_ModuloOption.fromAccessModuloFront).toList()..sort(
+            (a, b) => a.codigo.toLowerCase().compareTo(b.codigo.toLowerCase()),
+          );
 
-      final usuarios = usuariosRaw
-          .map(_UsuarioOption.fromUser)
-          .toList()
-        ..sort((a, b) => a.username.toLowerCase().compareTo(b.username.toLowerCase()));
+      final usuarios = usuariosRaw.map(_UsuarioOption.fromUser).toList()
+        ..sort(
+          (a, b) =>
+              a.username.toLowerCase().compareTo(b.username.toLowerCase()),
+        );
 
       return _AccessRegSucCatalogs(
         sucursales: sucursales,
@@ -231,9 +370,9 @@ class _AccessRegSucListState extends State<_AccessRegSucList> {
       );
     } catch (e) {
       if (!mounted) return null;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error cargando catálogos: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error cargando catálogos: $e')));
       return null;
     }
   }
@@ -242,15 +381,18 @@ class _AccessRegSucListState extends State<_AccessRegSucList> {
   Widget build(BuildContext context) {
     final groups = _buildGroups(widget.rows);
     final term = _searchApplied.trim().toLowerCase();
-    final filtered = groups.where((group) {
-      if (term.isEmpty) return true;
-      return group.modulo.toLowerCase().contains(term) || group.usuario.toLowerCase().contains(term);
-    }).toList()
-      ..sort((a, b) {
-        final byUser = a.usuario.toLowerCase().compareTo(b.usuario.toLowerCase());
-        if (byUser != 0) return byUser;
-        return a.modulo.toLowerCase().compareTo(b.modulo.toLowerCase());
-      });
+    final filtered =
+        groups.where((group) {
+          if (term.isEmpty) return true;
+          return group.modulo.toLowerCase().contains(term) ||
+              group.usuario.toLowerCase().contains(term);
+        }).toList()..sort((a, b) {
+          final byUser = a.usuario.toLowerCase().compareTo(
+            b.usuario.toLowerCase(),
+          );
+          if (byUser != 0) return byUser;
+          return a.modulo.toLowerCase().compareTo(b.modulo.toLowerCase());
+        });
 
     return RefreshIndicator(
       onRefresh: _refreshList,
@@ -260,11 +402,16 @@ class _AccessRegSucListState extends State<_AccessRegSucList> {
         children: [
           _FiltersBar(
             searchController: _searchCtrl,
-            onApplySearch: () => setState(() => _searchApplied = _searchCtrl.text),
-            onClearSearch: () => setState(() {
-              _searchCtrl.clear();
-              _searchApplied = '';
-            }),
+            selectedSucUsuario: _selectedSucUsuario,
+            selectedDepto: _selectedDepto,
+            sucUsuarioOptions: widget.sucUsuarioOptions,
+            deptoOptions: widget.deptoOptions,
+            onChangedSucUsuario: (value) =>
+                setState(() => _selectedSucUsuario = value ?? 'TODAS'),
+            onChangedDepto: (value) =>
+                setState(() => _selectedDepto = value ?? 'TODOS'),
+            onApplySearch: _applyFilters,
+            onClearSearch: _clearFilters,
           ),
           const SizedBox(height: 12),
           Align(
@@ -279,7 +426,9 @@ class _AccessRegSucListState extends State<_AccessRegSucList> {
           if (filtered.isEmpty)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 24),
-              child: Center(child: Text('No hay accesos para los filtros aplicados.')),
+              child: Center(
+                child: Text('No hay accesos para los filtros aplicados.'),
+              ),
             )
           else
             for (final group in filtered)
@@ -297,11 +446,23 @@ class _AccessRegSucListState extends State<_AccessRegSucList> {
 class _FiltersBar extends StatelessWidget {
   const _FiltersBar({
     required this.searchController,
+    required this.selectedSucUsuario,
+    required this.selectedDepto,
+    required this.sucUsuarioOptions,
+    required this.deptoOptions,
+    required this.onChangedSucUsuario,
+    required this.onChangedDepto,
     required this.onApplySearch,
     required this.onClearSearch,
   });
 
   final TextEditingController searchController;
+  final String selectedSucUsuario;
+  final String selectedDepto;
+  final List<String> sucUsuarioOptions;
+  final List<String> deptoOptions;
+  final ValueChanged<String?> onChangedSucUsuario;
+  final ValueChanged<String?> onChangedDepto;
   final VoidCallback onApplySearch;
   final VoidCallback onClearSearch;
 
@@ -314,6 +475,36 @@ class _FiltersBar extends StatelessWidget {
         if (compact) {
           return Column(
             children: [
+              DropdownButtonFormField<String>(
+                key: ValueKey('suc-main-$selectedSucUsuario'),
+                initialValue: selectedSucUsuario,
+                decoration: const InputDecoration(
+                  labelText: 'Sucursal (usuario)',
+                  border: OutlineInputBorder(),
+                ),
+                items: [
+                  const DropdownMenuItem(value: 'TODAS', child: Text('TODAS')),
+                  for (final suc in sucUsuarioOptions)
+                    DropdownMenuItem(value: suc, child: Text(suc)),
+                ],
+                onChanged: onChangedSucUsuario,
+              ),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                key: ValueKey('depto-main-$selectedDepto'),
+                initialValue: selectedDepto,
+                decoration: const InputDecoration(
+                  labelText: 'Departamento',
+                  border: OutlineInputBorder(),
+                ),
+                items: [
+                  const DropdownMenuItem(value: 'TODOS', child: Text('TODOS')),
+                  for (final depto in deptoOptions)
+                    DropdownMenuItem(value: depto, child: Text(depto)),
+                ],
+                onChanged: onChangedDepto,
+              ),
+              const SizedBox(height: 8),
               TextField(
                 controller: searchController,
                 decoration: const InputDecoration(
@@ -346,29 +537,77 @@ class _FiltersBar extends StatelessWidget {
           );
         }
 
-        return Row(
+        return Column(
           children: [
-            Expanded(
-              child: TextField(
-                controller: searchController,
-                decoration: const InputDecoration(
-                  labelText: 'Buscar por módulo o usuario',
-                  border: OutlineInputBorder(),
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    key: ValueKey('suc-main-dk-$selectedSucUsuario'),
+                    initialValue: selectedSucUsuario,
+                    decoration: const InputDecoration(
+                      labelText: 'Sucursal (usuario)',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: [
+                      const DropdownMenuItem(
+                        value: 'TODAS',
+                        child: Text('TODAS'),
+                      ),
+                      for (final suc in sucUsuarioOptions)
+                        DropdownMenuItem(value: suc, child: Text(suc)),
+                    ],
+                    onChanged: onChangedSucUsuario,
+                  ),
                 ),
-                onSubmitted: (_) => onApplySearch(),
-              ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    key: ValueKey('depto-main-dk-$selectedDepto'),
+                    initialValue: selectedDepto,
+                    decoration: const InputDecoration(
+                      labelText: 'Departamento',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: [
+                      const DropdownMenuItem(
+                        value: 'TODOS',
+                        child: Text('TODOS'),
+                      ),
+                      for (final depto in deptoOptions)
+                        DropdownMenuItem(value: depto, child: Text(depto)),
+                    ],
+                    onChanged: onChangedDepto,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 10),
-            ElevatedButton.icon(
-              onPressed: onApplySearch,
-              icon: const Icon(Icons.search),
-              label: const Text('Filtrar'),
-            ),
-            const SizedBox(width: 8),
-            OutlinedButton.icon(
-              onPressed: onClearSearch,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Limpiar'),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: searchController,
+                    decoration: const InputDecoration(
+                      labelText: 'Buscar por módulo o usuario',
+                      border: OutlineInputBorder(),
+                    ),
+                    onSubmitted: (_) => onApplySearch(),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                ElevatedButton.icon(
+                  onPressed: onApplySearch,
+                  icon: const Icon(Icons.search),
+                  label: const Text('Filtrar'),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  onPressed: onClearSearch,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Limpiar'),
+                ),
+              ],
             ),
           ],
         );
@@ -449,13 +688,18 @@ List<_AccessRegSucGroup> _buildGroups(List<AccessRegSucModel> rows) {
 
   for (final row in rows) {
     final groupKey = '${row.modulo}::${row.usuario}';
-    final bySuc = grouped.putIfAbsent(groupKey, () => <String, AccessRegSucModel>{});
+    final bySuc = grouped.putIfAbsent(
+      groupKey,
+      () => <String, AccessRegSucModel>{},
+    );
     bySuc[row.suc] = row;
   }
 
   return grouped.entries.map((entry) {
     final separator = entry.key.indexOf('::');
-    final modulo = separator == -1 ? entry.key : entry.key.substring(0, separator);
+    final modulo = separator == -1
+        ? entry.key
+        : entry.key.substring(0, separator);
     final usuario = separator == -1 ? '' : entry.key.substring(separator + 2);
     return _AccessRegSucGroup(
       modulo: modulo,
@@ -525,7 +769,8 @@ class _AccessRegSucEditorDialog extends StatefulWidget {
   }
 
   @override
-  State<_AccessRegSucEditorDialog> createState() => _AccessRegSucEditorDialogState();
+  State<_AccessRegSucEditorDialog> createState() =>
+      _AccessRegSucEditorDialogState();
 }
 
 class _AccessRegSucEditorDialogState extends State<_AccessRegSucEditorDialog> {
@@ -534,6 +779,8 @@ class _AccessRegSucEditorDialogState extends State<_AccessRegSucEditorDialog> {
   late final Set<String> _selectedSucursales;
   String? _selectedModulo;
   String? _selectedUsuario;
+  String _selectedSucUsuario = 'TODAS';
+  String _selectedDepto = 'TODOS';
 
   @override
   void initState() {
@@ -544,7 +791,8 @@ class _AccessRegSucEditorDialogState extends State<_AccessRegSucEditorDialog> {
     _selectedModulo = widget.initialModulo?.trim();
     _selectedUsuario = widget.initialUsuario?.trim();
 
-    if ((_selectedModulo ?? '').isNotEmpty && !_modulos.any((m) => m.codigo == _selectedModulo)) {
+    if ((_selectedModulo ?? '').isNotEmpty &&
+        !_modulos.any((m) => m.codigo == _selectedModulo)) {
       _modulos.insert(
         0,
         _ModuloOption(
@@ -555,13 +803,17 @@ class _AccessRegSucEditorDialogState extends State<_AccessRegSucEditorDialog> {
         ),
       );
     }
-    if ((_selectedUsuario ?? '').isNotEmpty && !_usuarios.any((u) => u.username == _selectedUsuario)) {
+    if ((_selectedUsuario ?? '').isNotEmpty &&
+        !_usuarios.any((u) => u.username == _selectedUsuario)) {
       _usuarios.insert(
         0,
         _UsuarioOption(
           username: _selectedUsuario!,
           nombreCompleto: '(No disponible)',
           estatus: 'DESCONOCIDO',
+          suc: null,
+          sucDesc: null,
+          deptoNombre: null,
         ),
       );
     }
@@ -569,13 +821,81 @@ class _AccessRegSucEditorDialogState extends State<_AccessRegSucEditorDialog> {
     _selectedSucursales = {...widget.initialSelectedSucursales};
   }
 
+  List<_ModuloOption> _ensureSelectedModuloVisible(
+    List<_ModuloOption> filtered,
+  ) {
+    final selected = _selectedModulo?.trim();
+    if (selected == null || selected.isEmpty) return filtered;
+    if (filtered.any((item) => item.codigo == selected)) return filtered;
+    final found = _modulos.where((item) => item.codigo == selected).toList();
+    if (found.isEmpty) return filtered;
+    return [...found, ...filtered];
+  }
+
+  List<_UsuarioOption> _ensureSelectedUsuarioVisible(
+    List<_UsuarioOption> filtered,
+  ) {
+    final selected = _selectedUsuario?.trim();
+    if (selected == null || selected.isEmpty) return filtered;
+    if (filtered.any((item) => item.username == selected)) return filtered;
+    final found = _usuarios.where((item) => item.username == selected).toList();
+    if (found.isEmpty) return filtered;
+    return [...found, ...filtered];
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.sizeOf(context);
-    final dialogWidth = (screenSize.width * 0.92).clamp(320.0, 760.0).toDouble();
-    final dialogHeight = (screenSize.height * 0.72).clamp(320.0, 560.0).toDouble();
+    final dialogWidth = (screenSize.width * 0.92)
+        .clamp(320.0, 760.0)
+        .toDouble();
+    final dialogHeight = (screenSize.height * 0.72)
+        .clamp(320.0, 560.0)
+        .toDouble();
     final orderedSucursales = [...widget.sucursales]
       ..sort((a, b) => a.suc.toLowerCase().compareTo(b.suc.toLowerCase()));
+    final sucOptions = <String>{
+      for (final user in _usuarios)
+        if ((user.suc ?? '').trim().isNotEmpty) user.suc!.trim(),
+    }.toList()..sort();
+    final deptosUsuario = <String>{
+      for (final user in _usuarios)
+        if ((user.deptoNombre ?? '').trim().isNotEmpty)
+          user.deptoNombre!.trim().toUpperCase(),
+    };
+    final deptosModulo = <String>{
+      for (final modulo in _modulos)
+        if ((modulo.depto ?? '').trim().isNotEmpty)
+          modulo.depto!.trim().toUpperCase(),
+    };
+    final deptoOptions = deptosUsuario.intersection(deptosModulo).toList()
+      ..sort();
+
+    final effectiveSuc =
+        _selectedSucUsuario == 'TODAS' ||
+            sucOptions.contains(_selectedSucUsuario)
+        ? _selectedSucUsuario
+        : 'TODAS';
+    final effectiveDepto =
+        _selectedDepto == 'TODOS' || deptoOptions.contains(_selectedDepto)
+        ? _selectedDepto
+        : 'TODOS';
+
+    final filteredModulos = _modulos.where((modulo) {
+      if (effectiveDepto == 'TODOS') return true;
+      return (modulo.depto ?? '').trim().toUpperCase() == effectiveDepto;
+    }).toList();
+
+    final filteredUsuarios = _usuarios.where((usuario) {
+      final matchesSuc =
+          effectiveSuc == 'TODAS' || (usuario.suc ?? '').trim() == effectiveSuc;
+      if (!matchesSuc) return false;
+      if (effectiveDepto == 'TODOS') return true;
+      return (usuario.deptoNombre ?? '').trim().toUpperCase() == effectiveDepto;
+    }).toList();
+
+    final moduloItems = _ensureSelectedModuloVisible(filteredModulos);
+    final usuarioItems = _ensureSelectedUsuarioVisible(filteredUsuarios);
 
     return AlertDialog(
       title: Text(widget.title),
@@ -585,16 +905,65 @@ class _AccessRegSucEditorDialogState extends State<_AccessRegSucEditorDialog> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    key: ValueKey('f-suc-$effectiveSuc'),
+                    initialValue: effectiveSuc,
+                    decoration: const InputDecoration(
+                      labelText: 'Sucursal (usuario)',
+                    ),
+                    items: [
+                      const DropdownMenuItem(
+                        value: 'TODAS',
+                        child: Text('TODAS'),
+                      ),
+                      for (final suc in sucOptions)
+                        DropdownMenuItem(value: suc, child: Text(suc)),
+                    ],
+                    onChanged: (value) =>
+                        setState(() => _selectedSucUsuario = value ?? 'TODAS'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    key: ValueKey('f-depto-$effectiveDepto'),
+                    initialValue: effectiveDepto,
+                    decoration: const InputDecoration(
+                      labelText: 'Departamento',
+                    ),
+                    items: [
+                      const DropdownMenuItem(
+                        value: 'TODOS',
+                        child: Text('TODOS'),
+                      ),
+                      for (final depto in deptoOptions)
+                        DropdownMenuItem(value: depto, child: Text(depto)),
+                    ],
+                    onChanged: (value) =>
+                        setState(() => _selectedDepto = value ?? 'TODOS'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
             DropdownButtonFormField<String>(
-              key: ValueKey('modulo-${_selectedModulo ?? ''}-${widget.lockIdentityFields}'),
+              key: ValueKey(
+                'modulo-${_selectedModulo ?? ''}-${widget.lockIdentityFields}',
+              ),
               initialValue: _selectedModulo,
               isExpanded: true,
               decoration: const InputDecoration(labelText: 'Módulo Front'),
-              items: _modulos
+              items: moduloItems
                   .map(
                     (modulo) => DropdownMenuItem<String>(
                       value: modulo.codigo,
-                      child: Text(modulo.label, overflow: TextOverflow.ellipsis),
+                      child: Text(
+                        modulo.label,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   )
                   .toList(),
@@ -604,15 +973,20 @@ class _AccessRegSucEditorDialogState extends State<_AccessRegSucEditorDialog> {
             ),
             const SizedBox(height: 10),
             DropdownButtonFormField<String>(
-              key: ValueKey('usuario-${_selectedUsuario ?? ''}-${widget.lockIdentityFields}'),
+              key: ValueKey(
+                'usuario-${_selectedUsuario ?? ''}-${widget.lockIdentityFields}',
+              ),
               initialValue: _selectedUsuario,
               isExpanded: true,
               decoration: const InputDecoration(labelText: 'Usuario'),
-              items: _usuarios
+              items: usuarioItems
                   .map(
                     (usuario) => DropdownMenuItem<String>(
                       value: usuario.username,
-                      child: Text(usuario.label, overflow: TextOverflow.ellipsis),
+                      child: Text(
+                        usuario.label,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   )
                   .toList(),
@@ -635,8 +1009,14 @@ class _AccessRegSucEditorDialogState extends State<_AccessRegSucEditorDialog> {
                   for (final sucursal in orderedSucursales)
                     CheckboxListTile(
                       value: _selectedSucursales.contains(sucursal.suc),
-                      title: Text('${sucursal.suc} - ${sucursal.desc ?? 'Sin descripción'}'),
-                      subtitle: Text(sucursal.zona?.isEmpty == false ? sucursal.zona! : 'Sin zona'),
+                      title: Text(
+                        '${sucursal.suc} - ${sucursal.desc ?? 'Sin descripción'}',
+                      ),
+                      subtitle: Text(
+                        sucursal.zona?.isEmpty == false
+                            ? sucursal.zona!
+                            : 'Sin zona',
+                      ),
                       onChanged: (selected) {
                         setState(() {
                           if (selected == true) {
@@ -654,14 +1034,19 @@ class _AccessRegSucEditorDialogState extends State<_AccessRegSucEditorDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancelar'),
+        ),
         FilledButton(
           onPressed: () {
             final modulo = _selectedModulo?.trim() ?? '';
             final usuario = _selectedUsuario?.trim() ?? '';
             if (modulo.isEmpty || usuario.isEmpty) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Selecciona un módulo y un usuario.')),
+                const SnackBar(
+                  content: Text('Selecciona un módulo y un usuario.'),
+                ),
               );
               return;
             }
@@ -716,7 +1101,9 @@ class _ModuloOption {
   }
 
   String get label {
-    final deptoTxt = (depto == null || depto!.trim().isEmpty) ? 'SIN DEPTO' : depto!;
+    final deptoTxt = (depto == null || depto!.trim().isEmpty)
+        ? 'SIN DEPTO'
+        : depto!;
     final statusTxt = activo ? 'Activo' : 'Inactivo';
     return '$codigo - $nombre · $deptoTxt · $statusTxt';
   }
@@ -727,19 +1114,37 @@ class _UsuarioOption {
     required this.username,
     required this.nombreCompleto,
     required this.estatus,
+    required this.suc,
+    required this.sucDesc,
+    required this.deptoNombre,
   });
 
   final String username;
   final String nombreCompleto;
   final String estatus;
+  final String? suc;
+  final String? sucDesc;
+  final String? deptoNombre;
 
   factory _UsuarioOption.fromUser(UserModel model) {
     return _UsuarioOption(
       username: model.username,
       nombreCompleto: model.displayName,
       estatus: model.estatus,
+      suc: model.suc,
+      sucDesc: model.sucDesc,
+      deptoNombre: model.deptoNombre,
     );
   }
 
-  String get label => '$username - $nombreCompleto · $estatus';
+  String get label {
+    final sucTxt = (suc ?? '').trim();
+    final deptoTxt = (deptoNombre ?? '').trim();
+    final sucDescTxt = (sucDesc ?? '').trim();
+    final sucLabel = sucTxt.isEmpty
+        ? 'SIN SUC'
+        : (sucDescTxt.isEmpty ? sucTxt : '$sucTxt - $sucDescTxt');
+    final deptoLabel = deptoTxt.isEmpty ? 'SIN DEPTO' : deptoTxt.toUpperCase();
+    return '$username - $nombreCompleto · $estatus · $sucLabel · $deptoLabel';
+  }
 }

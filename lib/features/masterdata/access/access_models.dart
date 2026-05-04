@@ -12,11 +12,11 @@ class AccessModulo {
   });
 
   factory AccessModulo.fromJson(Map<String, dynamic> json) => AccessModulo(
-        id: (json['IDMODULO'] as num).toInt(),
-        codigo: json['CODIGO'] as String,
-        nombre: json['NOMBRE'] as String,
-        activo: json['ACTIVO'] == true || json['ACTIVO'] == 1,
-      );
+    id: (json['IDMODULO'] as num).toInt(),
+    codigo: json['CODIGO'] as String,
+    nombre: json['NOMBRE'] as String,
+    activo: json['ACTIVO'] == true || json['ACTIVO'] == 1,
+  );
 }
 
 class AccessGrupoModulo {
@@ -30,7 +30,8 @@ class AccessGrupoModulo {
     required this.activo,
   });
 
-  factory AccessGrupoModulo.fromJson(Map<String, dynamic> json) => AccessGrupoModulo(
+  factory AccessGrupoModulo.fromJson(Map<String, dynamic> json) =>
+      AccessGrupoModulo(
         id: (json['IDGRUP_MODULO'] as num).toInt(),
         nombre: json['NOMBRE'] as String,
         activo: json['ACTIVO'] == true || json['ACTIVO'] == 1,
@@ -52,7 +53,8 @@ class AccessModuloFront {
     required this.activo,
   });
 
-  factory AccessModuloFront.fromJson(Map<String, dynamic> json) => AccessModuloFront(
+  factory AccessModuloFront.fromJson(Map<String, dynamic> json) =>
+      AccessModuloFront(
         id: (json['IDMOD_FRONT'] as num).toInt(),
         codigo: json['CODIGO'] as String,
         nombre: json['NOMBRE'] as String,
@@ -72,7 +74,8 @@ class AccessGrupoFront {
     required this.activo,
   });
 
-  factory AccessGrupoFront.fromJson(Map<String, dynamic> json) => AccessGrupoFront(
+  factory AccessGrupoFront.fromJson(Map<String, dynamic> json) =>
+      AccessGrupoFront(
         id: (json['IDGRUPMOD_FRONT'] as num).toInt(),
         nombre: json['NOMBRE'] as String,
         activo: json['ACTIVO'] == true || json['ACTIVO'] == 1,
@@ -93,11 +96,50 @@ class AccessRole {
   });
 
   factory AccessRole.fromJson(Map<String, dynamic> json) => AccessRole(
-        id: (json['IDROL'] as num).toInt(),
-        codigo: json['CODIGO'] as String,
-        nombre: json['NOMBRE'] as String,
-        activo: json['ACTIVO'] == true || json['ACTIVO'] == 1,
-      );
+    id: (json['IDROL'] as num).toInt(),
+    codigo: json['CODIGO'] as String,
+    nombre: json['NOMBRE'] as String,
+    activo: json['ACTIVO'] == true || json['ACTIVO'] == 1,
+  );
+}
+
+class AccessUser {
+  final int id;
+  final String username;
+  final String? nombre;
+  final String? apellidos;
+  final String? mail;
+  final String estatus;
+  final int? idDepto;
+  final String? deptoNombre;
+  final String? suc;
+  final String? sucDesc;
+
+  const AccessUser({
+    required this.id,
+    required this.username,
+    required this.nombre,
+    required this.apellidos,
+    required this.mail,
+    required this.estatus,
+    required this.idDepto,
+    required this.deptoNombre,
+    required this.suc,
+    required this.sucDesc,
+  });
+
+  factory AccessUser.fromJson(Map<String, dynamic> json) => AccessUser(
+    id: (json['IDUSUARIO'] as num).toInt(),
+    username: json['USERNAME'] as String,
+    nombre: json['NOMBRE'] as String?,
+    apellidos: json['APELLIDOS'] as String?,
+    mail: json['MAIL'] as String?,
+    estatus: (json['ESTATUS'] as String?) ?? 'INACTIVO',
+    idDepto: (json['IDDEPTO'] as num?)?.toInt(),
+    deptoNombre: json['DEPTO_NOMBRE'] as String?,
+    suc: json['SUC'] as String?,
+    sucDesc: json['SUC_DESC'] as String?,
+  );
 }
 
 class BackendModuloRef {
@@ -111,7 +153,8 @@ class BackendModuloRef {
     required this.nombre,
   });
 
-  factory BackendModuloRef.fromJson(Map<String, dynamic> json) => BackendModuloRef(
+  factory BackendModuloRef.fromJson(Map<String, dynamic> json) =>
+      BackendModuloRef(
         id: (json['idModulo'] as num).toInt(),
         codigo: json['codigo'] as String,
         nombre: json['nombre'] as String,
@@ -139,7 +182,8 @@ class BackendGroupPerm {
     required this.modulos,
   });
 
-  factory BackendGroupPerm.fromJson(Map<String, dynamic> json) => BackendGroupPerm(
+  factory BackendGroupPerm.fromJson(Map<String, dynamic> json) =>
+      BackendGroupPerm(
         idGrupModulo: (json['idGrupModulo'] as num).toInt(),
         grupoNombre: json['grupoNombre'] as String,
         canRead: json['canRead'] == true || json['canRead'] == 1,
@@ -148,7 +192,11 @@ class BackendGroupPerm {
         canDelete: json['canDelete'] == true || json['canDelete'] == 1,
         activo: json['activo'] == true || json['activo'] == 1,
         modulos: (json['modulos'] as List<dynamic>)
-            .map((e) => BackendModuloRef.fromJson(Map<String, dynamic>.from(e as Map)))
+            .map(
+              (e) => BackendModuloRef.fromJson(
+                Map<String, dynamic>.from(e as Map),
+              ),
+            )
             .toList(),
       );
 
@@ -186,11 +234,11 @@ class FrontModuloRef {
   });
 
   factory FrontModuloRef.fromJson(Map<String, dynamic> json) => FrontModuloRef(
-        id: (json['idModFront'] as num).toInt(),
-        codigo: json['codigo'] as String,
-        nombre: json['nombre'] as String,
-        depto: json['depto'] as String?,
-      );
+    id: (json['idModFront'] as num).toInt(),
+    codigo: json['codigo'] as String,
+    nombre: json['nombre'] as String,
+    depto: json['depto'] as String?,
+  );
 }
 
 class FrontGroupEnrollment {
@@ -206,12 +254,16 @@ class FrontGroupEnrollment {
     required this.mods,
   });
 
-  factory FrontGroupEnrollment.fromJson(Map<String, dynamic> json) => FrontGroupEnrollment(
+  factory FrontGroupEnrollment.fromJson(Map<String, dynamic> json) =>
+      FrontGroupEnrollment(
         idGrupmodFront: (json['idGrupmodFront'] as num).toInt(),
         grupoNombre: json['grupoNombre'] as String,
         activo: json['activo'] == true || json['activo'] == 1,
         mods: (json['mods'] as List<dynamic>)
-            .map((e) => FrontModuloRef.fromJson(Map<String, dynamic>.from(e as Map)))
+            .map(
+              (e) =>
+                  FrontModuloRef.fromJson(Map<String, dynamic>.from(e as Map)),
+            )
             .toList(),
       );
 }

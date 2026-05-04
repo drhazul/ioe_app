@@ -110,4 +110,8 @@ Enlaces relacionados:
 - `Garantia` deja de mostrarse en el panel operativo y queda reservada para el panel de entregadas con estado `11`.
 - `Garantía` (2026-04-29): el panel de entregadas/garantía queda con solo `Ver detalle` para `admin` y `JEF_TALLER`; dentro del detalle se conserva edición de comentario (`Guardar cambios`) y la acción `Garantía` confirma transición `11 -> 9.3`.
 - flujo `9.3` (2026-04-29): aparece botón `Aplicar merma o cambio` solo cuando `ESTSEGU=9.3`; abre popup para seleccionar `TIPOM` (`1|2`) y `MOTR` (`DAT_ORD_MOTM`) y luego continúa el flujo ya existente de `9.1/9.2`.
+- Recepción laboratorio externo (2026-05-01): `Recibir en taller` habilita a `ANALISTA_ORD/ANALISTA` solo para ORDs de laboratorio externo; la recepción externa cambia `ESTSEGU 5 -> 10` y la recepción interna mantiene `5 -> 7`.
+- Envío laboratorio externo (2026-05-03): `Enviar a taller` manda ORDs con `DAT_LAB.UBILAB='EXTERNO'` a flujo `9` (pendiente recibir en analista), manteniendo `3 -> 5` para laboratorio interno.
+- Recepción laboratorio externo (2026-05-03): `Recibir en taller` para `ANALISTA_ORD/ANALISTA` valida estatus `9` en externo y aplica `9 -> 10`; en interno conserva validación `5` y transición `5 -> 7`.
+- Matriz persistente de visibilidad (2026-05-03): backend controla flujos visibles por rol/panel desde `dbo.DAT_JAO_ORD_FLUJO_VIS` (módulo `DAT_JAO_ORD`), manteniendo excepción de flujo `9` solo para laboratorio externo.
 - Cambio material / Merma (2026-04-22): la nueva ORD derivada debe quedar sin colaborador asignado y la UI/PDF deben mostrar la diferencia contable real basada en `CTD_C_M`/importe sellado, no la diferencia por `CTD` completa.

@@ -8,7 +8,9 @@ import 'datmodulos_providers.dart';
 const double _actionsWidth = 96;
 
 class DatmodulosPage extends ConsumerWidget {
-  const DatmodulosPage({super.key});
+  const DatmodulosPage({super.key, this.baseRoute = '/masterdata/datmodulos'});
+
+  final String baseRoute;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -26,11 +28,12 @@ class DatmodulosPage extends ConsumerWidget {
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => context.go('/masterdata/datmodulos/new'),
+        onPressed: () => context.go('$baseRoute/new'),
         child: const Icon(Icons.add),
       ),
       body: modulosAsync.when(
-        data: (items) => _DatmodulosList(items: items, ref: ref),
+        data: (items) =>
+            _DatmodulosList(items: items, ref: ref, baseRoute: baseRoute),
         error: (e, _) => Center(child: Text('Error: $e')),
         loading: () => const Center(child: CircularProgressIndicator()),
       ),
@@ -39,10 +42,15 @@ class DatmodulosPage extends ConsumerWidget {
 }
 
 class _DatmodulosList extends StatefulWidget {
-  const _DatmodulosList({required this.items, required this.ref});
+  const _DatmodulosList({
+    required this.items,
+    required this.ref,
+    required this.baseRoute,
+  });
 
   final List<DatModuloModel> items;
   final WidgetRef ref;
+  final String baseRoute;
 
   @override
   State<_DatmodulosList> createState() => _DatmodulosListState();
@@ -93,7 +101,9 @@ class _DatmodulosListState extends State<_DatmodulosList> {
       if (hasOtros) 'OTROS',
     ];
 
-    final effectiveDepto = deptos.contains(_selectedDepto) ? _selectedDepto : 'TODOS';
+    final effectiveDepto = deptos.contains(_selectedDepto)
+        ? _selectedDepto
+        : 'TODOS';
     final effectiveStatus = _selectedStatus;
 
     final term = _searchApplied.trim().toLowerCase();
@@ -120,7 +130,9 @@ class _DatmodulosListState extends State<_DatmodulosList> {
     final keys = grouped.keys.toList()..sort();
     if (keys.remove('OTROS')) keys.add('OTROS');
     for (final key in keys) {
-      grouped[key]!.sort((a, b) => a.codigo.toUpperCase().compareTo(b.codigo.toUpperCase()));
+      grouped[key]!.sort(
+        (a, b) => a.codigo.toUpperCase().compareTo(b.codigo.toUpperCase()),
+      );
     }
 
     final children = <Widget>[
@@ -144,7 +156,9 @@ class _DatmodulosListState extends State<_DatmodulosList> {
       children.add(
         const Padding(
           padding: EdgeInsets.symmetric(vertical: 24),
-          child: Center(child: Text('No hay módulos para los filtros aplicados.')),
+          child: Center(
+            child: Text('No hay módulos para los filtros aplicados.'),
+          ),
         ),
       );
     } else {
@@ -152,7 +166,12 @@ class _DatmodulosListState extends State<_DatmodulosList> {
         children.addAll([
           _GroupHeader(title: key),
           const SizedBox(height: 8),
-          for (final modulo in grouped[key]!) _ModuloRow(modulo: modulo, ref: widget.ref),
+          for (final modulo in grouped[key]!)
+            _ModuloRow(
+              modulo: modulo,
+              ref: widget.ref,
+              baseRoute: widget.baseRoute,
+            ),
           const SizedBox(height: 12),
         ]);
       }
@@ -235,10 +254,9 @@ class _FiltersBar extends StatelessWidget {
                   border: OutlineInputBorder(),
                 ),
                 items: deptos
-                    .map((d) => DropdownMenuItem<String>(
-                          value: d,
-                          child: Text(d),
-                        ))
+                    .map(
+                      (d) => DropdownMenuItem<String>(value: d, child: Text(d)),
+                    )
                     .toList(),
                 onChanged: onDeptoChanged,
               ),
@@ -253,10 +271,9 @@ class _FiltersBar extends StatelessWidget {
                   border: OutlineInputBorder(),
                 ),
                 items: statuses
-                    .map((s) => DropdownMenuItem<String>(
-                          value: s,
-                          child: Text(s),
-                        ))
+                    .map(
+                      (s) => DropdownMenuItem<String>(value: s, child: Text(s)),
+                    )
                     .toList(),
                 onChanged: onStatusChanged,
               ),
@@ -349,10 +366,15 @@ class _GroupHeader extends StatelessWidget {
 }
 
 class _ModuloRow extends StatelessWidget {
-  const _ModuloRow({required this.modulo, required this.ref});
+  const _ModuloRow({
+    required this.modulo,
+    required this.ref,
+    required this.baseRoute,
+  });
 
   final DatModuloModel modulo;
   final WidgetRef ref;
+  final String baseRoute;
 
   @override
   Widget build(BuildContext context) {
@@ -373,10 +395,7 @@ class _ModuloRow extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               flex: 4,
-              child: Text(
-                modulo.nombre,
-                overflow: TextOverflow.ellipsis,
-              ),
+              child: Text(modulo.nombre, overflow: TextOverflow.ellipsis),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -403,7 +422,7 @@ class _ModuloRow extends StatelessWidget {
                   IconButton(
                     icon: const Icon(Icons.edit),
                     tooltip: 'Editar',
-                    onPressed: () => context.go('/masterdata/datmodulos/${modulo.codigo}'),
+                    onPressed: () => context.go('$baseRoute/${modulo.codigo}'),
                   ),
                   IconButton(
                     icon: const Icon(Icons.delete),
@@ -426,8 +445,14 @@ class _ModuloRow extends StatelessWidget {
         title: const Text('Eliminar módulo'),
         content: Text('¿Seguro de eliminar ${modulo.codigo}?'),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancelar')),
-          FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Eliminar')),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Eliminar'),
+          ),
         ],
       ),
     );
@@ -438,10 +463,14 @@ class _ModuloRow extends StatelessWidget {
       await ref.read(datmodulosApiProvider).deleteModulo(modulo.codigo);
       ref.invalidate(datmodulosListProvider);
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Módulo eliminado')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Módulo eliminado')));
     } catch (e) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al eliminar: $e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error al eliminar: $e')));
     }
   }
 }

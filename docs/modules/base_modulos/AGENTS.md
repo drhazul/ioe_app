@@ -24,6 +24,10 @@ Enlaces relacionados:
 - UI usuarios (2026-03): el listado soporta visualización agrupada por sucursal/departamento y filtros por ambas vistas.
 - Sucursales `/dat-suc` (en backend) -> `DAT_SUC`: `SUC`, `DESC`, `ENCAR`, `ZONA`, `RFC`, `DIRECCION`, `CONTACTO`, `IVA_INTEGRADO`.
 - Datmodulos `/datmodulos` -> `MOD_FRONT`: `IDMOD_FRONT`, `CODIGO`, `NOMBRE`, `DEPTO`, `ACTIVO`, `FCNR`.
+- Datos Maestros / Módulos Front (2026-05-04): en UI se elimina acceso directo `/#/masterdata/datmodulos`; el mismo CRUD `datmodulos` se publica desde `/#/masterdata/access/mod-front` para evitar duplicidad con `Módulos (Front)`.
+- Datos Maestros / Enrolamiento Front por usuario (2026-05-04): nuevo mantenimiento en `/#/masterdata/access/enrolamiento-front-usr`; Home evalúa primero asignaciones activas por usuario (`USR_GRUPMOD_FRONT`) y, en ausencia, aplica enrolamiento por rol (`ROL_GRUPMOD_FRONT`).
+- Datos Maestros / Enrolamiento Front por usuario (2026-05-04): se agrega filtro visual por `Sucursal` y `Departamento` para limitar el dropdown de usuarios en la asignación.
+- Datos Maestros / Acceso por sucursal (2026-05-04): la pantalla `/#/masterdata/access-reg-suc` agrega dropdowns de `Sucursal (usuario)` y `Departamento` en el CRUD principal y en el popup de vinculación para filtrar módulos front/usuarios y registros de `USR_MOD_SUC`.
 - Accesos `/access/*` -> `MODULO`, `GRUP_MODULO`, `GRUPMOD_MODULO`, `ROL_GRUP_MODULO_PERM`, `MOD_FRONT`, `GRUPMOD_FRONT`, `GRUPMOD_FRONT_MOD`, `ROL_GRUPMOD_FRONT`.
 - Acceso regional por sucursal `/usr-mod-suc` -> `USR_MOD_SUC`: `MODULO`, `USUARIO`, `SUC`, `ACTIVO`, `FCNR`.
 - Cat. cuentas `/cat-ctas` -> `DAT_CAT_CTAS`: `CTA`, `DCTA`, `RELACION`, `SUC`.
@@ -105,6 +109,8 @@ Enlaces relacionados:
 - Referencias PV `/pv/refdetalle` -> `REF_DETALLE` (crear/asignar/eliminar por `IDFOL`).
 - Catalogo formas `/dat-form` -> `DAT_FORM` (`IDFORM`, `ASPEL`, `FORM`, `NOM`, `ESTADO`).
 - Mantenimiento maestro DAT_FORM (UI) -> rutas `/masterdata/dat-form`, `/masterdata/dat-form/new`, `/masterdata/dat-form/:id`.
+- Visualización por ROLL en ORD (UI) -> rutas `/masterdata/ord-flujo-vis`, `/masterdata/ord-flujo-vis/new`, `/masterdata/ord-flujo-vis/:id`.
+- Visualización por ROLL en ORD (API) -> `/ord-flujo-vis` + `/ord-flujo-vis/catalogos` sobre `DAT_JAO_ORD_FLUJO_VIS`, `ROL` y `DAT_EST_ORD`; UI filtra por `ROLL`/`ESTSEGU`, bloquea `MODULO` y calcula `ORDEN` automático.
 - Clasificadores `/jrq*` -> `JRQ_DEPA`, `JRQ_SUBD`, `JRQ_CLAS`, `JRQ_SCLA`, `JRQ_SCLA2`, `JRQ_GUIA`.
 ## Inventarios: autorizacion por sucursal
 - El filtro de sucursal en Inventarios se basa en `USR_MOD_SUC` para el modulo `DAT_JAA_ALM`.

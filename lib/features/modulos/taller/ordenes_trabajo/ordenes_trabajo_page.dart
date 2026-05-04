@@ -36,7 +36,7 @@ class OrdenesTrabajoPage extends ConsumerStatefulWidget {
 
 class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
   static const String _recibirRolHint =
-      'Los encargados de maquila solo pueden recibir ORDs TALLADO y los encargados de bisel solo ORDs BISELADO. Admin y jefe de taller pueden recibir ambas.';
+      'Los encargados de maquila solo pueden recibir ORDs TALLADO y los encargados de bisel solo ORDs BISELADO. Admin y jefe de taller pueden recibir ambas. Analista/Analista ORD solo pueden recibir ORDs con laboratorio externo.';
 
   static const Map<String, double> _defaultColumnWidths = <String, double>{
     'SUC': 80,
@@ -3639,7 +3639,8 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
   Future<bool?> _confirmEnviarAmaqBisel(int total) {
     return _confirmCambioEstatus(
       title: 'Confirmar envío a taller',
-      targetStatus: '5 (ENTREGADA A MAQ O BISEL)',
+      targetStatus:
+          '5 (ENTREGADA A MAQ O BISEL, laboratorio interno) o 9 (PENDIENTE RECIBIR EN ANALISTA, laboratorio externo)',
       total: total,
       extraMessage: 'Requiere laboratorio asignado en cada ORD.',
     );
@@ -3656,7 +3657,8 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
   Future<bool?> _confirmRecibirATaller(int total) {
     return _confirmCambioEstatus(
       title: 'Confirmar recepción en taller',
-      targetStatus: '7 (RECIBIDA A TALLER)',
+      targetStatus:
+          '7 (RECIBIDA A TALLER, laboratorio interno) o 10 (PENDIENTE ENTREGA A CLIENTE, laboratorio externo)',
       total: total,
     );
   }
@@ -3823,7 +3825,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       _RelacionDialogConfig(
         title: 'ORDs: Enviar a taller',
         helperText:
-            'Captura o escanea una ORD para validarla en estatus 3 (NUEVA AUTORIZADA), con laboratorio asignado, y relacionarla en appstate.',
+            'Captura o escanea una ORD para validarla en estatus 3 (NUEVA AUTORIZADA), con laboratorio asignado, y relacionarla en appstate. Al enviar: interno 3 -> 5, externo 3 -> 9.',
         submitLabel: 'Enviar a taller',
         submitIcon: Icons.outbound,
         emptySubmitError: 'No hay ORDs relacionadas para enviar.',
@@ -3845,12 +3847,12 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       _RelacionDialogConfig(
         title: 'ORDs: Recibir en taller',
         helperText:
-            'Captura o escanea una ORD para validarla en estatus 5 (ENTREGADA A MAQ O BISEL) y relacionarla en appstate.\n\n$_recibirRolHint',
+            'Captura o escanea una ORD para validarla en estatus 5 (interno) o 9 (externo) y relacionarla en appstate. Recepción aplica 5 -> 7 en laboratorio interno y 9 -> 10 en laboratorio externo.\n\n$_recibirRolHint',
         submitLabel: 'Recibir en taller',
         submitIcon: Icons.move_to_inbox,
         emptySubmitError: 'No hay ORDs relacionadas para recibir en taller.',
         validateFallbackError:
-            'No se pudo validar la ORD. Debe estar en estatus 5.',
+            'No se pudo validar la ORD. Debe estar en estatus 5 (interno) o 9 (externo).',
         executeFallbackError: 'No se pudo recibir las ORDs en taller.',
         relacionProvider: ordenesTrabajoRecibirRelacionProvider,
         validateOrd: (code) =>
