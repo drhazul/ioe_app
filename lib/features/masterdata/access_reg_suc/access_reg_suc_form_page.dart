@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'access_reg_suc_models.dart';
 import 'access_reg_suc_providers.dart';
 
 class AccessRegSucFormPage extends ConsumerStatefulWidget {
@@ -12,7 +13,8 @@ class AccessRegSucFormPage extends ConsumerStatefulWidget {
   final String? suc;
 
   @override
-  ConsumerState<AccessRegSucFormPage> createState() => _AccessRegSucFormPageState();
+  ConsumerState<AccessRegSucFormPage> createState() =>
+      _AccessRegSucFormPageState();
 }
 
 class _AccessRegSucFormPageState extends ConsumerState<AccessRegSucFormPage> {
@@ -24,7 +26,8 @@ class _AccessRegSucFormPageState extends ConsumerState<AccessRegSucFormPage> {
   bool _saving = false;
   late Future<void> _loader;
 
-  bool get _isNew => widget.modulo == null || widget.usuario == null || widget.suc == null;
+  bool get _isNew =>
+      widget.modulo == null || widget.usuario == null || widget.suc == null;
 
   @override
   void initState() {
@@ -34,7 +37,9 @@ class _AccessRegSucFormPageState extends ConsumerState<AccessRegSucFormPage> {
 
   Future<void> _bootstrap() async {
     if (_isNew) return;
-    final row = await ref.read(accessRegSucApiProvider).fetchOne(widget.modulo!, widget.usuario!, widget.suc!);
+    final row = await ref
+        .read(accessRegSucApiProvider)
+        .fetchOne(widget.modulo!, widget.usuario!, widget.suc!);
     _moduloCtrl.text = row.modulo;
     _usuarioCtrl.text = row.usuario;
     _sucCtrl.text = row.suc;
@@ -63,22 +68,28 @@ class _AccessRegSucFormPageState extends ConsumerState<AccessRegSucFormPage> {
         };
         await ref.read(accessRegSucApiProvider).create(payload);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Acceso creado')));
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Acceso creado')));
         }
       } else {
-        final payload = {
-          'ACTIVO': _activo,
-        };
-        await ref.read(accessRegSucApiProvider).update(widget.modulo!, widget.usuario!, widget.suc!, payload);
+        final payload = {'ACTIVO': _activo};
+        await ref
+            .read(accessRegSucApiProvider)
+            .update(widget.modulo!, widget.usuario!, widget.suc!, payload);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Acceso actualizado')));
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Acceso actualizado')));
         }
       }
-      ref.invalidate(accessRegSucListProvider);
+      ref.invalidate(accessRegSucListProvider(const AccessRegSucFilters()));
       if (mounted) context.pop();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al guardar: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error al guardar: $e')));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -109,34 +120,43 @@ class _AccessRegSucFormPageState extends ConsumerState<AccessRegSucFormPage> {
                     controller: _moduloCtrl,
                     decoration: const InputDecoration(labelText: 'Módulo'),
                     enabled: !_saving && _isNew,
-                    validator: (v) => v == null || v.trim().isEmpty ? 'Requerido' : null,
+                    validator: (v) =>
+                        v == null || v.trim().isEmpty ? 'Requerido' : null,
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _usuarioCtrl,
                     decoration: const InputDecoration(labelText: 'Usuario'),
                     enabled: !_saving && _isNew,
-                    validator: (v) => v == null || v.trim().isEmpty ? 'Requerido' : null,
+                    validator: (v) =>
+                        v == null || v.trim().isEmpty ? 'Requerido' : null,
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _sucCtrl,
                     decoration: const InputDecoration(labelText: 'Sucursal'),
                     enabled: !_saving && _isNew,
-                    validator: (v) => v == null || v.trim().isEmpty ? 'Requerido' : null,
+                    validator: (v) =>
+                        v == null || v.trim().isEmpty ? 'Requerido' : null,
                   ),
                   const SizedBox(height: 12),
                   SwitchListTile(
                     title: const Text('Activo'),
                     value: _activo,
-                    onChanged: _saving ? null : (v) => setState(() => _activo = v),
+                    onChanged: _saving
+                        ? null
+                        : (v) => setState(() => _activo = v),
                   ),
                   const SizedBox(height: 24),
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
                       icon: _saving
-                          ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                          ? const SizedBox(
+                              height: 16,
+                              width: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
                           : const Icon(Icons.save),
                       label: Text(_saving ? 'Guardando...' : 'Guardar'),
                       onPressed: _saving ? null : _submit,

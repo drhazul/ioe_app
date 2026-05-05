@@ -45,12 +45,17 @@ class OrdenesTrabajoApi {
     String iord, {
     required int tipo,
     double? ctdCM,
+    String? motivo,
+    int? motr,
   }) async {
+    final cleanMotivo = (motivo ?? '').trim();
     final res = await dio.post(
       '/ordenes-trabajo/${Uri.encodeComponent(iord)}/cambio-merma/preparar',
       data: {
         'tipo': tipo,
         if (ctdCM != null) 'ctdCM': ctdCM,
+        if (cleanMotivo.isNotEmpty) 'motivo': cleanMotivo,
+        if (motr != null) 'motr': motr,
       },
     );
     return OrdenTrabajoCambioMermaContext.fromJson(
@@ -62,6 +67,7 @@ class OrdenesTrabajoApi {
     String iord, {
     required int tipo,
     required double ctdCM,
+    double? pvtaNuevo,
     String? artNuevo,
     String? motivo,
     int? motr,
@@ -77,6 +83,7 @@ class OrdenesTrabajoApi {
       data: {
         'tipo': tipo,
         'ctdCM': ctdCM,
+        if (pvtaNuevo != null) 'pvtaNuevo': pvtaNuevo,
         if (cleanArtNuevo.isNotEmpty) 'artNuevo': cleanArtNuevo,
         if (cleanMotivo.isNotEmpty) 'motivo': cleanMotivo,
         if (motr != null) 'motr': motr,
@@ -90,6 +97,52 @@ class OrdenesTrabajoApi {
     );
   }
 
+  Future<OrdenTrabajoCambioMermaContext> actualizarArticuloCambioMerma(
+    String iord, {
+    required int tipo,
+    required String artNuevo,
+    double? pvtaNuevo,
+  }) async {
+    final cleanArtNuevo = artNuevo.trim();
+    final res = await dio.post(
+      '/ordenes-trabajo/${Uri.encodeComponent(iord)}/cambio-merma/actualizar-articulo',
+      data: {
+        'tipo': tipo,
+        'artNuevo': cleanArtNuevo,
+        if (pvtaNuevo != null) 'pvtaNuevo': pvtaNuevo,
+      },
+    );
+    return OrdenTrabajoCambioMermaContext.fromJson(
+      Map<String, dynamic>.from(res.data as Map),
+    );
+  }
+
+  Future<OrdenTrabajoCambioMermaContext> autorizarCambioMerma(
+    String iord, {
+    required int tipo,
+  }) async {
+    final res = await dio.post(
+      '/ordenes-trabajo/${Uri.encodeComponent(iord)}/cambio-merma/autorizar',
+      data: {'tipo': tipo},
+    );
+    return OrdenTrabajoCambioMermaContext.fromJson(
+      Map<String, dynamic>.from(res.data as Map),
+    );
+  }
+
+  Future<OrdenTrabajoCambioMermaContext> retrabajoCambioMerma(
+    String iord, {
+    required int tipo,
+  }) async {
+    final res = await dio.post(
+      '/ordenes-trabajo/${Uri.encodeComponent(iord)}/cambio-merma/retrabajo',
+      data: {'tipo': tipo},
+    );
+    return OrdenTrabajoCambioMermaContext.fromJson(
+      Map<String, dynamic>.from(res.data as Map),
+    );
+  }
+
   Future<OrdenTrabajoActionResult> crearCambioMerma(
     String iord, {
     required int tipo,
@@ -97,10 +150,7 @@ class OrdenesTrabajoApi {
   }) async {
     final res = await dio.post(
       '/ordenes-trabajo/${Uri.encodeComponent(iord)}/cambio-merma/crear',
-      data: {
-        'tipo': tipo,
-        if (ctdCM != null) 'ctdCM': ctdCM,
-      },
+      data: {'tipo': tipo, if (ctdCM != null) 'ctdCM': ctdCM},
     );
     return _actionFrom(res);
   }
@@ -109,11 +159,13 @@ class OrdenesTrabajoApi {
     String iord, {
     int? labor,
     String? tipo,
+    String? hrEnt,
     String? comentarios,
     required List<Map<String, dynamic>> details,
   }) async {
     final cleanComments = (comentarios ?? '').trim();
     final cleanTipo = (tipo ?? '').trim().toUpperCase();
+    final cleanHrEnt = (hrEnt ?? '').trim();
     final payloadDetails = details
         .map(
           (line) => <String, dynamic>{
@@ -133,6 +185,7 @@ class OrdenesTrabajoApi {
       data: {
         if (labor != null) 'labor': labor,
         if (cleanTipo.isNotEmpty) 'tipo': cleanTipo,
+        if (cleanHrEnt.isNotEmpty) 'hrEnt': cleanHrEnt,
         'comentarios': cleanComments,
         'details': payloadDetails,
       },
@@ -500,11 +553,26 @@ class OrdenesTrabajoApi {
 
   Future<OrdenTrabajoActionResult> garantia(
     String iord, {
-    required String motivo,
+    String? motivo,
   }) async {
+    final motivoValue = (motivo ?? '').trim();
     final res = await dio.post(
       '/ordenes-trabajo/${Uri.encodeComponent(iord)}/garantia',
-      data: {'motivo': motivo.trim()},
+      data: {
+        if (motivoValue.isNotEmpty) 'motivo': motivoValue,
+      },
+    );
+    return _actionFrom(res);
+  }
+
+  Future<OrdenTrabajoActionResult> aplicarMermaCambio(
+    String iord, {
+    required int tipom,
+    required int motr,
+  }) async {
+    final res = await dio.post(
+      '/ordenes-trabajo/${Uri.encodeComponent(iord)}/aplicar-merma-cambio',
+      data: {'tipom': tipom, 'motr': motr},
     );
     return _actionFrom(res);
   }

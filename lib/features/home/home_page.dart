@@ -188,7 +188,6 @@ class _ModulesListStatefulState extends State<_ModulesListStateful> {
       ),
     );
   }
-
   List<HomeModule> _buildHrModulesForRole({
     required int roleId,
     required String searchTerm,
@@ -249,7 +248,6 @@ class _ModulesListStatefulState extends State<_ModulesListStateful> {
       return text.contains(needle);
     }).toList();
   }
-
 }
 
 class _SearchBar extends StatelessWidget {
@@ -422,7 +420,230 @@ class _ModuleRow extends StatelessWidget {
       'DAT_MA_PROV': '/proveedores',
       'SYS_DAT_MAE': '/masterdata',
     };
-    return routeByCode[moduloCode];
+    final directRoute = routeByCode[moduloCode];
+    if (directRoute != null) return directRoute;
+
+    if (moduloCode == 'DAT_CONT_CAPTUR' || moduloCode == 'DAT_CONT_CAPTURA') {
+      return '/inventarios/captura';
+    }
+    if (moduloCode == 'DAT_JAA_ALM') {
+      return '/inventarios';
+    }
+    if (moduloCode == 'DAT_JAA_CAT') {
+      return '/catalogo';
+    }
+    if (moduloCode == 'DAT_JAA_MB51') {
+      return '/mb51';
+    }
+    if (moduloCode == 'DAT_JAA_MB52') {
+      return '/mb52';
+    }
+    if (moduloCode == 'DAT_CTRL_CTAS' ||
+        moduloCode == 'DAT_CTRL_CUENTAS' ||
+        moduloCode == 'DAT_CONS_CTAS') {
+      return '/ctrl-ctas';
+    }
+    if (moduloCode == 'SYS_DAT_MAE') {
+      return '/masterdata';
+    }
+    if (moduloCode == 'DAT_JAO_ORD_ANULADAS' ||
+        moduloCode == 'DAT_JAO_ORD_ANULADO' ||
+        moduloCode == 'ORD_TRABAJO_ANULADAS' ||
+        moduloCode == 'ORD_TRABAJO_ANULADO' ||
+        moduloCode == 'DAT_JAO_ANULADAS') {
+      return '/taller/ordenes-trabajo/anulados';
+    }
+    if (moduloCode == 'DAT_JAO_ORD_ESTADO' ||
+        moduloCode == 'DAT_JAO_ORD_ESTADOS' ||
+        moduloCode == 'ORD_TRABAJO_ESTADO' ||
+        moduloCode == 'ORD_TRABAJO_ESTADOS') {
+      return '/taller/ordenes-trabajo/estado';
+    }
+    if (moduloCode == 'DAT_JAO_ORD_ENTREGADAS' ||
+        moduloCode == 'DAT_JAO_ORD_ENTREGADA_CLIENTE' ||
+        moduloCode == 'DAT_JAO_ORD_GARANTIA' ||
+        moduloCode == 'DAT_JAO_ORD_GARANTIAS' ||
+        moduloCode == 'ORD_TRABAJO_GARANTIA' ||
+        moduloCode == 'ORD_TRABAJO_GARANTIAS' ||
+        moduloCode == 'ORD_TRABAJO_ENTREGADAS' ||
+        moduloCode == 'ORD_TRABAJO_ENTREGADA_CLIENTE' ||
+        moduloCode == 'DAT_JAO_ENTREGADAS_CLIENTE') {
+      return '/taller/ordenes-trabajo/entregadas';
+    }
+    if (moduloCode == 'DAT_JAO_ORD' ||
+        moduloCode == 'DAT_JAO_ORDS' ||
+        moduloCode == 'DAT_JAO_TALLER' ||
+        moduloCode == 'DAT_JAO_BISEL' ||
+        moduloCode == 'ORDENES_TRABAJO' ||
+        moduloCode == 'ORD_TRABAJO') {
+      return '/taller/ordenes-trabajo';
+    }
+    if (moduloCode == 'DAT_JAO_ORD_ENVIAR') {
+      return '/taller/ordenes-trabajo/enviar';
+    }
+    if (moduloCode == 'DAT_JAO_ORD_ASIGNAR') {
+      return '/taller/ordenes-trabajo/asignar';
+    }
+    if (moduloCode == 'DAT_JAO_ORD_REGRESAR_TIENDA') {
+      return '/taller/ordenes-trabajo/regresar-tienda';
+    }
+    if (moduloCode == 'DAT_JAO_ORD_RECIBIR') {
+      return '/taller/ordenes-trabajo/recibir';
+    }
+    if (moduloCode == 'DAT_JAO_ORD_TRABAJO_TERMINADO' ||
+        moduloCode == 'DAT_JAO_ORD_TERMINADO' ||
+        moduloCode == 'ORD_TRABAJO_TERMINADO' ||
+        moduloCode == 'DAT_JAO_ORD_FINALIZAR') {
+      return '/taller/ordenes-trabajo/trabajo-terminado';
+    }
+    if (moduloCode == 'DAT_JAO_ORD_ENTREGAR') {
+      return '/taller/ordenes-trabajo/entregar';
+    }
+    if (moduloCode == 'PV_CAJAS') {
+      return '/punto-venta';
+    }
+    if (moduloCode == 'FACTURA_MTTOCLIENTE') {
+      return '/facturacion/mtto-clientes';
+    }
+    if (moduloCode == 'FACTURA' ||
+        moduloCode == 'FACTURACION' ||
+        moduloCode == 'PV_FACTURACION' ||
+        moduloCode == 'FACT_IOE') {
+      return '/facturacion';
+    }
+    if (moduloCode == 'FACTURA_VIEW') {
+      return '/facturacion-view';
+    }
+    if (moduloCode == 'REG_SINREQF') {
+      return '/facturacion-sreqf';
+    }
+    if (moduloCode == 'PV_PAGO_SERVICIOS' ||
+        moduloCode == 'PV_PAGOS_SERVICIOS' ||
+        moduloCode == 'DAT_PNL_PS' ||
+        moduloCode == 'PV_PNL_PS') {
+      return '/ps';
+    }
+    if (moduloCode == 'CAMBIO_FPGO' ||
+        moduloCode == 'CAMBIO_FORMA_PAGO' ||
+        moduloCode == 'PV_CTR_FORM_MOD' ||
+        moduloCode == 'PV_CTR_FORM_MOD_SVR' ||
+        moduloCode == 'FORM_MOD') {
+      return '/cambio-forma-pago/auth';
+    }
+    if (moduloCode == 'DAT_RET_PARCIAL' ||
+        moduloCode == 'RETIRO_PARCIAL' ||
+        moduloCode == 'PV_RETIROS' ||
+        moduloCode == 'PV_RETIRO_PARCIAL') {
+      return '/retiros';
+    }
+    if (moduloCode == 'DAT_FORM_ENTR_OPV' ||
+        moduloCode == 'DAT_RES_ENTRE_CAJ' ||
+        moduloCode == 'PV_ENTREGA_CG') {
+      return '/caja-general';
+    }
+    if (moduloCode == 'PV_ESTADO_CAJON' ||
+        moduloCode == 'PV_ESTADO_CAJON_OPV' ||
+        moduloCode == 'ESTADO_CAJON') {
+      return '/estado-cajon';
+    }
+    if (moduloCode == 'RELOJ_CHECADOR' ||
+        moduloCode == 'ATTENDANCE' ||
+        moduloCode == 'DAT_RELOJ_CHECADOR' ||
+        moduloCode == 'DAT_RELOJ') {
+      return '/reloj-checador/app';
+    }
+
+    final name = _normalize('${module.codigo} ${module.nombre}');
+    if (name.contains('captura') && name.contains('inventario')) {
+      return '/inventarios/captura';
+    }
+    if (name.contains('inventario') && name.contains('almacen')) {
+      return '/inventarios';
+    }
+    if (name.contains('mb51')) {
+      return '/mb51';
+    }
+    if (name.contains('mb52')) {
+      return '/mb52';
+    }
+    if ((name.contains('control') && name.contains('cuentas')) ||
+        (name.contains('consulta') && name.contains('credit')) ||
+        (name.contains('saldo') && name.contains('cuentas'))) {
+      return '/ctrl-ctas';
+    }
+    if (name.contains('pago') && name.contains('servicio')) {
+      return '/ps';
+    }
+    if (name.contains('orden') &&
+        name.contains('estado') &&
+        name.contains('trabajo')) {
+      return '/taller/ordenes-trabajo/estado';
+    }
+    if (name.contains('orden') &&
+        name.contains('anulad') &&
+        name.contains('trabajo')) {
+      return '/taller/ordenes-trabajo/anulados';
+    }
+    if (name.contains('orden') &&
+        name.contains('entregad') &&
+        name.contains('cliente') &&
+        name.contains('trabajo')) {
+      return '/taller/ordenes-trabajo/entregadas';
+    }
+    if (name.contains('orden') &&
+        name.contains('trabajo') &&
+        name.contains('taller')) {
+      return '/taller/ordenes-trabajo';
+    }
+    if (name.contains('factur')) {
+      if (name.contains('view') ||
+          name.contains('vista') ||
+          name.contains('consulta')) {
+        return '/facturacion-view';
+      }
+      return '/facturacion';
+    }
+    if (name.contains('reqf') && name.contains('folio')) {
+      return '/facturacion-sreqf';
+    }
+    if (name.contains('cambio') &&
+        name.contains('forma') &&
+        name.contains('pago')) {
+      return '/cambio-forma-pago/auth';
+    }
+    if (name.contains('retiro') &&
+        (name.contains('parcial') || name.contains('caja'))) {
+      return '/retiros';
+    }
+    if ((name.contains('entrega') && name.contains('caja')) ||
+        (name.contains('caja') && name.contains('general'))) {
+      return '/caja-general';
+    }
+    if (name.contains('estado') &&
+        name.contains('cajon') &&
+        (name.contains('opv') || name.contains('caja'))) {
+      return '/estado-cajon';
+    }
+    if (name.contains('reloj') &&
+        (name.contains('checador') ||
+            name.contains('asistencia') ||
+            name.contains('attendance'))) {
+      return '/reloj-checador/app';
+    }
+
+    return null;
+  }
+
+  String _normalize(String value) {
+    final lower = value.toLowerCase();
+    return lower
+        .replaceAll('á', 'a')
+        .replaceAll('é', 'e')
+        .replaceAll('í', 'i')
+        .replaceAll('ó', 'o')
+        .replaceAll('ú', 'u')
+        .replaceAll('ñ', 'n')
+        .replaceAll(RegExp(r'\s+'), ' ');
   }
 
   IconData _iconForModuleCode(String codeRaw) {

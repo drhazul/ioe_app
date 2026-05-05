@@ -26,6 +26,10 @@ Enlaces relacionados:
 - UI maestros usuarios (2026-03): el formulario permite controlar `FORZAR_CAMBIO_PASS` para exigir cambio de contraseña en el próximo acceso.
 - UI maestros usuarios (2026-03): el listado soporta visualización agrupada por sucursal o departamento y filtros por ambas dimensiones.
 - `/datmodulos` -> `MOD_FRONT` (`CODIGO`, `NOMBRE`, `DEPTO`, `ACTIVO`).
+- Datos Maestros / Módulos Front (2026-05-04): se quitó la entrada `Módulos` en `/#/masterdata`; el CRUD de `MOD_FRONT` se consume desde `/#/masterdata/access/mod-front` para evitar doble mantenimiento de pantallas.
+- Datos Maestros / Enrolamiento Front por usuario (2026-05-04): nuevo menú `/#/masterdata/access/enrolamiento-front-usr`; la carga de Home prioriza `USR_GRUPMOD_FRONT` por usuario y hace fallback a `ROL_GRUPMOD_FRONT`.
+- Datos Maestros / Enrolamiento Front por usuario (2026-05-04): el selector de usuario ahora permite filtrar por `Sucursal` y `Departamento` desde dropdowns dedicados.
+- Datos Maestros / Acceso por sucursal (2026-05-04): `/#/masterdata/access-reg-suc` incorpora filtros dropdown de `Sucursal (usuario)` y `Departamento` en la barra principal y en el popup de vinculación para acotar módulos front, usuarios y resultados de `USR_MOD_SUC`.
 - `/usr-mod-suc` -> `USR_MOD_SUC` (`MODULO`, `USUARIO`, `SUC`, `ACTIVO`).
 - `/cat-ctas` -> `DAT_CAT_CTAS` (`CTA`, `DCTA`, `RELACION`, `SUC`).
 - `/access/*` -> `MODULO`, `GRUP_MODULO`, `GRUPMOD_MODULO`, `ROL_GRUP_MODULO_PERM`,
@@ -104,5 +108,6 @@ Enlaces relacionados:
 - `/refdetalle` -> `REF_DETALLE`.
 - `/pv/refdetalle` -> `REF_DETALLE` (crear/asignar/eliminar referencias ligadas al folio).
 - `/dat-form` -> `DAT_FORM` (CRUD de catalogo de formas de pago con estado activo/inactivo).
+- `/ord-flujo-vis` -> `DAT_JAO_ORD_FLUJO_VIS` (CRUD de visualización por ROLL en ORD, filtros por `ROLL`/`ESTSEGU`, combos `ROL`/`DAT_EST_ORD`, `MODULO` bloqueado y `ORDEN` automático).
 - `/jrqdepa|jrqsubd|jrqclas|jrqscla|jrqscla2|jrqguia` ->
   `JRQ_DEPA`, `JRQ_SUBD`, `JRQ_CLAS`, `JRQ_SCLA`, `JRQ_SCLA2`, `JRQ_GUIA`.

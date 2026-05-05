@@ -19,17 +19,14 @@ class AccessRegSucModel {
       usuario: json['USUARIO'] as String,
       suc: json['SUC'] as String,
       activo: json['ACTIVO'] == true || json['ACTIVO'] == 1,
-      fcnr: json['FCNR'] != null ? DateTime.tryParse(json['FCNR'].toString()) : null,
+      fcnr: json['FCNR'] != null
+          ? DateTime.tryParse(json['FCNR'].toString())
+          : null,
     );
   }
 
   Map<String, dynamic> toPayload() {
-    return {
-      'MODULO': modulo,
-      'USUARIO': usuario,
-      'SUC': suc,
-      'ACTIVO': activo,
-    };
+    return {'MODULO': modulo, 'USUARIO': usuario, 'SUC': suc, 'ACTIVO': activo};
   }
 }
 
@@ -38,5 +35,23 @@ class AccessRegSucKey {
   final String usuario;
   final String suc;
 
-  const AccessRegSucKey({required this.modulo, required this.usuario, required this.suc});
+  const AccessRegSucKey({
+    required this.modulo,
+    required this.usuario,
+    required this.suc,
+  });
+}
+
+class AccessRegSucFilters {
+  final String? sucUsuario;
+  final String? depto;
+
+  const AccessRegSucFilters({this.sucUsuario, this.depto});
+
+  AccessRegSucFilters copyWith({String? sucUsuario, String? depto}) {
+    return AccessRegSucFilters(
+      sucUsuario: sucUsuario ?? this.sucUsuario,
+      depto: depto ?? this.depto,
+    );
+  }
 }

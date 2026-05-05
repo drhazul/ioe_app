@@ -11,11 +11,13 @@ Enlaces relacionados:
 
 - Ruta:
 - `/taller/ordenes-trabajo`
+- `/taller/ordenes-trabajo/estado`
 - Archivos frontend:
 - `lib/features/modulos/taller/ordenes_trabajo/ordenes_trabajo_page.dart`
 - `lib/features/modulos/taller/ordenes_trabajo/ordenes_trabajo_api.dart`
 - `lib/features/modulos/taller/ordenes_trabajo/ordenes_trabajo_models.dart`
 - `lib/features/modulos/taller/ordenes_trabajo/ordenes_trabajo_providers.dart`
+- `lib/features/modulos/taller/etiqueta/ticket_ords_legacy_layout.dart`
 - Integración de navegación:
 - `lib/core/router.dart` registra `/taller/ordenes-trabajo`.
 - `lib/features/home/home_page.dart` resuelve códigos de módulo de taller (`DAT_JAO_ORD` y compatibles) hacia la nueva ruta.
@@ -26,6 +28,8 @@ Enlaces relacionados:
 - `GET /ordenes-trabajo/:iord/cambio-merma/context?tipo=1|2`
 - `POST /ordenes-trabajo/:iord/cambio-merma/preparar`
 - `POST /ordenes-trabajo/:iord/cambio-merma/solicitar-autorizacion`
+- `POST /ordenes-trabajo/:iord/cambio-merma/autorizar`
+- `POST /ordenes-trabajo/:iord/cambio-merma/retrabajo`
 - `POST /ordenes-trabajo/:iord/cambio-merma/crear`
 - `POST /ordenes-trabajo/:iord/autorizar|enviar|recibir|entregar|garantia|cambio-material|merma`
 - `POST /ordenes-trabajo/enviar/validar`
@@ -60,7 +64,7 @@ Enlaces relacionados:
 - panel ORD UI (2026-03-30): las acciones del popup `Opciones de Trabajo` conservan la selección local mientras las ORDs sigan visibles después del refresh.
 - panel ORD UI (2026-03-30): el modal de detalle y la etiqueta legado fuerzan el orden `OD`, `OI`, `ADD` en la matriz `JOB/ESF/CIL/EJE`; `JOB` queda sin foco/edición y el bloque completo se renderiza con tipografía reforzada en negritas.
 - panel ORD UI (2026-03-30): el modal `DETALLE DE ORDEN DE TRABAJO` incorpora botón `Imprimir etiqueta` para roles con permiso `IMPRIMIR_ETIQUETA`.
-- panel ORD UI (2026-04-05): la acción `Asignar` (modal de relación y asignación sobre selección en grilla) toma colaboradores según la sucursal seleccionada en el filtro del panel cuando el usuario es `admin`; si hay ORDs seleccionadas de una sola sucursal, se prioriza esa sucursal para cargar el catálogo.
+- panel ORD UI (2026-04-21): la acción `Asignar` (modal de relación y asignación sobre selección en grilla) toma colaboradores según `DAT_LAB.SUC` del laboratorio asignado a cada ORD; no permite mezclar ORDs cuyos laboratorios pertenezcan a sucursales distintas.
 - panel ORD incidencia (2026-04-05): la confirmación de `Regresar incidencia` vuelve a operar sin error SQL de argumentos tras el ajuste del SP backend `sp_ordenes_trabajo_regresar_incidencia_lote`; la UI mantiene el mismo contrato API.
 - panel ORD UI/Home (2026-03-24): `HomePage` agrega accesos directos a `Enviar`, `Asignar`, `Regresar a tienda`, `Recibir` y `Entregar`; cada tarjeta solo se muestra cuando `GET /ordenes-trabajo` expone el permiso correspondiente en `allowedActions`.
 - panel ORD UI/Home (2026-03-24): `router.dart` registra rutas directas `/taller/ordenes-trabajo/enviar|asignar|regresar-tienda|recibir|entregar` hacia páginas adicionales standalone (`ordenes_trabajo_action_page.dart`) que no muestran el panel principal ni redirigen a él.
@@ -79,18 +83,35 @@ Enlaces relacionados:
 - `Scan recibir` valida estado previo `ESTSEGU=5` y confirma transición por lote a `ESTSEGU=7`.
 - `Scan entregar` valida estado previo `ESTSEGU=10` y confirma transición por lote a `ESTSEGU=11`.
 - el flujo de recepción elimina selección de destino (`TALLER/ANALISTA`) y unifica operación desde `Scan recibir`.
-- `Asignar` usa modal equivalente a `Enviar`: valida `ESTSEGU=7`, permite seleccionar colaborador (`PV_OPV.IDOPV`, etiqueta `NOMB+APELM+APELP`, `NIVEL=41`, misma sucursal) y confirma cambio a `ESTSEGU=8`.
+- `Asignar` usa modal equivalente a `Enviar`: valida `ESTSEGU=7`, exige laboratorio asignado resoluble contra el catálogo del panel, permite seleccionar colaborador (`PV_OPV.IDOPV`, etiqueta `NOMB+APELM+APELP`, `NIVEL=41`) de la misma `DAT_LAB.SUC` del laboratorio y confirma cambio a `ESTSEGU=8`.
 - `Trabajo terminado` usa modal equivalente: valida `ESTSEGU=8` y confirma cambio a `ESTSEGU=9`.
 - `Regresar incidencia` usa modal equivalente: valida `ESTSEGU=8` con colaborador asignado, obliga seleccionar motivo desde `DAT_ORD_TMOV` y confirma cambio a `ESTSEGU=9` (pendiente recibir en analista), persistiendo `PV_CTR_ORDS.TIPOM`.
 - `Regresar a tienda` usa modal equivalente: valida `ESTSEGU=9` y confirma recepción en tienda; mapeo fijo por `TIPOM`: `1 (CAMBIO DE ARTICULO) -> 9.1`, `2 (MERMA DE ART Y CAMBIO) -> 9.2`, sin `TIPOM` válido -> `10`.
 - `Asignar laboratorio` permite selección masiva en grilla para actualizar `LABOR` sobre ORDs de la misma sucursal.
 - la columna `Asignado` del panel muestra el nombre legible del colaborador (`NOMB + APELM + APELP`) en vez del `IDOPV`.
+- la columna `OPV` ahora muestra `USUARIO.NOMBRE`; si no existe relación válida, se conserva el valor original como fallback.
+- los filtros quedan persistidos por panel y el `copyWith` del filtro ya permite limpiar criterios puntuales al volver un combo a `Todas`.
+- el módulo de consulta `/taller/ordenes-trabajo/estado` es solo lectura y filtra `ESTSEGU` con el catálogo server-side.
+- el detalle incorpora `HR_ENT` editable en formato `HH:MM` (sin time picker) y en modo `estado`/`anulados` queda solo lectura.
+- la etiqueta agrega `FCNS`, aumenta tipografía de cliente y deja más padding alrededor del QR.
 - `Cambio material` y `Merma` ya no viven en el toolbar del panel operativo: se muestran dentro del modal de detalle únicamente cuando la ORD está en flujo `9.1/9.2` y según `TIPOM` (`1` muestra `Cambio material`, `2` muestra `Merma`).
 - `Cambio material/Merma` (2026-04-08): ambos botones abren modal en dos zonas con distribución obligatoria `Resumen ORD original` (izquierda) y `Nueva ORD (captura)` (derecha), usando contexto enriquecido (`DESCFLUJO`, `DESAUTO`, `PVTAT_BASE`, `CTD_C_M`).
-- `Cambio material/Merma` (2026-04-08): el flujo se separa en `Editar nueva ORD` (preparar/staging, habilitado con `selCtrlOrd=NULL/0/13`, fija `selCtrlOrd=13`) -> `Solicitar autorización` (`selCtrlOrd=14` o `16` por auto-autorización) -> `Crear nueva ORD` (solo visible en `selCtrlOrd=16`).
+- `Cambio material/Merma` (2026-04-21): el flujo queda en `Crear Nueva ORD` (staging inicial, fija `selCtrlOrd=13`) -> `Solicitar autorización` (`selCtrlOrd=14`) -> `Retrabajo` (`selCtrlOrd=15`, solo inventario/admin) -> `Autorizar` (crea ORD final, ejecuta SP, registra MB51/diferencia y anula la original).
 - `Cambio material/Merma` (2026-04-08): la captura se bloquea cuando `selCtrlOrd=14`; los cálculos se muestran como `Subtotal/IVA/Total` + `Diferencia económica`, y `CTD_C_M` se restringe visualmente a `1` o `0.5`.
+- `Cambio material/Merma` (2026-04-21): `Autorizar` y `Retrabajo` solo aparecen para `admin`, `ANALISTA_INV` e `INVJEF`; tras autorizar el modal queda solo lectura con impresión de formato y saldo.
+- `Cambio material/Merma` (2026-04-22): la tarjeta `Nueva ORD (captura)` vuelve a mostrar `Diferencia` y una leyenda de `Saldo a favor del cliente` / `Saldo en contra del cliente` / `Sin diferencia` de acuerdo al artículo seleccionado.
+- `Panel ORDs` (2026-04-21): `ANALISTA_INV` e `INVJEF` solo ven la cola interna pendiente de revisión en `selCtrlOrd=14`.
 - `Cambio material/Merma` (2026-04-09): cálculo económico homologado a pago de cotizaciones usando configuración IVA de sucursal (`DAT_SUC.IVA_INTEGRADO`) y fiscalidad del folio origen (`REQF/RQFAC`, `AUT/ORIGEN_AUT`); no se infiere `tipotran` por el texto de `IDFOL`.
-- `Cambio material` (2026-04-08): mantiene `Buscar Articulo para cambiar` reutilizando `DAT_ART`, con un solo artículo activo y opción `Limpiar artículo`.
-- `Merma` (2026-04-08): conserva `Crear nueva ORD derivada` en captura y usa el mismo semáforo/autorización que cambio material.
+- `Cambio material/Merma` (2026-04-19): la captura temporal sigue permitiendo recaptura en `selCtrlOrd=15` antes de volver a solicitar autorización.
+- `Cambio material/Merma` (2026-04-19): se agrega botón `Crear Nueva ORD` para crear staging de preparación; sin staging no se muestran campos/botones de captura y autorización.
+- `Cambio material/Merma` (2026-04-19): el costo de la nueva ORD en captura usa el mismo `PVTA` de la ORD original para evitar diferencias de precio.
+- `Cambio material` (2026-04-21): mantiene `Buscar Articulo para cambiar` reutilizando el panel de artículos de cotizaciones; al elegir artículo actualiza staging y recalcula diferencia/subtotal/iva/total.
+- `Merma` (2026-04-21): ya no usa checkbox `Crear nueva ORD derivada`; el proceso siempre genera nueva ORD en la autorización final.
 - `Garantia` deja de mostrarse en el panel operativo y queda reservada para el panel de entregadas con estado `11`.
-
+- `Garantía` (2026-04-29): el panel de entregadas/garantía queda con solo `Ver detalle` para `admin` y `JEF_TALLER`; dentro del detalle se conserva edición de comentario (`Guardar cambios`) y la acción `Garantía` confirma transición `11 -> 9.3`.
+- flujo `9.3` (2026-04-29): aparece botón `Aplicar merma o cambio` solo cuando `ESTSEGU=9.3`; abre popup para seleccionar `TIPOM` (`1|2`) y `MOTR` (`DAT_ORD_MOTM`) y luego continúa el flujo ya existente de `9.1/9.2`.
+- Recepción laboratorio externo (2026-05-01): `Recibir en taller` habilita a `ANALISTA_ORD/ANALISTA` solo para ORDs de laboratorio externo; la recepción externa cambia `ESTSEGU 5 -> 10` y la recepción interna mantiene `5 -> 7`.
+- Envío laboratorio externo (2026-05-03): `Enviar a taller` manda ORDs con `DAT_LAB.UBILAB='EXTERNO'` a flujo `9` (pendiente recibir en analista), manteniendo `3 -> 5` para laboratorio interno.
+- Recepción laboratorio externo (2026-05-03): `Recibir en taller` para `ANALISTA_ORD/ANALISTA` valida estatus `9` en externo y aplica `9 -> 10`; en interno conserva validación `5` y transición `5 -> 7`.
+- Matriz persistente de visibilidad (2026-05-03): backend controla flujos visibles por rol/panel desde `dbo.DAT_JAO_ORD_FLUJO_VIS` (módulo `DAT_JAO_ORD`), manteniendo excepción de flujo `9` solo para laboratorio externo.
+- Cambio material / Merma (2026-04-22): la nueva ORD derivada debe quedar sin colaborador asignado y la UI/PDF deben mostrar la diferencia contable real basada en `CTD_C_M`/importe sellado, no la diferencia por `CTD` completa.

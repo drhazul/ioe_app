@@ -35,6 +35,11 @@ class AccessPage extends StatelessWidget {
             title: const Text('Enrolamiento Rol → Grupo Front'),
             onTap: () => context.go('/masterdata/access/enrolamiento-front'),
           ),
+          ListTile(
+            title: const Text('Enrolamiento Usuario → Grupo Front'),
+            onTap: () =>
+                context.go('/masterdata/access/enrolamiento-front-usr'),
+          ),
         ],
       ),
     );

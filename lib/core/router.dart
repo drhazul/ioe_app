@@ -14,9 +14,9 @@ import '../features/masterdata/access/access_page.dart';
 import '../features/masterdata/access/modulos_backend_page.dart';
 import '../features/masterdata/access/grupos_backend_page.dart';
 import '../features/masterdata/access/permisos_rol_backend_page.dart';
-import '../features/masterdata/access/mod_front_page.dart';
 import '../features/masterdata/access/grupos_front_page.dart';
 import '../features/masterdata/access/enrolamiento_front_page.dart';
+import '../features/masterdata/access/enrolamiento_front_usuario_page.dart';
 import '../features/masterdata/roles/roles_page.dart';
 import '../features/masterdata/roles/role_form_page.dart';
 import '../features/masterdata/deptos/deptos_page.dart';
@@ -104,11 +104,27 @@ final routerProvider = Provider<GoRouter>((ref) {
       path: 'permisos-rol-back',
       builder: (c, s) => const PermisosRolBackendPage(),
     ),
-    GoRoute(path: 'mod-front', builder: (c, s) => const ModFrontPage()),
+    GoRoute(
+      path: 'mod-front',
+      builder: (c, s) =>
+          const DatmodulosPage(baseRoute: '/masterdata/access/mod-front'),
+      routes: [
+        GoRoute(path: 'new', builder: (c, s) => const DatModuloFormPage()),
+        GoRoute(
+          path: ':modulo',
+          builder: (c, s) =>
+              DatModuloFormPage(modulo: s.pathParameters['modulo']),
+        ),
+      ],
+    ),
     GoRoute(path: 'grupos-front', builder: (c, s) => const GruposFrontPage()),
     GoRoute(
       path: 'enrolamiento-front',
       builder: (c, s) => const EnrolamientoFrontPage(),
+    ),
+    GoRoute(
+      path: 'enrolamiento-front-usr',
+      builder: (c, s) => const EnrolamientoFrontUsuarioPage(),
     ),
   ];
 
@@ -739,6 +755,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
+            path: 'taller/ordenes-trabajo/trabajo-terminado',
+            builder: (c, s) => const OrdenesTrabajoActionPage(
+              action: OrdenesTrabajoInitialAction.trabajoTerminado,
+            ),
+          ),
+          GoRoute(
             path: 'taller/ordenes-trabajo/entregar',
             builder: (c, s) => const OrdenesTrabajoActionPage(
               action: OrdenesTrabajoInitialAction.entregar,
@@ -748,6 +770,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'taller/ordenes-trabajo/anulados',
             builder: (c, s) => const OrdenesTrabajoPage(
               panelMode: OrdenesTrabajoPanelMode.anulados,
+            ),
+          ),
+          GoRoute(
+            path: 'taller/ordenes-trabajo/estado',
+            builder: (c, s) => const OrdenesTrabajoPage(
+              panelMode: OrdenesTrabajoPanelMode.estado,
             ),
           ),
           GoRoute(

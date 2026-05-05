@@ -1,6 +1,7 @@
 ## Taller: Ordenes de Trabajo (implementado 2026-03-22)
 - Ruta UI:
 - `/taller/ordenes-trabajo`.
+- `/taller/ordenes-trabajo/estado` (consulta solo lectura por estado de ORD).
 - Archivos frontend:
 - `lib/features/modulos/taller/ordenes_trabajo/ordenes_trabajo_page.dart`
 - `lib/features/modulos/taller/ordenes_trabajo/ordenes_trabajo_api.dart`
@@ -8,10 +9,12 @@
 - `lib/features/modulos/taller/ordenes_trabajo/ordenes_trabajo_providers.dart`
 - Integración en router/home:
 - `lib/core/router.dart` registra la ruta `/taller/ordenes-trabajo`.
+- `lib/core/router.dart` agrega `/taller/ordenes-trabajo/estado`; `home_page.dart` resuelve `DAT_JAO_ORD_ESTADO`.
 - `lib/features/home/home_page.dart` resuelve módulos de taller (`DAT_JAO_ORD`, `DAT_JAO_ORDS`, `DAT_JAO_TALLER`, `DAT_JAO_BISEL`) hacia la ruta.
 - Endpoints consumidos:
 - `GET /ordenes-trabajo`, `GET /ordenes-trabajo/:iord`, `GET /ordenes-trabajo/:iord/detalle`.
-- `GET /ordenes-trabajo/:iord/cambio-merma/context?tipo=1|2`, `POST /ordenes-trabajo/:iord/cambio-merma/preparar`, `POST /ordenes-trabajo/:iord/cambio-merma/solicitar-autorizacion`, `POST /ordenes-trabajo/:iord/cambio-merma/crear`.
+- `GET /ordenes-trabajo/:iord/cambio-merma/context?tipo=1|2`, `POST /ordenes-trabajo/:iord/cambio-merma/preparar`, `POST /ordenes-trabajo/:iord/cambio-merma/solicitar-autorizacion`, `POST /ordenes-trabajo/:iord/cambio-merma/autorizar`
+- `POST /ordenes-trabajo/:iord/cambio-merma/retrabajo`, `POST /ordenes-trabajo/:iord/cambio-merma/crear`.
 - `POST /ordenes-trabajo/:iord/autorizar|enviar|recibir|entregar|garantia|cambio-material|merma`.
 - `POST /ordenes-trabajo/enviar/validar`, `POST /ordenes-trabajo/enviar/lote`.
 - `GET /ordenes-trabajo/asignar/colaboradores`, `POST /ordenes-trabajo/asignar/validar`, `POST /ordenes-trabajo/asignar/lote`.
@@ -35,7 +38,7 @@
 - panel ORD UI (2026-03-30): las acciones ejecutadas desde `Opciones de Trabajo` ya no limpian la selección local antes del refresh; la selección se conserva para renglones que sigan visibles después de recargar.
 - panel ORD UI (2026-03-30): el modal `DETALLE DE ORDEN DE TRABAJO` y la impresión de etiqueta fuerzan el orden `OD`, `OI`, `ADD` en `JOB/ESF/CIL/EJE`; `JOB` queda bloqueado sin foco/edición, `ESF/CIL/EJE` mantienen navegación por campos y el bloque se muestra en negritas con fuente mayor.
 - panel ORD UI (2026-03-30): el modal `DETALLE DE ORDEN DE TRABAJO` agrega botón `Imprimir etiqueta` cuando el rol tiene permiso `IMPRIMIR_ETIQUETA`.
-- panel ORD UI (2026-04-05): en `Asignar a colaborador`, cuando el usuario es `admin`, la carga de colaboradores usa primero la sucursal seleccionada en el filtro del panel (y no la sucursal base del token); si hay selección en grilla, se prioriza la sucursal de esas ORDs.
+- panel ORD UI (2026-04-21): en `Asignar a colaborador`, la carga de colaboradores usa `DAT_LAB.SUC` del laboratorio asignado a la ORD; la selección en grilla y el modal de relación deben bloquear combinaciones de ORDs con laboratorios en sucursales distintas.
 - panel ORD incidencia (2026-04-05): `Regresar incidencia` corrige error backend de argumentos (`sp_ordenes_trabajo_regresar_incidencia_lote`) y mantiene contrato frontend con motivo `tipom`.
 - Home ORDs (2026-03-24): `home_page.dart` agrega accesos directos a `Enviar`, `Asignar`, `Regresar a tienda`, `Recibir` y `Entregar`; se muestran solo cuando `GET /ordenes-trabajo` devuelve el permiso correspondiente en `allowedActions`.
 - Home ORDs (2026-03-24): `router.dart` registra `/taller/ordenes-trabajo/enviar|asignar|regresar-tienda|recibir|entregar` como páginas standalone (`ordenes_trabajo_action_page.dart`) para operación directa sin mostrar el panel principal ni navegar hacia él.
@@ -54,16 +57,33 @@
 - `Scan recibir` valida estatus previo `5 (ENTREGADA A MAQ O BISEL)` y cambia a `7 (RECIBIDA A TALLER)`.
 - `Scan entregar` valida estatus previo `10 (REGRESADO A TIENDA)` y cambia a `11 (ENTREGADA A CLIENTE)`.
 - se unifica recepción eliminando selección de destino en UI; el concepto de recibo se concentra en `Scan recibir`.
-- botón `Asignar` replica la mecánica modal de `Enviar`; valida estatus previo `7`, permite seleccionar colaborador (`PV_OPV.IDOPV` con etiqueta `NOMB+APELM+APELP`, `NIVEL=41`, misma `SUC`) y confirma cambio masivo a `ESTSEGU=8`.
+- botón `Asignar` replica la mecánica modal de `Enviar`; valida estatus previo `7`, exige laboratorio asignado válido, permite seleccionar colaborador (`PV_OPV.IDOPV` con etiqueta `NOMB+APELM+APELP`, `NIVEL=41`) de la misma `DAT_LAB.SUC` del laboratorio y confirma cambio masivo a `ESTSEGU=8`.
 - botón `Trabajo terminado` replica la mecánica modal; valida estatus previo `8` y confirma cambio masivo a `ESTSEGU=9`.
 - botón `Regresar incidencia` replica la mecánica modal; valida estatus previo `8` con colaborador asignado, obliga seleccionar motivo desde `DAT_ORD_TMOV` y persiste `PV_CTR_ORDS.TIPOM` al confirmar cambio masivo a `ESTSEGU=9`.
 - botón `Regresar a tienda` replica la mecánica modal; valida estatus previo `9` y confirma recepción en tienda con mapeo fijo por `TIPOM`: `1 -> ESTSEGU=9.1`, `2 -> ESTSEGU=9.2`, sin `TIPOM` válido -> `ESTSEGU=10`.
 - botón `Asignar laboratorio` opera en lote sobre ORDs seleccionadas para asignar `LABOR` desde catálogo `DAT_LAB` (misma sucursal).
 - columna `Asignado` del panel muestra el label del colaborador (`PV_OPV.NOMB + APELM + APELP`) en lugar del `IDOPV` crudo.
+- columna `OPV` del panel muestra `USUARIO.NOMBRE` y mantiene fallback al valor crudo solo si no existe catálogo relacionado.
+- el filtro aplicado persiste por `panelMode`; cambiar un dropdown a `Todas` limpia realmente ese criterio sin obligar a `Limpiar filtros`.
+- nuevo panel `estado`: sin acciones mutables, usa dropdown `ESTSEGU` con catálogo del backend y reemplaza funcionalmente a los módulos legacy de `anuladas`/`entregadas` en el home.
+- el detalle permite editar `HR_ENT` con máscara `HH:MM` cuando el rol puede editar; en panel `estado` el modal es solo consulta.
+- la etiqueta legacy muestra `FCNS` junto a `FCNTE/HR_ENT`, cliente en tipografía reforzada y QR con mayor separación lateral.
 - los botones `Cambio material` y `Merma` se mueven al modal `DETALLE DE ORDEN DE TRABAJO`; solo aparecen cuando la ORD está en flujo `9.1` y se muestra el botón correspondiente según `TIPOM` (`1=CAMBIO DE ARTICULO`, `2=MERMA DE ART Y CAMBIO`).
 - cambio/merma UI (2026-04-08): el modal invierte visualización (izquierda `Resumen ORD original`, derecha `Nueva ORD`) y consume contexto enriquecido (`DESCFLUJO`, `DESAUTO`, `PVTAT_BASE`, `CTD_C_M`).
-- cambio/merma UI (2026-04-08): flujo interno por `selCtrlOrd` (`NULL/0/13/15` editable, `14` bloqueado, `16` habilita `Crear nueva ORD`) con pasos separados `Editar nueva ORD -> Solicitar autorización -> Crear nueva ORD`.
+- cambio/merma UI (2026-04-21): flujo interno por `selCtrlOrd` (`NULL/0/13/15` editable, `14` pendiente revisión) con pasos `Crear Nueva ORD -> Solicitar autorización -> Retrabajo (opcional) -> Autorizar`; `Autorizar` crea la ORD final, registra MB51/diferencia y anula la original.
 - cambio/merma UI (2026-04-08): la captura usa `CTD_C_M` restringido a `1|0.5`, muestra `Subtotal/IVA/Total` + `Diferencia económica`, y mantiene `Buscar Articulo para cambiar` reutilizando `DAT_ART`.
 - cambio/merma UI (2026-04-09): el cálculo mostrado depende de `DAT_SUC.IVA_INTEGRADO` + fiscalidad/tipo del folio origen (`REQF/RQFAC`, `AUT/ORIGEN_AUT`), sin inferir `tipotran` por el texto de `IDFOL`.
+- cambio/merma UI (2026-04-19): la captura temporal sigue permitiendo recaptura/reenvío cuando el flujo regresa a `selCtrlOrd=15`.
+- cambio/merma UI (2026-04-19): nuevo botón `Crear Nueva ORD` inserta el registro temporal; sin staging (`PV_ORD_CAMBIO_MERMA_TMP`) no se visualizan campos ni botones de captura/autorización.
+- cambio/merma UI (2026-04-19): `PVTA` de la nueva ORD en captura se mantiene igual al costo base de la ORD original.
+- cambio/merma UI (2026-04-21): `Autorizar` y `Retrabajo` solo son visibles para `admin`, `ANALISTA_INV` e `INVJEF`; `Solicitar autorización` deja siempre el caso en `selCtrlOrd=14`, y tras autorizar el modal queda solo lectura con impresión de formato/saldo.
+- cambio/merma UI (2026-04-22): en la sección `Nueva ORD` siempre mostrar `Diferencia` y el texto de saldo (`a favor`, `en contra` o `sin diferencia`) usando el cálculo del contexto actual.
+- panel ORDs (2026-04-21): `ANALISTA_INV` e `INVJEF` solo ven registros en cola de revisión interna (`selCtrlOrd=14`).
 - el botón `Garantia` deja de mostrarse en el panel operativo; queda reservado para el panel de entregadas (`DAT_JAO_ORD_ENTREGADAS`, estado `11`).
-
+- garantía ORD (2026-04-29): en panel `entregadas` solo queda `Ver detalle` (sin botones mutables en toolbar) y con acceso solo `admin`/`JEF_TALLER`; dentro del detalle se habilita `Garantía` para confirmar `11 -> 9.3`, junto con `Cerrar` y `Guardar cambios` (comentario editable).
+- flujo 9.3 (2026-04-29): aparece botón `Aplicar merma o cambio` únicamente cuando `ESTSEGU=9.3`; abre popup con `TIPOM` (`1=CAMBIO DE ARTICULO`, `2=MERMA DE ART Y CAMBIO`) y `MOTR` (`DAT_ORD_MOTM`) para enrutar a `9.1/9.2` y seguir el proceso existente `Crear Nueva ORD -> Solicitar autorización -> Retrabajo (opcional) -> Autorizar`.
+- recepción laboratorio externo (2026-05-01): `Recibir en taller` permite `ANALISTA_ORD/ANALISTA` únicamente sobre ORDs de laboratorio externo; en externo la transición es `5 -> 10` (pendiente entrega cliente) y en laboratorio interno se mantiene `5 -> 7`.
+- envío laboratorio externo (2026-05-03): `Enviar a taller` envía ORDs con `DAT_LAB.UBILAB='EXTERNO'` a flujo `9` (pendiente recibir en analista); laboratorio interno conserva `3 -> 5`.
+- recepción laboratorio externo (2026-05-03): `Recibir en taller` para `ANALISTA_ORD/ANALISTA` valida flujo `9` externo y confirma `9 -> 10`; recepción interna conserva validación `5` y transición `5 -> 7`.
+- matriz persistente de visibilidad (2026-05-03): visibilidad por flujo/rol se toma del backend (`dbo.DAT_JAO_ORD_FLUJO_VIS`, módulo `DAT_JAO_ORD`), con excepción de flujo `9` solo cuando laboratorio es externo.
+- Cambio material / Merma (2026-04-22): la nueva ORD derivada debe quedar sin colaborador asignado y la UI/PDF deben mostrar la diferencia contable real basada en `CTD_C_M`/importe sellado, no la diferencia por `CTD` completa.

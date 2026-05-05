@@ -1,5 +1,6 @@
 enum OrdenesTrabajoPanelMode {
   operativo('operativo'),
+  estado('estado'),
   anulados('anulados'),
   entregadas('entregadas');
 
@@ -8,6 +9,7 @@ enum OrdenesTrabajoPanelMode {
 
   static OrdenesTrabajoPanelMode fromApi(String? value) {
     final raw = (value ?? '').trim().toLowerCase();
+    if (raw == estado.apiValue) return estado;
     if (raw == anulados.apiValue) return anulados;
     if (raw == entregadas.apiValue) return entregadas;
     return operativo;
@@ -17,6 +19,7 @@ enum OrdenesTrabajoPanelMode {
 enum OrdenesTrabajoInitialAction {
   enviar('enviar'),
   asignar('asignar'),
+  trabajoTerminado('trabajo-terminado'),
   regresarTienda('regresar-tienda'),
   recibir('recibir'),
   entregar('entregar');
@@ -27,6 +30,8 @@ enum OrdenesTrabajoInitialAction {
 }
 
 class OrdenesTrabajoFilter {
+  static const Object _unset = Object();
+
   const OrdenesTrabajoFilter({
     this.iord,
     this.idfol,
@@ -68,43 +73,41 @@ class OrdenesTrabajoFilter {
   final int pageSize;
 
   OrdenesTrabajoFilter copyWith({
-    String? iord,
-    String? idfol,
-    String? client,
-    String? art,
-    String? tipo,
-    String? labor,
-    String? estatus,
-    String? estsegu,
-    DateTime? fecIni,
-    DateTime? fecFin,
-    bool clearFecIni = false,
-    bool clearFecFin = false,
-    String? asign,
-    String? tipom,
-    String? motr,
-    String? suc,
-    String? search,
+    Object? iord = _unset,
+    Object? idfol = _unset,
+    Object? client = _unset,
+    Object? art = _unset,
+    Object? tipo = _unset,
+    Object? labor = _unset,
+    Object? estatus = _unset,
+    Object? estsegu = _unset,
+    Object? fecIni = _unset,
+    Object? fecFin = _unset,
+    Object? asign = _unset,
+    Object? tipom = _unset,
+    Object? motr = _unset,
+    Object? suc = _unset,
+    Object? search = _unset,
     OrdenesTrabajoPanelMode? panelMode,
     int? page,
     int? pageSize,
   }) {
     return OrdenesTrabajoFilter(
-      iord: iord ?? this.iord,
-      idfol: idfol ?? this.idfol,
-      client: client ?? this.client,
-      art: art ?? this.art,
-      tipo: tipo ?? this.tipo,
-      labor: labor ?? this.labor,
-      estatus: estatus ?? this.estatus,
-      estsegu: estsegu ?? this.estsegu,
-      fecIni: clearFecIni ? null : (fecIni ?? this.fecIni),
-      fecFin: clearFecFin ? null : (fecFin ?? this.fecFin),
-      asign: asign ?? this.asign,
-      tipom: tipom ?? this.tipom,
-      motr: motr ?? this.motr,
-      suc: suc ?? this.suc,
-      search: search ?? this.search,
+      iord: identical(iord, _unset) ? this.iord : iord as String?,
+      idfol: identical(idfol, _unset) ? this.idfol : idfol as String?,
+      client: identical(client, _unset) ? this.client : client as String?,
+      art: identical(art, _unset) ? this.art : art as String?,
+      tipo: identical(tipo, _unset) ? this.tipo : tipo as String?,
+      labor: identical(labor, _unset) ? this.labor : labor as String?,
+      estatus: identical(estatus, _unset) ? this.estatus : estatus as String?,
+      estsegu: identical(estsegu, _unset) ? this.estsegu : estsegu as String?,
+      fecIni: identical(fecIni, _unset) ? this.fecIni : fecIni as DateTime?,
+      fecFin: identical(fecFin, _unset) ? this.fecFin : fecFin as DateTime?,
+      asign: identical(asign, _unset) ? this.asign : asign as String?,
+      tipom: identical(tipom, _unset) ? this.tipom : tipom as String?,
+      motr: identical(motr, _unset) ? this.motr : motr as String?,
+      suc: identical(suc, _unset) ? this.suc : suc as String?,
+      search: identical(search, _unset) ? this.search : search as String?,
       panelMode: panelMode ?? this.panelMode,
       page: page ?? this.page,
       pageSize: pageSize ?? this.pageSize,
@@ -306,12 +309,14 @@ class OrdenTrabajoLaboratorioOption {
     required this.lab,
     required this.tipoLab,
     required this.suc,
+    required this.labSuc,
   });
 
   final int id;
   final String lab;
   final String tipoLab;
   final String suc;
+  final String labSuc;
 
   factory OrdenTrabajoLaboratorioOption.fromJson(Map<String, dynamic> json) {
     return OrdenTrabajoLaboratorioOption(
@@ -319,6 +324,7 @@ class OrdenTrabajoLaboratorioOption {
       lab: _toText(json['lab']) ?? '',
       tipoLab: _toText(json['tipoLab']) ?? '',
       suc: _toText(json['suc']) ?? '',
+      labSuc: _toText(json['labSuc']) ?? _toText(json['suc']) ?? '',
     );
   }
 }
@@ -331,6 +337,7 @@ class OrdenTrabajoItem {
     required this.art,
     required this.descArt,
     required this.tipo,
+    required this.opv,
     required this.clien,
     required this.ncliente,
     required this.ctd,
@@ -352,6 +359,7 @@ class OrdenTrabajoItem {
   final String art;
   final String descArt;
   final String tipo;
+  final String opv;
   final String clien;
   final String ncliente;
   final double ctd;
@@ -369,6 +377,11 @@ class OrdenTrabajoItem {
   factory OrdenTrabajoItem.fromJson(Map<String, dynamic> json) {
     final asignLabel =
         _toText(json['ASIGN_LABEL']) ?? _toText(json['ASIGN']) ?? '';
+    final opvLabel =
+        _toText(json['OPV_LABEL']) ??
+        _toText(json['OPV_NOMBRE']) ??
+        _toText(json['OPV']) ??
+        '';
     return OrdenTrabajoItem(
       iord: _toText(json['IORD']) ?? '',
       idfol: _toText(json['IDFOL']) ?? '',
@@ -376,6 +389,7 @@ class OrdenTrabajoItem {
       art: _toText(json['ART']) ?? '',
       descArt: _toText(json['DESCART']) ?? '',
       tipo: _toText(json['TIPO']) ?? '',
+      opv: opvLabel,
       clien: _toText(json['CLIEN']) ?? '',
       ncliente: _toText(json['NCLIENTE']) ?? '',
       ctd: _toDouble(json['CTD']) ?? 0,
@@ -418,9 +432,14 @@ class OrdenTrabajoCambioMermaContext {
   OrdenTrabajoCambioMermaContext({
     required this.tipo,
     required this.selCtrlOrd,
+    required this.hasStagingRecord,
+    required this.hasCreatedOrd,
+    required this.finalized,
     required this.editable,
     required this.blockedByAuthorization,
     required this.canCreateNewOrd,
+    required this.canPrintFormato,
+    required this.canPrintSaldo,
     required this.autoAutorizada,
     required this.message,
     required this.subtotalOriginal,
@@ -437,9 +456,14 @@ class OrdenTrabajoCambioMermaContext {
 
   final int tipo;
   final int? selCtrlOrd;
+  final bool hasStagingRecord;
+  final bool hasCreatedOrd;
+  final bool finalized;
   final bool editable;
   final bool blockedByAuthorization;
   final bool canCreateNewOrd;
+  final bool canPrintFormato;
+  final bool canPrintSaldo;
   final bool autoAutorizada;
   final String message;
   final double subtotalOriginal;
@@ -459,9 +483,14 @@ class OrdenTrabajoCambioMermaContext {
     return OrdenTrabajoCambioMermaContext(
       tipo: _toInt(json['tipo']) ?? 0,
       selCtrlOrd: _toInt(json['selCtrlOrd']),
+      hasStagingRecord: json['hasStagingRecord'] == true,
+      hasCreatedOrd: json['hasCreatedOrd'] == true,
+      finalized: json['finalized'] == true,
       editable: json['editable'] == true,
       blockedByAuthorization: json['blockedByAuthorization'] == true,
       canCreateNewOrd: json['canCreateNewOrd'] == true,
+      canPrintFormato: json['canPrintFormato'] == true,
+      canPrintSaldo: json['canPrintSaldo'] == true,
       autoAutorizada: json['autoAutorizada'] == true,
       message: _toText(json['message']) ?? '',
       subtotalOriginal: _toDouble(json['subtotalOriginal']) ?? 0,
@@ -510,6 +539,7 @@ class OrdenTrabajoEnviarRelacionItem {
     required this.iord,
     required this.idfol,
     required this.suc,
+    required this.labor,
     required this.clien,
     required this.ncliente,
     required this.art,
@@ -522,6 +552,7 @@ class OrdenTrabajoEnviarRelacionItem {
   final String iord;
   final String idfol;
   final String suc;
+  final String labor;
   final String clien;
   final String ncliente;
   final String art;
@@ -535,6 +566,7 @@ class OrdenTrabajoEnviarRelacionItem {
       iord: _toText(json['IORD']) ?? '',
       idfol: _toText(json['IDFOL']) ?? '',
       suc: _toText(json['SUC']) ?? '',
+      labor: _toText(json['LABOR']) ?? '',
       clien: _toText(json['CLIEN']) ?? '',
       ncliente: _toText(json['NCLIENTE']) ?? '',
       art: _toText(json['ART']) ?? '',
@@ -599,10 +631,10 @@ class OrdenTrabajoSucursalOption {
   factory OrdenTrabajoSucursalOption.fromJson(Map<String, dynamic> json) {
     final suc = _toText(json['SUC']) ?? '';
     final desc = _toText(json['DESC']) ?? '';
-    final label = [suc, desc]
-        .where((item) => item.isNotEmpty)
-        .join(' - ')
-        .trim();
+    final label = [
+      suc,
+      desc,
+    ].where((item) => item.isNotEmpty).join(' - ').trim();
     return OrdenTrabajoSucursalOption(
       suc: suc,
       label: label.isEmpty ? suc : label,
