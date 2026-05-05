@@ -35,10 +35,6 @@ class MasterDataPage extends StatelessWidget {
             onTap: () => context.go('/masterdata/access-reg-suc'),
           ),
           ListTile(
-            title: const Text('Sucursales'),
-            onTap: () => context.go('/masterdata/sucursales'),
-          ),
-          ListTile(
             title: const Text('Puestos'),
             onTap: () => context.go('/masterdata/puestos'),
           ),
@@ -49,6 +45,10 @@ class MasterDataPage extends StatelessWidget {
           ListTile(
             title: const Text('Formas de pago (DAT_FORM)'),
             onTap: () => context.go('/masterdata/dat-form'),
+          ),
+          ListTile(
+            title: const Text('Datos Maestros (Empresa y Reglas)'),
+            onTap: () => context.go('/masterdata/datos-maestros'),
           ),
         ],
       ),

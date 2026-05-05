@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
+import '../../modulos/reloj_checador/app/reloj_checador_app_providers.dart';
 import 'sucursales_providers.dart';
 
 class SucursalFormPage extends ConsumerStatefulWidget {
@@ -34,7 +34,9 @@ class _SucursalFormPageState extends ConsumerState<SucursalFormPage> {
 
   Future<void> _bootstrap() async {
     if (widget.suc == null) return;
-    final data = await ref.read(sucursalesApiProvider).fetchSucursal(widget.suc!);
+    final data = await ref
+        .read(sucursalesApiProvider)
+        .fetchSucursal(widget.suc!);
     _sucCtrl.text = data.suc;
     _descCtrl.text = data.desc ?? '';
     _encarCtrl.text = data.encar ?? '';
@@ -60,6 +62,7 @@ class _SucursalFormPageState extends ConsumerState<SucursalFormPage> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
+    final nav = Navigator.of(context);
 
     final payload = {
       'SUC': _sucCtrl.text.trim(),
@@ -68,23 +71,47 @@ class _SucursalFormPageState extends ConsumerState<SucursalFormPage> {
       'ZONA': _zonaCtrl.text.trim().isEmpty ? null : _zonaCtrl.text.trim(),
       'RFC': _rfcCtrl.text.trim().isEmpty ? null : _rfcCtrl.text.trim(),
       'DIRECCION': _dirCtrl.text.trim().isEmpty ? null : _dirCtrl.text.trim(),
-      'CONTACTO': _contactoCtrl.text.trim().isEmpty ? null : _contactoCtrl.text.trim(),
+      'CONTACTO': _contactoCtrl.text.trim().isEmpty
+          ? null
+          : _contactoCtrl.text.trim(),
       'IVA_INTEGRADO': _ivaIntegrado ? 1 : 0,
     };
 
     try {
       if (widget.suc == null) {
         await ref.read(sucursalesApiProvider).createSucursal(payload);
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sucursal creada')));
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Sucursal creada')));
+        }
       } else {
-        await ref.read(sucursalesApiProvider).updateSucursal(widget.suc!, payload);
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sucursal actualizada')));
+        await ref
+            .read(sucursalesApiProvider)
+            .updateSucursal(widget.suc!, payload);
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Sucursal actualizada')));
+        }
       }
       ref.invalidate(sucursalesListProvider);
-      if (mounted) context.pop();
+      ref.invalidate(sucursalesCatalogProvider);
+      ref.invalidate(colaboradoresLiveProvider);
+      if (!mounted) return;
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      if (!mounted) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (nav.canPop()) {
+          nav.pop();
+        }
+      });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al guardar: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error al guardar: $e')));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -94,7 +121,9 @@ class _SucursalFormPageState extends ConsumerState<SucursalFormPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.suc == null ? 'Nueva sucursal' : 'Editar sucursal')),
+      appBar: AppBar(
+        title: Text(widget.suc == null ? 'Nueva sucursal' : 'Editar sucursal'),
+      ),
       body: FutureBuilder<void>(
         future: _loader,
         builder: (context, snapshot) {
@@ -115,7 +144,8 @@ class _SucursalFormPageState extends ConsumerState<SucursalFormPage> {
                     controller: _sucCtrl,
                     decoration: const InputDecoration(labelText: 'SUC'),
                     enabled: !_saving && widget.suc == null,
-                    validator: (v) => v == null || v.trim().isEmpty ? 'Requerido' : null,
+                    validator: (v) =>
+                        v == null || v.trim().isEmpty ? 'Requerido' : null,
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
@@ -158,14 +188,20 @@ class _SucursalFormPageState extends ConsumerState<SucursalFormPage> {
                   SwitchListTile(
                     title: const Text('IVA integrado'),
                     value: _ivaIntegrado,
-                    onChanged: _saving ? null : (v) => setState(() => _ivaIntegrado = v),
+                    onChanged: _saving
+                        ? null
+                        : (v) => setState(() => _ivaIntegrado = v),
                   ),
                   const SizedBox(height: 24),
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
                       icon: _saving
-                          ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                          ? const SizedBox(
+                              height: 16,
+                              width: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
                           : const Icon(Icons.save),
                       label: Text(_saving ? 'Guardando...' : 'Guardar'),
                       onPressed: _saving ? null : _submit,

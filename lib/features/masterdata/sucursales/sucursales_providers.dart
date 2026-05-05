@@ -8,12 +8,21 @@ final sucursalesApiProvider = Provider<SucursalesApi>(
   (ref) => SucursalesApi(ref.read(dioProvider), ref.read(storageProvider)),
 );
 
-final sucursalesListProvider = FutureProvider.autoDispose<List<SucursalModel>>((ref) async {
+final sucursalesListProvider = FutureProvider.autoDispose<List<SucursalModel>>((
+  ref,
+) async {
   final api = ref.read(sucursalesApiProvider);
   return api.fetchSucursales();
 });
 
-final sucursalProvider = FutureProvider.autoDispose.family<SucursalModel, String>((ref, suc) async {
-  final api = ref.read(sucursalesApiProvider);
-  return api.fetchSucursal(suc);
-});
+final sucursalProvider = FutureProvider.autoDispose
+    .family<SucursalModel, String>((ref, suc) async {
+      final api = ref.read(sucursalesApiProvider);
+      return api.fetchSucursal(suc);
+    });
+
+final sucursalesGestionListProvider =
+    FutureProvider.autoDispose<List<SucursalGestionModel>>((ref) async {
+      final api = ref.read(sucursalesApiProvider);
+      return api.fetchGestionSucursales();
+    });

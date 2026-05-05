@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../deptos/deptos_models.dart';
+import '../deptos/deptos_providers.dart';
 import 'roles_providers.dart';
 
 class RoleFormPage extends ConsumerStatefulWidget {
@@ -21,24 +23,43 @@ class _RoleFormPageState extends ConsumerState<RoleFormPage> {
   late Future<void> _loader;
   bool _activo = true;
   bool _saving = false;
+  bool _isEditing = false;
+  int? _selectedDeptoId;
+  List<DeptoModel> _deptos = [];
+
+  String _generateCodigo(String nombre) {
+    final words = nombre.trim().split(RegExp(r'\s+'));
+    return words.map((w) => w.length >= 3 ? w.substring(0, 3) : w).join('').toLowerCase();
+  }
 
   @override
   void initState() {
     super.initState();
     _loader = _bootstrap();
+    _nombreCtrl.addListener(_onNombreChanged);
+  }
+
+  void _onNombreChanged() {
+    if (!_isEditing) {
+      _codigoCtrl.text = _generateCodigo(_nombreCtrl.text);
+    }
   }
 
   Future<void> _bootstrap() async {
+    _deptos = await ref.read(deptosListProvider.future);
     if (widget.roleId == null) return;
+    _isEditing = true;
     final role = await ref.read(rolesApiProvider).fetchRole(widget.roleId!);
     _codigoCtrl.text = role.codigo;
     _nombreCtrl.text = role.nombre;
     _descCtrl.text = role.descripcion ?? '';
+    _selectedDeptoId = role.iddepartamento;
     _activo = role.activo;
   }
 
   @override
   void dispose() {
+    _nombreCtrl.removeListener(_onNombreChanged);
     _codigoCtrl.dispose();
     _nombreCtrl.dispose();
     _descCtrl.dispose();
@@ -49,10 +70,13 @@ class _RoleFormPageState extends ConsumerState<RoleFormPage> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
 
+    final nombre = _nombreCtrl.text.trim();
+
     final payload = {
-      'CODIGO': _codigoCtrl.text.trim(),
-      'NOMBRE': _nombreCtrl.text.trim(),
+      'CODIGO': _isEditing ? _codigoCtrl.text.trim() : _generateCodigo(nombre),
+      'NOMBRE': nombre,
       'DESCRIPCION': _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
+      if (_selectedDeptoId != null) 'IDDEPTO': _selectedDeptoId,
       'ACTIVO': _activo,
     };
 
@@ -98,9 +122,29 @@ class _RoleFormPageState extends ConsumerState<RoleFormPage> {
                 children: [
                   TextFormField(
                     controller: _codigoCtrl,
-                    decoration: const InputDecoration(labelText: 'Código'),
-                    enabled: !_saving,
-                    validator: (v) => v == null || v.trim().isEmpty ? 'Requerido' : null,
+                    readOnly: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Código',
+                      helperText: 'Se genera automáticamente desde el nombre',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<int>(
+                    initialValue: _selectedDeptoId,
+                    decoration: const InputDecoration(
+                      labelText: 'Departamento',
+                    ),
+                    isExpanded: true,
+                    items: _deptos
+                        .map((d) => DropdownMenuItem(
+                              value: d.id,
+                              child: Text(d.nombre),
+                            ))
+                        .toList(),
+                    onChanged: _saving
+                        ? null
+                        : (v) => setState(() => _selectedDeptoId = v),
+                    validator: (v) => v == null ? 'Seleccione un departamento' : null,
                   ),
                   const SizedBox(height: 12),
                   TextFormField(

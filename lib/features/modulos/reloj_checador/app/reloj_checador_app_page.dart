@@ -2,13 +2,22 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
+import '../../../../core/auth/auth_controller.dart';
+import '../../../masterdata/datos_maestros/datos_maestros_screen.dart';
+import '../../../masterdata/sucursales/sucursales_page.dart';
+import 'reloj_checador_auto_servicio_tab.dart';
+import 'reloj_checador_colaboradores_tab.dart';
+import 'reloj_checador_horarios_tab.dart';
+import 'reloj_checador_incidencias_vacaciones_tab.dart';
 import 'reloj_checador_app_models.dart';
 import 'reloj_checador_app_providers.dart';
+import 'reloj_checador_reporte_tab.dart';
 
 class RelojChecadorAppPage extends ConsumerStatefulWidget {
-  const RelojChecadorAppPage({super.key});
+  const RelojChecadorAppPage({super.key, required this.initialSection});
+
+  final String initialSection;
 
   @override
   ConsumerState<RelojChecadorAppPage> createState() =>
@@ -16,19 +25,25 @@ class RelojChecadorAppPage extends ConsumerStatefulWidget {
 }
 
 class _RelojChecadorAppPageState extends ConsumerState<RelojChecadorAppPage> {
-  final _latCtrl = TextEditingController();
-  final _lonCtrl = TextEditingController();
-  final _accCtrl = TextEditingController();
+  static const List<String> _sections = <String>[
+    'marcaje',
+    'sucursales',
+    'colaboradores',
+    'horarios',
+    'incidencias',
+    'reporte',
+    'auto-servicio',
+    'datos-maestros',
+  ];
 
-  String _authMethod = 'PIN';
-  bool _livenessOk = true;
+  final String _authMethod = 'PIN';
+  final bool _livenessOk = true;
   String? _submittingTipo;
+  final TextEditingController _pinCtrl = TextEditingController();
 
   @override
   void dispose() {
-    _latCtrl.dispose();
-    _lonCtrl.dispose();
-    _accCtrl.dispose();
+    _pinCtrl.dispose();
     super.dispose();
   }
 
@@ -40,33 +55,34 @@ class _RelojChecadorAppPageState extends ConsumerState<RelojChecadorAppPage> {
   Future<void> _submit(RelojChecadorContext contextData, String tipo) async {
     if (_submittingTipo != null) return;
 
-    final lat = _parseDouble(_latCtrl.text);
-    final lon = _parseDouble(_lonCtrl.text);
-    final acc = _parseInt(_accCtrl.text);
-
-    if (contextData.requireGps && (lat == null || lon == null)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Este marcaje requiere GPS: captura LAT y LON.'),
-        ),
-      );
-      return;
-    }
-
     setState(() => _submittingTipo = tipo);
 
     try {
       final api = ref.read(relojChecadorAppApiProvider);
+      final auth = ref.read(authControllerProvider);
+      final idUsuario = contextData.idUsuario ?? auth.userId ?? 0;
+      final pin = _pinCtrl.text.trim().isNotEmpty
+          ? _pinCtrl.text.trim()
+          : (auth.username ?? '').trim();
+      if (idUsuario <= 0 || pin.isEmpty) {
+        throw Exception('Faltan datos de usuario para generar marcaje');
+      }
+      final now = DateTime.now();
       final result = await api.createTimelog(
         TimelogCreateRequest(
+          id_usuario: idUsuario,
+          pin: pin,
           suc: contextData.suc,
           tipo: tipo,
           authMethod: _authMethod,
           livenessOk: _livenessOk,
-          lat: contextData.requireGps ? lat : null,
-          lon: contextData.requireGps ? lon : null,
-          gpsAccuracyM: contextData.requireGps ? acc : null,
+          lat: null,
+          lon: null,
+          gpsAccuracyM: null,
           deviceId: kIsWeb ? 'flutter-web' : 'flutter-mobile',
+          clientIdUnico:
+              '${kIsWeb ? 'flutter-web' : 'flutter-mobile'}-${now.millisecondsSinceEpoch}',
+          fechaHoraLocal: now.toIso8601String(),
           notes: null,
         ),
       );
@@ -115,260 +131,264 @@ class _RelojChecadorAppPageState extends ConsumerState<RelojChecadorAppPage> {
     return false;
   }
 
+  int _initialIndexFromSection() {
+    final section = widget.initialSection.trim().toLowerCase();
+    final idx = _sections.indexOf(section);
+    return idx < 0 ? 0 : idx;
+  }
+
   @override
   Widget build(BuildContext context) {
     final contextAsync = ref.watch(relojChecadorContextProvider(null));
+    final initialIndex = _initialIndexFromSection();
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Reloj checador - App'),
-        actions: [
-          IconButton(onPressed: _refresh, icon: const Icon(Icons.refresh)),
-          IconButton(
-            onPressed: () => context.go('/reloj-checador/consultas'),
-            icon: const Icon(Icons.manage_search),
-            tooltip: 'Ir a consultas',
-          ),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: _refresh,
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16),
-          children: [
-            contextAsync.when(
-              data: (data) => _ContextCard(data: data),
-              loading: () => const Card(
-                child: Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Center(child: CircularProgressIndicator()),
-                ),
+    return DefaultTabController(
+      initialIndex: initialIndex,
+      length: _sections.length,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Reloj checador - App'),
+          bottom: const TabBar(
+            isScrollable: true,
+            tabs: [
+              Tab(icon: Icon(Icons.fingerprint), text: 'Marcaje'),
+              Tab(icon: Icon(Icons.store), text: 'Gestión de Sucursales'),
+              Tab(icon: Icon(Icons.people), text: 'Gestión de Colaboradores'),
+              Tab(icon: Icon(Icons.schedule), text: 'Horarios'),
+              Tab(
+                icon: Icon(Icons.event_note),
+                text: 'Incidencias y Vacaciones',
               ),
-              error: (e, _) => Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text('No se pudo cargar contexto: $e'),
+              Tab(icon: Icon(Icons.bar_chart), text: 'Reporte Mensual'),
+              Tab(icon: Icon(Icons.qr_code_scanner), text: 'Auto-Servicio'),
+              Tab(icon: Icon(Icons.dataset_linked), text: 'Datos Maestros'),
+            ],
+          ),
+        ),
+        body: TabBarView(
+          children: [
+            _buildMarcajeTab(contextAsync),
+            const SucursalesPage(embedded: true, allowConfiguration: true),
+            const RelojChecadorColaboradoresTab(),
+            const RelojChecadorHorariosTab(),
+            const RelojChecadorIncidenciasVacacionesTab(),
+            const RelojChecadorReporteTab(),
+            const RelojChecadorAutoServicioTab(),
+            const DatosMaestrosScreen(embedded: true),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMarcajeTab(AsyncValue<RelojChecadorContext> contextAsync) {
+    final auth = ref.watch(authControllerProvider);
+    final nombre = (auth.username ?? 'Sin identificar').trim();
+    final iniciales = nombre
+        .split(RegExp(r'\s+'))
+        .where((e) => e.isNotEmpty)
+        .take(2)
+        .map((e) => e.substring(0, 1).toUpperCase())
+        .join();
+
+    return RefreshIndicator(
+      onRefresh: _refresh,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        children: [
+          Align(
+            alignment: Alignment.centerRight,
+            child: FilledButton.icon(
+              onPressed: () {
+                final tab = DefaultTabController.of(context);
+                tab.animateTo(2);
+              },
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF6350A9),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
+                shape: const StadiumBorder(),
+              ),
+              icon: const Icon(Icons.settings),
+              label: const Text('Mantenimiento de Datos'),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(22),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 42,
+                    backgroundColor: const Color(0xFFD9CEEE),
+                    child: Text(
+                      iniciales.isEmpty ? '--' : iniciales,
+                      style: const TextStyle(
+                        color: Color(0xFF5A4AA3),
+                        fontWeight: FontWeight.w700,
+                        fontSize: 28,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 18),
+                  Expanded(
+                    child: contextAsync.when(
+                      data: (ctx) => Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            nombre,
+                            style: const TextStyle(
+                              fontSize: 46 / 2,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(ctx.message.isEmpty ? 'Auxiliar' : ctx.message),
+                          Text(ctx.suc.isEmpty ? '-' : ctx.suc),
+                        ],
+                      ),
+                      loading: () => const Text('Cargando colaborador...'),
+                      error: (_, _) => const Text('Sin identificar'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(22),
+              child: TextField(
+                controller: _pinCtrl,
+                obscureText: true,
+                textAlign: TextAlign.center,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  hintText: '••••',
                 ),
               ),
             ),
-            const SizedBox(height: 12),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
+          ),
+          const SizedBox(height: 14),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(22),
+              child: contextAsync.when(
+                data: (ctx) => Wrap(
+                  spacing: 14,
+                  runSpacing: 14,
+                  children: [
+                    _MarcajeBtn(
+                      color: const Color(0xFF2E7D32),
+                      label: 'ENTRA',
+                      busy: _submittingTipo == 'ENTRADA',
+                      enabled: _submittingTipo == null && _canPress(ctx, 'ENTRADA'),
+                      onTap: () => _submit(ctx, 'ENTRADA'),
+                    ),
+                    _MarcajeBtn(
+                      color: const Color(0xFF1E64B7),
+                      label: 'SALIDA COMER',
+                      busy: _submittingTipo == 'SALIDA_COMER',
+                      enabled:
+                          _submittingTipo == null && _canPress(ctx, 'SALIDA_COMER'),
+                      onTap: () => _submit(ctx, 'SALIDA_COMER'),
+                    ),
+                    _MarcajeBtn(
+                      color: const Color(0xFF6A1B9A),
+                      label: 'REGRESO COMER',
+                      busy: _submittingTipo == 'REGRESO_COMER',
+                      enabled:
+                          _submittingTipo == null && _canPress(ctx, 'REGRESO_COMER'),
+                      onTap: () => _submit(ctx, 'REGRESO_COMER'),
+                    ),
+                    _MarcajeBtn(
+                      color: const Color(0xFFC62828),
+                      label: 'SALIDA',
+                      busy: _submittingTipo == 'SALIDA',
+                      enabled: _submittingTipo == null && _canPress(ctx, 'SALIDA'),
+                      onTap: () => _submit(ctx, 'SALIDA'),
+                    ),
+                  ],
+                ),
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (_, _) => const Text('Sin conexión de contexto'),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: contextAsync.when(
+                data: (ctx) => Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Autenticacion',
-                      style: TextStyle(fontWeight: FontWeight.bold),
+                      'Historial de Marcajes',
+                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
                     ),
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
-                      initialValue: _authMethod,
-                      decoration: const InputDecoration(
-                        labelText: 'Metodo',
-                        border: OutlineInputBorder(),
-                        isDense: true,
-                      ),
-                      items: const [
-                        DropdownMenuItem(value: 'FACE', child: Text('FACE')),
-                        DropdownMenuItem(
-                          value: 'FINGER',
-                          child: Text('FINGER'),
-                        ),
-                        DropdownMenuItem(value: 'PIN', child: Text('PIN')),
-                      ],
-                      onChanged: (value) {
-                        if (value == null) return;
-                        setState(() => _authMethod = value);
-                      },
+                    const SizedBox(height: 10),
+                    Text(
+                      ctx.message.isEmpty
+                          ? 'Compañero, no pudimos conectar con el servidor'
+                          : ctx.message,
                     ),
-                    if (kDebugMode) ...[
-                      const SizedBox(height: 8),
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('Liveness OK (debug)'),
-                        value: _livenessOk,
-                        onChanged: (value) =>
-                            setState(() => _livenessOk = value),
-                      ),
-                    ],
                   ],
                 ),
+                loading: () => const Text('Cargando historial...'),
+                error: (_, _) =>
+                    const Text('Compañero, no pudimos conectar con el servidor'),
               ),
             ),
-            const SizedBox(height: 12),
-            contextAsync.maybeWhen(
-              data: (data) => data.requireGps
-                  ? Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'GPS requerido por policy',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            const SizedBox(height: 8),
-                            TextField(
-                              controller: _latCtrl,
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                    decimal: true,
-                                    signed: true,
-                                  ),
-                              decoration: const InputDecoration(
-                                labelText: 'LAT',
-                                border: OutlineInputBorder(),
-                                isDense: true,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            TextField(
-                              controller: _lonCtrl,
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                    decimal: true,
-                                    signed: true,
-                                  ),
-                              decoration: const InputDecoration(
-                                labelText: 'LON',
-                                border: OutlineInputBorder(),
-                                isDense: true,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            TextField(
-                              controller: _accCtrl,
-                              keyboardType: TextInputType.number,
-                              decoration: InputDecoration(
-                                labelText:
-                                    'Precision GPS (m) - max ${data.gpsMaxAccuracyM}',
-                                border: const OutlineInputBorder(),
-                                isDense: true,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    )
-                  : const SizedBox.shrink(),
-              orElse: () => const SizedBox.shrink(),
-            ),
-            const SizedBox(height: 12),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: contextAsync.when(
-                  data: (data) => Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Checkpoints',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          for (final tipo in const [
-                            'ENTRADA',
-                            'SALIDA_COMER',
-                            'REGRESO_COMER',
-                            'SALIDA',
-                          ])
-                            ElevatedButton.icon(
-                              onPressed:
-                                  _submittingTipo != null ||
-                                      !_canPress(data, tipo)
-                                  ? null
-                                  : () => _submit(data, tipo),
-                              icon: _submittingTipo == tipo
-                                  ? const SizedBox(
-                                      width: 14,
-                                      height: 14,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white,
-                                      ),
-                                    )
-                                  : const Icon(Icons.fingerprint, size: 16),
-                              label: Text(tipo),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  loading: () =>
-                      const Center(child: CircularProgressIndicator()),
-                  error: (_, _) =>
-                      const Text('No se puede marcar sin contexto.'),
-                ),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _ContextCard extends StatelessWidget {
-  const _ContextCard({required this.data});
+class _MarcajeBtn extends StatelessWidget {
+  const _MarcajeBtn({
+    required this.color,
+    required this.label,
+    required this.busy,
+    required this.enabled,
+    required this.onTap,
+  });
 
-  final RelojChecadorContext data;
+  final Color color;
+  final String label;
+  final bool busy;
+  final bool enabled;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Contexto de marcaje',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text('Sucursal: ${data.suc}'),
-            Text('Ultimo marcaje: ${data.lastTipo ?? '-'}'),
-            Text('Fecha ultimo marcaje: ${_fmt(data.lastFcnr)}'),
-            Text('Siguiente permitido: ${data.nextAllowedTipo}'),
-            Text('Requiere GPS: ${data.requireGps ? 'SI' : 'NO'}'),
-            Text('Requiere liveness: ${data.requireLiveness ? 'SI' : 'NO'}'),
-            Text('Valida ventanas: ${data.enforceWindows ? 'SI' : 'NO'}'),
-            if (data.requireGps)
-              Text(
-                'Geocerca: ${data.geofenceLat ?? '-'}, ${data.geofenceLon ?? '-'} '
-                'radio ${data.geofenceRadiusM ?? '-'}m',
-              ),
-            if (data.message.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(
-                data.message,
-                style: const TextStyle(color: Colors.blueGrey),
-              ),
-            ],
-          ],
+    return SizedBox(
+      width: 260,
+      height: 130,
+      child: ElevatedButton(
+        onPressed: enabled ? onTap : null,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: color,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
         ),
+        child: busy
+            ? const CircularProgressIndicator(color: Colors.white)
+            : Text(
+                label,
+                style: const TextStyle(fontSize: 40 / 2, fontWeight: FontWeight.w700),
+                textAlign: TextAlign.center,
+              ),
       ),
     );
   }
-}
-
-String _fmt(DateTime? value) {
-  if (value == null) return '-';
-  final local = value.toLocal();
-  final y = local.year.toString().padLeft(4, '0');
-  final m = local.month.toString().padLeft(2, '0');
-  final d = local.day.toString().padLeft(2, '0');
-  final hh = local.hour.toString().padLeft(2, '0');
-  final mm = local.minute.toString().padLeft(2, '0');
-  return '$d/$m/$y $hh:$mm';
 }
 
 String _readDioMessage(DioException e, {required String fallback}) {
@@ -384,14 +404,3 @@ String _readDioMessage(DioException e, {required String fallback}) {
   return fallback;
 }
 
-double? _parseDouble(String input) {
-  final text = input.trim();
-  if (text.isEmpty) return null;
-  return double.tryParse(text);
-}
-
-int? _parseInt(String input) {
-  final text = input.trim();
-  if (text.isEmpty) return null;
-  return int.tryParse(text);
-}

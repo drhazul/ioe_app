@@ -1,11 +1,16 @@
-import 'package:flutter/foundation.dart' show kIsWeb, kReleaseMode;
+import 'package:flutter/foundation.dart'
+    show kIsWeb, kReleaseMode, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class Env {
-  static const String _devBaseUrl = 'http://localhost:3001';
-
+ static const String _devBaseUrl = 'http://10.99.0.3:3001';
+// Revisa si tienes algo así
+static const String _androidEmulatorBaseUrl = 'http://10.99.0.3:3001';
   static String get apiBaseUrl {
     if (!kReleaseMode) {
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+        return _androidEmulatorBaseUrl;
+      }
       return _devBaseUrl;
     }
 
@@ -37,5 +42,25 @@ class Env {
 
     // 2) Mobile emulator (Android)
     return 'http://192.168.10.234:3001';
+  }
+
+  static String get attendanceHmacSecret {
+    const fromDefine = String.fromEnvironment('ATTENDANCE_HMAC_SECRET');
+    if (fromDefine.isNotEmpty) return fromDefine;
+
+    final fromEnv = dotenv.env['ATTENDANCE_HMAC_SECRET'];
+    if (fromEnv != null && fromEnv.isNotEmpty) return fromEnv;
+
+    return 'ATTENDANCE_DEV_SECRET_CHANGE_ME';
+  }
+
+  static String get rrhhSecret {
+    const fromDefine = String.fromEnvironment('RRHH_SECRET');
+    if (fromDefine.isNotEmpty) return fromDefine;
+
+    final fromEnv = dotenv.env['RRHH_SECRET'];
+    if (fromEnv != null && fromEnv.isNotEmpty) return fromEnv;
+
+    return 'RRHH_SECRET';
   }
 }

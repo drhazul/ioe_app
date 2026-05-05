@@ -35,6 +35,7 @@ import '../features/masterdata/cat_ctas/presentation/cat_ctas_list_page.dart';
 import '../features/masterdata/cat_ctas/presentation/cat_ctas_form_page.dart';
 import '../features/masterdata/dat_form/dat_form_page.dart';
 import '../features/masterdata/dat_form/dat_form_form_page.dart';
+import '../features/masterdata/datos_maestros/datos_maestros_screen.dart';
 import '../features/modulos/inventarios/inventarios_page.dart';
 import '../features/modulos/inventarios/inventario_form_page.dart';
 import '../features/modulos/inventarios/inventario_det_page.dart';
@@ -59,6 +60,7 @@ import '../features/modulos/retiros/retiros_panel_page.dart';
 import '../features/modulos/retiros/retiro_detalle_page.dart';
 import '../features/modulos/retiros/retiro_efectivo_page.dart';
 import '../features/modulos/reloj_checador/app/reloj_checador_app_page.dart';
+import '../features/modulos/reloj_checador/app/confirmacion_marcaje_page.dart';
 import '../features/modulos/reloj_checador/consultas/reloj_checador_consultas_page.dart';
 import '../features/modulos/taller/ordenes_trabajo/ordenes_trabajo_action_page.dart';
 import '../features/modulos/taller/ordenes_trabajo/ordenes_trabajo_models.dart';
@@ -117,8 +119,7 @@ final routerProvider = Provider<GoRouter>((ref) {
     ),
     redirect: (context, state) {
       final loggingIn = state.matchedLocation == '/login';
-      final changingPassword =
-          state.matchedLocation == '/auth/change-password';
+      final changingPassword = state.matchedLocation == '/auth/change-password';
       if (auth.isLoading) return null;
 
       if (!auth.isAuthenticated) return loggingIn ? null : '/login';
@@ -131,12 +132,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (auth.isAuthenticated && loggingIn) return '/';
 
       if (_isFacturacionRoute(state.matchedLocation)) {
-        final isAdmin = (auth.roleId ?? 0) == 1 ||
+        final isAdmin =
+            (auth.roleId ?? 0) == 1 ||
             (auth.username ?? '').trim().toUpperCase() == 'ADMIN';
         if (!isAdmin) {
           if (homeModulesAsync.isLoading) return null;
           if (homeModulesAsync.hasError) return '/';
-          final modules = homeModulesAsync.asData?.value.modulos ?? const <HomeModule>[];
+          final modules =
+              homeModulesAsync.asData?.value.modulos ?? const <HomeModule>[];
           if (!_hasFacturacionRouteAccess(state.matchedLocation, modules)) {
             return '/';
           }
@@ -252,7 +255,10 @@ final routerProvider = Provider<GoRouter>((ref) {
               ),
               GoRoute(
                 path: 'sucursales',
-                builder: (c, s) => const SucursalesPage(),
+                builder: (c, s) => const SucursalesPage(
+                  embedded: false,
+                  allowConfiguration: true,
+                ),
                 routes: [
                   GoRoute(
                     path: 'new',
@@ -315,6 +321,10 @@ final routerProvider = Provider<GoRouter>((ref) {
                   ),
                 ],
               ),
+              GoRoute(
+                path: 'datos-maestros',
+                builder: (c, s) => const DatosMaestrosScreen(),
+              ),
             ],
           ),
           GoRoute(
@@ -362,6 +372,10 @@ final routerProvider = Provider<GoRouter>((ref) {
                 },
               ),
             ],
+          ),
+          GoRoute(
+            path: 'entrega-cajas',
+            builder: (c, s) => const CajaGeneralPage(),
           ),
           GoRoute(
             path: 'inventarios',
@@ -456,20 +470,22 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
           GoRoute(
+            path: 'consulta-cuentas',
+            builder: (c, s) => const CtrlCtasConsultaPage(),
+          ),
+          GoRoute(
             path: 'ps',
             builder: (c, s) => const PsPanelPage(),
             routes: [
               GoRoute(
                 path: ':idFol/pago',
-                builder: (c, s) => PsPagoPage(
-                  idFol: s.pathParameters['idFol'] ?? '',
-                ),
+                builder: (c, s) =>
+                    PsPagoPage(idFol: s.pathParameters['idFol'] ?? ''),
               ),
               GoRoute(
                 path: ':idFol',
-                builder: (c, s) => PsDetallePage(
-                  idFol: s.pathParameters['idFol'] ?? '',
-                ),
+                builder: (c, s) =>
+                    PsDetallePage(idFol: s.pathParameters['idFol'] ?? ''),
               ),
             ],
           ),
@@ -486,9 +502,8 @@ final routerProvider = Provider<GoRouter>((ref) {
               ),
               GoRoute(
                 path: ':idret',
-                builder: (c, s) => RetiroDetallePage(
-                  idret: s.pathParameters['idret'] ?? '',
-                ),
+                builder: (c, s) =>
+                    RetiroDetallePage(idret: s.pathParameters['idret'] ?? ''),
               ),
             ],
           ),
@@ -613,8 +628,65 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
           GoRoute(
+            path: 'punto-de-venta',
+            builder: (c, s) => const PuntoVentaHomePage(),
+          ),
+          GoRoute(path: 'proveedores', builder: (c, s) => const DatFormPage()),
+          GoRoute(
             path: 'reloj-checador/app',
-            builder: (c, s) => const RelojChecadorAppPage(),
+            builder: (c, s) => const RelojChecadorAppPage(initialSection: '',),
+          ),
+          GoRoute(
+            path: 'reloj-checador',
+            builder: (c, s) =>
+                const RelojChecadorAppPage(initialSection: 'marcaje'),
+          ),
+          GoRoute(
+            path: 'reloj-checador/admin',
+            builder: (c, s) =>
+                const RelojChecadorAppPage(initialSection: 'colaboradores'),
+          ),
+          GoRoute(
+            path: 'marcaje',
+            builder: (c, s) =>
+                const RelojChecadorAppPage(initialSection: 'marcaje'),
+          ),
+          GoRoute(
+            path: 'confirmacion-marcaje',
+            builder: (c, s) {
+              final colaborador = s.extra as Colaborador;
+              return ConfirmacionMarcajePage(colaborador: colaborador);
+            },
+          ),
+          GoRoute(
+            path: 'sucursales',
+            builder: (c, s) =>
+                const RelojChecadorAppPage(initialSection: 'sucursales'),
+          ),
+          GoRoute(
+            path: 'colaboradores',
+            builder: (c, s) =>
+                const RelojChecadorAppPage(initialSection: 'colaboradores'),
+          ),
+          GoRoute(
+            path: 'horarios',
+            builder: (c, s) =>
+                const RelojChecadorAppPage(initialSection: 'horarios'),
+          ),
+          GoRoute(
+            path: 'incidencias',
+            builder: (c, s) =>
+                const RelojChecadorAppPage(initialSection: 'incidencias'),
+          ),
+          GoRoute(
+            path: 'reporte',
+            builder: (c, s) =>
+                const RelojChecadorAppPage(initialSection: 'reporte'),
+          ),
+          GoRoute(
+            path: 'auto-servicio',
+            builder: (c, s) =>
+                const RelojChecadorAppPage(initialSection: 'auto-servicio'),
           ),
           GoRoute(
             path: 'reloj-checador/consultas',
@@ -698,13 +770,9 @@ const Set<String> _facturaManageModuleCodes = <String>{
   'FACTURA_MTTOCLIENTE',
 };
 
-const Set<String> _facturaViewModuleCodes = <String>{
-  'FACTURA_VIEW',
-};
+const Set<String> _facturaViewModuleCodes = <String>{'FACTURA_VIEW'};
 
-const Set<String> _facturaReqfModuleCodes = <String>{
-  'REG_SINREQF',
-};
+const Set<String> _facturaReqfModuleCodes = <String>{'REG_SINREQF'};
 
 bool _isFacturacionRoute(String location) {
   return location == '/facturacion' ||
@@ -723,7 +791,8 @@ bool _hasFacturacionRouteAccess(String location, List<HomeModule> modules) {
       .where((code) => code.isNotEmpty)
       .toSet();
 
-  if (location == '/facturacion-view' || location.startsWith('/facturacion-view/')) {
+  if (location == '/facturacion-view' ||
+      location.startsWith('/facturacion-view/')) {
     return codes.any(_facturaViewModuleCodes.contains) ||
         codes.any(_facturaManageModuleCodes.contains);
   }
@@ -769,3 +838,4 @@ DateTime _parseSqlDateOrNow(String raw, DateTime now) {
   }
   return parsed;
 }
+

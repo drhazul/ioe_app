@@ -1,66 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart' show kIsWeb, kReleaseMode;
+import 'package:go_router/go_router.dart';
 
 import 'core/auth/auth_controller.dart';
 import 'core/router.dart';
-import 'core/env.dart';
 
-Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  // En debug no usamos .env para apiBaseUrl (Env devuelve localhost), y en web
-  // evita warnings de AssetManifest.json cuando el manifest no está disponible.
-  if (kReleaseMode) {
-    await dotenv.load(fileName: 'assets/.env');
-
-  }
-
-  // Health check to validate backend connectivity early and provide
-  // actionable console messages for common failures (CORS, wrong host, etc.).
-  await _checkBackendHealth();
-
+void main() {
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.dumpErrorToConsole(details);
+  };
   runApp(const ProviderScope(child: MyApp()));
-}
-
-Future<void> _checkBackendHealth() async {
-  final dio = Dio(
-    BaseOptions(
-      baseUrl: Env.apiBaseUrl,
-      connectTimeout: const Duration(seconds: 5),
-    ),
-  );
-  try {
-    final res = await dio.get('/health');
-    // ignore: avoid_print
-    print(
-      'Backend health OK (${Env.apiBaseUrl}/health) -> status: ${res.statusCode}',
-    );
-  } on DioException catch (e) {
-    // Provide helpful hint messages for debugging common issues.
-    // ignore: avoid_print
-    print('Backend health check FAILED for ${Env.apiBaseUrl}/health');
-    // ignore: avoid_print
-    print('DioException: type=${e.type} message=${e.message}');
-
-    if (kIsWeb) {
-      // On web, this is commonly CORS or the server not reachable.
-      // ignore: avoid_print
-      print('If you run the app on Web, this error is often caused by CORS.');
-      // ignore: avoid_print
-      print('Enable CORS in your backend (see project instructions).');
-    } else {
-      // On mobile emulators, localhost is different.
-      // ignore: avoid_print
-      print(
-        'If running on Android emulator, ensure backend uses 10.0.2.2 as host or use device IP.',
-      );
-    }
-  } catch (e) {
-    // ignore: avoid_print
-    print('Unexpected error during backend health check: $e');
-  }
 }
 
 class MyApp extends ConsumerWidget {
@@ -68,7 +17,21 @@ class MyApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final router = ref.watch(routerProvider);
+    GoRouterRouterConfigResult routerResult;
+    try {
+      final router = ref.watch(routerProvider);
+      routerResult = GoRouterRouterConfigResult.router(router);
+    } catch (e, s) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: e,
+          stack: s,
+          library: 'main.dart',
+          context: ErrorDescription('while building routerProvider'),
+        ),
+      );
+      routerResult = GoRouterRouterConfigResult.error(e.toString());
+    }
     final authController = ref.read(authControllerProvider.notifier);
     const appFontSize = 11.0;
     final baseTheme = ThemeData(useMaterial3: true);
@@ -108,6 +71,19 @@ class MyApp extends ConsumerWidget {
       ),
     );
 
+    if (routerResult.hasError) {
+      return MaterialApp(
+        title: 'IOE',
+        debugShowCheckedModeBanner: false,
+        theme: theme,
+        home: Scaffold(
+          body: Center(
+            child: Text('Error router: ${routerResult.errorMessage}'),
+          ),
+        ),
+      );
+    }
+
     return Listener(
       behavior: HitTestBehavior.translucent,
       onPointerDown: (_) => authController.registerUserActivity(),
@@ -115,11 +91,26 @@ class MyApp extends ConsumerWidget {
       child: MaterialApp.router(
         title: 'IOE',
         debugShowCheckedModeBanner: false,
-        routerConfig: router,
+        routerConfig: routerResult.router!,
         theme: theme,
       ),
     );
   }
+}
+
+class GoRouterRouterConfigResult {
+  final GoRouter? router;
+  final String? errorMessage;
+
+  const GoRouterRouterConfigResult._({this.router, this.errorMessage});
+
+  factory GoRouterRouterConfigResult.router(GoRouter router) =>
+      GoRouterRouterConfigResult._(router: router);
+
+  factory GoRouterRouterConfigResult.error(String message) =>
+      GoRouterRouterConfigResult._(errorMessage: message);
+
+  bool get hasError => errorMessage != null;
 }
 
 TextTheme _fixedFontSizeTextTheme(TextTheme base, double size) {

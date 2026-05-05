@@ -3,6 +3,7 @@ class RoleModel {
   final String codigo;
   final String nombre;
   final String? descripcion;
+  final int? iddepartamento;
   final bool activo;
 
   const RoleModel({
@@ -10,6 +11,7 @@ class RoleModel {
     required this.codigo,
     required this.nombre,
     this.descripcion,
+    this.iddepartamento,
     required this.activo,
   });
 
@@ -19,6 +21,7 @@ class RoleModel {
       codigo: json['CODIGO'] as String,
       nombre: json['NOMBRE'] as String,
       descripcion: json['DESCRIPCION'] as String?,
+      iddepartamento: json['IDDEPTO'] as int?,
       activo: json['ACTIVO'] == true,
     );
   }
@@ -28,6 +31,7 @@ class RoleModel {
       'CODIGO': codigo,
       'NOMBRE': nombre,
       if (descripcion != null) 'DESCRIPCION': descripcion,
+      if (iddepartamento != null) 'IDDEPTO': iddepartamento,
       'ACTIVO': activo,
     };
   }
@@ -37,6 +41,7 @@ class RoleModel {
     String? codigo,
     String? nombre,
     String? descripcion,
+    int? iddepartamento,
     bool? activo,
   }) {
     return RoleModel(
@@ -44,6 +49,7 @@ class RoleModel {
       codigo: codigo ?? this.codigo,
       nombre: nombre ?? this.nombre,
       descripcion: descripcion ?? this.descripcion,
+      iddepartamento: iddepartamento ?? this.iddepartamento,
       activo: activo ?? this.activo,
     );
   }

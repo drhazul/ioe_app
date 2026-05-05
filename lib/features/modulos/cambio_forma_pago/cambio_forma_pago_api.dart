@@ -62,7 +62,7 @@ class CambioFormaPagoApi {
   }
 
   Future<List<CambioFormaPagoCatalogItem>> fetchCatalog() async {
-    final res = await dio.get('/catalogos/formas-pago');
+    final res = await dio.get('/formas-pago/catalogos');
     final data = res.data;
     if (data is! List) return const [];
     final parsed = data

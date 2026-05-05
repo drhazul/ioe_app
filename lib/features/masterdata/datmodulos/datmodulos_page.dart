@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:dio/dio.dart';
 
 import 'datmodulos_models.dart';
 import 'datmodulos_providers.dart';
@@ -438,8 +439,27 @@ class _ModuloRow extends StatelessWidget {
       await ref.read(datmodulosApiProvider).deleteModulo(modulo.codigo);
       ref.invalidate(datmodulosListProvider);
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Módulo eliminado')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Módulo desactivado correctamente')),
+      );
+    } on DioException catch (e) {
+      ref.invalidate(datmodulosListProvider);
+      if (!context.mounted) return;
+      if (e.response?.statusCode == 409) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'No se puede eliminar el módulo porque tiene registros asociados. Intenta desactivarlo en su lugar',
+            ),
+          ),
+        );
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al eliminar: ${e.message ?? e.toString()}')),
+      );
     } catch (e) {
+      ref.invalidate(datmodulosListProvider);
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al eliminar: $e')));
     }
