@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart' show kIsWeb, kReleaseMode;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class Env {
-  static const String _devBaseUrl = 'http://localhost:3000';
+  static const String _devBaseUrl = 'http://localhost:3001';
 
   static String get apiBaseUrl {
     if (!kReleaseMode) {
@@ -36,6 +36,6 @@ class Env {
     }
 
     // 2) Mobile emulator (Android)
-    return 'http://192.168.10.234:3000';
+    return 'http://192.168.10.234:3001';
   }
 }
