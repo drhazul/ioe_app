@@ -177,6 +177,9 @@ final dioProvider = Provider<Dio>((ref) {
     healthRetryTimer = null;
   });
 
+  // Probe inicial de conectividad al crear el cliente API.
+  Future.microtask(runHealthProbe);
+
   return dio;
 });
 

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'core/auth/auth_controller.dart';
+import 'core/dio_provider.dart';
 import 'core/router.dart';
 
 void main() {
@@ -17,6 +18,10 @@ class MyApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Fuerza inicialización de dioProvider para que el probe /health se dispare
+    // desde el arranque y no dependa del ciclo de vida de una pantalla.
+    ref.read(dioProvider);
+
     GoRouterRouterConfigResult routerResult;
     try {
       final router = ref.watch(routerProvider);
