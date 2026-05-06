@@ -18,16 +18,17 @@ class Env {
     if (kIsWeb) {
       final fromDefine = const String.fromEnvironment('API_BASE_URL_WEB');
       if (fromDefine.isNotEmpty) {
-        return fromDefine;
+        return _normalizeWebBaseUrl(fromDefine);
       }
 
       final fromEnv = dotenv.env['API_BASE_URL_WEB'];
       if (fromEnv != null && fromEnv.isNotEmpty) {
-        return fromEnv;
+        return _normalizeWebBaseUrl(fromEnv);
       }
 
-      // Flutter Web -> usar proxy de Nginx
-      return '/api';
+      // Flutter Web -> usar proxy de Nginx con URL absoluta para evitar
+      // errores de URI relativa en algunos runtimes del navegador.
+      return _defaultWebApiBaseUrl();
     }
 
     // 1) Si viene desde .env (override explícito)
@@ -43,6 +44,50 @@ class Env {
 
     // 2) Mobile emulator (Android)
     return 'http://192.168.10.234:3001';
+  }
+
+  static String _defaultWebApiBaseUrl() {
+    final base = Uri.base;
+    final hasNetworkOrigin = base.hasScheme &&
+        (base.scheme == 'http' || base.scheme == 'https') &&
+        base.host.isNotEmpty;
+    if (hasNetworkOrigin) {
+      final port = base.hasPort ? ':${base.port}' : '';
+      return '${base.scheme}://${base.host}$port/api';
+    }
+    return '/api';
+  }
+
+  static String _normalizeWebBaseUrl(String raw) {
+    final value = raw.trim();
+    if (value.isEmpty) return '/api';
+
+    if (value.startsWith('/')) {
+      final normalized = value.endsWith('/')
+          ? value.substring(0, value.length - 1)
+          : value;
+      if (normalized == '/') return _defaultWebApiBaseUrl();
+      final base = Uri.base;
+      final hasNetworkOrigin = base.hasScheme &&
+          (base.scheme == 'http' || base.scheme == 'https') &&
+          base.host.isNotEmpty;
+      if (!hasNetworkOrigin) return normalized;
+      final port = base.hasPort ? ':${base.port}' : '';
+      return '${base.scheme}://${base.host}$port$normalized';
+    }
+
+    final uri = Uri.tryParse(value);
+    if (uri == null || !uri.hasScheme || uri.host.isEmpty) return value;
+
+    final path = uri.path.trim();
+    if (path.isEmpty || path == '/') {
+      // Si ya viene URL absoluta, respetarla tal cual.
+      // Para usar proxy /api en web, pasar explícitamente .../api
+      // o dejar que _defaultWebApiBaseUrl() lo resuelva por defecto.
+      return uri.replace(path: '').toString();
+    }
+
+    return value.endsWith('/') ? value.substring(0, value.length - 1) : value;
   }
 
   static String get attendanceHmacSecret {
