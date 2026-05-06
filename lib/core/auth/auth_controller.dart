@@ -42,15 +42,14 @@ class AuthController extends StateNotifier<AuthState> {
   Future<void> _bootstrap() async {
     final storage = ref.read(storageProvider);
     final persistedLastActivity = await storage.getLastActivityAt();
-    final idleExpired = _isIdleExpired(persistedLastActivity);
-    if (idleExpired) {
-      await storage.clearAuthTokens();
-      _lastUserActivityAtUtc = null;
-      _lastPersistedActivityAtUtc = null;
-    } else {
-      _lastUserActivityAtUtc = persistedLastActivity;
-      _lastPersistedActivityAtUtc = persistedLastActivity;
+    if (_isIdleExpired(persistedLastActivity)) {
+      await storage.clear();
+      _setUnauthenticated();
+      return;
     }
+
+    _lastUserActivityAtUtc = persistedLastActivity;
+    _lastPersistedActivityAtUtc = persistedLastActivity;
 
     await ensureValidAccessToken();
 
@@ -60,23 +59,7 @@ class AuthController extends StateNotifier<AuthState> {
       } else {
         _scheduleIdleCheck();
       }
-      return;
     }
-
-    final backendReachable = await _isBackendReachable();
-    if (!idleExpired && !backendReachable) {
-      final hydrated = await _hydrateOfflineSession();
-      if (hydrated) {
-        if (_lastUserActivityAtUtc == null) {
-          registerUserActivity();
-        } else {
-          _scheduleIdleCheck();
-        }
-        return;
-      }
-    }
-
-    _setUnauthenticated();
   }
 
   Future<void> login({
@@ -109,8 +92,6 @@ class AuthController extends StateNotifier<AuthState> {
 
       await storage.saveTokens(access: access, refresh: refresh);
       _setAuthenticatedFromToken(access);
-      final payload = _decodeJwt(access);
-      await _saveSession(access, payload);
     } on DioException catch (e) {
       final status = e.response?.statusCode;
       if (status == 401) {
@@ -140,7 +121,10 @@ class AuthController extends StateNotifier<AuthState> {
     try {
       final res = await _authClient().post(
         '/auth/change-password',
-        data: {'currentPassword': currentPassword, 'newPassword': newPassword},
+        data: {
+          'currentPassword': currentPassword,
+          'newPassword': newPassword,
+        },
         options: Options(
           headers: {'Authorization': 'Bearer $accessToken'},
           validateStatus: (status) =>
@@ -185,7 +169,7 @@ class AuthController extends StateNotifier<AuthState> {
       return refreshedAccess;
     }
 
-    await storage.clearAuthTokens();
+    await storage.clear();
     _setUnauthenticated();
     return null;
   }
@@ -220,72 +204,6 @@ class AuthController extends StateNotifier<AuthState> {
   Future<void> logout() async {
     await ref.read(storageProvider).clear();
     _setUnauthenticated();
-  }
-
-  Future<void> _saveSession(String token, Map user) async {
-    final safeUser = <String, dynamic>{
-      'sub': _asInt(user['sub']),
-      'username': (user['username'] ?? '').toString().trim(),
-      'roleId': _asInt(user['roleId']),
-      'mustChangePassword': _asBool(user['mustChangePassword']) ?? false,
-    };
-    await ref
-        .read(storageProvider)
-        .saveSession(token: token, userJson: json.encode(safeUser));
-  }
-
-  Future<bool> _hydrateOfflineSession() async {
-    final storage = ref.read(storageProvider);
-    final token = (await storage.getSessionToken())?.trim() ?? '';
-    final userJson = (await storage.getSessionUserJson())?.trim() ?? '';
-    if (token.isEmpty || userJson.isEmpty) return false;
-
-    try {
-      final decoded = json.decode(userJson);
-      if (decoded is! Map) return false;
-      final user = Map<String, dynamic>.from(decoded);
-      _activeAccessToken = token;
-      _ensureActivityTimestamp();
-      _scheduleIdleCheck();
-      _setState(
-        AuthState(
-          isLoading: false,
-          isAuthenticated: true,
-          userId: _asInt(user['sub']),
-          username: (user['username'] ?? '').toString().trim().isEmpty
-              ? null
-              : (user['username'] ?? '').toString().trim(),
-          roleId: _asInt(user['roleId']),
-          mustChangePassword: _asBool(user['mustChangePassword']) ?? false,
-        ),
-      );
-      return true;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  Future<bool> _isBackendReachable() async {
-    try {
-      final res =
-          await Dio(
-            BaseOptions(
-              baseUrl: Env.apiBaseUrl,
-              connectTimeout: const Duration(seconds: 3),
-              receiveTimeout: const Duration(seconds: 3),
-            ),
-          ).get(
-            '/health',
-            options: Options(
-              validateStatus: (status) => status != null && status < 500,
-            ),
-          );
-      return (res.statusCode ?? 0) > 0;
-    } on DioException {
-      return false;
-    } catch (_) {
-      return false;
-    }
   }
 
   Future<String?> _refreshAccessToken() async {
@@ -395,7 +313,6 @@ class AuthController extends StateNotifier<AuthState> {
         mustChangePassword: _asBool(payload['mustChangePassword']) ?? false,
       ),
     );
-    unawaited(_saveSession(token, payload));
   }
 
   void _setUnauthenticated() {

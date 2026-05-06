@@ -7,8 +7,6 @@ class Storage {
   static const _kAccess = 'access_token';
   static const _kRefresh = 'refresh_token';
   static const _kLastActivityEpochMs = 'last_activity_epoch_ms';
-  static const _kSessionToken = 'session_token_cached';
-  static const _kSessionUserJson = 'session_user_json_cached';
 
   Future<void> saveTokens({
     required String access,
@@ -44,34 +42,10 @@ class Storage {
     return DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true);
   }
 
-  Future<void> saveSession({
-    required String token,
-    required String userJson,
-  }) async {
-    final sp = await SharedPreferences.getInstance();
-    await sp.setString(_kSessionToken, token);
-    await sp.setString(_kSessionUserJson, userJson);
-  }
-
-  Future<String?> getSessionToken() async {
-    final sp = await SharedPreferences.getInstance();
-    return sp.getString(_kSessionToken);
-  }
-
-  Future<String?> getSessionUserJson() async {
-    final sp = await SharedPreferences.getInstance();
-    return sp.getString(_kSessionUserJson);
-  }
-
-  Future<void> clearAuthTokens() async {
+  Future<void> clear() async {
     final sp = await SharedPreferences.getInstance();
     await sp.remove(_kAccess);
     await sp.remove(_kRefresh);
     await sp.remove(_kLastActivityEpochMs);
-  }
-
-  Future<void> clear() async {
-    final sp = await SharedPreferences.getInstance();
-    await sp.clear();
   }
 }

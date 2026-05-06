@@ -1,14 +1,10 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'dart:async';
 import 'auth/auth_controller.dart';
 import 'env.dart';
 
 export 'storage.dart' show storageProvider;
-
-final apiConnectivityAlertProvider = StateProvider<String?>((ref) => null);
-final apiOfflineModeProvider = StateProvider<bool>((ref) => false);
 
 String _compactErrorBody(dynamic value, {int max = 800}) {
   if (value == null) return '-';
@@ -19,9 +15,6 @@ String _compactErrorBody(dynamic value, {int max = 800}) {
 
 final dioProvider = Provider<Dio>((ref) {
   final authController = ref.read(authControllerProvider.notifier);
-  Timer? healthRetryTimer;
-  var healthFailures = 0;
-  var healthProbeRunning = false;
 
   final dio = Dio(
     BaseOptions(
@@ -36,63 +29,10 @@ final dioProvider = Provider<Dio>((ref) {
     ),
   );
 
-  Duration nextHealthDelay() {
-    final seconds = switch (healthFailures) {
-      <= 0 => 1,
-      1 => 1,
-      2 => 2,
-      3 => 4,
-      4 => 8,
-      _ => 16,
-    };
-    return Duration(seconds: seconds);
-  }
-
-  Future<void> runHealthProbe() async {
-    if (healthProbeRunning) return;
-    healthProbeRunning = true;
-    try {
-      await dio.get(
-        '/health',
-        options: Options(
-          extra: {'__connectivity_probe': true},
-          sendTimeout: const Duration(seconds: 5),
-          receiveTimeout: const Duration(seconds: 5),
-        ),
-      );
-      healthFailures = 0;
-      healthRetryTimer?.cancel();
-      healthRetryTimer = null;
-      ref.read(apiOfflineModeProvider.notifier).state = false;
-      ref.read(apiConnectivityAlertProvider.notifier).state = null;
-    } on DioException {
-      healthFailures += 1;
-      healthRetryTimer?.cancel();
-      healthRetryTimer = Timer(nextHealthDelay(), () {
-        runHealthProbe();
-      });
-    } finally {
-      healthProbeRunning = false;
-    }
-  }
-
-  void scheduleHealthProbe() {
-    if (healthProbeRunning || (healthRetryTimer?.isActive ?? false)) return;
-    healthRetryTimer = Timer(nextHealthDelay(), () {
-      runHealthProbe();
-    });
-  }
-
   dio.interceptors.add(
     InterceptorsWrapper(
       onRequest: (options, handler) async {
-        if (options.data is! FormData) {
-          options.contentType = Headers.jsonContentType;
-          options.headers['Content-Type'] = Headers.jsonContentType;
-        }
-
-        final isProbe = options.extra['__connectivity_probe'] == true;
-        if (_isPublicCall(options.path) || isProbe) {
+        if (_isAuthCall(options.path)) {
           return handler.next(options);
         }
 
@@ -115,22 +55,11 @@ final dioProvider = Provider<Dio>((ref) {
         handler.next(options);
       },
       onResponse: (response, handler) {
-        healthFailures = 0;
-        healthRetryTimer?.cancel();
-        healthRetryTimer = null;
-        ref.read(apiOfflineModeProvider.notifier).state = false;
-        ref.read(apiConnectivityAlertProvider.notifier).state = null;
         _finishTrackedProtectedRequest(response.requestOptions, authController);
         handler.next(response);
       },
       onError: (err, handler) async {
         _finishTrackedProtectedRequest(err.requestOptions, authController);
-        if (_isConnectivityError(err)) {
-          ref.read(apiOfflineModeProvider.notifier).state = true;
-          ref.read(apiConnectivityAlertProvider.notifier).state =
-              'Offline Mode: sin conexión con API (${Env.apiBaseUrl}). Recuperando...';
-          scheduleHealthProbe();
-        }
 
         // Log network/connection errors to help debugging (prints visible in console)
         // err is a DioException on modern dio versions
@@ -149,7 +78,7 @@ final dioProvider = Provider<Dio>((ref) {
 
         // Intento de refresh token en 401 (excepto si ya se intentó o es /auth/refresh)
         final status = err.response?.statusCode;
-        final isAuthCall = _isPublicCall(err.requestOptions.path);
+        final isAuthCall = _isAuthCall(err.requestOptions.path);
         final alreadyRetried = err.requestOptions.extra['__retried'] == true;
         if (status == 401 &&
             !isAuthCall &&
@@ -172,31 +101,13 @@ final dioProvider = Provider<Dio>((ref) {
     ),
   );
 
-  ref.onDispose(() {
-    healthRetryTimer?.cancel();
-    healthRetryTimer = null;
-  });
-
-  // Probe inicial de conectividad al crear el cliente API.
-  Future.microtask(runHealthProbe);
-
   return dio;
 });
 
-bool _isConnectivityError(DioException err) {
-  if (err.response != null) return false;
-  return err.type == DioExceptionType.connectionError ||
-      err.type == DioExceptionType.connectionTimeout ||
-      err.type == DioExceptionType.receiveTimeout ||
-      err.type == DioExceptionType.sendTimeout ||
-      err.type == DioExceptionType.unknown;
-}
-
-bool _isPublicCall(String path) {
+bool _isAuthCall(String path) {
   final normalized = path.toLowerCase();
   return normalized.contains('/auth/login') ||
-      normalized.contains('/auth/refresh') ||
-      normalized.contains('/health');
+      normalized.contains('/auth/refresh');
 }
 
 bool _isBusinessUnauthorizedPath(String path) {
