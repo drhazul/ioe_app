@@ -70,6 +70,16 @@ Frontend Flutter del ecosistema IOE. Consume `ioe-api` para autenticación, maes
 ## Ejecucion
 - `flutter test`
 - `flutter run -d chrome`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\build-web-release-safe.ps1`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\serve-web-release-local.ps1 -Port 8088`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\serve-web-release-local.ps1 -Port 8088 -ApiBaseUrlWeb http://192.168.10.234:8085/api`
+
+## Login web: debug vs release
+- Si abres en `localhost:<puerto-aleatorio>` desde `flutter run -d chrome`, estás en modo debug (DDC): es normal ver cientos/miles de requests (`ddc_module_loader.js`, `dart_sdk.js`, `*.dart.lib.js`).
+- En producción/release (`flutter build web --release`) no debe aparecer esa cascada; deben verse pocos archivos iniciales (`index.html`, `flutter_bootstrap.js`, `main.dart.js`, `canvaskit.*`, fuentes/assets).
+- Si pruebas release en `127.0.0.1:8088`, por defecto no existe proxy `/api`; para login real apunta API explícita con `-ApiBaseUrlWeb` al backend (ejemplo arriba).
+- La pantalla de login dispara `GET /health` durante el bootstrap de conectividad.
+- Al presionar `Entrar`, la pantalla de login dispara `POST /auth/login`.
 
 ## Documentacion viva
 - Mantén este índice y los README/AGENTS de módulo actualizados cuando cambien flujos o contratos.
