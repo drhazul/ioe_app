@@ -34,6 +34,17 @@
 </head>
 <body>
   <script>
+    const IOE_BUILD_MARKER = 'eb8d4e4-probe1';
+    console.info('IOE_BUILD_MARKER', IOE_BUILD_MARKER);
+
+    // Sonda temprana de salud antes de inicializar Flutter.
+    // Si no aparece en Network, el navegador no está usando este build.
+    fetch(`/api/health?probe=${encodeURIComponent(IOE_BUILD_MARKER)}`, {
+      method: 'GET',
+      cache: 'no-store',
+      credentials: 'same-origin',
+    }).catch(() => {});
+
     // Hard reset de service workers/caches legacy para evitar servir bundles viejos.
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
