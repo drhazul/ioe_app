@@ -42,14 +42,15 @@ class AuthController extends StateNotifier<AuthState> {
   Future<void> _bootstrap() async {
     final storage = ref.read(storageProvider);
     final persistedLastActivity = await storage.getLastActivityAt();
-    if (_isIdleExpired(persistedLastActivity)) {
+    final idleExpired = _isIdleExpired(persistedLastActivity);
+    if (idleExpired) {
       await storage.clearAuthTokens();
-      _setUnauthenticated();
-      return;
+      _lastUserActivityAtUtc = null;
+      _lastPersistedActivityAtUtc = null;
+    } else {
+      _lastUserActivityAtUtc = persistedLastActivity;
+      _lastPersistedActivityAtUtc = persistedLastActivity;
     }
-
-    _lastUserActivityAtUtc = persistedLastActivity;
-    _lastPersistedActivityAtUtc = persistedLastActivity;
 
     await ensureValidAccessToken();
 
@@ -63,7 +64,7 @@ class AuthController extends StateNotifier<AuthState> {
     }
 
     final backendReachable = await _isBackendReachable();
-    if (!backendReachable) {
+    if (!idleExpired && !backendReachable) {
       final hydrated = await _hydrateOfflineSession();
       if (hydrated) {
         if (_lastUserActivityAtUtc == null) {
@@ -139,10 +140,7 @@ class AuthController extends StateNotifier<AuthState> {
     try {
       final res = await _authClient().post(
         '/auth/change-password',
-        data: {
-          'currentPassword': currentPassword,
-          'newPassword': newPassword,
-        },
+        data: {'currentPassword': currentPassword, 'newPassword': newPassword},
         options: Options(
           headers: {'Authorization': 'Bearer $accessToken'},
           validateStatus: (status) =>
@@ -231,10 +229,9 @@ class AuthController extends StateNotifier<AuthState> {
       'roleId': _asInt(user['roleId']),
       'mustChangePassword': _asBool(user['mustChangePassword']) ?? false,
     };
-    await ref.read(storageProvider).saveSession(
-      token: token,
-      userJson: json.encode(safeUser),
-    );
+    await ref
+        .read(storageProvider)
+        .saveSession(token: token, userJson: json.encode(safeUser));
   }
 
   Future<bool> _hydrateOfflineSession() async {
@@ -270,18 +267,19 @@ class AuthController extends StateNotifier<AuthState> {
 
   Future<bool> _isBackendReachable() async {
     try {
-      final res = await Dio(
-        BaseOptions(
-          baseUrl: Env.apiBaseUrl,
-          connectTimeout: const Duration(seconds: 3),
-          receiveTimeout: const Duration(seconds: 3),
-        ),
-      ).get(
-        '/health',
-        options: Options(
-          validateStatus: (status) => status != null && status < 500,
-        ),
-      );
+      final res =
+          await Dio(
+            BaseOptions(
+              baseUrl: Env.apiBaseUrl,
+              connectTimeout: const Duration(seconds: 3),
+              receiveTimeout: const Duration(seconds: 3),
+            ),
+          ).get(
+            '/health',
+            options: Options(
+              validateStatus: (status) => status != null && status < 500,
+            ),
+          );
       return (res.statusCode ?? 0) > 0;
     } on DioException {
       return false;
