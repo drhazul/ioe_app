@@ -53,13 +53,13 @@ class UserModel {
       nivel: (json['NIVEL'] as num).toInt(),
       idRol: json['IDROL'] as int,
       idDepto: json['IDDEPTO'] as int?,
-      idPuesto: json['IDPUESTO'] as int?,
+      idPuesto: (json['IDPUESTO'] as num?)?.toInt() ?? (json['IDROL'] as num?)?.toInt(),
       suc: json['SUC'] as String?,
       sucDesc: sucursal?['DESC'] as String? ?? sucursal?['desc'] as String?,
       rolCodigo: rol?['CODIGO'] as String?,
       rolNombre: rol != null ? (rol['NOMBRE'] as String? ?? rol['CODIGO'] as String?) : null,
       deptoNombre: depto?['NOMBRE'] as String?,
-      puestoNombre: puesto?['NOMBRE'] as String?,
+      puestoNombre: puesto?['NOMBRE'] as String? ?? rol?['NOMBRE'] as String?,
       forzarCambioPass: _asBool(
         json['FORZAR_CAMBIO_PASS'] ??
             json['forzarCambioPass'] ??

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/api_error.dart';
 import '../../core/auth/auth_controller.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
@@ -94,10 +95,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   }
 
   String _errorMessage(Object error) {
-    final text = error.toString();
-    if (text.startsWith('Exception: ')) {
-      return text.replaceFirst('Exception: ', '');
-    }
-    return text;
+    return apiErrorMessage(error, fallback: 'No se pudo iniciar sesión');
   }
 }

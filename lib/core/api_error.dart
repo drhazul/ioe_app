@@ -34,6 +34,17 @@ String apiErrorMessage(Object error, {String fallback = 'Ocurrió un error'}) {
     }
   }
 
-  final text = error.toString();
-  return text.isNotEmpty ? text : fallback;
+  final text = error.toString().trim();
+  if (text.isEmpty) return fallback;
+
+  // En Web release algunos errores llegan minificados como "Instance of 'minified:xxx'".
+  if (text.contains("Instance of 'minified:") || text.startsWith('Instance of \'')) {
+    return fallback;
+  }
+
+  if (text.startsWith('Exception: ')) {
+    return text.replaceFirst('Exception: ', '');
+  }
+
+  return text;
 }

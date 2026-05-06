@@ -31,8 +31,8 @@ class MasterDataPage extends StatelessWidget {
             onTap: () => context.go('/masterdata/access-reg-suc'),
           ),
           ListTile(
-            title: const Text('Puestos'),
-            onTap: () => context.go('/masterdata/puestos'),
+            title: const Text('Puestos (usa Roles)'),
+            onTap: () => context.go('/masterdata/roles'),
           ),
           ListTile(
             title: const Text('Catalogo Cuentas'),

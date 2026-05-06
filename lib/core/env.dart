@@ -3,9 +3,10 @@ import 'package:flutter/foundation.dart'
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class Env {
- static const String _devBaseUrl = 'http://10.99.0.3:3001';
-// Revisa si tienes algo así
-static const String _androidEmulatorBaseUrl = 'http://10.99.0.3:3001';
+  // Desarrollo local (web/desktop): API local levantada desde ioe-api.
+  static const String _devBaseUrl = 'http://127.0.0.1:3001';
+  // Android emulator usa 10.0.2.2 para alcanzar localhost del host.
+  static const String _androidEmulatorBaseUrl = 'http://10.0.2.2:3001';
   static String get apiBaseUrl {
     if (!kReleaseMode) {
       if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {

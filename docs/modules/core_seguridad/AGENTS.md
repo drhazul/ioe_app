@@ -12,6 +12,7 @@ Enlaces relacionados:
 - debug: `http://localhost:3001`.
 - release web: `API_BASE_URL_WEB` o fallback `/api`.
 - release mobile: `API_BASE_URL` o fallback hardcoded actual.
+- Login web (2026-05-05): ante errores minificados (`Instance of 'minified:...'`), presentar mensaje fallback legible y no exponer texto minificado al usuario final.
 - `dio_provider` aplica:
 - header `Authorization: Bearer`.
 - refresh automatizado en 401 (excepto rutas auth).

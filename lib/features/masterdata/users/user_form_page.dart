@@ -7,7 +7,6 @@ import 'package:ioe_app/core/api_error.dart';
 
 import '../roles/roles_providers.dart';
 import '../deptos/deptos_providers.dart';
-import '../puestos/puestos_providers.dart';
 import '../sucursales/sucursales_providers.dart';
 import 'users_providers.dart';
 
@@ -35,7 +34,6 @@ class _UserFormPageState extends ConsumerState<UserFormPage> {
   String _estatus = 'ACTIVO';
   int? _roleId;
   int? _deptoId;
-  int? _puestoId;
   String? _suc;
   bool _forzarCambioPass = true;
 
@@ -59,7 +57,6 @@ class _UserFormPageState extends ConsumerState<UserFormPage> {
     _estatus = user.estatus;
     _roleId = user.idRol;
     _deptoId = user.idDepto;
-    _puestoId = user.idPuesto;
     _suc = (user.suc?.trim().isEmpty ?? true) ? null : user.suc;
     _forzarCambioPass = user.forzarCambioPass;
   }
@@ -95,7 +92,6 @@ class _UserFormPageState extends ConsumerState<UserFormPage> {
       'NOMBRE': _nombreCtrl.text.trim().isEmpty ? null : _nombreCtrl.text.trim(),
       'APELLIDOS': _apellidosCtrl.text.trim().isEmpty ? null : _apellidosCtrl.text.trim(),
       'IDDEPTO': _deptoId,
-      'IDPUESTO': _puestoId,
       'SUC': (suc == null || suc.isEmpty) ? null : suc,
       'FORZAR_CAMBIO_PASS': _forzarCambioPass,
     };
@@ -146,7 +142,6 @@ class _UserFormPageState extends ConsumerState<UserFormPage> {
   Widget build(BuildContext context) {
     final rolesAsync = ref.watch(rolesListProvider);
     final deptosAsync = ref.watch(deptosListProvider);
-    final puestosAsync = ref.watch(puestosListProvider);
     final sucursalesAsync = ref.watch(sucursalesListProvider);
 
     return Scaffold(
@@ -284,29 +279,6 @@ class _UserFormPageState extends ConsumerState<UserFormPage> {
                     loading: () => const LinearProgressIndicator(),
                     error: (e, _) => Text('Error deptos: $e'),
                   ),
-                  const SizedBox(height: 12),
-                  puestosAsync.when(
-                    data: (puestos) {
-                      final selectedPuesto = puestos.any((p) => p.id == _puestoId) ? _puestoId : null;
-                      return DropdownButtonFormField<int?>(
-                        initialValue: selectedPuesto,
-                        decoration: const InputDecoration(labelText: 'Puesto'),
-                        items: [
-                          const DropdownMenuItem<int?>(value: null, child: Text('Sin puesto')),
-                          ...puestos.map(
-                            (p) => DropdownMenuItem<int?>(
-                              value: p.id,
-                              child: Text(p.deptoNombre != null ? '${p.nombre} (${p.deptoNombre})' : p.nombre),
-                            ),
-                          ),
-                        ],
-                        onChanged: _saving ? null : (v) => setState(() => _puestoId = v),
-                      );
-                    },
-                    loading: () => const LinearProgressIndicator(),
-                    error: (e, _) => Text('Error puestos: $e'),
-                  ),
-                  const SizedBox(height: 12),
                   sucursalesAsync.when(
                     data: (sucs) {
                       final selectedSuc = sucs.any((s) => s.suc == _suc) ? _suc : null;

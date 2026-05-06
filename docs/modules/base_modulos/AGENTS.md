@@ -16,8 +16,8 @@ Enlaces relacionados:
 - Maestros:
 - Roles `/roles` -> `ROL`: `IDROL`, `CODIGO`, `NOMBRE`, `DESCRIPCION`, `ACTIVO`, `FCNR`.
 - Deptos `/deptos` -> `DEPARTAMENTO`: `IDDEPTO`, `NOMBRE`, `ACTIVO`, `FCNR`.
-- Puestos `/puestos` -> `PUESTO`: `IDPUESTO`, `IDDEPTO`, `NOMBRE`, `ACTIVO`, `FCNR`.
-- Usuarios `/users` -> `USUARIO`: `IDUSUARIO`, `USERNAME`, `NOMBRE`, `APELLIDOS`, `MAIL`, `ESTATUS`, `NIVEL`, `IDROL`, `IDDEPTO`, `IDPUESTO`, `SUC`, `FORZAR_CAMBIO_PASS`.
+- Puestos `/puestos` (compat legacy) -> `ROL`: `IDROL` (expuesto como `IDPUESTO`), `IDDEPTO`, `NOMBRE`, `ACTIVO`, `FCNR`.
+- Usuarios `/users` -> `USUARIO`: `IDUSUARIO`, `USERNAME`, `NOMBRE`, `APELLIDOS`, `MAIL`, `ESTATUS`, `NIVEL`, `IDROL`, `IDDEPTO`, `SUC`, `FORZAR_CAMBIO_PASS`.
 - Validacion UI usuarios: el formulario de alta/edicion exige `USERNAME` con minimo 3 caracteres para alinear con validacion backend de `/users`.
 - UI usuarios (2026-03): en alta se genera contraseña temporal aleatoria de 6 dígitos, con botón para regenerar y mostrar/ocultar.
 - UI usuarios (2026-03): el formulario permite controlar `FORZAR_CAMBIO_PASS` para exigir cambio de contraseña en próximo acceso.
@@ -28,6 +28,7 @@ Enlaces relacionados:
 - Datos Maestros / Enrolamiento Front por usuario (2026-05-04): nuevo mantenimiento en `/#/masterdata/access/enrolamiento-front-usr`; Home evalúa primero asignaciones activas por usuario (`USR_GRUPMOD_FRONT`) y, en ausencia, aplica enrolamiento por rol (`ROL_GRUPMOD_FRONT`).
 - Datos Maestros / Enrolamiento Front por usuario (2026-05-04): se agrega filtro visual por `Sucursal` y `Departamento` para limitar el dropdown de usuarios en la asignación.
 - Datos Maestros / Acceso por sucursal (2026-05-04): la pantalla `/#/masterdata/access-reg-suc` agrega dropdowns de `Sucursal (usuario)` y `Departamento` en el CRUD principal y en el popup de vinculación para filtrar módulos front/usuarios y registros de `USR_MOD_SUC`.
+- Datos Maestros / Configuración maestra (2026-05-05): frontend consume `GET/PUT /masterdata/configuracion-maestra`; si `GET` falla, usa fallback local de catálogos para no bloquear la pantalla.
 - Accesos `/access/*` -> `MODULO`, `GRUP_MODULO`, `GRUPMOD_MODULO`, `ROL_GRUP_MODULO_PERM`, `MOD_FRONT`, `GRUPMOD_FRONT`, `GRUPMOD_FRONT_MOD`, `ROL_GRUPMOD_FRONT`.
 - Acceso regional por sucursal `/usr-mod-suc` -> `USR_MOD_SUC`: `MODULO`, `USUARIO`, `SUC`, `ACTIVO`, `FCNR`.
 - Cat. cuentas `/cat-ctas` -> `DAT_CAT_CTAS`: `CTA`, `DCTA`, `RELACION`, `SUC`.

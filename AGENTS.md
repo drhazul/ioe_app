@@ -39,6 +39,8 @@
 - Datos Maestros / Enrolamiento Front por usuario (2026-05-04): se agrega gestión en `/#/masterdata/access/enrolamiento-front-usr`; Home prioriza asignaciones activas de `USR_GRUPMOD_FRONT` por usuario y, si no existen, usa fallback por rol (`ROL_GRUPMOD_FRONT`).
 - Datos Maestros / Enrolamiento Front por usuario (2026-05-04): la pantalla agrega dropdowns `Sucursal` y `Departamento` para filtrar el selector de usuario antes de asignar grupos front.
 - Datos Maestros / Acceso por sucursal (2026-05-04): `/#/masterdata/access-reg-suc` incorpora dropdowns `Sucursal (usuario)` y `Departamento` en CRUD principal y popup de vinculación para filtrar listado y catálogos (`Módulo Front` / `Usuario`) con el mismo criterio.
+- Datos Maestros / Puestos migrado a ROL (2026-05-05): la app deja de enviar `IDPUESTO` en `/users`, el menú/ruta `/masterdata/puestos` redirige al mantenimiento de `roles`, y catálogos de cargos consumen `ROL` para compatibilidad con bases sin tabla `PUESTO`.
+- Entorno dev API (2026-05-05): `Env.apiBaseUrl` en desarrollo web/desktop apunta a `http://127.0.0.1:3001` para usar backend local actualizado y evitar `404` de servidores remotos con build desfasado.
 
 ## Documentación por módulos
 - Base de módulos: `docs/modules/base_modulos/AGENTS.md` (README: `docs/modules/base_modulos/README.md`)

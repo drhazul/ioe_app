@@ -12,28 +12,64 @@ class PuestosApi {
     if (nombre != null && nombre.isNotEmpty) query['nombre'] = nombre;
     if (activo != null) query['activo'] = activo.toString();
 
-    final res = await dio.get('/puestos', queryParameters: query.isEmpty ? null : query);
+    final res = await dio.get('/roles', queryParameters: query.isEmpty ? null : query);
     return (res.data as List<dynamic>)
-        .map((e) => PuestoModel.fromJson(Map<String, dynamic>.from(e)))
+        .map((e) => _fromRoleJson(Map<String, dynamic>.from(e)))
+        .where((row) => row.idDepto != null)
         .toList();
   }
 
   Future<PuestoModel> fetchPuesto(int id) async {
-    final res = await dio.get('/puestos/$id');
-    return PuestoModel.fromJson(Map<String, dynamic>.from(res.data as Map));
+    final res = await dio.get('/roles/$id');
+    return _fromRoleJson(Map<String, dynamic>.from(res.data as Map));
   }
 
   Future<PuestoModel> createPuesto(Map<String, dynamic> payload) async {
-    final res = await dio.post('/puestos', data: Map<String, dynamic>.from(payload));
-    return PuestoModel.fromJson(Map<String, dynamic>.from(res.data as Map));
+    final source = Map<String, dynamic>.from(payload);
+    final depto = source['IDDEPTO'];
+    final nombre = (source['NOMBRE'] ?? '').toString().trim();
+    final body = <String, dynamic>{
+      'CODIGO': _buildCodigo(nombre),
+      'NOMBRE': nombre,
+      'IDDEPTO': depto,
+      'ACTIVO': source['ACTIVO'] ?? true,
+    };
+    final res = await dio.post('/roles', data: body);
+    return _fromRoleJson(Map<String, dynamic>.from(res.data as Map));
   }
 
   Future<PuestoModel> updatePuesto(int id, Map<String, dynamic> payload) async {
-    final res = await dio.patch('/puestos/$id', data: Map<String, dynamic>.from(payload));
-    return PuestoModel.fromJson(Map<String, dynamic>.from(res.data as Map));
+    final source = Map<String, dynamic>.from(payload);
+    final body = <String, dynamic>{
+      if (source.containsKey('NOMBRE')) 'NOMBRE': source['NOMBRE'],
+      if (source.containsKey('IDDEPTO')) 'IDDEPTO': source['IDDEPTO'],
+      if (source.containsKey('ACTIVO')) 'ACTIVO': source['ACTIVO'],
+    };
+    final res = await dio.patch('/roles/$id', data: body);
+    return _fromRoleJson(Map<String, dynamic>.from(res.data as Map));
   }
 
   Future<void> deletePuesto(int id) async {
-    await dio.delete('/puestos/$id');
+    await dio.delete('/roles/$id');
+  }
+
+  PuestoModel _fromRoleJson(Map<String, dynamic> json) {
+    return PuestoModel.fromJson({
+      'IDPUESTO': json['IDROL'],
+      'IDDEPTO': json['IDDEPTO'],
+      'NOMBRE': json['NOMBRE'],
+      'ACTIVO': json['ACTIVO'],
+      'DEPARTAMENTO': null,
+    });
+  }
+
+  String _buildCodigo(String nombre) {
+    final normalized = nombre
+        .toUpperCase()
+        .replaceAll(RegExp(r'[^A-Z0-9]+'), '_')
+        .replaceAll(RegExp(r'_+'), '_')
+        .replaceAll(RegExp(r'^_|_$'), '');
+    final fallback = normalized.isEmpty ? 'ROL' : normalized;
+    return fallback.length > 50 ? fallback.substring(0, 50) : fallback;
   }
 }

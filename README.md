@@ -30,6 +30,8 @@ Frontend Flutter del ecosistema IOE. Consume `ioe-api` para autenticación, maes
 - Datos Maestros / Enrolamiento Front por usuario (2026-05-04): nuevo acceso `/#/masterdata/access/enrolamiento-front-usr`; la visualización de módulos en Home prioriza reglas activas por usuario (`USR_GRUPMOD_FRONT`) y usa rol (`ROL_GRUPMOD_FRONT`) solo cuando usuario no tiene asignaciones.
 - Datos Maestros / Enrolamiento Front por usuario (2026-05-04): el formulario incorpora filtros por `Sucursal` y `Departamento` para acotar la lista de usuarios disponibles en el dropdown.
 - Datos Maestros / Acceso por sucursal (2026-05-04): en `/#/masterdata/access-reg-suc` se agregan dropdowns `Sucursal (usuario)` y `Departamento` tanto en el filtro del CRUD como en el popup de vinculación para acotar módulos front/usuarios y el listado de registros.
+- Datos Maestros / Puestos migrado a ROL (2026-05-05): el formulario de usuarios ya no envía `IDPUESTO`, `/#/masterdata/puestos` opera como acceso de compatibilidad hacia `roles`, y los catálogos de cargos toman datos desde `ROL`.
+- Entorno dev API (2026-05-05): para ejecución local en web/desktop, la base URL de desarrollo usa `http://127.0.0.1:3001` y en Android emulator `http://10.0.2.2:3001`.
 - Notas de documentación viva: este README solo debe cambiarse cuando se agreguen/modifiquen módulos, rutas o datos de arquitectura/base (no para ajustes locales de pantalla). Otros cambios funcionales van al README/AGENTS del módulo afectado.
 
 ## Arquitectura general

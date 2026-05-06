@@ -1,6 +1,6 @@
 class PuestoModel {
   final int id;
-  final int idDepto;
+  final int? idDepto;
   final String nombre;
   final bool activo;
   final String? deptoNombre;
@@ -17,7 +17,7 @@ class PuestoModel {
     final depto = json['DEPARTAMENTO'] as Map<String, dynamic>?;
     return PuestoModel(
       id: json['IDPUESTO'] as int,
-      idDepto: json['IDDEPTO'] as int,
+      idDepto: (json['IDDEPTO'] as num?)?.toInt(),
       nombre: json['NOMBRE'] as String,
       activo: json['ACTIVO'] == true,
       deptoNombre: depto?['NOMBRE'] as String?,
@@ -26,7 +26,7 @@ class PuestoModel {
 
   Map<String, dynamic> toPayload() {
     return {
-      'IDDEPTO': idDepto,
+      if (idDepto != null) 'IDDEPTO': idDepto,
       'NOMBRE': nombre,
       'ACTIVO': activo,
     };

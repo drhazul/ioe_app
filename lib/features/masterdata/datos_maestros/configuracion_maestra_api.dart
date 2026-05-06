@@ -20,7 +20,7 @@ class ConfiguracionMaestraApi {
     }
 
     final deptosRes = await dio.get('/deptos');
-    final puestosRes = await dio.get('/puestos');
+    final puestosRes = await dio.get('/roles');
 
     final departamentos = (deptosRes.data is List)
         ? (deptosRes.data as List)

@@ -25,8 +25,6 @@ import '../features/masterdata/users/users_page.dart';
 import '../features/masterdata/users/user_form_page.dart';
 import '../features/masterdata/sucursales/sucursales_page.dart';
 import '../features/masterdata/sucursales/sucursal_form_page.dart';
-import '../features/masterdata/puestos/puestos_page.dart';
-import '../features/masterdata/puestos/puesto_form_page.dart';
 import '../features/masterdata/datmodulos/datmodulos_page.dart';
 import '../features/masterdata/datmodulos/datmodulo_form_page.dart';
 import '../features/masterdata/access_reg_suc/access_reg_suc_page.dart';
@@ -289,16 +287,16 @@ final routerProvider = Provider<GoRouter>((ref) {
               ),
               GoRoute(
                 path: 'puestos',
-                builder: (c, s) => const PuestosPage(),
+                builder: (c, s) => const RolesPage(),
                 routes: [
                   GoRoute(
                     path: 'new',
-                    builder: (c, s) => const PuestoFormPage(),
+                    builder: (c, s) => const RoleFormPage(),
                   ),
                   GoRoute(
                     path: ':id',
-                    builder: (c, s) => PuestoFormPage(
-                      puestoId: int.tryParse(s.pathParameters['id'] ?? ''),
+                    builder: (c, s) => RoleFormPage(
+                      roleId: int.tryParse(s.pathParameters['id'] ?? ''),
                     ),
                   ),
                 ],

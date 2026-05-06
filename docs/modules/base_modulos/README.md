@@ -19,8 +19,8 @@ Enlaces relacionados:
 - Maestros:
 - `/roles` -> `ROL` (`IDROL`, `CODIGO`, `NOMBRE`, `ACTIVO`).
 - `/deptos` -> `DEPARTAMENTO` (`IDDEPTO`, `NOMBRE`, `ACTIVO`).
-- `/puestos` -> `PUESTO` (`IDPUESTO`, `IDDEPTO`, `NOMBRE`, `ACTIVO`).
-- `/users` -> `USUARIO` (`IDUSUARIO`, `USERNAME`, `IDROL`, `IDDEPTO`, `IDPUESTO`, `SUC`, `ESTATUS`).
+- `/puestos` (compat legacy) -> `ROL` (`IDROL` expuesto como `IDPUESTO`, `IDDEPTO`, `NOMBRE`, `ACTIVO`).
+- `/users` -> `USUARIO` (`IDUSUARIO`, `USERNAME`, `IDROL`, `IDDEPTO`, `SUC`, `ESTATUS`).
 - UI maestros usuarios: el formulario valida `USERNAME` con minimo 3 caracteres antes de `POST /users`.
 - UI maestros usuarios (2026-03): en alta se genera contraseña temporal aleatoria de 6 dígitos, con botón para regenerar y mostrar/ocultar contraseña.
 - UI maestros usuarios (2026-03): el formulario permite controlar `FORZAR_CAMBIO_PASS` para exigir cambio de contraseña en el próximo acceso.
@@ -30,6 +30,7 @@ Enlaces relacionados:
 - Datos Maestros / Enrolamiento Front por usuario (2026-05-04): nuevo menú `/#/masterdata/access/enrolamiento-front-usr`; la carga de Home prioriza `USR_GRUPMOD_FRONT` por usuario y hace fallback a `ROL_GRUPMOD_FRONT`.
 - Datos Maestros / Enrolamiento Front por usuario (2026-05-04): el selector de usuario ahora permite filtrar por `Sucursal` y `Departamento` desde dropdowns dedicados.
 - Datos Maestros / Acceso por sucursal (2026-05-04): `/#/masterdata/access-reg-suc` incorpora filtros dropdown de `Sucursal (usuario)` y `Departamento` en la barra principal y en el popup de vinculación para acotar módulos front, usuarios y resultados de `USR_MOD_SUC`.
+- Datos Maestros / Configuración maestra (2026-05-05): el submódulo usa `GET/PUT /masterdata/configuracion-maestra` y conserva fallback local de catálogos si la API no responde.
 - `/usr-mod-suc` -> `USR_MOD_SUC` (`MODULO`, `USUARIO`, `SUC`, `ACTIVO`).
 - `/cat-ctas` -> `DAT_CAT_CTAS` (`CTA`, `DCTA`, `RELACION`, `SUC`).
 - `/access/*` -> `MODULO`, `GRUP_MODULO`, `GRUPMOD_MODULO`, `ROL_GRUP_MODULO_PERM`,

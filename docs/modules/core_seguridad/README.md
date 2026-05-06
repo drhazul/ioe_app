@@ -22,6 +22,7 @@ Enlaces relacionados:
 - login con `/auth/login`.
 - refresh proactivo y en demanda con `/auth/refresh`.
 - timeout por inactividad (15 min) y registro de actividad por eventos de UI.
+- Login web (2026-05-05): cuando una excepción llega minificada (`Instance of 'minified:...'`), la UI muestra fallback legible (`No se pudo iniciar sesión`) en lugar del texto minificado.
 - `dio_provider`:
 - agrega `Authorization` en requests protegidos.
 - reintenta en 401 con refresh (si aplica).
