@@ -88,6 +88,7 @@ Enlaces relacionados:
 - en detalle, el backend valida la misma regla (`AD/AP/CR` con `CLIEN > 1`) y rechaza API directa con `Seleccione Cliente`.
 - en detalle, cuando `ESTA IN ('PAGADO','CERRADO_PS','TRANSMITIR')` se bloquea toda la pantalla (sin edición/selección), quedando activos solo `Procesar servicio` y el regreso del AppBar.
 - en detalle/adeudos, cada renglón incluye botón `Ver registros` para abrir un popup tabular (listado por columnas) con todos los movimientos de `DAT_CTRL_CTAS` del `IDFOL` seleccionado.
+- en detalle/adeudos (2026-05-06), los botones `Ver registros` y `Asignar referencia` se muestran en una sola línea para prevenir traslape visual.
 - en pago, la vista usa dos contenedores (resumen y formas); el botón `Agregar` está dentro de `Formas de pago` y abre modal emergente para capturar `Forma/Importe/Autorización`.
 - el modal de formas PS usa catálogo dinámico `DAT_FORM` (`GET /dat-form`) y la regla de referencia igual a cotizaciones (`TARJETA/CHEQUE/TRANSFERENCIA/DEPOSITO 3RO`).
 - en pago, el dropdown del modal no muestra `CREDITO` ni `DEUDOR`.

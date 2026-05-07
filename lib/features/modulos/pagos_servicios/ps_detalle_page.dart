@@ -1183,17 +1183,25 @@ class _AdeudosSection extends StatelessWidget {
                               '${origenAut.isEmpty ? '' : ' | ORIGEN: $origenAut'}',
                             ),
                             trailing: ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 260),
-                              child: Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                alignment: WrapAlignment.end,
+                              constraints: const BoxConstraints(maxWidth: 320),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
                                   OutlinedButton(
+                                    style: OutlinedButton.styleFrom(
+                                      visualDensity: VisualDensity.compact,
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                    ),
                                     onPressed: folio.isEmpty ? null : () => onViewDetalle(row),
                                     child: const Text('Ver registros'),
                                   ),
+                                  const SizedBox(width: 8),
                                   OutlinedButton(
+                                    style: OutlinedButton.styleFrom(
+                                      visualDensity: VisualDensity.compact,
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                    ),
                                     onPressed: editable && (selectedArt ?? '').trim().isNotEmpty
                                         ? () => onAssign(row)
                                         : null,

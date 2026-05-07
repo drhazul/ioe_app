@@ -19,6 +19,7 @@
 - `lib/features/modulos/`: inventarios, catálogo `datart`, MB51/MB52, control de cuentas, taller y punto de venta.
 - Catálogo DAT_ART (2026-04): la ficha permite editar `UPC`; antes de guardar se valida que no esté asignado a otro `ART` de la misma sucursal.
 - Punto de venta / Pago de Servicios (2026-04): el cierre operativo al salir de pago usa `ESTA='CERRADO_PS'` (compatibilidad de lectura para históricos en `TRANSMITIR`).
+- Punto de venta / Pago de Servicios (2026-05-06): en detalle de adeudos PS, los botones `Ver registros` y `Asignar referencia` se mantienen en una sola línea para evitar superposición visual.
 - Facturación / Cliente fiscal (2026-04-06): en edición de datos fiscales (módulo `FACTURA_MTTOCLIENTE` y diálogo de validación) la `SUC` del cliente es inmutable; no se envía `SUC` desde frontend al actualizar.
 - Ordenes de trabajo / Asignar (2026-04-21): la selección de colaborador toma `DAT_LAB.SUC` del laboratorio asignado a cada ORD; si se mezclan ORDs de laboratorios en sucursales distintas, el flujo se bloquea hasta separarlas.
 - Ordenes de trabajo / Consulta estado (2026-04-23): el panel conserva criterios por modo (`operativo`/`estado`), la columna `OPV` muestra `USUARIO.NOMBRE`, el nuevo módulo `/taller/ordenes-trabajo/estado` es solo lectura para `admin`/`jefe taller`/`analista`, y el detalle permite capturar `HR_ENT` con máscara `HH:MM`; la etiqueta muestra `FCNS`, cliente en tipografía reforzada y QR con más separación.
@@ -29,7 +30,7 @@
 - Ordenes de trabajo / Cambio material y Merma (2026-04-19): el costo de la nueva ORD se alinea al costo de la ORD original para evitar diferencias de precio en captura.
 - Ordenes de trabajo / Cambio material y Merma (2026-04-21): `Solicitar autorización` fija `selCtrlOrd=14`; `Retrabajo` devuelve a `15`; `Autorizar` visible solo para `admin`, `ANALISTA_INV` e `INVJEF` crea la nueva ORD y anula la original.
 - Ordenes de trabajo / Cambio material y Merma (2026-04-22): la sección `Nueva ORD` debe mostrar `Diferencia` y el estado `Saldo a favor/en contra` con el valor calculado para el artículo capturado.
-- Ordenes de trabajo / Panel ORDs (2026-04-21): `ANALISTA_INV` e `INVJEF` operan una cola dedicada de revisión (`selCtrlOrd=14`) sin cambiar la vista del resto de roles.
+- Ordenes de trabajo / Panel ORDs (2026-04-21): `ANALISTA_INV` e `INVJEF` operan revisión de cambio/merma con flujo `selCtrlOrd=14`; la visibilidad operativa final se controla por matriz de flujos en backend.
 - Ordenes de trabajo / Garantía (2026-04-29): el módulo de entregadas se restaura en Home para `admin`/`JEF_TALLER`, muestra solo `Ver detalle`; desde detalle la acción `Garantía` mueve `11 -> 9.3`, permite editar comentario y agrega `Aplicar merma o cambio` solo en `9.3` (captura `TIPOM` 1/2 + `MOTR`) para continuar el mismo flujo de `9.1/9.2`.
 - Ordenes de trabajo / Recepción laboratorio externo (2026-05-01): `Recibir en taller` habilita también a `ANALISTA_ORD/ANALISTA` para ORDs de laboratorio externo; la recepción cambia `5 -> 10` en externo y conserva `5 -> 7` en laboratorio interno.
 - Ordenes de trabajo / Envío y recepción laboratorio externo (2026-05-03): al `Enviar a taller`, si el laboratorio asignado (`DAT_LAB.UBILAB='EXTERNO'`) la ORD cambia `3 -> 9` (pendiente recibir en analista); `Recibir en taller` para `ANALISTA_ORD/ANALISTA` valida flujo `9` externo y aplica `9 -> 10`, mientras interno conserva `5 -> 7`.
@@ -39,6 +40,9 @@
 - Datos Maestros / Enrolamiento Front por usuario (2026-05-04): se agrega gestión en `/#/masterdata/access/enrolamiento-front-usr`; Home prioriza asignaciones activas de `USR_GRUPMOD_FRONT` por usuario y, si no existen, usa fallback por rol (`ROL_GRUPMOD_FRONT`).
 - Datos Maestros / Enrolamiento Front por usuario (2026-05-04): la pantalla agrega dropdowns `Sucursal` y `Departamento` para filtrar el selector de usuario antes de asignar grupos front.
 - Datos Maestros / Acceso por sucursal (2026-05-04): `/#/masterdata/access-reg-suc` incorpora dropdowns `Sucursal (usuario)` y `Departamento` en CRUD principal y popup de vinculación para filtrar listado y catálogos (`Módulo Front` / `Usuario`) con el mismo criterio.
+- Datos Maestros / Acceso por sucursal (2026-05-06): el filtro `Departamento` en `/#/masterdata/access-reg-suc` usa coincidencia por `departamento de usuario OR departamento del módulo`; el dropdown muestra unión de departamentos (ya no intersección estricta).
+- Ordenes de trabajo / Panel ORDs (2026-05-06): `ANALISTA_INV` e `INVJEF` pueden consultar catálogo de asignados sin bloqueo de rol para filtros del panel.
+- Ordenes de trabajo / Panel ORDs (2026-05-06): backend repone criterio de cola para inventarios (`selCtrlOrd=14`) en `sp_ordenes_trabajo_panel`; frontend debe asumir que la lista operativa depende de ese filtro servidor.
 - Datos Maestros / Puestos migrado a ROL (2026-05-05): la app deja de enviar `IDPUESTO` en `/users`, el menú/ruta `/masterdata/puestos` redirige al mantenimiento de `roles`, y catálogos de cargos consumen `ROL` para compatibilidad con bases sin tabla `PUESTO`.
 - Entorno dev API (2026-05-05): `Env.apiBaseUrl` en desarrollo web/desktop apunta a `http://127.0.0.1:3001` para usar backend local actualizado y evitar `404` de servidores remotos con build desfasado.
 

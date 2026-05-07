@@ -24,6 +24,7 @@ Enlaces relacionados:
 - Si backend expone sucursales autorizadas por `USR_MOD_SUC` para el modulo, la UI debe permitir consultar/procesar en todas esas sucursales vinculadas.
 - El control de seguridad final siempre es backend; frontend solo habilita/oculta opciones segun contexto autorizado.
 - Compatibilidad legacy: cuando backend no devuelve sucursales por `USR_MOD_SUC`, la UI puede operar con la sucursal del contexto (`user.suc`) para no romper flujos existentes.
+- Acceso por sucursal (2026-05-06): en `/#/masterdata/access-reg-suc`, el filtro `Departamento` aplica coincidencia por `departamento de usuario OR departamento de módulo front`; el dropdown usa unión de departamentos.
 
 ## Regla principal FACTURA / FACTURA_VIEW (obligatoria)
 - Esta regla es base para crear rutas, endpoints y consultas de facturación.

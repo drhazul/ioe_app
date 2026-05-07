@@ -248,6 +248,7 @@ Enlaces relacionados:
 - en detalle, los servicios `AD/AP/CR` exigen cliente seleccionado (`CLIEN != 1`) antes de agregar línea.
 - en detalle, el backend también rechaza `AD/AP/CR` cuando `CLIEN <= 1` (mensaje `Seleccione Cliente`) para evitar bypass por API directa.
 - en detalle/adeudos, cada fila muestra botón `Ver registros` que abre popup tabular (listado por renglones y columnas) con movimientos de `DAT_CTRL_CTAS` del folio seleccionado.
+- en detalle/adeudos (2026-05-06), los botones `Ver registros` y `Asignar referencia` se renderizan en la misma línea para evitar traslape visual entre renglones.
 - en pago, la vista se organiza en dos contenedores (resumen y formas); el botón `Agregar` vive dentro de `Formas de pago` y abre modal emergente para capturar `Forma/Importe/Autorización`.
 - en pago, el selector de forma en modal no incluye `CREDITO` ni `DEUDOR`.
 - en pago, para formas no `EFECTIVO` el campo `Autorización / referencia` es de solo lectura y se captura reutilizando `ref_detalle_page.dart` de cotizaciones (`Generar/Asignar referencia`).

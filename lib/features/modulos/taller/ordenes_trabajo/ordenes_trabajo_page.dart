@@ -2418,8 +2418,9 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       final canManageTipoAndPrint = _canManageOrdTipoAndPrint(
         panel?.roleCode ?? '',
       );
+      final isEstadoPanel = widget.panelMode == OrdenesTrabajoPanelMode.estado;
       final isConsultaDetalle =
-          widget.panelMode == OrdenesTrabajoPanelMode.estado ||
+          isEstadoPanel ||
           widget.panelMode == OrdenesTrabajoPanelMode.anulados ||
           !canEditDetail;
       final isRegresoFlow =
@@ -2428,9 +2429,12 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       final showGarantiaBtn =
           isGarantiaPanel && canGarantiaPanelDetail && _isFlowStatus(flujoCode, 11);
       final showCambioMaterialBtn =
-          isRegresoFlow && tipom == 1 && can('CAMBIO_MATERIAL');
-      final showMermaBtn = isRegresoFlow && tipom == 2 && can('MERMA');
+          tipom == 1 &&
+          ((isRegresoFlow && can('CAMBIO_MATERIAL')) || isEstadoPanel);
+      final showMermaBtn =
+          tipom == 2 && ((isRegresoFlow && can('MERMA')) || isEstadoPanel);
       final showAplicarMermaCambioBtn =
+          !isEstadoPanel &&
           isFlowGarantiaPendiente &&
           (can('CAMBIO_MATERIAL') || can('MERMA'));
 
@@ -3035,7 +3039,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                     icon: const Icon(Icons.rule_folder_outlined),
                     label: const Text('Aplicar merma o cambio'),
                   ),
-                if (canManageTipoAndPrint && !isGarantiaPanel)
+                if (canManageTipoAndPrint && !isGarantiaPanel && !isEstadoPanel)
                   OutlinedButton.icon(
                     onPressed: () async {
                       final canPrint =
@@ -5268,13 +5272,17 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     final detail = await api.fetchDetail(iord);
     if (!mounted) return;
     final header = detail.header;
+    final isEstadoPanel = widget.panelMode == OrdenesTrabajoPanelMode.estado;
 
     final flujoCode = _textOf(header['ESTSEGU']);
     final tipomValue = _parseIntLike(
       _textOf(header['TIPOM'], fallback: _textOf(header['TPOM'])),
     );
-    if (!_isFlowStatus(flujoCode, mode.requiredFlow) ||
-        tipomValue != mode.tipom) {
+    if (tipomValue != mode.tipom) {
+      _showError(mode.invalidFlowMessage(iord));
+      return;
+    }
+    if (!isEstadoPanel && !_isFlowStatus(flujoCode, mode.requiredFlow)) {
       _showError(mode.invalidFlowMessage(iord));
       return;
     }
@@ -5431,6 +5439,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       barrierDismissible: false,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) {
+          final isEstadoPanel = widget.panelMode == OrdenesTrabajoPanelMode.estado;
           final panelRoleCode = (panel?.roleCode ?? '').trim().toUpperCase();
           final isCambioMermaAuthorizationRole =
               _isCambioMermaAuthorizationRole(panelRoleCode);
@@ -5459,15 +5468,18 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
               cmContext.selCtrlOrd != null &&
               cmContext.selCtrlOrd != 0;
           final canCreateDraftRecord =
+              !isEstadoPanel &&
               !isCambioMermaAuthorizationRole &&
               !hasStagingRecord &&
               !submitting;
           final editableCapture =
+              !isEstadoPanel &&
               hasPreparedCapture &&
               cmContext.editable &&
               !hasCreatedOrd &&
               !submitting;
           final canEditBaseFields =
+              !isEstadoPanel &&
               !isCambioMermaAuthorizationRole &&
               !hasCreatedOrd &&
               !submitting &&
@@ -5476,18 +5488,21 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                   cmContext.selCtrlOrd == 13 ||
                   cmContext.selCtrlOrd == 15);
           final canRequestAuthorization =
+              !isEstadoPanel &&
               !isCambioMermaAuthorizationRole &&
               hasStagingRecord &&
               !hasCreatedOrd &&
               editableCapture &&
               (cmContext.selCtrlOrd == 13 || cmContext.selCtrlOrd == 15);
           final canAuthorizeCapture =
+              !isEstadoPanel &&
               canAuthorizeCambioMerma &&
               hasStagingRecord &&
               !hasCreatedOrd &&
               cmContext.selCtrlOrd == 14 &&
               !submitting;
           final canRetrabajoCapture =
+              !isEstadoPanel &&
               canAuthorizeCambioMerma &&
               hasStagingRecord &&
               !hasCreatedOrd &&

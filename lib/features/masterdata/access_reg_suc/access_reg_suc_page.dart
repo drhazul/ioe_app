@@ -91,9 +91,8 @@ List<String> _buildDeptoOptions(
         modulo.depto!.trim().toUpperCase(),
   };
 
-  final intersection = deptosUsuario.intersection(deptosModulo).toList()
-    ..sort();
-  return intersection;
+  final union = <String>{...deptosUsuario, ...deptosModulo}.toList()..sort();
+  return union;
 }
 
 class _AccessRegSucList extends StatefulWidget {
@@ -868,7 +867,7 @@ class _AccessRegSucEditorDialogState extends State<_AccessRegSucEditorDialog> {
         if ((modulo.depto ?? '').trim().isNotEmpty)
           modulo.depto!.trim().toUpperCase(),
     };
-    final deptoOptions = deptosUsuario.intersection(deptosModulo).toList()
+    final deptoOptions = <String>{...deptosUsuario, ...deptosModulo}.toList()
       ..sort();
 
     final effectiveSuc =

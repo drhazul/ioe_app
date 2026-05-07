@@ -100,7 +100,11 @@ Enlaces relacionados:
 - `Cambio material/Merma` (2026-04-08): la captura se bloquea cuando `selCtrlOrd=14`; los cálculos se muestran como `Subtotal/IVA/Total` + `Diferencia económica`, y `CTD_C_M` se restringe visualmente a `1` o `0.5`.
 - `Cambio material/Merma` (2026-04-21): `Autorizar` y `Retrabajo` solo aparecen para `admin`, `ANALISTA_INV` e `INVJEF`; tras autorizar el modal queda solo lectura con impresión de formato y saldo.
 - `Cambio material/Merma` (2026-04-22): la tarjeta `Nueva ORD (captura)` vuelve a mostrar `Diferencia` y una leyenda de `Saldo a favor del cliente` / `Saldo en contra del cliente` / `Sin diferencia` de acuerdo al artículo seleccionado.
-- `Panel ORDs` (2026-04-21): `ANALISTA_INV` e `INVJEF` solo ven la cola interna pendiente de revisión en `selCtrlOrd=14`.
+- `Panel ORDs` (2026-04-21): `ANALISTA_INV` e `INVJEF` participan en revisión de cambio/merma (`selCtrlOrd=14`) y su visibilidad efectiva depende de la matriz configurada en backend.
+- `Panel ORDs` (2026-05-06): `ANALISTA_INV` e `INVJEF` ya pueden cargar el catálogo de asignados para filtros sin error de autorización.
+- `Panel ORDs` (2026-05-06): backend restituye filtro de cola inventarios (`selCtrlOrd=14`) en `sp_ordenes_trabajo_panel`; frontend muestra sólo registros permitidos por esa regla de servidor.
+- `Cambio material/Merma` (2026-05-06): al abrir contexto o capturar, backend revalida `NVA_IORD`; si el consecutivo reservado ya existe en otra ORD, regenera reserva y devuelve nueva IORD antes de renderizar `Nueva ORD (captura)`.
+- `Cambio material/Merma` (2026-05-06): el consecutivo global IORD también considera reservas activas en `PV_ORD_CAMBIO_MERMA_TMP.NVA_IORD`, evitando colisiones con ORDs creadas desde punto de venta.
 - `Cambio material/Merma` (2026-04-09): cálculo económico homologado a pago de cotizaciones usando configuración IVA de sucursal (`DAT_SUC.IVA_INTEGRADO`) y fiscalidad del folio origen (`REQF/RQFAC`, `AUT/ORIGEN_AUT`); no se infiere `tipotran` por el texto de `IDFOL`.
 - `Cambio material/Merma` (2026-04-19): la captura temporal sigue permitiendo recaptura en `selCtrlOrd=15` antes de volver a solicitar autorización.
 - `Cambio material/Merma` (2026-04-19): se agrega botón `Crear Nueva ORD` para crear staging de preparación; sin staging no se muestran campos/botones de captura y autorización.

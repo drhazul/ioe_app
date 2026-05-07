@@ -78,7 +78,11 @@
 - cambio/merma UI (2026-04-19): `PVTA` de la nueva ORD en captura se mantiene igual al costo base de la ORD original.
 - cambio/merma UI (2026-04-21): `Autorizar` y `Retrabajo` solo son visibles para `admin`, `ANALISTA_INV` e `INVJEF`; `Solicitar autorización` deja siempre el caso en `selCtrlOrd=14`, y tras autorizar el modal queda solo lectura con impresión de formato/saldo.
 - cambio/merma UI (2026-04-22): en la sección `Nueva ORD` siempre mostrar `Diferencia` y el texto de saldo (`a favor`, `en contra` o `sin diferencia`) usando el cálculo del contexto actual.
-- panel ORDs (2026-04-21): `ANALISTA_INV` e `INVJEF` solo ven registros en cola de revisión interna (`selCtrlOrd=14`).
+- panel ORDs (2026-04-21): `ANALISTA_INV` e `INVJEF` atienden revisión de cambio/merma (`selCtrlOrd=14`); la visibilidad del listado depende de la matriz configurada en backend.
+- panel ORDs (2026-05-06): `ANALISTA_INV` e `INVJEF` pueden consultar catálogo de asignados del panel sin bloqueo de rol para evitar error de carga en filtros.
+- panel ORDs (2026-05-06): backend restablece criterio de cola para inventarios (`selCtrlOrd=14`) en `sp_ordenes_trabajo_panel`; la UI debe reflejar resultados devueltos por API sin relajar ese filtro.
+- cambio/merma reserva NVA_IORD (2026-05-06): backend ahora revalida `NVA_IORD` en cada carga de contexto y captura; si la reserva ya fue tomada por otra ORD, API regenera consecutivo y actualiza staging antes de pintar `Nueva ORD (captura)`.
+- cambio/merma reserva NVA_IORD (2026-05-06): generador global de IORD considera también `PV_ORD_CAMBIO_MERMA_TMP.NVA_IORD`, evitando colisiones con altas desde punto de venta.
 - el botón `Garantia` deja de mostrarse en el panel operativo; queda reservado para el panel de entregadas (`DAT_JAO_ORD_ENTREGADAS`, estado `11`).
 - garantía ORD (2026-04-29): en panel `entregadas` solo queda `Ver detalle` (sin botones mutables en toolbar) y con acceso solo `admin`/`JEF_TALLER`; dentro del detalle se habilita `Garantía` para confirmar `11 -> 9.3`, junto con `Cerrar` y `Guardar cambios` (comentario editable).
 - flujo 9.3 (2026-04-29): aparece botón `Aplicar merma o cambio` únicamente cuando `ESTSEGU=9.3`; abre popup con `TIPOM` (`1=CAMBIO DE ARTICULO`, `2=MERMA DE ART Y CAMBIO`) y `MOTR` (`DAT_ORD_MOTM`) para enrutar a `9.1/9.2` y seguir el proceso existente `Crear Nueva ORD -> Solicitar autorización -> Retrabajo (opcional) -> Autorizar`.

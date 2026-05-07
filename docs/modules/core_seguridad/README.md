@@ -37,6 +37,7 @@ Enlaces relacionados:
 - Si el usuario no-admin tiene sucursales vinculadas para el modulo, debe poder visualizar/procesar informacion de esas sucursales vinculadas.
 - Compatibilidad legacy: si backend no encuentra filas activas en `USR_MOD_SUC` para el modulo, la app usa fallback a `user.suc`.
 - La API es la fuente final de autorizacion; frontend solo refleja el contexto permitido y muestra error si backend rechaza.
+- Acceso por sucursal (2026-05-06): en `/#/masterdata/access-reg-suc`, el filtro `Departamento` coincide por `departamento de usuario OR departamento de módulo front`; las opciones del combo salen de la unión de ambos catálogos.
 - Caja general Excel: la hoja `DETALLE TRANSACCIONES` muestra `REQF` en la exportacion global y conserva el valor original (`-1/0/1`).
 - Caja general Excel: los importes de `RESUMEN DIA` y `DETALLE TRANSACCIONES` se exportan como numericos con formato moneda (no texto).
 
