@@ -56,6 +56,13 @@ class PuntoVentaHomePage extends StatelessWidget {
             route: '/punto-venta/cotizaciones',
           ),
           _PvOption(
+            title: 'Gestión promociones',
+            subtitle: 'CRUD de descuentos y reglas',
+            icon: Icons.campaign,
+            tone: const Color(0xFF9E6A2B),
+            route: '/punto-venta/promociones',
+          ),
+          _PvOption(
             title: 'Visualizar catalogo',
             subtitle: 'Busca y compara productos',
             icon: Icons.menu_book,

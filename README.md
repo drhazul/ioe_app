@@ -36,6 +36,7 @@ Frontend Flutter del ecosistema IOE. Consume `ioe-api` para autenticación, maes
 - Ordenes de trabajo / Panel ORDs (2026-05-06): el listado operativo de inventarios vuelve a depender de la cola backend `selCtrlOrd=14` en `sp_ordenes_trabajo_panel`.
 - Datos Maestros / Puestos migrado a ROL (2026-05-05): el formulario de usuarios ya no envía `IDPUESTO`, `/#/masterdata/puestos` opera como acceso de compatibilidad hacia `roles`, y los catálogos de cargos toman datos desde `ROL`.
 - Entorno dev API (2026-05-05): para ejecución local en web/desktop, la base URL de desarrollo usa `http://127.0.0.1:3001` y en Android emulator `http://10.0.2.2:3001`.
+- Punto de venta / Gestión de promociones (2026-05-09): se agrega nueva ruta `/#/punto-venta/promociones` con pantalla de CRUD inicial para promociones, criterios y beneficios (`lib/features/modulos/punto_venta/promociones/*`). Home ya reconoce `DAT_JAA_DESC` para abrir este módulo y el home de PV incluye acceso directo `Gestión promociones`.
 - Notas de documentación viva: este README solo debe cambiarse cuando se agreguen/modifiquen módulos, rutas o datos de arquitectura/base (no para ajustes locales de pantalla). Otros cambios funcionales van al README/AGENTS del módulo afectado.
 
 ## Arquitectura general

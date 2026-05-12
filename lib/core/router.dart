@@ -84,6 +84,7 @@ import '../features/modulos/punto_venta/devoluciones/devoluciones_page.dart';
 import '../features/modulos/punto_venta/devoluciones/detalle/detalle_devolucion_page.dart';
 import '../features/modulos/punto_venta/devoluciones/detalle/detalle_devolucion_resumen_page.dart';
 import '../features/modulos/punto_venta/devoluciones/pago/pago_devolucion_page.dart';
+import '../features/modulos/punto_venta/promociones/promociones_page.dart';
 import '../features/modulos/punto_venta/reimprticket/reimpresion_page.dart';
 
 import 'auth/auth_controller.dart';
@@ -634,6 +635,10 @@ final routerProvider = Provider<GoRouter>((ref) {
                     ),
                   ),
                 ],
+              ),
+              GoRoute(
+                path: 'promociones',
+                builder: (c, s) => const PromocionesPage(),
               ),
               GoRoute(
                 path: 'reimpresion-ticket',

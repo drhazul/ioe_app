@@ -189,6 +189,7 @@ class PagoCierrePrintPreviewResponse {
     required this.idfol,
     required this.header,
     required this.items,
+    required this.itemsGratis,
     required this.totals,
     required this.formas,
     required this.footer,
@@ -199,6 +200,7 @@ class PagoCierrePrintPreviewResponse {
   final String idfol;
   final PagoCierrePrintHeader header;
   final List<PagoCierrePrintItem> items;
+  final List<PagoCierrePrintItem> itemsGratis;
   final PagoCierrePrintTotals totals;
   final List<PagoCierrePrintForma> formas;
   final PagoCierrePrintFooter footer;
@@ -206,6 +208,7 @@ class PagoCierrePrintPreviewResponse {
 
   factory PagoCierrePrintPreviewResponse.fromJson(Map<String, dynamic> json) {
     final itemsRaw = (json['items'] as List?) ?? const [];
+    final itemsGratisRaw = (json['itemsGratis'] as List?) ?? const [];
     final formasRaw = (json['formas'] as List?) ?? const [];
     final ordsRaw = (json['ords'] as List?) ?? const [];
     return PagoCierrePrintPreviewResponse(
@@ -215,6 +218,13 @@ class PagoCierrePrintPreviewResponse {
         Map<String, dynamic>.from((json['header'] as Map?) ?? const {}),
       ),
       items: itemsRaw
+          .map(
+            (e) => PagoCierrePrintItem.fromJson(
+              Map<String, dynamic>.from(e as Map),
+            ),
+          )
+          .toList(),
+      itemsGratis: itemsGratisRaw
           .map(
             (e) => PagoCierrePrintItem.fromJson(
               Map<String, dynamic>.from(e as Map),

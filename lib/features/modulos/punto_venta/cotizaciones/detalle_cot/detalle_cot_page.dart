@@ -529,7 +529,10 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
     try {
       final api = ref.read(pvTicketLogApiProvider);
       final payload = _toTicketLog(item);
-      await api.create(payload);
+      final saved = await api.create(payload);
+      await ref
+          .read(cotizacionLocalProvider(widget.idfol).notifier)
+          .mergeRemote([_toLocalItem(saved)]);
       await ref.read(cotizacionLocalProvider(widget.idfol).notifier).setSyncStatus(
             item.id,
             SyncStatus.synced,
@@ -655,11 +658,9 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
             );
         return;
       }
-      final pvtaApplied = updated.pvta ?? nextPrice;
-      await ref.read(cotizacionLocalProvider(widget.idfol).notifier).updateItem(
-            item.id,
-            pvta: pvtaApplied,
-          );
+      await ref
+          .read(cotizacionLocalProvider(widget.idfol).notifier)
+          .mergeRemote([_toLocalItem(updated)]);
       await ref.read(cotizacionLocalProvider(widget.idfol).notifier).setSyncStatus(
             item.id,
             SyncStatus.synced,
@@ -975,10 +976,16 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
       'ORD': normalizedOrd.isEmpty ? null : normalizedOrd,
     };
     try {
-      await api.update(item.id, payload);
+      final saved = await api.update(item.id, payload);
+      await ref
+          .read(cotizacionLocalProvider(widget.idfol).notifier)
+          .mergeRemote([_toLocalItem(saved)]);
     } catch (e) {
       if (e is DioException && e.response?.statusCode == 404) {
-        await api.create(_toTicketLog(item));
+        final saved = await api.create(_toTicketLog(item));
+        await ref
+            .read(cotizacionLocalProvider(widget.idfol).notifier)
+            .mergeRemote([_toLocalItem(saved)]);
         return;
       }
       if (e is DioException && e.response?.statusCode == 409) {
@@ -1580,8 +1587,11 @@ class _LeftPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final headerStyle = Theme.of(context).textTheme.titleSmall;
-    final totalText = _formatMoney(localState.total);
     final sortedItems = [...localState.items]..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    final hasPendingPromo =
+        sortedItems.any((item) => item.syncStatus == SyncStatus.pending);
+    final totalText =
+        hasPendingPromo ? 'Calculando promociones...' : _formatMoney(localState.total);
     const rowHeight = 34.0;
     return Card(
       elevation: 0,
@@ -1624,13 +1634,28 @@ class _LeftPanel extends StatelessWidget {
                   itemBuilder: (_, index) {
                     final item = sortedItems[index];
                     final hasOrd = (item.ord ?? '').trim().isNotEmpty;
-                    final pvtaText = item.pvta == null ? '-' : _formatMoney(item.pvta!);
-                    final pvtatText = item.pvta == null ? '-' : _formatMoney(item.pvtat);
+                    final isPending = item.syncStatus == SyncStatus.pending;
+                    final isError = item.syncStatus == SyncStatus.error;
+                    final pvtaText = isPending
+                        ? '...'
+                        : item.pvta == null
+                            ? '-'
+                            : _formatMoney(item.pvta!);
+                    final pvtatText = isPending
+                        ? '...'
+                        : item.pvta == null
+                            ? '-'
+                            : _formatMoney(item.pvtat);
+                    final desText = isPending
+                        ? '${item.des ?? '-'} (Aplicando promoción...)'
+                        : isError
+                            ? '${item.des ?? '-'} (Error al aplicar promoción)'
+                            : (item.des ?? '-');
                     return SizedBox(
                       height: rowHeight,
                       child: _TableRow(
                         children: [
-                          _TableCell(width: 220, child: _SelectableDescriptionText(item.des ?? '-')),
+                          _TableCell(width: 220, child: _SelectableDescriptionText(desText)),
                           _TableCell(
                             width: 60,
                             child: MouseRegion(

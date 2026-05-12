@@ -15,6 +15,23 @@ Enlaces relacionados:
 - Regla UI:
 - al guardar edición fiscal no se envía `SUC` en payload; la sucursal del cliente se conserva del registro original.
 
+## Gestión de promociones y descuentos (2026-05-09)
+- Ruta UI:
+- `/punto-venta/promociones`
+- Archivos frontend:
+- `lib/features/modulos/punto_venta/promociones/promociones_page.dart`
+- `lib/features/modulos/punto_venta/promociones/promociones_api.dart`
+- `lib/features/modulos/punto_venta/promociones/promociones_models.dart`
+- `lib/features/modulos/punto_venta/promociones/promociones_providers.dart`
+- Integración en navegación:
+- `lib/core/router.dart` registra `GoRoute('promociones')` dentro de `/punto-venta`.
+- `lib/features/home/home_page.dart` mapea `DAT_JAA_DESC` hacia `/punto-venta/promociones`.
+- `lib/features/modulos/punto_venta/punto_venta_home_page.dart` agrega acceso directo `Gestión promociones`.
+- Alcance UI inicial:
+- CRUD de cabecera promo (`PROMO_CAB`).
+- gestión de criterios (`PROMO_REGLA_CRITERIO`).
+- gestión de beneficios (`PROMO_REGLA_BENEFICIO`).
+
 ## Estado de Cajón OPV (nuevo flujo 2026-03)
 - Ruta:
 - `/estado-cajon`
@@ -352,3 +369,9 @@ Enlaces relacionados:
 - En ticket de devolución (2026-03), se agrega línea de recorte entre `RESUMEN DE ORDS` y `ORDS`; `GRACIAS POR SU CONFIANZA` se imprime después de `RESUMEN DE ORDS` y antes del recorte hacia `ORDS`.
 - En ticket de devolución (2026-03-04), se retira del PDF el bloque detallado `ORDS` (barcode `CODE39` + tabla `JOB/ESF/CIL/EJE`); se conserva `RESUMEN DE ORDS` y vouchers. El diseño retirado queda respaldado en `lib/features/modulos/taller/etiqueta/ticket_ords_legacy_layout.dart`.
 - En ticket de devolución (2026-03), se homologó el formato con cotizaciones usando bloques `DETALLE`, `TOTALES`, `FORMAS`, `TRANSACCION`, `RESUMEN DE ORDS`, `ORDS` (barcode `CODE39` + tabla `JOB/ESF/CIL/EJE`) y vouchers para formas no `EFECTIVO`.
+
+## Gestion promociones UI (2026-05-10)
+- Formulario principal simplificado: descripcion, vigencia, prioridad y estados.
+- Boton unico Configuracion reemplaza Criterios + Beneficios.
+- Modal unificado con T_BENEFICIO, PRC_DESC/IMP_DESC, sucursales (todas o seleccion multiple), cliente por sucursal unica, DEPA multiple y seleccion opcional de ART/UPC excluyentes.
+- Integrado con endpoints /promociones/catalogos/* y /promociones/:idProm/configuracion.

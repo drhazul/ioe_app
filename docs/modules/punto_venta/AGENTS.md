@@ -11,6 +11,20 @@ Enlaces relacionados:
 - En `FACTURA_MTTOCLIENTE` y en el diálogo de validación de facturación, los updates de cliente fiscal no deben enviar `SUC`.
 - La sucursal original del cliente se considera inmutable durante la edición fiscal.
 
+## Punto de venta: gestión de promociones y descuentos (2026-05-09)
+- ruta frontend agregada: `/punto-venta/promociones`.
+- pantalla y capas:
+- `lib/features/modulos/punto_venta/promociones/promociones_page.dart`
+- `lib/features/modulos/punto_venta/promociones/promociones_api.dart`
+- `lib/features/modulos/punto_venta/promociones/promociones_models.dart`
+- `lib/features/modulos/punto_venta/promociones/promociones_providers.dart`
+- navegación:
+- `router.dart` incluye `GoRoute('promociones')` dentro de `/punto-venta`.
+- `home_page.dart` enruta `DAT_JAA_DESC` a promociones.
+- `punto_venta_home_page.dart` expone card `Gestión promociones`.
+- alcance funcional inicial:
+- CRUD de promociones, criterios y beneficios contra API `/promociones`.
+
 ## Punto de venta: alta de cotizacion desde panel
 - En `CotizacionesPage`, al presionar `Agregar` primero se confirma la creacion y, al aceptar, se abre un segundo modal para buscar/seleccionar cliente.
 - El modal de cliente filtra por la sucursal activa del panel (`SUC` seleccionada por admin o `SUC` del usuario no-admin).

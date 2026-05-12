@@ -502,6 +502,11 @@ class _ModuleRow extends StatelessWidget {
     if (moduloCode == 'PV_CAJAS') {
       return '/punto-venta';
     }
+    if (moduloCode == 'DAT_JAA_DESC' ||
+        moduloCode == 'DAT_JAA_PROMO' ||
+        moduloCode == 'PV_PROMOCIONES') {
+      return '/punto-venta/promociones';
+    }
     if (moduloCode == 'FACTURA_MTTOCLIENTE') {
       return '/facturacion/mtto-clientes';
     }
@@ -573,6 +578,10 @@ class _ModuleRow extends StatelessWidget {
     }
     if (name.contains('pago') && name.contains('servicio')) {
       return '/ps';
+    }
+    if ((name.contains('promo') || name.contains('descuento')) &&
+        name.contains('panel')) {
+      return '/punto-venta/promociones';
     }
     if (name.contains('orden') &&
         name.contains('estado') &&

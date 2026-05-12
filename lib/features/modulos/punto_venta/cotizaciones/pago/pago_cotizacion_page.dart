@@ -572,6 +572,7 @@ class _PagoCotizacionPageState extends ConsumerState<PagoCotizacionPage> {
       final preview = await ref
           .read(pagoCotizacionApiProvider)
           .fetchPrintPreview(currentIdfol);
+      final hasGratisItems = preview.itemsGratis.isNotEmpty;
       final nonCashFormas = preview.formas
           .where((f) => f.form.trim().toUpperCase() != 'EFECTIVO')
           .toList(growable: false);
@@ -581,17 +582,30 @@ class _PagoCotizacionPageState extends ConsumerState<PagoCotizacionPage> {
         name: 'cotizacion_${preview.idfol}.pdf',
         onLayout: (_) async => doc.save(),
       );
-      if (!context.mounted || nonCashFormas.isEmpty) return;
-      final openVoucher = await _confirmOpenVoucherPreview(context);
-      if (!context.mounted || !openVoucher) return;
-      final voucherDoc = _buildVoucherPdf(
-        preview,
-        widthMm: widthMm,
-        nonCashFormas: nonCashFormas,
-      );
+      if (!context.mounted) return;
+      if (nonCashFormas.isNotEmpty) {
+        final openVoucher = await _confirmOpenVoucherPreview(context);
+        if (!context.mounted) return;
+        if (openVoucher) {
+          final voucherDoc = _buildVoucherPdf(
+            preview,
+            widthMm: widthMm,
+            nonCashFormas: nonCashFormas,
+          );
+          await Printing.layoutPdf(
+            name: 'cotizacion_${preview.idfol}_voucher.pdf',
+            onLayout: (_) async => voucherDoc.save(),
+          );
+          if (!context.mounted) return;
+        }
+      }
+      if (!hasGratisItems) return;
+      final openGratis = await _confirmOpenGratisPreview(context);
+      if (!context.mounted || !openGratis) return;
+      final gratisDoc = _buildTicketGratisPdf(preview, widthMm: widthMm);
       await Printing.layoutPdf(
-        name: 'cotizacion_${preview.idfol}_voucher.pdf',
-        onLayout: (_) async => voucherDoc.save(),
+        name: 'cotizacion_${preview.idfol}_articulos_gratis.pdf',
+        onLayout: (_) async => gratisDoc.save(),
       );
     } catch (e) {
       if (!context.mounted) return;
@@ -612,6 +626,31 @@ class _PagoCotizacionPageState extends ConsumerState<PagoCotizacionPage> {
           title: const Text('Abrir voucher'),
           content: const Text(
             'Se cerró la vista previa del ticket. ¿Desea abrir ahora la vista previa del voucher?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('No'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Sí'),
+            ),
+          ],
+        );
+      },
+    );
+    return result == true;
+  }
+
+  Future<bool> _confirmOpenGratisPreview(BuildContext context) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Abrir ticket de articulos gratis'),
+          content: const Text(
+            'Se detectaron articulos con promocion ART_GRATIS. ¿Desea abrir su ticket por separado?',
           ),
           actions: [
             TextButton(
@@ -870,6 +909,130 @@ class _PagoCotizacionPageState extends ConsumerState<PagoCotizacionPage> {
         ],
       ),
     );
+    return doc;
+  }
+
+  pw.Document _buildTicketGratisPdf(
+    PagoCierrePrintPreviewResponse data, {
+    required double widthMm,
+  }) {
+    final doc = pw.Document();
+    final header = data.header;
+    final footer = data.footer;
+    final items = data.itemsGratis;
+    final totalGratis = items.fold<double>(0, (acc, it) => acc + it.importe);
+
+    final widthPt = _mmToPt(widthMm);
+    final pageHeightMm = _estimateGratisTicketHeightMm(items, widthMm);
+    final leftMarginPt = _mmToPt(2);
+    final pageFormat = PdfPageFormat(
+      widthPt,
+      _mmToPt(pageHeightMm),
+      marginAll: 0,
+    );
+    final baseFontSize = widthMm <= 58 ? 9.0 : 10.0;
+    final smallFontSize = widthMm <= 58 ? 8.0 : 9.0;
+    final line = '-' * (widthMm <= 58 ? 30 : 38);
+
+    final opvLabel = [
+      if ((footer.opv ?? '').trim().isNotEmpty) footer.opv!.trim(),
+      if ((footer.opvNombre ?? '').trim().isNotEmpty) footer.opvNombre!.trim(),
+    ].join(' - ');
+
+    doc.addPage(
+      pw.MultiPage(
+        pageFormat: pageFormat,
+        margin: pw.EdgeInsets.only(left: leftMarginPt),
+        maxPages: 120,
+        build: (_) => [
+          pw.Text(line, style: pw.TextStyle(fontSize: smallFontSize)),
+          pw.Text(
+            'SUC: ${header.suc}  ${header.desc ?? ''}'.trim(),
+            style: pw.TextStyle(fontSize: baseFontSize),
+          ),
+          if ((header.direccion ?? '').isNotEmpty)
+            pw.Text(
+              header.direccion!,
+              style: pw.TextStyle(fontSize: smallFontSize),
+            ),
+          if ((header.contacto ?? '').isNotEmpty)
+            pw.Text(
+              'Contacto: ${header.contacto}',
+              style: pw.TextStyle(fontSize: smallFontSize),
+            ),
+          if ((header.rfc ?? '').isNotEmpty)
+            pw.Text(
+              'RFC: ${header.rfc}',
+              style: pw.TextStyle(fontSize: smallFontSize),
+            ),
+          pw.SizedBox(height: 4),
+          pw.Text(line, style: pw.TextStyle(fontSize: smallFontSize)),
+          pw.Text(
+            'ARTICULOS GRATIS',
+            style: pw.TextStyle(
+              fontSize: baseFontSize,
+              fontWeight: pw.FontWeight.bold,
+            ),
+          ),
+          if (items.isEmpty)
+            pw.Text(
+              'Sin articulos gratis registrados',
+              style: pw.TextStyle(fontSize: smallFontSize),
+            )
+          else ...[
+            for (var i = 0; i < items.length; i++)
+              _buildTicketDetalleItem(
+                items[i],
+                index: i,
+                baseFontSize: baseFontSize,
+                smallFontSize: smallFontSize,
+              ),
+          ],
+          pw.SizedBox(height: 4),
+          pw.Text(line, style: pw.TextStyle(fontSize: smallFontSize)),
+          pw.Text(
+            'TOTALES',
+            style: pw.TextStyle(
+              fontSize: baseFontSize,
+              fontWeight: pw.FontWeight.bold,
+            ),
+          ),
+          _ticketRow(
+            'Total articulos gratis',
+            _money(totalGratis),
+            baseFontSize,
+          ),
+          pw.SizedBox(height: 4),
+          pw.Text(line, style: pw.TextStyle(fontSize: smallFontSize)),
+          pw.Text(
+            'TRANSACCION',
+            style: pw.TextStyle(
+              fontSize: baseFontSize,
+              fontWeight: pw.FontWeight.bold,
+            ),
+          ),
+          pw.Text(
+            'OPV: ${opvLabel.isEmpty ? '-' : opvLabel}',
+            style: pw.TextStyle(fontSize: baseFontSize),
+          ),
+          pw.Text(
+            'IDFOLIO: ${footer.idfol}',
+            style: pw.TextStyle(fontSize: baseFontSize),
+          ),
+          pw.Text(
+            'FCNM: ${_fmtDateTime(footer.fcnm)}',
+            style: pw.TextStyle(fontSize: baseFontSize),
+          ),
+          pw.Text(
+            'CLIENTE: ${footer.clienteNombre ?? '-'} (${footer.clienteId?.toString() ?? '-'})',
+            style: pw.TextStyle(fontSize: baseFontSize),
+          ),
+          pw.SizedBox(height: 4),
+          pw.Text(line, style: pw.TextStyle(fontSize: smallFontSize)),
+        ],
+      ),
+    );
+
     return doc;
   }
 
@@ -1204,6 +1367,39 @@ class _PagoCotizacionPageState extends ConsumerState<PagoCotizacionPage> {
     // Ajuste final para evitar saltos por redondeo/render.
     mm += is58 ? 10.0 : 16.0;
     final minMm = is58 ? 180.0 : 230.0;
+    final maxMm = is58 ? 1800.0 : 2400.0;
+    return mm.clamp(minMm, maxMm).toDouble();
+  }
+
+  double _estimateGratisTicketHeightMm(
+    List<PagoCierrePrintItem> items,
+    double widthMm,
+  ) {
+    final is58 = widthMm <= 58;
+    final charsPerLine = is58 ? 28 : 34;
+    final lineMm = is58 ? 3.3 : 3.9;
+
+    double mm = 0;
+    mm += 35; // Cabecera base.
+    mm += 10; // Titulos y separadores.
+    if (items.isEmpty) {
+      mm += lineMm;
+    } else {
+      for (final item in items) {
+        final name = (item.des ?? item.art ?? '-').trim();
+        final upc = (item.upc ?? '').trim();
+        mm += _measureTextHeightMm(name, charsPerLine, lineMm);
+        mm += _measureTextHeightMm(
+          'UPC: ${upc.isEmpty ? '-' : upc}',
+          charsPerLine,
+          lineMm,
+        );
+        mm += lineMm;
+        mm += 1.4;
+      }
+    }
+    mm += 26; // Totales + transaccion.
+    final minMm = is58 ? 160.0 : 210.0;
     final maxMm = is58 ? 1800.0 : 2400.0;
     return mm.clamp(minMm, maxMm).toDouble();
   }
