@@ -10,12 +10,24 @@ final promocionesApiProvider = Provider<PromocionesApi>(
 
 final promocionesListProvider =
     FutureProvider.autoDispose<List<PromocionModel>>((ref) async {
-  final api = ref.read(promocionesApiProvider);
-  return api.fetchPromociones(includeInactive: true);
-});
+      final api = ref.read(promocionesApiProvider);
+      return api.fetchPromociones(includeInactive: true);
+    });
 
-final promoConfigProvider =
-    FutureProvider.autoDispose.family<PromoConfigModel?, int>((ref, idProm) async {
-  final api = ref.read(promocionesApiProvider);
-  return api.fetchConfig(idProm);
-});
+final promoSucursalesProvider =
+    FutureProvider.autoDispose<List<CatalogTextOptionModel>>((ref) async {
+      final api = ref.read(promocionesApiProvider);
+      return api.fetchSucursales();
+    });
+
+final promoTiposPromocionProvider =
+    FutureProvider.autoDispose<List<CatalogOptionModel>>((ref) async {
+      final api = ref.read(promocionesApiProvider);
+      return api.fetchCatalogOptions('t-prom');
+    });
+
+final promoConfigProvider = FutureProvider.autoDispose
+    .family<PromoConfigModel?, int>((ref, idProm) async {
+      final api = ref.read(promocionesApiProvider);
+      return api.fetchConfig(idProm);
+    });

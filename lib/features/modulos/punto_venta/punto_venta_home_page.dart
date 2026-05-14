@@ -9,9 +9,7 @@ class PuntoVentaHomePage extends StatelessWidget {
     final sections = _buildSections();
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Punto de venta'),
-      ),
+      appBar: AppBar(title: const Text('Punto de venta')),
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -29,7 +27,10 @@ class PuntoVentaHomePage extends StatelessWidget {
                 _HeaderCard(),
                 const SizedBox(height: 16),
                 for (final section in sections) ...[
-                  _SectionTitle(title: section.title, subtitle: section.subtitle),
+                  _SectionTitle(
+                    title: section.title,
+                    subtitle: section.subtitle,
+                  ),
                   const SizedBox(height: 8),
                   _OptionsGrid(options: section.options),
                   const SizedBox(height: 14),
@@ -54,13 +55,6 @@ class PuntoVentaHomePage extends StatelessWidget {
             icon: Icons.dashboard,
             tone: const Color(0xFFB25D18),
             route: '/punto-venta/cotizaciones',
-          ),
-          _PvOption(
-            title: 'Gestión promociones',
-            subtitle: 'CRUD de descuentos y reglas',
-            icon: Icons.campaign,
-            tone: const Color(0xFF9E6A2B),
-            route: '/punto-venta/promociones',
           ),
           _PvOption(
             title: 'Visualizar catalogo',
@@ -176,7 +170,11 @@ class _HeaderCard extends StatelessWidget {
               color: const Color(0xFFF2E6D9),
               borderRadius: BorderRadius.circular(16),
             ),
-            child: const Icon(Icons.storefront, size: 32, color: Color(0xFF3E3429)),
+            child: const Icon(
+              Icons.storefront,
+              size: 32,
+              color: Color(0xFF3E3429),
+            ),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -221,10 +219,7 @@ class _SectionTitle extends StatelessWidget {
           style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 4),
-        Text(
-          subtitle,
-          style: TextStyle(color: Colors.grey.shade700),
-        ),
+        Text(subtitle, style: TextStyle(color: Colors.grey.shade700)),
       ],
     );
   }
@@ -237,28 +232,30 @@ class _OptionsGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(builder: (context, constraints) {
-      final width = constraints.maxWidth;
-      final cardWidth = width < 360
-          ? width
-          : width < 680
-              ? 240.0
-              : width < 980
-                  ? 260.0
-                  : 280.0;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final cardWidth = width < 360
+            ? width
+            : width < 680
+            ? 240.0
+            : width < 980
+            ? 260.0
+            : 280.0;
 
-      return Wrap(
-        spacing: 6,
-        runSpacing: 6,
-        children: [
-          for (final option in options)
-            SizedBox(
-              width: cardWidth,
-              child: _OptionCard(option: option),
-            ),
-        ],
-      );
-    });
+        return Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            for (final option in options)
+              SizedBox(
+                width: cardWidth,
+                child: _OptionCard(option: option),
+              ),
+          ],
+        );
+      },
+    );
   }
 }
 
@@ -301,14 +298,21 @@ class _OptionCard extends StatelessWidget {
                   children: [
                     Text(
                       option.title,
-                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 11,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 2),
                     Text(
                       option.subtitle,
-                      style: TextStyle(color: Colors.grey.shade700, height: 1.2, fontSize: 11),
+                      style: TextStyle(
+                        color: Colors.grey.shade700,
+                        height: 1.2,
+                        fontSize: 11,
+                      ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -323,9 +327,9 @@ class _OptionCard extends StatelessWidget {
   }
 
   void _showComingSoon(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Opcion en construccion')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Opcion en construccion')));
   }
 
   void _handleTap(BuildContext context) {
@@ -339,7 +343,11 @@ class _OptionCard extends StatelessWidget {
 }
 
 class _Section {
-  const _Section({required this.title, required this.subtitle, required this.options});
+  const _Section({
+    required this.title,
+    required this.subtitle,
+    required this.options,
+  });
 
   final String title;
   final String subtitle;

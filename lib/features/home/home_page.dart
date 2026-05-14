@@ -188,29 +188,33 @@ class _ModulesListStatefulState extends State<_ModulesListStateful> {
       ),
     );
   }
+
   List<HomeModule> _buildHrModulesForRole({
     required int roleId,
     required String searchTerm,
     required List<HomeModule> sourceModules,
   }) {
-    final rrhhFromDb = sourceModules.where((m) {
-      final code = m.codigo.trim().toUpperCase();
-      final depto = (m.depto ?? '').trim().toUpperCase();
-      return depto == 'RRHH' ||
-          code.startsWith('RRHH_') ||
-          code == 'RELOJ_CHECADOR';
-    }).map((m) {
-      final code = m.codigo.trim().toUpperCase();
-      final nombre = code == 'RELOJ_CHECADOR'
-          ? 'KIOSKO RELOJ CHECADOR'
-          : m.nombre;
-      return HomeModule(
-        codigo: m.codigo,
-        nombre: nombre,
-        depto: 'RRHH',
-        activo: m.activo,
-      );
-    }).toList();
+    final rrhhFromDb = sourceModules
+        .where((m) {
+          final code = m.codigo.trim().toUpperCase();
+          final depto = (m.depto ?? '').trim().toUpperCase();
+          return depto == 'RRHH' ||
+              code.startsWith('RRHH_') ||
+              code == 'RELOJ_CHECADOR';
+        })
+        .map((m) {
+          final code = m.codigo.trim().toUpperCase();
+          final nombre = code == 'RELOJ_CHECADOR'
+              ? 'KIOSKO RELOJ CHECADOR'
+              : m.nombre;
+          return HomeModule(
+            codigo: m.codigo,
+            nombre: nombre,
+            depto: 'RRHH',
+            activo: m.activo,
+          );
+        })
+        .toList();
 
     final curated = <HomeModule>[];
     for (final m in rrhhFromDb) {
@@ -339,7 +343,10 @@ class _ModuleRow extends StatelessWidget {
           children: [
             Padding(
               padding: const EdgeInsets.only(right: 10),
-              child: Icon(_iconForModuleCode(module.codigo), color: const Color(0xFF44525F)),
+              child: Icon(
+                _iconForModuleCode(module.codigo),
+                color: const Color(0xFF44525F),
+              ),
             ),
             Expanded(
               child: Column(
@@ -416,6 +423,7 @@ class _ModuleRow extends StatelessWidget {
       'RELOJ_CHECADOR': '/reloj-checador',
       'PV_ENTREGA_CG': '/entrega-cajas',
       'PV_CAJAS': '/punto-de-venta',
+      'PV_PROMO_GES': '/promociones',
       'DAT_CONS_CTAS': '/consulta-cuentas',
       'DAT_MA_PROV': '/proveedores',
       'SYS_DAT_MAE': '/masterdata',
@@ -504,8 +512,9 @@ class _ModuleRow extends StatelessWidget {
     }
     if (moduloCode == 'DAT_JAA_DESC' ||
         moduloCode == 'DAT_JAA_PROMO' ||
-        moduloCode == 'PV_PROMOCIONES') {
-      return '/punto-venta/promociones';
+        moduloCode == 'PV_PROMOCIONES' ||
+        moduloCode == 'PV_PROMO_GES') {
+      return '/promociones';
     }
     if (moduloCode == 'FACTURA_MTTOCLIENTE') {
       return '/facturacion/mtto-clientes';
@@ -581,7 +590,7 @@ class _ModuleRow extends StatelessWidget {
     }
     if ((name.contains('promo') || name.contains('descuento')) &&
         name.contains('panel')) {
-      return '/punto-venta/promociones';
+      return '/promociones';
     }
     if (name.contains('orden') &&
         name.contains('estado') &&

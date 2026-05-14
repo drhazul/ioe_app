@@ -54,6 +54,10 @@ class PromocionesApi {
     await dio.delete('/promociones/$idProm');
   }
 
+  Future<void> hardDeletePromocion(int idProm) async {
+    await dio.delete('/promociones/$idProm/hard');
+  }
+
   Future<List<PromocionCriterioModel>> fetchCriterios(int idProm) async {
     final res = await dio.get('/promociones/$idProm/criterios');
     final data = res.data;

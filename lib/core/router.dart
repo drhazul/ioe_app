@@ -290,10 +290,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                 path: 'puestos',
                 builder: (c, s) => const RolesPage(),
                 routes: [
-                  GoRoute(
-                    path: 'new',
-                    builder: (c, s) => const RoleFormPage(),
-                  ),
+                  GoRoute(path: 'new', builder: (c, s) => const RoleFormPage()),
                   GoRoute(
                     path: ':id',
                     builder: (c, s) => RoleFormPage(
@@ -531,6 +528,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (c, s) => const CambioFormaPagoPanelPage(),
           ),
           GoRoute(
+            path: 'promociones',
+            builder: (c, s) => const PromocionesPage(),
+          ),
+          GoRoute(
             path: 'punto-venta',
             builder: (c, s) => const PuntoVentaHomePage(),
             routes: [
@@ -636,10 +637,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                   ),
                 ],
               ),
-              GoRoute(
-                path: 'promociones',
-                builder: (c, s) => const PromocionesPage(),
-              ),
+              GoRoute(path: 'promociones', redirect: (c, s) => '/promociones'),
               GoRoute(
                 path: 'reimpresion-ticket',
                 builder: (c, s) => const ReimpresionPage(),
@@ -653,7 +651,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: 'proveedores', builder: (c, s) => const DatFormPage()),
           GoRoute(
             path: 'reloj-checador/app',
-            builder: (c, s) => const RelojChecadorAppPage(initialSection: '',),
+            builder: (c, s) => const RelojChecadorAppPage(initialSection: ''),
           ),
           GoRoute(
             path: 'reloj-checador',
@@ -869,4 +867,3 @@ DateTime _parseSqlDateOrNow(String raw, DateTime now) {
   }
   return parsed;
 }
-

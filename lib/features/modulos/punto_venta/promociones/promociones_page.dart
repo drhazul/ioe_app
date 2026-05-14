@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../../core/auth/auth_controller.dart';
 import 'promociones_models.dart';
 import 'promociones_providers.dart';
 
@@ -15,6 +17,8 @@ class _PromocionesPageState extends ConsumerState<PromocionesPage> {
   final _searchCtrl = TextEditingController();
   String _searchApplied = '';
   String _status = 'TODOS';
+  String _selectedSucursal = 'TODAS';
+  String _selectedTipoProm = 'TODOS';
 
   @override
   void dispose() {
@@ -24,9 +28,66 @@ class _PromocionesPageState extends ConsumerState<PromocionesPage> {
 
   @override
   Widget build(BuildContext context) {
+    final auth = ref.watch(authControllerProvider);
+    final isAdmin =
+        (auth.roleId ?? 0) == 1 ||
+        (auth.username ?? '').trim().toUpperCase() == 'ADMIN';
     final asyncItems = ref.watch(promocionesListProvider);
+    final sucOptionsAsync = ref.watch(promoSucursalesProvider);
+    final tipoOptionsAsync = ref.watch(promoTiposPromocionProvider);
+    final sucOptions = sucOptionsAsync.maybeWhen(
+      data: (rows) {
+        final out = <CatalogTextOptionModel>[
+          const CatalogTextOptionModel(valor: 'TODAS', descripcion: 'TODAS'),
+        ];
+        final seen = <String>{'TODAS'};
+        for (final row in rows) {
+          final value = row.valor.trim().toUpperCase();
+          if (value.isEmpty || seen.contains(value)) continue;
+          seen.add(value);
+          out.add(
+            CatalogTextOptionModel(
+              valor: value,
+              descripcion: '$value - ${row.descripcion.trim()}',
+            ),
+          );
+        }
+        return out;
+      },
+      orElse: () => const <CatalogTextOptionModel>[
+        CatalogTextOptionModel(valor: 'TODAS', descripcion: 'TODAS'),
+      ],
+    );
+    final tipoOptions = tipoOptionsAsync.maybeWhen(
+      data: (rows) {
+        final out = <CatalogOptionModel>[
+          const CatalogOptionModel(clave: 'TODOS', descripcion: 'TODOS'),
+        ];
+        final seen = <String>{'TODOS'};
+        for (final row in rows) {
+          final key = row.clave.trim().toUpperCase();
+          if (key.isEmpty || seen.contains(key)) continue;
+          seen.add(key);
+          out.add(row);
+        }
+        return out;
+      },
+      orElse: () => const <CatalogOptionModel>[
+        CatalogOptionModel(clave: 'TODOS', descripcion: 'TODOS'),
+      ],
+    );
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/');
+            }
+          },
+        ),
         title: const Text('Gestión de promociones'),
         actions: [
           IconButton(
@@ -41,19 +102,38 @@ class _PromocionesPageState extends ConsumerState<PromocionesPage> {
         child: const Icon(Icons.add),
       ),
       body: asyncItems.when(
-        data: _buildList,
+        data: (items) => _buildList(
+          items,
+          sucOptions,
+          tipoOptions,
+          isAdmin: isAdmin,
+        ),
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => Center(child: Text('Error: $error')),
       ),
     );
   }
 
-  Widget _buildList(List<PromocionModel> items) {
+  Widget _buildList(
+    List<PromocionModel> items,
+    List<CatalogTextOptionModel> sucOptions,
+    List<CatalogOptionModel> tipoOptions,
+    {required bool isAdmin}
+  ) {
     final term = _searchApplied.trim().toLowerCase();
     final filtered =
         items.where((item) {
           if (_status == 'ACTIVO' && !item.isActive) return false;
           if (_status == 'INACTIVO' && item.isActive) return false;
+          if (_selectedSucursal != 'TODAS') {
+            if (!_promoMatchesSucursal(item.suc, _selectedSucursal)) {
+              return false;
+            }
+          }
+          if (_selectedTipoProm != 'TODOS') {
+            final type = (item.tProm ?? '').trim().toUpperCase();
+            if (type != _selectedTipoProm) return false;
+          }
           if (term.isEmpty) return true;
           final text =
               '${item.idProm} ${item.descPromo ?? ''} ${item.tProm ?? ''} ${item.tipoDesc ?? ''} ${item.suc ?? ''}'
@@ -75,14 +155,24 @@ class _PromocionesPageState extends ConsumerState<PromocionesPage> {
           _FiltersBar(
             searchController: _searchCtrl,
             selectedStatus: _status,
+            selectedSucursal: _selectedSucursal,
+            selectedTipoProm: _selectedTipoProm,
+            sucursales: sucOptions,
+            tiposPromocion: tipoOptions,
             onApply: () => setState(() => _searchApplied = _searchCtrl.text),
             onClear: () => setState(() {
               _searchCtrl.clear();
               _searchApplied = '';
               _status = 'TODOS';
+              _selectedSucursal = 'TODAS';
+              _selectedTipoProm = 'TODOS';
             }),
             onStatusChanged: (value) =>
                 setState(() => _status = value ?? 'TODOS'),
+            onSucursalChanged: (value) =>
+                setState(() => _selectedSucursal = value ?? 'TODAS'),
+            onTipoPromChanged: (value) =>
+                setState(() => _selectedTipoProm = value ?? 'TODOS'),
           ),
           const SizedBox(height: 12),
           if (filtered.isEmpty)
@@ -93,14 +183,24 @@ class _PromocionesPageState extends ConsumerState<PromocionesPage> {
           else
             ...filtered.asMap().entries.map(
               (entry) =>
-                  _tile(entry.value, index: entry.key, total: filtered.length),
+                  _tile(
+                    entry.value,
+                    index: entry.key,
+                    total: filtered.length,
+                    isAdmin: isAdmin,
+                  ),
             ),
         ],
       ),
     );
   }
 
-  Widget _tile(PromocionModel item, {required int index, required int total}) {
+  Widget _tile(
+    PromocionModel item, {
+    required int index,
+    required int total,
+    required bool isAdmin,
+  }) {
     final color = item.isActive ? Colors.green : Colors.red;
     final vig =
         '${_fmtDate(item.fcnIni)} a ${_fmtDate(item.fcnTer)} | PRIO ${item.prioridad ?? '-'}';
@@ -142,10 +242,16 @@ class _PromocionesPageState extends ConsumerState<PromocionesPage> {
                 label: const Text('Configuración'),
               ),
               OutlinedButton.icon(
-                onPressed: () => _deletePromocion(item),
-                icon: const Icon(Icons.delete),
+                onPressed: () => _inactivarPromocion(item),
+                icon: const Icon(Icons.pause_circle_outline),
                 label: const Text('Inactivar'),
               ),
+              if (isAdmin)
+                OutlinedButton.icon(
+                  onPressed: () => _eliminarPromocion(item),
+                  icon: const Icon(Icons.delete_forever),
+                  label: const Text('Eliminar'),
+                ),
               OutlinedButton.icon(
                 onPressed: index <= 0
                     ? null
@@ -243,7 +349,7 @@ class _PromocionesPageState extends ConsumerState<PromocionesPage> {
     ref.invalidate(promocionesListProvider);
   }
 
-  Future<void> _deletePromocion(PromocionModel item) async {
+  Future<void> _inactivarPromocion(PromocionModel item) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -266,6 +372,31 @@ class _PromocionesPageState extends ConsumerState<PromocionesPage> {
     ref.invalidate(promocionesListProvider);
   }
 
+  Future<void> _eliminarPromocion(PromocionModel item) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Eliminar promoción'),
+        content: Text(
+          'Se eliminará definitivamente la promoción ${item.idProm}. Esta acción no se puede deshacer.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await ref.read(promocionesApiProvider).hardDeletePromocion(item.idProm);
+    ref.invalidate(promocionesListProvider);
+  }
+
   String _fmtDate(DateTime? value) {
     if (value == null) return '-';
     final y = value.year.toString().padLeft(4, '0');
@@ -273,22 +404,46 @@ class _PromocionesPageState extends ConsumerState<PromocionesPage> {
     final d = value.day.toString().padLeft(2, '0');
     return '$y-$m-$d';
   }
+
+  bool _promoMatchesSucursal(String? rawSucs, String selected) {
+    final cleaned = (rawSucs ?? '').trim().toUpperCase();
+    if (cleaned.isEmpty || cleaned == '*') return true;
+    final tokens = cleaned
+        .replaceAll(';', ',')
+        .split(',')
+        .map((x) => x.trim())
+        .where((x) => x.isNotEmpty)
+        .toSet();
+    return tokens.contains(selected.toUpperCase());
+  }
 }
 
 class _FiltersBar extends StatelessWidget {
   const _FiltersBar({
     required this.searchController,
     required this.selectedStatus,
+    required this.selectedSucursal,
+    required this.selectedTipoProm,
+    required this.sucursales,
+    required this.tiposPromocion,
     required this.onApply,
     required this.onClear,
     required this.onStatusChanged,
+    required this.onSucursalChanged,
+    required this.onTipoPromChanged,
   });
 
   final TextEditingController searchController;
   final String selectedStatus;
+  final String selectedSucursal;
+  final String selectedTipoProm;
+  final List<CatalogTextOptionModel> sucursales;
+  final List<CatalogOptionModel> tiposPromocion;
   final VoidCallback onApply;
   final VoidCallback onClear;
   final ValueChanged<String?> onStatusChanged;
+  final ValueChanged<String?> onSucursalChanged;
+  final ValueChanged<String?> onTipoPromChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -334,6 +489,54 @@ class _FiltersBar extends StatelessWidget {
             DropdownMenuItem(value: 'INACTIVO', child: Text('INACTIVO')),
           ],
           onChanged: onStatusChanged,
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: DropdownButtonFormField<String>(
+                key: ValueKey(selectedSucursal),
+                initialValue: selectedSucursal,
+                decoration: const InputDecoration(
+                  labelText: 'Sucursal',
+                  border: OutlineInputBorder(),
+                ),
+                items: sucursales
+                    .map(
+                      (s) => DropdownMenuItem(
+                        value: s.valor,
+                        child: Text(s.descripcion),
+                      ),
+                    )
+                    .toList(),
+                onChanged: onSucursalChanged,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: DropdownButtonFormField<String>(
+                key: ValueKey(selectedTipoProm),
+                initialValue: selectedTipoProm,
+                decoration: const InputDecoration(
+                  labelText: 'Tipo promoción',
+                  border: OutlineInputBorder(),
+                ),
+                items: tiposPromocion
+                    .map(
+                      (t) => DropdownMenuItem(
+                        value: t.clave.trim().toUpperCase(),
+                        child: Text(
+                          t.clave.trim().toUpperCase() == 'TODOS'
+                              ? 'TODOS'
+                              : '${t.clave} - ${t.descripcion}',
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: onTipoPromChanged,
+              ),
+            ),
+          ],
         ),
       ],
     );

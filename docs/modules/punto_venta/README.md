@@ -17,16 +17,16 @@ Enlaces relacionados:
 
 ## Gestión de promociones y descuentos (2026-05-09)
 - Ruta UI:
-- `/punto-venta/promociones`
+- `/promociones` (principal desde Home con módulo `PV_PROMO_GES`)
+- `/punto-venta/promociones` (compatibilidad por redirect)
 - Archivos frontend:
 - `lib/features/modulos/punto_venta/promociones/promociones_page.dart`
 - `lib/features/modulos/punto_venta/promociones/promociones_api.dart`
 - `lib/features/modulos/punto_venta/promociones/promociones_models.dart`
 - `lib/features/modulos/punto_venta/promociones/promociones_providers.dart`
 - Integración en navegación:
-- `lib/core/router.dart` registra `GoRoute('promociones')` dentro de `/punto-venta`.
-- `lib/features/home/home_page.dart` mapea `DAT_JAA_DESC` hacia `/punto-venta/promociones`.
-- `lib/features/modulos/punto_venta/punto_venta_home_page.dart` agrega acceso directo `Gestión promociones`.
+- `lib/core/router.dart` expone ruta principal `/promociones` y redirect desde `/punto-venta/promociones`.
+- `lib/features/home/home_page.dart` mapea `PV_PROMO_GES` hacia `/promociones`.
 - Alcance UI inicial:
 - CRUD de cabecera promo (`PROMO_CAB`).
 - gestión de criterios (`PROMO_REGLA_CRITERIO`).
@@ -375,3 +375,4 @@ Enlaces relacionados:
 - Boton unico Configuracion reemplaza Criterios + Beneficios.
 - Modal unificado con T_BENEFICIO, PRC_DESC/IMP_DESC, sucursales (todas o seleccion multiple), cliente por sucursal unica, DEPA multiple y seleccion opcional de ART/UPC excluyentes.
 - Integrado con endpoints /promociones/catalogos/* y /promociones/:idProm/configuracion.
+- Filtros del listado: estado, sucursal (DAT_SUC), tipo de promocion (T_PROM) y texto libre.

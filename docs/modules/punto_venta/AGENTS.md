@@ -12,18 +12,19 @@ Enlaces relacionados:
 - La sucursal original del cliente se considera inmutable durante la edición fiscal.
 
 ## Punto de venta: gestión de promociones y descuentos (2026-05-09)
-- ruta frontend agregada: `/punto-venta/promociones`.
+- ruta frontend principal: `/promociones` (módulo Home `PV_PROMO_GES`).
+- compatibilidad: `/punto-venta/promociones` redirige a `/promociones`.
 - pantalla y capas:
 - `lib/features/modulos/punto_venta/promociones/promociones_page.dart`
 - `lib/features/modulos/punto_venta/promociones/promociones_api.dart`
 - `lib/features/modulos/punto_venta/promociones/promociones_models.dart`
 - `lib/features/modulos/punto_venta/promociones/promociones_providers.dart`
 - navegación:
-- `router.dart` incluye `GoRoute('promociones')` dentro de `/punto-venta`.
-- `home_page.dart` enruta `DAT_JAA_DESC` a promociones.
-- `punto_venta_home_page.dart` expone card `Gestión promociones`.
+- `router.dart` expone ruta principal `/promociones` y redirect desde `/punto-venta/promociones`.
+- `home_page.dart` enruta `PV_PROMO_GES` a promociones.
 - alcance funcional inicial:
 - CRUD de promociones, criterios y beneficios contra API `/promociones`.
+- filtros en listado: estado, sucursal (DAT_SUC), tipo promoción (T_PROM) y búsqueda libre.
 
 ## Punto de venta: alta de cotizacion desde panel
 - En `CotizacionesPage`, al presionar `Agregar` primero se confirma la creacion y, al aceptar, se abre un segundo modal para buscar/seleccionar cliente.
