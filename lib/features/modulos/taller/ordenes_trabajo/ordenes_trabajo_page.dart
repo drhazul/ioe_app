@@ -3711,7 +3711,8 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
   Future<bool?> _confirmRegresarTienda(int total) {
     return _confirmCambioEstatus(
       title: 'Confirmar recepción en tienda',
-      targetStatus: 'TIPOM=1 -> 9.1, TIPOM=2 -> 9.2, o 10 (sin incidencia)',
+      targetStatus:
+          'TIPOM=1 -> 9.1, TIPOM=2 -> 9.2; ORDs derivadas o sin incidencia -> 10',
       total: total,
     );
   }
@@ -3922,7 +3923,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       _RelacionDialogConfig(
         title: 'ORDs: Recibir en tienda',
         helperText:
-            'Captura o escanea una ORD para validarla en estatus 9 (TRABAJO TERMINADO) y relacionarla en appstate para recibirla en tienda. Mapeo: TIPOM=1 -> 9.1, TIPOM=2 -> 9.2.',
+            'Captura o escanea una ORD para validarla en estatus 9 (TRABAJO TERMINADO) y relacionarla en appstate para recibirla en tienda. Mapeo: TIPOM=1 -> 9.1, TIPOM=2 -> 9.2; ORDs derivadas o sin incidencia -> 10.',
         submitLabel: 'Recibir en tienda',
         submitIcon: Icons.storefront_outlined,
         emptySubmitError: 'No hay ORDs relacionadas para recibir en tienda.',

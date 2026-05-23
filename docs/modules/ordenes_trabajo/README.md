@@ -103,6 +103,8 @@ Enlaces relacionados:
 - `Panel ORDs` (2026-04-21): `ANALISTA_INV` e `INVJEF` participan en revisión de cambio/merma (`selCtrlOrd=14`) y su visibilidad efectiva depende de la matriz configurada en backend.
 - `Panel ORDs` (2026-05-06): `ANALISTA_INV` e `INVJEF` ya pueden cargar el catálogo de asignados para filtros sin error de autorización.
 - `Panel ORDs` (2026-05-06): backend restituye filtro de cola inventarios (`selCtrlOrd=14`) en `sp_ordenes_trabajo_panel`; frontend muestra sólo registros permitidos por esa regla de servidor.
+- `Panel ORDs multi-sucursal analista` (2026-05-22): al filtrar por una sucursal explícita permitida (ej. `DF14`), usuarios `ANALISTA_ORD/ANALISTA` deben ver ORDs recientes de esa sucursal; backend evita recorte por `HOME_SUC` cuando `@SUC` viene definida.
+- `ORDs derivadas cambio/merma` (2026-05-22): al `Recibir en tienda`, las ORDs nuevas derivadas (con relación `REEORD`) avanzan por flujo normal `9 -> 10`; el mapeo `9 -> 9.1/9.2` queda únicamente para incidencias (`TIPOM=1|2`) de la ORD original.
 - `Cambio material/Merma` (2026-05-06): al abrir contexto o capturar, backend revalida `NVA_IORD`; si el consecutivo reservado ya existe en otra ORD, regenera reserva y devuelve nueva IORD antes de renderizar `Nueva ORD (captura)`.
 - `Cambio material/Merma` (2026-05-06): el consecutivo global IORD también considera reservas activas en `PV_ORD_CAMBIO_MERMA_TMP.NVA_IORD`, evitando colisiones con ORDs creadas desde punto de venta.
 - `Cambio material/Merma` (2026-04-09): cálculo económico homologado a pago de cotizaciones usando configuración IVA de sucursal (`DAT_SUC.IVA_INTEGRADO`) y fiscalidad del folio origen (`REQF/RQFAC`, `AUT/ORIGEN_AUT`); no se infiere `tipotran` por el texto de `IDFOL`.

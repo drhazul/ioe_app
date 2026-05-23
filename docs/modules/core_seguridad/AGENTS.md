@@ -9,7 +9,7 @@ Enlaces relacionados:
 
 ## Conexiones y consultas
 - Base URL por `Env.apiBaseUrl`:
-- debug: `http://localhost:3001`.
+- debug: `http://localhost:3000`.
 - release web: `API_BASE_URL_WEB` o fallback `/api`.
 - release mobile: `API_BASE_URL` o fallback hardcoded actual.
 - Login web (2026-05-05): ante errores minificados (`Instance of 'minified:...'`), presentar mensaje fallback legible y no exponer texto minificado al usuario final.

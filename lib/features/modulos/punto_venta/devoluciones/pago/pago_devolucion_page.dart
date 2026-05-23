@@ -455,7 +455,7 @@ class _PagoDevolucionPageState extends ConsumerState<PagoDevolucionPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Devolución finalizada ($resolvedIdfolDev) - estado $estadoFinal confirmado.$syncMessage Pago aplicado según la forma del ticket origen. Ya puede imprimir ticket.',
+            'Devolución finalizada ($resolvedIdfolDev) - estado $estadoFinal confirmado.$syncMessage Pago aplicado respetando forma(s) del ticket origen. Ya puede imprimir ticket.',
           ),
         ),
       );
@@ -1455,7 +1455,7 @@ class _FormasCard extends StatelessWidget {
             ),
             const SizedBox(height: 2),
             const Text(
-              'Las formas se toman del folio origen (incluyendo no efectivo) para devolver por el mismo concepto. Esta sección no es editable.',
+              'Si el origen es mixto, devolución debe ser total y respetar cada forma de pago. Parcial solo aplica cuando origen es EFECTIVO único. Esta sección no es editable.',
               style: TextStyle(fontSize: 11, color: Colors.black54),
             ),
             const SizedBox(height: 8),
