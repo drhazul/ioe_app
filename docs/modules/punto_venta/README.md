@@ -199,6 +199,7 @@ Enlaces relacionados:
 - `POST /pvticketlog/precio/authorize` para validar contraseña `SUPERPV` cuando backend exige autorizacion.
 - El flujo actualiza `PVTA/PVTAT` del renglón y mantiene sincronizacion local-remota de la cotizacion.
 - Cotizaciones precio manual vs promoción (2026-05-23): en la tabla de detalle se muestran leyendas neutras de sincronización (`Sincronizando ticket...` / `Sincronizando...`) para no inducir que cada guardado ejecuta reaplicación de promociones.
+- Cotizaciones ORD vs precio manual (2026-05-23): al crear/eliminar `ORD` desde el detalle, el `PVTA` manual del renglón se conserva y no vuelve automáticamente a precio de catálogo.
 - Detalle cotización UX (2026-03-10): en el bloque superior se agregó captura rápida por `UPC` (EAN13); la UI sanitiza a dígitos, toma los primeros 12 y busca coincidencia exacta por `SUC` en `DAT_ART` para insertar directo al ticket con `CTD=1` y `PVTA` del artículo.
 - Detalle cotización UX (2026-03-10): en la grilla DAT_ART el botón `Agregar` se movió al inicio del renglón.
 - Detalle cotización UX (2026-03-10): la columna `DES` en consulta DAT_ART y en detalle de ticket usa texto seleccionable con tooltip para visualizar/copiar la descripción completa.

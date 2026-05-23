@@ -52,6 +52,7 @@
 - Entorno dev API (2026-05-14): `Env.apiBaseUrl` en desarrollo web/desktop apunta a `http://127.0.0.1:3000` para usar backend local actualizado y evitar `404` de servidores remotos con build desfasado.
 - Punto de venta / Gestión de promociones (2026-05-09): se agrega módulo front en `lib/features/modulos/punto_venta/promociones/*` con ruta `/#/punto-venta/promociones`; `home_page.dart` resuelve código `DAT_JAA_DESC` hacia esa ruta y `punto_venta_home_page.dart` agrega card `Gestión promociones`.
 - Punto de venta / Cotizaciones precio manual vs promoción (2026-05-23): en detalle de cotización el estado visual de sincronización se vuelve neutro (`Sincronizando...`) para no sugerir reaplicación de promoción durante cambio manual de `PVTA`.
+- Punto de venta / Cotizaciones ORD vs precio manual (2026-05-23): al crear/quitar ORD desde detalle de cotización, el renglón debe conservar `PVTA` manual; backend ya no recalcula promoción en esa operación.
 
 ## Documentación por módulos
 - Base de módulos: `docs/modules/base_modulos/AGENTS.md` (README: `docs/modules/base_modulos/README.md`)
