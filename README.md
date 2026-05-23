@@ -42,6 +42,7 @@ Frontend Flutter del ecosistema IOE. Consume `ioe-api` para autenticación, maes
 - Datos Maestros / Puestos migrado a ROL (2026-05-05): el formulario de usuarios ya no envía `IDPUESTO`, `/#/masterdata/puestos` opera como acceso de compatibilidad hacia `roles`, y los catálogos de cargos toman datos desde `ROL`.
 - Entorno dev API (2026-05-14): para ejecución local en web/desktop, la base URL de desarrollo usa `http://127.0.0.1:3000` y en Android emulator `http://10.0.2.2:3000`.
 - Punto de venta / Gestión de promociones (actualizado 2026-05-13): acceso principal desde Home con módulo front `PV_PROMO_GES` hacia `/#/promociones` (se mantiene compatibilidad de redirección desde `/#/punto-venta/promociones`). Pantalla en `lib/features/modulos/punto_venta/promociones/*` con CRUD/configuración y filtros por estado, sucursal y tipo de promoción.
+- Punto de venta / Cotizaciones precio manual vs promoción (2026-05-23): en detalle de cotización, cuando un renglón está en sincronización remota se muestra texto neutro (`Sincronizando ticket...` / `Sincronizando...`) para reflejar proceso general de guardado y no reasignación automática de promoción en UI.
 - Notas de documentación viva: este README solo debe cambiarse cuando se agreguen/modifiquen módulos, rutas o datos de arquitectura/base (no para ajustes locales de pantalla). Otros cambios funcionales van al README/AGENTS del módulo afectado.
 
 ## Arquitectura general

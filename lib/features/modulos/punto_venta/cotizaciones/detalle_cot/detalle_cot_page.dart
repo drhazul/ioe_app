@@ -1590,8 +1590,7 @@ class _LeftPanel extends StatelessWidget {
     final sortedItems = [...localState.items]..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
     final hasPendingPromo =
         sortedItems.any((item) => item.syncStatus == SyncStatus.pending);
-    final totalText =
-        hasPendingPromo ? 'Calculando promociones...' : _formatMoney(localState.total);
+    final totalText = hasPendingPromo ? 'Sincronizando ticket...' : _formatMoney(localState.total);
     const rowHeight = 34.0;
     return Card(
       elevation: 0,
@@ -1647,7 +1646,7 @@ class _LeftPanel extends StatelessWidget {
                             ? '-'
                             : _formatMoney(item.pvtat);
                     final desText = isPending
-                        ? '${item.des ?? '-'} (Aplicando promoción...)'
+                        ? '${item.des ?? '-'} (Sincronizando...)'
                         : isError
                             ? '${item.des ?? '-'} (Error al aplicar promoción)'
                             : (item.des ?? '-');

@@ -43,6 +43,7 @@ Enlaces relacionados:
 - La actualizacion remota se hace via `PATCH /pvticketlog/:id/precio` enviando `PVTA` y, cuando aplica, `AUTH_PASSWORD`.
 - La prevalidacion de contraseña se realiza con `POST /pvticketlog/precio/authorize` cuando backend exige autorizacion.
 - La app mantiene sincronizacion local/remota del renglón y refresca providers de ticket al aplicar el cambio.
+- Cotizaciones precio manual vs promoción (2026-05-23): durante sincronización de renglón en detalle cotización se usa texto neutro (`Sincronizando...`) para representar guardado general y evitar interpretar que el cambio manual de `PVTA` reactiva cálculo de promoción.
 - Detalle cotizacion UX (2026-03-10): en el bloque superior se agrega captura rápida por `UPC` (EAN13). La UI sanitiza a dígitos, toma los primeros 12 y busca coincidencia exacta por `SUC` en `DAT_ART` para insertar directo en ticket con `CTD=1` y `PVTA` del artículo.
 - Detalle cotizacion UX (2026-03-10): en la grilla DAT_ART el botón `Agregar` se movió al inicio del renglón.
 - Detalle cotizacion UX (2026-03-10): la columna `DES` en consulta DAT_ART y en detalle de ticket usa texto seleccionable con tooltip para visualizar/copiar la descripción completa.
