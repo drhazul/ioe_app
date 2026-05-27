@@ -102,12 +102,8 @@ class _PromocionesPageState extends ConsumerState<PromocionesPage> {
         child: const Icon(Icons.add),
       ),
       body: asyncItems.when(
-        data: (items) => _buildList(
-          items,
-          sucOptions,
-          tipoOptions,
-          isAdmin: isAdmin,
-        ),
+        data: (items) =>
+            _buildList(items, sucOptions, tipoOptions, isAdmin: isAdmin),
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => Center(child: Text('Error: $error')),
       ),
@@ -117,9 +113,9 @@ class _PromocionesPageState extends ConsumerState<PromocionesPage> {
   Widget _buildList(
     List<PromocionModel> items,
     List<CatalogTextOptionModel> sucOptions,
-    List<CatalogOptionModel> tipoOptions,
-    {required bool isAdmin}
-  ) {
+    List<CatalogOptionModel> tipoOptions, {
+    required bool isAdmin,
+  }) {
     final term = _searchApplied.trim().toLowerCase();
     final filtered =
         items.where((item) {
@@ -182,13 +178,12 @@ class _PromocionesPageState extends ConsumerState<PromocionesPage> {
             )
           else
             ...filtered.asMap().entries.map(
-              (entry) =>
-                  _tile(
-                    entry.value,
-                    index: entry.key,
-                    total: filtered.length,
-                    isAdmin: isAdmin,
-                  ),
+              (entry) => _tile(
+                entry.value,
+                index: entry.key,
+                total: filtered.length,
+                isAdmin: isAdmin,
+              ),
             ),
         ],
       ),
@@ -552,6 +547,9 @@ class _PromocionDialog extends StatefulWidget {
 }
 
 class _PromocionDialogState extends State<_PromocionDialog> {
+  final _formKey = GlobalKey<FormState>();
+  bool _showValidationErrors = false;
+
   late final TextEditingController _descCtrl;
   late final TextEditingController _prioCtrl;
   late final TextEditingController _fIniCtrl;
@@ -591,82 +589,108 @@ class _PromocionDialogState extends State<_PromocionDialog> {
       content: SizedBox(
         width: 560,
         child: SingleChildScrollView(
-          child: Column(
-            children: [
-              TextField(
-                controller: _descCtrl,
-                decoration: const InputDecoration(labelText: 'Descripción'),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _prioCtrl,
-                      enabled: false,
-                      readOnly: true,
-                      decoration: const InputDecoration(
-                        labelText: 'PRIORIDAD',
-                        helperText: 'Se gestiona con proceso de orden global',
+          child: Form(
+            key: _formKey,
+            autovalidateMode: _showValidationErrors
+                ? AutovalidateMode.always
+                : AutovalidateMode.disabled,
+            child: Column(
+              children: [
+                TextFormField(
+                  controller: _descCtrl,
+                  decoration: const InputDecoration(labelText: 'Descripción *'),
+                  validator: (value) {
+                    if ((value ?? '').trim().isEmpty) {
+                      return 'Descripción es obligatoria';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _prioCtrl,
+                        enabled: false,
+                        readOnly: true,
+                        decoration: const InputDecoration(
+                          labelText: 'PRIORIDAD',
+                          helperText: 'Se gestiona con proceso de orden global',
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
-                      controller: _fIniCtrl,
-                      readOnly: true,
-                      onTap: () => _pickDate(_fIniCtrl),
-                      decoration: const InputDecoration(
-                        labelText: 'FCN_INI (YYYY-MM-DD)',
-                        suffixIcon: Icon(Icons.calendar_today),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _fIniCtrl,
+                        readOnly: true,
+                        onTap: () => _pickDate(_fIniCtrl),
+                        decoration: const InputDecoration(
+                          labelText: 'FCN_INI (YYYY-MM-DD) *',
+                          suffixIcon: Icon(Icons.calendar_today),
+                        ),
+                        validator: (value) {
+                          if ((value ?? '').trim().isEmpty) {
+                            return 'FCN_INI es obligatoria';
+                          }
+                          return null;
+                        },
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
-                      controller: _fTerCtrl,
-                      readOnly: true,
-                      onTap: () => _pickDate(_fTerCtrl),
-                      decoration: const InputDecoration(
-                        labelText: 'FCN_TER (YYYY-MM-DD)',
-                        suffixIcon: Icon(Icons.calendar_today),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _fTerCtrl,
+                        readOnly: true,
+                        onTap: () => _pickDate(_fTerCtrl),
+                        decoration: const InputDecoration(
+                          labelText: 'FCN_TER (YYYY-MM-DD) *',
+                          suffixIcon: Icon(Icons.calendar_today),
+                        ),
+                        validator: (value) {
+                          if ((value ?? '').trim().isEmpty) {
+                            return 'FCN_TER es obligatoria';
+                          }
+                          return null;
+                        },
                       ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: SwitchListTile(
-                      value: _activo,
-                      dense: true,
-                      title: const Text('Activa'),
-                      onChanged: (value) => setState(() => _activo = value),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: SwitchListTile(
+                        value: _activo,
+                        dense: true,
+                        title: const Text('Activa'),
+                        onChanged: (value) => setState(() => _activo = value),
+                      ),
                     ),
-                  ),
-                  Expanded(
-                    child: SwitchListTile(
-                      value: _acumulable,
-                      dense: true,
-                      title: const Text('Acumulable'),
-                      onChanged: (value) => setState(() => _acumulable = value),
+                    Expanded(
+                      child: SwitchListTile(
+                        value: _acumulable,
+                        dense: true,
+                        title: const Text('Acumulable'),
+                        onChanged: (value) =>
+                            setState(() => _acumulable = value),
+                      ),
                     ),
-                  ),
-                  Expanded(
-                    child: SwitchListTile(
-                      value: _combinable,
-                      dense: true,
-                      title: const Text('Combinable'),
-                      onChanged: (value) => setState(() => _combinable = value),
+                    Expanded(
+                      child: SwitchListTile(
+                        value: _combinable,
+                        dense: true,
+                        title: const Text('Combinable'),
+                        onChanged: (value) =>
+                            setState(() => _combinable = value),
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ],
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -681,8 +705,19 @@ class _PromocionDialogState extends State<_PromocionDialog> {
   }
 
   void _submit() {
+    setState(() => _showValidationErrors = true);
+    if (!_formKey.currentState!.validate()) return;
     final desc = _descCtrl.text.trim();
-    if (desc.isEmpty) return;
+
+    final ini = DateTime.tryParse(_fIniCtrl.text.trim());
+    final ter = DateTime.tryParse(_fTerCtrl.text.trim());
+    if (ini != null && ter != null && ter.isBefore(ini)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('FCN_TER no puede ser menor que FCN_INI')),
+      );
+      return;
+    }
+
     Navigator.of(context).pop({
       'DESC_PROMO': desc,
       'PRIORIDAD': _int(_prioCtrl.text) ?? 100,
@@ -723,6 +758,8 @@ class _ConfigDialog extends ConsumerStatefulWidget {
 class _ConfigDialogState extends ConsumerState<_ConfigDialog> {
   bool _loading = true;
   bool _saving = false;
+  bool _showValidationErrors = false;
+  String? _configValidationMessage;
 
   List<CatalogTextOptionModel> _sucs = const [];
   List<CatalogOptionModel> _tBenef = const [];
@@ -732,7 +769,7 @@ class _ConfigDialogState extends ConsumerState<_ConfigDialog> {
   List<CatalogNumOptionModel> _sclas = const [];
   List<CatalogNumOptionModel> _scla2s = const [];
   List<CatalogTextOptionModel> _guias = const [];
-  List<Map<String, dynamic>> _clientes = const [];
+  List<_ClienteOption> _clientes = const [];
 
   String? _tBeneficio;
   bool _sucTodas = true;
@@ -773,10 +810,22 @@ class _ConfigDialogState extends ConsumerState<_ConfigDialog> {
       final depas = await api.fetchDepa();
       final cfg = await api.fetchConfig(widget.item.idProm);
       _sucs = suc;
-      _tBenef = tBenef;
+      final uniqueTBenef = <String, CatalogOptionModel>{};
+      for (final row in tBenef) {
+        final key = row.clave.trim().toUpperCase();
+        if (key.isEmpty) continue;
+        uniqueTBenef[key] = CatalogOptionModel(
+          clave: key,
+          descripcion: row.descripcion.trim().isEmpty
+              ? key
+              : row.descripcion.trim(),
+        );
+      }
+      _tBenef = uniqueTBenef.values.toList()
+        ..sort((a, b) => a.clave.compareTo(b.clave));
       _depas = depas;
       if (cfg != null) {
-        _tBeneficio = cfg.tBeneficio;
+        _tBeneficio = cfg.tBeneficio?.trim().toUpperCase();
         _sucTodas = cfg.sucTodas;
         _sucSel = List<String>.from(cfg.sucList);
         _clienteSel = (cfg.cliente != null && cfg.cliente! > 0)
@@ -811,11 +860,29 @@ class _ConfigDialogState extends ConsumerState<_ConfigDialog> {
       _clienteSel = null;
       return;
     }
-    _clientes = await ref
+    final rows = await ref
         .read(promocionesApiProvider)
         .fetchClientes(suc: _sucSel.first);
+    final unique = <int, _ClienteOption>{};
+    for (final row in rows) {
+      final cliente = _asPositiveInt(row['cliente'] ?? row['CLIENTE']);
+      if (cliente == null) continue;
+      final nombre = (row['nombre'] ?? row['NOMBRE'] ?? '').toString().trim();
+      final suc = (row['suc'] ?? row['SUC'] ?? '').toString().trim();
+      unique[cliente] = _ClienteOption(
+        cliente: cliente,
+        nombre: nombre,
+        suc: suc,
+      );
+    }
+    _clientes = unique.values.toList()
+      ..sort((a, b) {
+        final byName = a.nombre.toUpperCase().compareTo(b.nombre.toUpperCase());
+        if (byName != 0) return byName;
+        return a.cliente.compareTo(b.cliente);
+      });
     if (_clienteSel != null &&
-        !_clientes.any((x) => _asPositiveInt(x['cliente']) == _clienteSel)) {
+        !_clientes.any((x) => x.cliente == _clienteSel)) {
       _clienteSel = null;
     }
   }
@@ -842,6 +909,33 @@ class _ConfigDialogState extends ConsumerState<_ConfigDialog> {
     final canPrc = _tBeneficio == 'PORCENTAJE';
     final canImp = _tBeneficio == 'IMP_FIJO';
     final canGratis = _tBeneficio == 'ART_GRATIS';
+    final tBenefValues = _tBenef
+        .map((x) => x.clave.trim().toUpperCase())
+        .toSet();
+    final selectedTBeneficio =
+        (_tBeneficio != null && tBenefValues.contains(_tBeneficio))
+        ? _tBeneficio
+        : null;
+    final tBeneficioInvalid =
+        _showValidationErrors && (selectedTBeneficio == null);
+    final sucInvalid = _showValidationErrors && !_sucTodas && _sucSel.isEmpty;
+    final clienteLabel = _clienteSel == null
+        ? 'Sin cliente seleccionado'
+        : _clientes
+              .where((x) => x.cliente == _clienteSel)
+              .map((x) => x.label)
+              .firstWhere(
+                (x) => x.trim().isNotEmpty,
+                orElse: () => 'Cliente $_clienteSel',
+              );
+    final prcInvalid =
+        _showValidationErrors && canPrc && (_double(_prcCtrl.text) == null);
+    final impInvalid =
+        _showValidationErrors && canImp && (_double(_impCtrl.text) == null);
+    final precioGratisInvalid =
+        _showValidationErrors &&
+        canGratis &&
+        ((_double(_precioGratisCtrl.text) ?? 0) <= 0);
     return AlertDialog(
       title: Text('Configuración promo ${widget.item.idProm}'),
       content: SizedBox(
@@ -859,15 +953,18 @@ class _ConfigDialogState extends ConsumerState<_ConfigDialog> {
                 children: [
                   Expanded(
                     child: DropdownButtonFormField<String>(
-                      initialValue: _tBeneficio,
-                      decoration: const InputDecoration(
-                        labelText: 'T_BENEFICIO',
+                      initialValue: selectedTBeneficio,
+                      decoration: InputDecoration(
+                        labelText: 'T_BENEFICIO *',
                         border: OutlineInputBorder(),
+                        errorText: tBeneficioInvalid
+                            ? 'T_BENEFICIO es obligatorio'
+                            : null,
                       ),
                       items: _tBenef
                           .map(
                             (x) => DropdownMenuItem(
-                              value: x.clave,
+                              value: x.clave.trim().toUpperCase(),
                               child: Text('${x.clave} - ${x.descripcion}'),
                             ),
                           )
@@ -925,6 +1022,22 @@ class _ConfigDialogState extends ConsumerState<_ConfigDialog> {
                   ),
                 ],
               ),
+              if (prcInvalid)
+                const Padding(
+                  padding: EdgeInsets.only(top: 6),
+                  child: Text(
+                    'PRC_DESC es obligatorio para beneficio PORCENTAJE',
+                    style: TextStyle(color: Colors.red),
+                  ),
+                ),
+              if (impInvalid)
+                const Padding(
+                  padding: EdgeInsets.only(top: 6),
+                  child: Text(
+                    'IMP_DESC es obligatorio para beneficio IMP_FIJO',
+                    style: TextStyle(color: Colors.red),
+                  ),
+                ),
               if (canGratis) ...[
                 const SizedBox(height: 8),
                 TextField(
@@ -938,6 +1051,14 @@ class _ConfigDialogState extends ConsumerState<_ConfigDialog> {
                     border: OutlineInputBorder(),
                   ),
                 ),
+                if (precioGratisInvalid)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 6),
+                    child: Text(
+                      'PRECIO_GRATIS debe ser mayor a 0',
+                      style: TextStyle(color: Colors.red),
+                    ),
+                  ),
               ],
               const SizedBox(height: 16),
               const Divider(),
@@ -1011,31 +1132,44 @@ class _ConfigDialogState extends ConsumerState<_ConfigDialog> {
                     if (mounted) setState(() {});
                   },
                 ),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<int>(
-                initialValue: _clienteSel,
-                decoration: const InputDecoration(
-                  labelText: 'CLIENTE',
-                  border: OutlineInputBorder(),
+              if (sucInvalid)
+                const Padding(
+                  padding: EdgeInsets.only(top: 6),
+                  child: Text(
+                    'Debes seleccionar al menos una sucursal',
+                    style: TextStyle(color: Colors.red),
+                  ),
                 ),
-                items: _clientes
-                    .map((x) {
-                      final cliente = _asPositiveInt(x['cliente']);
-                      if (cliente == null) return null;
-                      return DropdownMenuItem<int>(
-                        value: cliente,
-                        child: Text(
-                          '${x['cliente']} - ${(x['nombre'] ?? '').toString()}',
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      );
-                    })
-                    .whereType<DropdownMenuItem<int>>()
-                    .toList(),
-                onChanged: (_sucTodas || _sucSel.length != 1)
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: (_sucTodas || _sucSel.length != 1)
                     ? null
-                    : (value) => setState(() => _clienteSel = value),
+                    : _pickCliente,
+                icon: const Icon(Icons.person_search),
+                label: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    _clienteSel == null
+                        ? 'Seleccionar cliente (opcional)'
+                        : 'CLIENTE: $clienteLabel',
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
               ),
+              if (!_sucTodas && _sucSel.length == 1)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(
+                    _clientes.isEmpty
+                        ? 'No hay clientes para la sucursal seleccionada'
+                        : 'Clientes cargados: ${_clientes.length}',
+                    style: TextStyle(
+                      color: _clientes.isEmpty
+                          ? Colors.orange.shade800
+                          : Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
               const SizedBox(height: 8),
               _MultiSelectButton<int>(
                 label: 'DEPA',
@@ -1213,6 +1347,13 @@ class _ConfigDialogState extends ConsumerState<_ConfigDialog> {
                 scla2s: _scla2s,
                 guias: _guias,
               ),
+              if (_configValidationMessage != null) ...[
+                const SizedBox(height: 10),
+                Text(
+                  _configValidationMessage!,
+                  style: const TextStyle(color: Colors.red),
+                ),
+              ],
             ],
           ),
         ),
@@ -1244,8 +1385,20 @@ class _ConfigDialogState extends ConsumerState<_ConfigDialog> {
           descripcion: result['descripcion'] ?? '',
         );
     if (!mounted) return;
+    final unique = <String, CatalogOptionModel>{};
+    for (final row in rows) {
+      final key = row.clave.trim().toUpperCase();
+      if (key.isEmpty) continue;
+      unique[key] = CatalogOptionModel(
+        clave: key,
+        descripcion: row.descripcion.trim().isEmpty
+            ? key
+            : row.descripcion.trim(),
+      );
+    }
     setState(() {
-      _tBenef = rows;
+      _tBenef = unique.values.toList()
+        ..sort((a, b) => a.clave.compareTo(b.clave));
       _tBeneficio = (result['clave'] ?? '').trim().toUpperCase();
     });
   }
@@ -1324,8 +1477,136 @@ class _ConfigDialogState extends ConsumerState<_ConfigDialog> {
     if (sel != null) setState(() => _upcSel = sel);
   }
 
+  Future<void> _pickCliente() async {
+    if (_sucTodas || _sucSel.length != 1) return;
+    final selected = await showDialog<int?>(
+      context: context,
+      builder: (ctx) {
+        final searchCtrl = TextEditingController();
+        String appliedSearch = '';
+        int? localSelected = _clienteSel;
+        return StatefulBuilder(
+          builder: (context, setInner) {
+            final needle = appliedSearch.trim().toLowerCase();
+            final filtered = needle.isEmpty
+                ? _clientes
+                : _clientes
+                      .where((x) => x.searchText.contains(needle))
+                      .toList();
+            return AlertDialog(
+              title: const Text('Seleccionar cliente'),
+              content: SizedBox(
+                width: 760,
+                height: 520,
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: searchCtrl,
+                            decoration: const InputDecoration(
+                              labelText: 'Buscar por cliente o nombre',
+                              border: OutlineInputBorder(),
+                            ),
+                            onSubmitted: (_) => setInner(() {
+                              appliedSearch = searchCtrl.text;
+                            }),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton.icon(
+                          onPressed: () => setInner(() {
+                            appliedSearch = searchCtrl.text;
+                          }),
+                          icon: const Icon(Icons.search),
+                          label: const Text('Buscar'),
+                        ),
+                        const SizedBox(width: 8),
+                        OutlinedButton.icon(
+                          onPressed: () => setInner(() {
+                            searchCtrl.clear();
+                            appliedSearch = '';
+                          }),
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Limpiar'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: filtered.isEmpty
+                          ? const Center(child: Text('Sin clientes'))
+                          : RadioGroup<int?>(
+                              groupValue: localSelected,
+                              onChanged: (value) {
+                                setInner(() => localSelected = value);
+                              },
+                              child: ListView.builder(
+                                itemCount: filtered.length,
+                                itemBuilder: (context, index) {
+                                  final item = filtered[index];
+                                  return RadioListTile<int?>(
+                                    dense: true,
+                                    value: item.cliente,
+                                    title: Text(item.label),
+                                  );
+                                },
+                              ),
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(_clienteSel),
+                  child: const Text('Cancelar'),
+                ),
+                TextButton(
+                  onPressed: () => setInner(() => localSelected = null),
+                  child: const Text('Limpiar selección'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.of(ctx).pop(localSelected),
+                  child: const Text('Aplicar'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    if (!mounted) return;
+    setState(() => _clienteSel = selected);
+  }
+
+  String? _validateConfig() {
+    final tBenef = (_tBeneficio ?? '').trim().toUpperCase();
+    if (tBenef.isEmpty) return 'Selecciona T_BENEFICIO.';
+    if (!_sucTodas && _sucSel.isEmpty) {
+      return 'Selecciona al menos una sucursal o activa "TODAS las sucursales".';
+    }
+    if (tBenef == 'PORCENTAJE' && _double(_prcCtrl.text) == null) {
+      return 'Captura PRC_DESC para beneficio PORCENTAJE.';
+    }
+    if (tBenef == 'IMP_FIJO' && _double(_impCtrl.text) == null) {
+      return 'Captura IMP_DESC para beneficio IMP_FIJO.';
+    }
+    if (tBenef == 'ART_GRATIS' && (_double(_precioGratisCtrl.text) ?? 0) <= 0) {
+      return 'Captura PRECIO_GRATIS mayor a 0 para ART_GRATIS.';
+    }
+    return null;
+  }
+
   Future<void> _save() async {
-    if ((_tBeneficio ?? '').trim().isEmpty) return;
+    final validationMessage = _validateConfig();
+    setState(() {
+      _showValidationErrors = true;
+      _configValidationMessage = validationMessage;
+    });
+    if (validationMessage != null) return;
+
     final prc = _double(_prcCtrl.text);
     final imp = _double(_impCtrl.text);
     final precioGratis = _double(_precioGratisCtrl.text) ?? 0.01;
@@ -1364,6 +1645,7 @@ class _ConfigDialogState extends ConsumerState<_ConfigDialog> {
       Navigator.of(context).pop();
     } catch (e) {
       if (!mounted) return;
+      setState(() => _configValidationMessage = 'Error al guardar: $e');
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Error: $e')));
@@ -1681,6 +1963,8 @@ class _CatalogAddDialog extends StatefulWidget {
 }
 
 class _CatalogAddDialogState extends State<_CatalogAddDialog> {
+  final _formKey = GlobalKey<FormState>();
+  bool _showValidationErrors = false;
   final _claveCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
 
@@ -1697,19 +1981,37 @@ class _CatalogAddDialogState extends State<_CatalogAddDialog> {
       title: const Text('Agregar tipo beneficio'),
       content: SizedBox(
         width: 420,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _claveCtrl,
-              decoration: const InputDecoration(labelText: 'Clave'),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _descCtrl,
-              decoration: const InputDecoration(labelText: 'Descripción'),
-            ),
-          ],
+        child: Form(
+          key: _formKey,
+          autovalidateMode: _showValidationErrors
+              ? AutovalidateMode.always
+              : AutovalidateMode.disabled,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: _claveCtrl,
+                decoration: const InputDecoration(labelText: 'Clave *'),
+                validator: (value) {
+                  if ((value ?? '').trim().isEmpty) {
+                    return 'Clave es obligatoria';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _descCtrl,
+                decoration: const InputDecoration(labelText: 'Descripción *'),
+                validator: (value) {
+                  if ((value ?? '').trim().isEmpty) {
+                    return 'Descripción es obligatoria';
+                  }
+                  return null;
+                },
+              ),
+            ],
+          ),
         ),
       ),
       actions: [
@@ -1719,9 +2021,10 @@ class _CatalogAddDialogState extends State<_CatalogAddDialog> {
         ),
         FilledButton(
           onPressed: () {
+            setState(() => _showValidationErrors = true);
+            if (!_formKey.currentState!.validate()) return;
             final clave = _claveCtrl.text.trim().toUpperCase();
             final descripcion = _descCtrl.text.trim();
-            if (clave.isEmpty || descripcion.isEmpty) return;
             Navigator.of(
               context,
             ).pop({'clave': clave, 'descripcion': descripcion});
@@ -1737,6 +2040,24 @@ class _Option<T> {
   const _Option({required this.value, required this.label});
   final T value;
   final String label;
+}
+
+class _ClienteOption {
+  const _ClienteOption({
+    required this.cliente,
+    required this.nombre,
+    required this.suc,
+  });
+
+  final int cliente;
+  final String nombre;
+  final String suc;
+
+  String get label =>
+      '$cliente - ${nombre.isEmpty ? 'SIN NOMBRE' : nombre}${suc.isEmpty ? '' : ' ($suc)'}';
+
+  String get searchText =>
+      '$cliente ${nombre.toUpperCase()} ${suc.toUpperCase()}'.toLowerCase();
 }
 
 String _fmtDate(DateTime? value) {

@@ -376,3 +376,7 @@ Enlaces relacionados:
 - Modal unificado con T_BENEFICIO, PRC_DESC/IMP_DESC, sucursales (todas o seleccion multiple), cliente por sucursal unica, DEPA multiple y seleccion opcional de ART/UPC excluyentes.
 - Integrado con endpoints /promociones/catalogos/* y /promociones/:idProm/configuracion.
 - Filtros del listado: estado, sucursal (DAT_SUC), tipo de promocion (T_PROM) y texto libre.
+- Compatibilidad backend (2026-05-26): al guardar configuración (`PUT /promociones/:idProm/configuracion`), backend tolera JWT legacy (`idusuario/userid`) y si falta `sub/idUsuario` resuelve `IDUSUARIO` por `username`; además reconoce admin por `roleId/IDROL/idRol` (default `0,1`). El frontend no cambia payload.
+- UX y validaciones (2026-05-26): formularios de promociones muestran mensajes de campos obligatorios y validaciones contextuales por tipo de beneficio, corrigiendo envíos con campos nulos sin retroalimentación.
+- Cliente en configuración (2026-05-26): se reemplaza dropdown por modal con buscador y selección única; se muestran clientes de la sucursal seleccionada y se evita crash por duplicados en valores de dropdown.
+- Catálogo clientes (2026-05-26): backend entrega clientes por sucursal desde `FACT_CLIENT_SHP` usando filtro `ESTATUS=0` y `IDC` como `CLIENTE`; frontend consume lista completa y deduplica por `CLIENTE`.

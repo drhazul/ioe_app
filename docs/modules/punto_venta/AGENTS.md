@@ -25,6 +25,15 @@ Enlaces relacionados:
 - alcance funcional inicial:
 - CRUD de promociones, criterios y beneficios contra API `/promociones`.
 - filtros en listado: estado, sucursal (DAT_SUC), tipo promoción (T_PROM) y búsqueda libre.
+- compatibilidad backend (2026-05-26):
+- para guardar configuración (`PUT /promociones/:idProm/configuracion`), backend acepta JWT legacy (`idusuario/userid`) y también resuelve `IDUSUARIO` por `username` si falta `sub/idUsuario`.
+- además reconoce admin por `roleId/IDROL/idRol` con default `0,1` (usuario de acceso total).
+- frontend mantiene el mismo contrato; si hay sesión vieja en navegador, puede requerir relogin para renovar token.
+- UX/validación (2026-05-26):
+- formularios del módulo agregan mensajes y señalización para campos obligatorios (`Descripción`, `FCN_INI`, `FCN_TER`, `T_BENEFICIO`, `PRC_DESC/IMP_DESC/PRECIO_GRATIS` según beneficio, `Clave`/`Descripción` de tipo-beneficio).
+- la selección de cliente en configuración pasa a ventana emergente con buscador y selección única (no dropdown directo).
+- el listado de cliente se alimenta de catálogo backend por sucursal con base `FACT_CLIENT_SHP` (`ESTATUS=0`) usando `IDC` como identificador de cliente y se muestra completo.
+- se deduplican opciones para evitar assertion de `DropdownButton` por valores repetidos.
 
 ## Punto de venta: alta de cotizacion desde panel
 - En `CotizacionesPage`, al presionar `Agregar` primero se confirma la creacion y, al aceptar, se abre un segundo modal para buscar/seleccionar cliente.

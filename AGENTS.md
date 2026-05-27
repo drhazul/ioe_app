@@ -46,6 +46,9 @@
 - Datos Maestros / Puestos migrado a ROL (2026-05-05): la app deja de enviar `IDPUESTO` en `/users`, el menú/ruta `/masterdata/puestos` redirige al mantenimiento de `roles`, y catálogos de cargos consumen `ROL` para compatibilidad con bases sin tabla `PUESTO`.
 - Entorno dev API (2026-05-05): `Env.apiBaseUrl` en desarrollo web/desktop apunta a `http://127.0.0.1:3001` para usar backend local actualizado y evitar `404` de servidores remotos con build desfasado.
 - Punto de venta / Gestión de promociones (2026-05-09): se agrega módulo front en `lib/features/modulos/punto_venta/promociones/*` con ruta `/#/punto-venta/promociones`; `home_page.dart` resuelve código `DAT_JAA_DESC` hacia esa ruta y `punto_venta_home_page.dart` agrega card `Gestión promociones`.
+- Punto de venta / Gestión de promociones (2026-05-26): backend de configuración (`GET/PUT /promociones/:idProm/configuracion`) agrega compatibilidad JWT legacy (`idusuario/userid` y fallback por `username`) y reconocimiento admin por `roleId/IDROL/idRol` con default `0,1`; frontend mantiene contrato.
+- Punto de venta / Gestión de promociones (2026-05-26): formularios de promociones ahora muestran validación visual de campos obligatorios (crear/editar promo, agregar tipo y configuración), eliminan pantallazo rojo por valores duplicados en dropdown y cambian selección de cliente a popup con buscador + selección única.
+- Punto de venta / Gestión de promociones (2026-05-26): la carga de clientes en configuración toma catálogo backend filtrado por `FACT_CLIENT_SHP.SUC` y `FACT_CLIENT_SHP.ESTATUS=0` usando `IDC` como `CLIENTE`; el popup de cliente muestra listado completo deduplicado por `CLIENTE`.
 
 ## Documentación por módulos
 - Base de módulos: `docs/modules/base_modulos/AGENTS.md` (README: `docs/modules/base_modulos/README.md`)

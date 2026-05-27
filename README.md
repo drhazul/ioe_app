@@ -37,6 +37,9 @@ Frontend Flutter del ecosistema IOE. Consume `ioe-api` para autenticación, maes
 - Datos Maestros / Puestos migrado a ROL (2026-05-05): el formulario de usuarios ya no envía `IDPUESTO`, `/#/masterdata/puestos` opera como acceso de compatibilidad hacia `roles`, y los catálogos de cargos toman datos desde `ROL`.
 - Entorno dev API (2026-05-05): para ejecución local en web/desktop, la base URL de desarrollo usa `http://127.0.0.1:3001` y en Android emulator `http://10.0.2.2:3001`.
 - Punto de venta / Gestión de promociones (actualizado 2026-05-13): acceso principal desde Home con módulo front `PV_PROMO_GES` hacia `/#/promociones` (se mantiene compatibilidad de redirección desde `/#/punto-venta/promociones`). Pantalla en `lib/features/modulos/punto_venta/promociones/*` con CRUD/configuración y filtros por estado, sucursal y tipo de promoción.
+- Punto de venta / Gestión de promociones (2026-05-26): sin cambios de payload en frontend; backend de `GET/PUT /promociones/:idProm/configuracion` tolera JWT legacy (`idusuario/userid` y fallback por `username`) y reconoce admin por `roleId/IDROL/idRol` (default `0,1`) para evitar `403 Usuario inválido para resolver sucursales`.
+- Punto de venta / Gestión de promociones (2026-05-26): la UI agrega señalización de obligatorios y mensajes de error en formularios del módulo (promoción, tipo-beneficio y configuración), corrige crash de dropdown por duplicados y reemplaza selección de cliente por modal con buscador y selección única.
+- Punto de venta / Gestión de promociones (2026-05-26): el selector de cliente usa catálogo completo por sucursal desde backend (base `FACT_CLIENT_SHP` con `ESTATUS=0`, `IDC` como `CLIENTE`) y deduplica por `CLIENTE`.
 - Notas de documentación viva: este README solo debe cambiarse cuando se agreguen/modifiquen módulos, rutas o datos de arquitectura/base (no para ajustes locales de pantalla). Otros cambios funcionales van al README/AGENTS del módulo afectado.
 
 ## Arquitectura general
