@@ -38,7 +38,7 @@ Future<void> _checkBackendHealth() async {
       'Backend health OK (${Env.apiBaseUrl}/health) -> status: ${res.statusCode}',
     );
   } on DioException catch (e) {
-    // Provide helpful hint messages for debugging common issues.
+    // Provide helpful hint messages for debugging common issues  
     // ignore: avoid_print
     print('Backend health check FAILED for ${Env.apiBaseUrl}/health');
     // ignore: avoid_print
@@ -47,9 +47,13 @@ Future<void> _checkBackendHealth() async {
     if (kIsWeb) {
       // On web, this is commonly CORS or the server not reachable.
       // ignore: avoid_print
-      print('If you run the app on Web, this error is often caused by CORS.');
+      print(
+        'If you run the app on Web, this error is often caused by CORS, backend down, or wrong API port.',
+      );
       // ignore: avoid_print
-      print('Enable CORS in your backend (see project instructions).');
+      print(
+        'Verify backend is running and reachable at ${Env.apiBaseUrl}/health, then check CORS settings.',
+      );
     } else {
       // On mobile emulators, localhost is different.
       // ignore: avoid_print

@@ -52,6 +52,8 @@ Enlaces relacionados:
 - La actualizacion remota se hace via `PATCH /pvticketlog/:id/precio` enviando `PVTA` y, cuando aplica, `AUTH_PASSWORD`.
 - La prevalidacion de contraseña se realiza con `POST /pvticketlog/precio/authorize` cuando backend exige autorizacion.
 - La app mantiene sincronizacion local/remota del renglón y refresca providers de ticket al aplicar el cambio.
+- Cotizaciones precio manual vs promoción (2026-05-23): durante sincronización de renglón en detalle cotización se usa texto neutro (`Sincronizando...`) para representar guardado general y evitar interpretar que el cambio manual de `PVTA` reactiva cálculo de promoción.
+- Cotizaciones ORD vs precio manual (2026-05-23): al asignar/quitar `ORD` en detalle cotización, el renglón mantiene `PVTA` manual; backend evita reaplicar promoción por cambio exclusivo de `ORD`.
 - Detalle cotizacion UX (2026-03-10): en el bloque superior se agrega captura rápida por `UPC` (EAN13). La UI sanitiza a dígitos, toma los primeros 12 y busca coincidencia exacta por `SUC` en `DAT_ART` para insertar directo en ticket con `CTD=1` y `PVTA` del artículo.
 - Detalle cotizacion UX (2026-03-10): en la grilla DAT_ART el botón `Agregar` se movió al inicio del renglón.
 - Detalle cotizacion UX (2026-03-10): la columna `DES` en consulta DAT_ART y en detalle de ticket usa texto seleccionable con tooltip para visualizar/copiar la descripción completa.
@@ -133,7 +135,7 @@ Enlaces relacionados:
 - Reglas UI de formas (actualizacion):
 - El dropdown de formas de pago en el modal se alimenta desde `DAT_FORM` via `GET /dat-form` (ya no lista fija hardcodeada).
 - Con `tipotran=CA`, el selector de formas en el modal permite `EFECTIVO` y `CREDITO`.
-- `CREDITO` no se puede combinar con otras formas de pago en el mismo cierre.
+- `CREDITO` y `DEUDOR` no se pueden combinar con otras formas de pago en el mismo cierre.
 - El campo `Autorizacion / referencia` y el boton `Generar/Asignar referencia` solo se muestran para `TARJETA`, `CHEQUE`, `TRANSFERENCIA` y `DEPOSITO 3RO`.
 - La referencia ya no se captura manualmente: se crea/asigna via `REF_DETALLE` y se regresa `IDREF` al formulario de pago.
 - Si hay referencias del folio en `CAPTURADO` o `PROCESADO` que no se usan en el cierre, backend rechaza finalizar hasta eliminarlas.
@@ -156,7 +158,7 @@ Enlaces relacionados:
 - Reingreso a pago: `DetalleCotPage` abre pago tomando `rqfac` desde `cierre/context` (backend) para evitar usar valores stale de la grilla local.
 - Validacion UI previa a cierre: antes de `POST /pv/cotizaciones/:idfol/cierre`, la app consulta `GET /pv/refdetalle?idfol=:idfol` y bloquea finalizar si hay referencias `CAPTURADO/PROCESADO` no usadas en `formas.aut`.
 - Si la prevalidacion detecta referencias sin usar, la app redirige a `/punto-venta/cotizaciones/:idfol/ref-detalle` con la referencia detectada preseleccionada para su gestion (usar/eliminar) antes de permitir cerrar.
-- Validacion UI de importes: al agregar/editar forma, el `impp` no puede exceder el faltante por pagar (`total - sum(formas restantes)`) excepto cuando la forma es `EFECTIVO` (puede exceder para cambio).
+- Validacion UI de importes: al agregar/editar forma, el `impp` de formas no `EFECTIVO` no puede exceder el faltante por pagar (`total - sum(formas restantes)`); solo `EFECTIVO` (única forma o segunda forma) puede exceder para calcular cambio.
 - Ajuste tecnico Flutter: dialogos de seleccion migrados a `RadioGroup` (cliente en cotizaciones y referencia en `REF_DETALLE`) para eliminar uso deprecated de `Radio.groupValue/onChanged`.
 - Regla CA/RQFAC: cuando el tipo de cierre es `CA` (al entrar o al cambiar), app fuerza `RQFAC=false` y persiste `PV_CTR_FOL_ASVR.REQF=0` antes del recalculo de preview/totales.
 ## Punto de venta: devoluciones de cotizacion/venta/apartado (implementado 2026-02)
@@ -201,6 +203,7 @@ Enlaces relacionados:
 - en pago no se permite agregar, editar ni eliminar formas de pago.
 - en pago devolución (2026-03-10): las formas se rehidratan siempre desde `preview.formasSugeridas` (folio origen) para devolver por el mismo concepto en formas no efectivo y conservar `aut/ref` para el cierre backend.
 - forma devolución = forma origen (2026-03-20): backend valida en cierre que devoluciones no `CREDITO/DEUDOR` se paguen en la misma forma del ticket origen (ej. `EFECTIVO`->`EFECTIVO`, `TRANSFERENCIA`->`TRANSFERENCIA`); la UI mantiene el bloque de formas en solo lectura.
+- devoluciones regla simplificada (2026-05-22): parcial solo cuando origen es `EFECTIVO` único; si origen es mixto o no-efectivo, backend exige devolución total respetando cada forma/referencia origen y la UI mantiene bloque de formas en solo lectura.
 - al finalizar devolución, backend deja el folio en `ESTA='PAGADO'`; en esa condición la navegación de regreso muestra icono candado.
 - facturación devolución VF (2026-03-20): al finalizar `POST /pv/devoluciones/:idfolDev/pago/finalizar`, backend sincroniza facturación del folio origen con `sp_fact_sync_folio_vf` y recalcula `FAC_SVR_SHAP/FACT_TICKET_SHP` con base en `CTD-CTDDF` (devolución total: `ESTATUS='VTA DEV'`, `IMPT=0`; parcial: disminuye `IMPT`).
 - saneamiento DVF facturación (2026-03-20): al finalizar devolución, backend depura registros residuales del folio devolución en `FAC_SVR_SHAP/FACT_TICKET_SHP` para evitar filas no deseadas en módulo facturación.
@@ -286,6 +289,7 @@ Enlaces relacionados:
 - compatibilidad PS (2026-04): la UI mantiene lectura de `TRANSMITIR` como estado cerrado legacy para folios históricos, pero los nuevos cierres operativos salen en `CERRADO_PS`.
 - en pago, el botón secundario es `Imprimir ticket` (reemplaza `Regresar a detalle`).
 - Ticket PS voucher (2026-03): al imprimir, si existen formas no `EFECTIVO`, el PDF agrega al final un voucher `SOPORTE RECEPCION PAGO` por cada forma no efectivo.
+- Ticket PS voucher (2026-05-22): el renglón `IMPD` imprime monto del comprobante actual (`forma.impp`) para evitar repetir el total de la operación cuando hay múltiples comprobantes.
 - Ticket PS voucher (2026-03): el voucher incluye espacio en blanco para firma y renglón `Firma cliente` debajo de `FCN`.
 - Ticket PS impresión (2026-03): el voucher se genera en un segundo PDF; al cerrar la vista previa del ticket principal, la app solicita confirmación y luego abre la vista previa del voucher.
 - Ticket PS impresión (2026-03): se agrega línea de recorte entre `RESUMEN DE ORDS` y `ORDS`; `GRACIAS POR SU CONFIANZA` se imprime después de `RESUMEN DE ORDS` y antes del recorte hacia `ORDS`.

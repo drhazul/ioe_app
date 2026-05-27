@@ -12,7 +12,7 @@ Enlaces relacionados:
 - `API_BASE_URL`
 - `API_BASE_URL_WEB`
 - Resolucion de base URL (`lib/core/env.dart`):
-- debug: `http://localhost:3001`.
+- debug: `http://localhost:3000`.
 - release web: `API_BASE_URL_WEB` y fallback `/api`.
 - release mobile: `API_BASE_URL` y fallback hardcoded actual.
 - En `main.dart`, el health check inicial consulta `/health`.
