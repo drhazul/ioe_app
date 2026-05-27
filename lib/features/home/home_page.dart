@@ -516,6 +516,20 @@ class _ModuleRow extends StatelessWidget {
         moduloCode == 'PV_PROMO_GES') {
       return '/promociones';
     }
+    if (moduloCode == 'DAT_JAA_MERM' ||
+        moduloCode == 'MERMA_GESTION' ||
+        moduloCode == 'MERMA') {
+      return '/modulos/merma/gestion';
+    }
+    if (moduloCode == 'MERMA_AUDITORIA') {
+      return '/modulos/merma/auditoria';
+    }
+    if (moduloCode == 'MERMA_CONSULTA') {
+      return '/modulos/merma/consulta';
+    }
+    if (moduloCode == 'MERMA_REPORTES') {
+      return '/modulos/merma/reportes';
+    }
     if (moduloCode == 'FACTURA_MTTOCLIENTE') {
       return '/facturacion/mtto-clientes';
     }
@@ -591,6 +605,18 @@ class _ModuleRow extends StatelessWidget {
     if ((name.contains('promo') || name.contains('descuento')) &&
         name.contains('panel')) {
       return '/promociones';
+    }
+    if (name.contains('merma') && name.contains('auditor')) {
+      return '/modulos/merma/auditoria';
+    }
+    if (name.contains('merma') && name.contains('consulta')) {
+      return '/modulos/merma/consulta';
+    }
+    if (name.contains('merma') && name.contains('report')) {
+      return '/modulos/merma/reportes';
+    }
+    if (name.contains('merma')) {
+      return '/modulos/merma/gestion';
     }
     if (name.contains('orden') &&
         name.contains('estado') &&

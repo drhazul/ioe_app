@@ -37,6 +37,10 @@ Frontend Flutter del ecosistema IOE. Consume `ioe-api` para autenticación, maes
 - Datos Maestros / Puestos migrado a ROL (2026-05-05): el formulario de usuarios ya no envía `IDPUESTO`, `/#/masterdata/puestos` opera como acceso de compatibilidad hacia `roles`, y los catálogos de cargos toman datos desde `ROL`.
 - Entorno dev API (2026-05-05): para ejecución local en web/desktop, la base URL de desarrollo usa `http://127.0.0.1:3001` y en Android emulator `http://10.0.2.2:3001`.
 - Punto de venta / Gestión de promociones (actualizado 2026-05-13): acceso principal desde Home con módulo front `PV_PROMO_GES` hacia `/#/promociones` (se mantiene compatibilidad de redirección desde `/#/punto-venta/promociones`). Pantalla en `lib/features/modulos/punto_venta/promociones/*` con CRUD/configuración y filtros por estado, sucursal y tipo de promoción.
+- Inventarios / Merma (2026-05-15): nuevo feature `lib/features/modulos/merma/*` con rutas separadas `/modulos/merma/gestion`, `/modulos/merma/auditoria`, `/modulos/merma/consulta` y `/modulos/merma/reportes`; Home resuelve `DAT_JAA_MERM` hacia gestión de merma y permite consultar soporte/etiqueta QR/barcode desde consulta.
+- Inventarios / Merma (2026-05-18): regla de captura actualizada para permitir el mismo artículo en un mismo documento cuando el motivo de merma sea distinto; el bloqueo queda solo para duplicado exacto de artículo con el mismo motivo.
+- Inventarios / Merma (2026-05-20): en gestión/detalle se expone área responsable por renglón (`DET_ART_MERMA.AREAM`) y en alta/edición se permite adjuntar evidencia fotográfica desde PC/móvil; la evidencia viaja en `eviM` (data URL) y se previsualiza en la columna `Evidencia`.
+- Inventarios / Merma (2026-05-20): `AREAM` se captura como texto libre desde el modal de artículo, se conserva al editar y se visualiza como columna en la tabla de detalle.
 - Notas de documentación viva: este README solo debe cambiarse cuando se agreguen/modifiquen módulos, rutas o datos de arquitectura/base (no para ajustes locales de pantalla). Otros cambios funcionales van al README/AGENTS del módulo afectado.
 
 ## Arquitectura general

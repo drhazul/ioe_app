@@ -46,6 +46,10 @@
 - Datos Maestros / Puestos migrado a ROL (2026-05-05): la app deja de enviar `IDPUESTO` en `/users`, el menú/ruta `/masterdata/puestos` redirige al mantenimiento de `roles`, y catálogos de cargos consumen `ROL` para compatibilidad con bases sin tabla `PUESTO`.
 - Entorno dev API (2026-05-05): `Env.apiBaseUrl` en desarrollo web/desktop apunta a `http://127.0.0.1:3001` para usar backend local actualizado y evitar `404` de servidores remotos con build desfasado.
 - Punto de venta / Gestión de promociones (2026-05-09): se agrega módulo front en `lib/features/modulos/punto_venta/promociones/*` con ruta `/#/punto-venta/promociones`; `home_page.dart` resuelve código `DAT_JAA_DESC` hacia esa ruta y `punto_venta_home_page.dart` agrega card `Gestión promociones`.
+- Inventarios / Merma (2026-05-15): se agrega feature `lib/features/modulos/merma/` (data/domain/providers/presentation) con páginas separadas de gestión, auditoría, consulta y reportes; `router.dart` registra rutas `/modulos/merma/*` y `home_page.dart` mapea `DAT_JAA_MERM`/aliases para navegación operativa.
+- Inventarios / Merma (2026-05-18): se permite registrar el mismo artículo en un documento cuando el motivo cambie; la validación de duplicidad en backend solo rechaza renglón activo con combinación exacta (`ART`, `MOT_M`).
+- Inventarios / Merma (2026-05-20): la vista de gestión/detalle debe permitir editar área responsable por renglón (`DET_ART_MERMA.AREAM`) y capturar evidencia de imagen por renglón (`EVI_M`) desde cámara, galería o archivo local, mostrándola en la columna `Evidencia`.
+- Inventarios / Merma (2026-05-20): `AREAM` opera como texto libre (sin catálogo), debe persistir desde alta/edición de artículo y mostrarse en su columna de detalle.
 
 ## Documentación por módulos
 - Base de módulos: `docs/modules/base_modulos/AGENTS.md` (README: `docs/modules/base_modulos/README.md`)

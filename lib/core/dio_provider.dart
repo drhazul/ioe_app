@@ -63,7 +63,16 @@ final dioProvider = Provider<Dio>((ref) {
 
         // Log network/connection errors to help debugging (prints visible in console)
         // err is a DioException on modern dio versions
-        if (!_isExpectedAuthRequiredCancel(err)) {
+        final statusCode = err.response?.statusCode ?? 0;
+        final shouldLog =
+            !_isExpectedAuthRequiredCancel(err) &&
+            (statusCode >= 500 ||
+                err.type == DioExceptionType.connectionError ||
+                err.type == DioExceptionType.connectionTimeout ||
+                err.type == DioExceptionType.sendTimeout ||
+                err.type == DioExceptionType.receiveTimeout ||
+                err.type == DioExceptionType.unknown);
+        if (shouldLog) {
           try {
             final method = err.requestOptions.method;
             final status = err.response?.statusCode;
