@@ -64,7 +64,6 @@ final mermaGestionProvider = FutureProvider.autoDispose
 
 final mermaGestionCabecerasProvider = FutureProvider.autoDispose
     .family<List<MermaGestionCabeceraModel>, String?>((ref, suc) async {
-      if (_toText(suc) == null) return const <MermaGestionCabeceraModel>[];
       final repo = ref.read(mermaRepositoryProvider);
       return repo.fetchGestionCabecerasAbiertas(suc: _toText(suc));
     });
@@ -81,10 +80,13 @@ final mermaDetalleConsultaProvider = FutureProvider.autoDispose
       return api.fetchMerma(docmer, consulta: true);
     });
 
-final mermaCurrentRoleNameProvider = FutureProvider.autoDispose<String>((ref) async {
+final mermaCurrentRoleNameProvider = FutureProvider.autoDispose<String>((
+  ref,
+) async {
   final auth = ref.watch(authControllerProvider);
   final roleId = auth.roleId ?? 0;
-  if (roleId <= 0) return '';
+  final username = (auth.username ?? '').trim().toUpperCase();
+  if (roleId == 0 || roleId == 1 || username == 'ADMIN') return 'ADMIN';
 
   final dio = ref.read(dioProvider);
   final res = await dio.get('/access/roles');

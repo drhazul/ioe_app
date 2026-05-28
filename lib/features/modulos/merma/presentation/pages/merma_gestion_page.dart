@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:dio/dio.dart';
@@ -30,11 +30,19 @@ class _MermaGestionPageState extends ConsumerState<MermaGestionPage> {
   @override
   Widget build(BuildContext context) {
     final roleName = ref.watch(mermaCurrentRoleNameProvider).valueOrNull ?? '';
-    final isInventarios = _isInventariosReviewer(roleName);
-    final isEncargadoSucursal = _isEncargadoSucursalRole(roleName);
-    final isEncargadoMerma = _isEncargadoMerma(roleName);
-    final canCreateNewFile = _isEncargadoSucursalRole(roleName);
     final auth = ref.watch(authControllerProvider);
+    final roleId = auth.roleId ?? 0;
+    final username = (auth.username ?? '').trim().toUpperCase();
+    final isAdmin = _isAdminRole(
+      roleName: roleName,
+      roleId: roleId,
+      username: username,
+    );
+    final isInventarios = _isInventariosReviewer(roleName);
+    final canGestionActions = isAdmin || isInventarios;
+    final isEncargadoSucursal = !isAdmin && _isEncargadoSucursalRole(roleName);
+    final isEncargadoMerma = !isAdmin && _isEncargadoMerma(roleName);
+    final canCreateNewFile = isAdmin || _isEncargadoSucursalRole(roleName);
     final loggedSuc = _normalizeSuc(auth.suc);
     final selectedFilterSuc = _normalizeSuc(_selectedSucursalFilter);
     final effectiveSuc = isInventarios
@@ -42,7 +50,9 @@ class _MermaGestionPageState extends ConsumerState<MermaGestionPage> {
         : (selectedFilterSuc ?? loggedSuc);
 
     final asyncSucursales = ref.watch(mermaSucursalesProvider);
-    final asyncCabeceras = ref.watch(mermaGestionCabecerasProvider(effectiveSuc));
+    final asyncCabeceras = ref.watch(
+      mermaGestionCabecerasProvider(effectiveSuc),
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -91,7 +101,7 @@ class _MermaGestionPageState extends ConsumerState<MermaGestionPage> {
                         selectedSuc: selectedFilterSuc,
                         onChangeSuc: _changeSucursalFilter,
                         requireSucursalSelection: isInventarios,
-                        showSucursalFilter: isInventarios,
+                        showSucursalFilter: canGestionActions,
                         showFechaCalendarFilter:
                             isEncargadoSucursal || isInventarios,
                         showFechaActionButtons: isEncargadoMerma,
@@ -122,7 +132,7 @@ class _MermaGestionPageState extends ConsumerState<MermaGestionPage> {
                       selectedSuc: selectedFilterSuc,
                       onChangeSuc: _changeSucursalFilter,
                       requireSucursalSelection: isInventarios,
-                      showSucursalFilter: isInventarios,
+                      showSucursalFilter: canGestionActions,
                       showFechaCalendarFilter:
                           isEncargadoSucursal || isInventarios,
                       showFechaActionButtons: isEncargadoMerma,
@@ -153,6 +163,12 @@ class _MermaGestionPageState extends ConsumerState<MermaGestionPage> {
     final auth = ref.watch(authControllerProvider);
     final roleId = auth.roleId ?? 0;
     final username = (auth.username ?? '').trim().toUpperCase();
+    final isAdmin = _isAdminRole(
+      roleName: roleName,
+      roleId: roleId,
+      username: username,
+    );
+    final canGestionActions = isAdmin || _isInventariosReviewer(roleName);
     if (selected == null || selected.trim().isEmpty) {
       return Center(
         child: Column(
@@ -195,7 +211,7 @@ class _MermaGestionPageState extends ConsumerState<MermaGestionPage> {
           const SizedBox(height: 10),
           MermaTotalsCard(narts: doc.narts, total: doc.total),
           const SizedBox(height: 10),
-          if (_isInventariosReviewer(roleName))
+          if (canGestionActions)
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -212,18 +228,32 @@ class _MermaGestionPageState extends ConsumerState<MermaGestionPage> {
                     icon: const Icon(Icons.check_circle),
                     label: const Text('Contabilizar'),
                   ),
-                if (doc.idEstatus == 1 || doc.idEstatus == 2 || doc.idEstatus == 4)
+                if (doc.idEstatus == 1 ||
+                    doc.idEstatus == 2 ||
+                    doc.idEstatus == 4)
                   OutlinedButton.icon(
                     onPressed: () => _anularEnGestion(doc),
                     icon: const Icon(Icons.cancel),
                     label: const Text('Anular'),
                   ),
-                OutlinedButton.icon(
-                  onPressed: () =>
-                      context.go('/modulos/merma/consulta/${doc.docmer}'),
-                  icon: const Icon(Icons.visibility),
-                  label: const Text('Ver en consulta'),
-                ),
+                if (doc.idEstatus == 1 || doc.idEstatus == 2)
+                  FilledButton.icon(
+                    onPressed: () =>
+                        context.go('/modulos/merma/gestion/${doc.docmer}'),
+                    icon: const Icon(Icons.open_in_new),
+                    label: const Text('Detalle documento'),
+                  ),
+                if (doc.idEstatus == 5 &&
+                    _canPrintEtiquetaInGestion(
+                      roleName: roleName,
+                      roleId: roleId,
+                      username: username,
+                    ))
+                  FilledButton.icon(
+                    onPressed: () => _openEtiqueta(doc.docmer),
+                    icon: const Icon(Icons.print),
+                    label: const Text('Imprimir etiqueta'),
+                  ),
               ],
             )
           else
@@ -455,8 +485,27 @@ class _MermaGestionPageState extends ConsumerState<MermaGestionPage> {
   }
 
   Future<void> _create() async {
-    final suc = _normalizeSuc(ref.read(authControllerProvider).suc);
-    final sucLabel = suc == null ? '' : ' para la sucursal $suc';
+    final auth = ref.read(authControllerProvider);
+    final roleName = ref.read(mermaCurrentRoleNameProvider).valueOrNull ?? '';
+    final roleId = auth.roleId ?? 0;
+    final username = (auth.username ?? '').trim().toUpperCase();
+    final isAdmin = _isAdminRole(
+      roleName: roleName,
+      roleId: roleId,
+      username: username,
+    );
+    final suc =
+        _normalizeSuc(isAdmin ? _selectedSucursalFilter : auth.suc) ??
+        _normalizeSuc(auth.suc);
+    if (suc == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Selecciona una sucursal antes de crear el documento.'),
+        ),
+      );
+      return;
+    }
+    final sucLabel = ' para la sucursal $suc';
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -505,6 +554,15 @@ class _MermaGestionPageState extends ConsumerState<MermaGestionPage> {
     if (role.contains('ADMIN')) return true;
     if (role.contains('ENCARGADO') && role.contains('SUCURSAL')) return true;
     return false;
+  }
+
+  bool _isAdminRole({
+    required String roleName,
+    required int roleId,
+    required String username,
+  }) {
+    if (roleId == 0 || roleId == 1 || username == 'ADMIN') return true;
+    return roleName.trim().toUpperCase().contains('ADMIN');
   }
 
   Future<void> _openEtiqueta(String docmer) async {
