@@ -1410,32 +1410,10 @@ class _ConfigDialogState extends ConsumerState<_ConfigDialog> {
       );
       return;
     }
-    final suc = (!_sucTodas && _sucSel.isNotEmpty) ? _sucSel.join(',') : null;
-    final rows = await ref
-        .read(promocionesApiProvider)
-        .fetchArticulos(
-          suc: suc,
-          depa: _depaSel,
-          subd: _subdSel,
-          clas: _clasSel,
-          scla: _sclaSel,
-          scla2: _scla2Sel,
-          guia: _guiaSel,
-        );
-    if (!mounted) return;
-    final unique = <String, _Option<String>>{};
-    for (final x in rows) {
-      final key = x.art.trim().toUpperCase();
-      if (key.isEmpty) continue;
-      unique[key] = _Option(value: x.art, label: '${x.art} - ${x.descripcion}');
-    }
     final sel = await _pickValues(
       title: 'Seleccionar ART',
       selected: _artSel,
-      options: unique.values.toList()
-        ..sort(
-          (a, b) => a.label.toUpperCase().compareTo(b.label.toUpperCase()),
-        ),
+      loadOptions: _loadArtOptions,
     );
     if (sel != null) setState(() => _artSel = sel);
   }
@@ -1447,6 +1425,15 @@ class _ConfigDialogState extends ConsumerState<_ConfigDialog> {
       );
       return;
     }
+    final sel = await _pickValues(
+      title: 'Seleccionar UPC',
+      selected: _upcSel,
+      loadOptions: _loadUpcOptions,
+    );
+    if (sel != null) setState(() => _upcSel = sel);
+  }
+
+  Future<List<_Option<String>>> _loadArtOptions(String? search) async {
     final suc = (!_sucTodas && _sucSel.isNotEmpty) ? _sucSel.join(',') : null;
     final rows = await ref
         .read(promocionesApiProvider)
@@ -1458,23 +1445,42 @@ class _ConfigDialogState extends ConsumerState<_ConfigDialog> {
           scla: _sclaSel,
           scla2: _scla2Sel,
           guia: _guiaSel,
+          search: search,
         );
-    if (!mounted) return;
+    final unique = <String, _Option<String>>{};
+    for (final x in rows) {
+      final key = x.art.trim().toUpperCase();
+      if (key.isEmpty) continue;
+      unique[key] = _Option(value: x.art, label: '${x.art} - ${x.descripcion}');
+    }
+    final list = unique.values.toList()
+      ..sort((a, b) => a.label.toUpperCase().compareTo(b.label.toUpperCase()));
+    return list;
+  }
+
+  Future<List<_Option<String>>> _loadUpcOptions(String? search) async {
+    final suc = (!_sucTodas && _sucSel.isNotEmpty) ? _sucSel.join(',') : null;
+    final rows = await ref
+        .read(promocionesApiProvider)
+        .fetchArticulos(
+          suc: suc,
+          depa: _depaSel,
+          subd: _subdSel,
+          clas: _clasSel,
+          scla: _sclaSel,
+          scla2: _scla2Sel,
+          guia: _guiaSel,
+          search: search,
+        );
     final unique = <String, _Option<String>>{};
     for (final x in rows) {
       final key = x.upc.trim().toUpperCase();
       if (key.isEmpty) continue;
       unique[key] = _Option(value: x.upc, label: '${x.upc} - ${x.descripcion}');
     }
-    final sel = await _pickValues(
-      title: 'Seleccionar UPC',
-      selected: _upcSel,
-      options: unique.values.toList()
-        ..sort(
-          (a, b) => a.label.toUpperCase().compareTo(b.label.toUpperCase()),
-        ),
-    );
-    if (sel != null) setState(() => _upcSel = sel);
+    final list = unique.values.toList()
+      ..sort((a, b) => a.label.toUpperCase().compareTo(b.label.toUpperCase()));
+    return list;
   }
 
   Future<void> _pickCliente() async {
@@ -1657,7 +1663,7 @@ class _ConfigDialogState extends ConsumerState<_ConfigDialog> {
   Future<List<T>?> _pickValues<T>({
     required String title,
     required List<T> selected,
-    required List<_Option<T>> options,
+    required Future<List<_Option<T>>> Function(String? search) loadOptions,
   }) {
     return showDialog<List<T>>(
       context: context,
@@ -1665,9 +1671,37 @@ class _ConfigDialogState extends ConsumerState<_ConfigDialog> {
         final values = selected.toSet();
         final searchCtrl = TextEditingController();
         String appliedSearch = '';
+        List<_Option<T>> options = const [];
+        String? loadError;
+        bool loading = true;
+        bool initialized = false;
         return StatefulBuilder(
           builder: (context, setInner) {
-            final needle = appliedSearch.trim().toLowerCase();
+            Future<void> reload() async {
+              setInner(() {
+                loading = true;
+                loadError = null;
+              });
+              try {
+                final rows = await loadOptions(
+                  appliedSearch.trim().isEmpty ? null : appliedSearch.trim(),
+                );
+                if (!context.mounted) return;
+                setInner(() => options = rows);
+              } catch (e) {
+                if (!context.mounted) return;
+                setInner(() => loadError = '$e');
+              } finally {
+                if (context.mounted) setInner(() => loading = false);
+              }
+            }
+
+            if (!initialized) {
+              initialized = true;
+              Future<void>.microtask(reload);
+            }
+
+            final needle = searchCtrl.text.trim().toLowerCase();
             final filtered = needle.isEmpty
                 ? options
                 : options
@@ -1689,23 +1723,30 @@ class _ConfigDialogState extends ConsumerState<_ConfigDialog> {
                               labelText: 'Buscar ART/UPC/descripción',
                               border: OutlineInputBorder(),
                             ),
-                            onSubmitted: (_) =>
-                                setInner(() => appliedSearch = searchCtrl.text),
+                            onSubmitted: (_) async {
+                              setInner(() => appliedSearch = searchCtrl.text);
+                              await reload();
+                            },
                           ),
                         ),
                         const SizedBox(width: 8),
                         ElevatedButton.icon(
-                          onPressed: () =>
-                              setInner(() => appliedSearch = searchCtrl.text),
+                          onPressed: () async {
+                            setInner(() => appliedSearch = searchCtrl.text);
+                            await reload();
+                          },
                           icon: const Icon(Icons.search),
                           label: const Text('Buscar'),
                         ),
                         const SizedBox(width: 8),
                         OutlinedButton.icon(
-                          onPressed: () => setInner(() {
+                          onPressed: () async {
+                            setInner(() {
                             searchCtrl.clear();
                             appliedSearch = '';
-                          }),
+                            });
+                            await reload();
+                          },
                           icon: const Icon(Icons.refresh),
                           label: const Text('Limpiar'),
                         ),
@@ -1713,7 +1754,11 @@ class _ConfigDialogState extends ConsumerState<_ConfigDialog> {
                     ),
                     const SizedBox(height: 8),
                     Expanded(
-                      child: filtered.isEmpty
+                      child: loading
+                          ? const Center(child: CircularProgressIndicator())
+                          : (loadError != null)
+                          ? Center(child: Text('Error al cargar: $loadError'))
+                          : filtered.isEmpty
                           ? const Center(child: Text('Sin opciones'))
                           : ListView.builder(
                               itemCount: filtered.length,
