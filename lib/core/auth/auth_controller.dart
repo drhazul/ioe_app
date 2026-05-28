@@ -309,6 +309,7 @@ class AuthController extends StateNotifier<AuthState> {
         isAuthenticated: true,
         userId: _asInt(payload['sub']),
         username: payload['username'] as String?,
+        suc: payload['suc'] as String?,
         roleId: _asInt(payload['roleId']),
         mustChangePassword: _asBool(payload['mustChangePassword']) ?? false,
       ),
@@ -323,6 +324,7 @@ class AuthController extends StateNotifier<AuthState> {
         isAuthenticated: false,
         userId: null,
         username: null,
+        suc: null,
         roleId: null,
         mustChangePassword: false,
       ),
@@ -336,6 +338,7 @@ class AuthController extends StateNotifier<AuthState> {
         current.isAuthenticated == next.isAuthenticated &&
         current.userId == next.userId &&
         current.username == next.username &&
+        current.suc == next.suc &&
         current.roleId == next.roleId &&
         current.mustChangePassword == next.mustChangePassword;
     if (unchanged) return;

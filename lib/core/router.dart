@@ -86,6 +86,12 @@ import '../features/modulos/punto_venta/devoluciones/detalle/detalle_devolucion_
 import '../features/modulos/punto_venta/devoluciones/pago/pago_devolucion_page.dart';
 import '../features/modulos/punto_venta/promociones/promociones_page.dart';
 import '../features/modulos/punto_venta/reimprticket/reimpresion_page.dart';
+import '../features/modulos/merma/presentation/pages/merma_auditoria_page.dart';
+import '../features/modulos/merma/presentation/pages/merma_consulta_detail_page.dart';
+import '../features/modulos/merma/presentation/pages/merma_consulta_page.dart';
+import '../features/modulos/merma/presentation/pages/merma_detail_page.dart';
+import '../features/modulos/merma/presentation/pages/merma_gestion_page.dart';
+import '../features/modulos/merma/presentation/pages/merma_reportes_page.dart';
 
 import 'auth/auth_controller.dart';
 
@@ -530,6 +536,39 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'promociones',
             builder: (c, s) => const PromocionesPage(),
+          ),
+          GoRoute(
+            path: 'modulos/merma/gestion',
+            builder: (c, s) => const MermaGestionPage(),
+            routes: [
+              GoRoute(
+                path: ':docmer',
+                builder: (c, s) => MermaDetailPage(
+                  docmer: s.pathParameters['docmer'] ?? '',
+                  createdFromNew: s.uri.queryParameters['nuevo'] == '1',
+                ),
+              ),
+            ],
+          ),
+          GoRoute(
+            path: 'modulos/merma/auditoria',
+            builder: (c, s) => const MermaAuditoriaPage(),
+          ),
+          GoRoute(
+            path: 'modulos/merma/consulta',
+            builder: (c, s) => const MermaConsultaPage(),
+            routes: [
+              GoRoute(
+                path: ':docmer',
+                builder: (c, s) => MermaConsultaDetailPage(
+                  docmer: s.pathParameters['docmer'] ?? '',
+                ),
+              ),
+            ],
+          ),
+          GoRoute(
+            path: 'modulos/merma/reportes',
+            builder: (c, s) => const MermaReportesPage(),
           ),
           GoRoute(
             path: 'punto-venta',
