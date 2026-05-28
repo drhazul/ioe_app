@@ -43,7 +43,7 @@ class Env {
     }
 
     // 2) Mobile emulator (Android)
-    return 'http://192.168.10.234:3001';
+    return 'http://192.168.10.234:3000';
   }
 
   static String _defaultWebApiBaseUrl() {
