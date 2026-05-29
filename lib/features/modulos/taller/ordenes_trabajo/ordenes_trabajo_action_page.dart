@@ -424,20 +424,31 @@ class _OrdenesTrabajoActionPageState
 
   Future<OrdenTrabajoEnviarRelacionItem> _validateOrd(String code) {
     final api = ref.read(ordenesTrabajoApiProvider);
+    final requestedSuc = _resolveRequestedSucForOps();
     switch (widget.action) {
       case OrdenesTrabajoInitialAction.enviar:
-        return api.validarOrdEnviar(code);
+        return api.validarOrdEnviar(code, suc: requestedSuc);
       case OrdenesTrabajoInitialAction.asignar:
-        return api.validarOrdAsignar(code);
+        return api.validarOrdAsignar(code, suc: requestedSuc);
       case OrdenesTrabajoInitialAction.trabajoTerminado:
-        return api.validarOrdTrabajoTerminado(code);
+        return api.validarOrdTrabajoTerminado(code, suc: requestedSuc);
       case OrdenesTrabajoInitialAction.regresarTienda:
-        return api.validarOrdRegresarTienda(code);
+        return api.validarOrdRegresarTienda(code, suc: requestedSuc);
       case OrdenesTrabajoInitialAction.recibir:
-        return api.validarOrdRecibir(code);
+        return api.validarOrdRecibir(code, suc: requestedSuc);
       case OrdenesTrabajoInitialAction.entregar:
-        return api.validarOrdEntregar(code);
+        return api.validarOrdEntregar(code, suc: requestedSuc);
     }
+  }
+
+  String? _resolveRequestedSucForOps() {
+    for (final row in _relaciones) {
+      final suc = row.suc.trim().toUpperCase();
+      if (suc.isNotEmpty) return suc;
+    }
+    final fromUser = _userSuc.trim().toUpperCase();
+    if (fromUser.isNotEmpty) return fromUser;
+    return null;
   }
 
   Future<void> _loadCollaborators(String suc) async {

@@ -118,6 +118,16 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     super.dispose();
   }
 
+  String? _resolveRequestedSucForOps([String? fallbackSuc]) {
+    final fromFilter = _sucCtrl.text.trim().toUpperCase();
+    if (fromFilter.isNotEmpty) return fromFilter;
+    final fromFallback = (fallbackSuc ?? '').trim().toUpperCase();
+    if (fromFallback.isNotEmpty) return fromFallback;
+    final fromUser = _userSuc.trim().toUpperCase();
+    if (fromUser.isNotEmpty) return fromUser;
+    return null;
+  }
+
   void _restoreFilterInputs(OrdenesTrabajoFilter filter) {
     _iordCtrl.text = filter.iord ?? '';
     _idfolCtrl.text = filter.idfol ?? '';
@@ -2427,7 +2437,9 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
           _isFlowStatus(flujoCode, 9.1) || _isFlowStatus(flujoCode, 9.2);
       final isFlowGarantiaPendiente = _isFlowStatus(flujoCode, 9.3);
       final showGarantiaBtn =
-          isGarantiaPanel && canGarantiaPanelDetail && _isFlowStatus(flujoCode, 11);
+          isGarantiaPanel &&
+          canGarantiaPanelDetail &&
+          _isFlowStatus(flujoCode, 11);
       final showCambioMaterialBtn =
           tipom == 1 &&
           ((isRegresoFlow && can('CAMBIO_MATERIAL')) || isEstadoPanel);
@@ -2454,6 +2466,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                 tipo: canManageTipoAndPrint ? selectedTipo : null,
                 hrEnt: hrEntValue.isEmpty ? null : hrEntValue,
                 comentarios: comentarios,
+                suc: _resolveRequestedSucForOps(sucOrd),
                 details: jobRows,
               );
           if (!mounted) return false;
@@ -3838,8 +3851,9 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
             'No se pudo validar la ORD. Debe estar en estatus 3 y tener laboratorio asignado.',
         executeFallbackError: 'No se pudo enviar las ORDs.',
         relacionProvider: ordenesTrabajoEnviarRelacionProvider,
-        validateOrd: (code) =>
-            ref.read(ordenesTrabajoApiProvider).validarOrdEnviar(code),
+        validateOrd: (code) => ref
+            .read(ordenesTrabajoApiProvider)
+            .validarOrdEnviar(code, suc: _resolveRequestedSucForOps()),
         executeLote: (iords) =>
             ref.read(ordenesTrabajoApiProvider).enviarLote(iords),
         confirmAction: _confirmEnviarAmaqBisel,
@@ -3860,8 +3874,9 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
             'No se pudo validar la ORD. Debe estar en estatus 5 (interno) o 9 (externo).',
         executeFallbackError: 'No se pudo recibir las ORDs en taller.',
         relacionProvider: ordenesTrabajoRecibirRelacionProvider,
-        validateOrd: (code) =>
-            ref.read(ordenesTrabajoApiProvider).validarOrdRecibir(code),
+        validateOrd: (code) => ref
+            .read(ordenesTrabajoApiProvider)
+            .validarOrdRecibir(code, suc: _resolveRequestedSucForOps()),
         executeLote: (iords) =>
             ref.read(ordenesTrabajoApiProvider).recibirLote(iords),
         confirmAction: _confirmRecibirATaller,
@@ -3882,8 +3897,9 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
             'No se pudo validar la ORD. Debe estar en estatus 10.',
         executeFallbackError: 'No se pudo entregar las ORDs a cliente.',
         relacionProvider: ordenesTrabajoEntregarRelacionProvider,
-        validateOrd: (code) =>
-            ref.read(ordenesTrabajoApiProvider).validarOrdEntregar(code),
+        validateOrd: (code) => ref
+            .read(ordenesTrabajoApiProvider)
+            .validarOrdEntregar(code, suc: _resolveRequestedSucForOps()),
         executeLote: (iords) =>
             ref.read(ordenesTrabajoApiProvider).entregarLote(iords),
         confirmAction: _confirmEntregarCliente,
@@ -3906,7 +3922,10 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
         relacionProvider: ordenesTrabajoTrabajoTerminadoRelacionProvider,
         validateOrd: (code) => ref
             .read(ordenesTrabajoApiProvider)
-            .validarOrdTrabajoTerminado(code),
+            .validarOrdTrabajoTerminado(
+              code,
+              suc: _resolveRequestedSucForOps(),
+            ),
         executeLote: (iords) =>
             ref.read(ordenesTrabajoApiProvider).trabajoTerminadoLote(iords),
         confirmAction: _confirmTrabajoTerminado,
@@ -3931,8 +3950,9 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
             'No se pudo validar la ORD. Debe estar en estatus 9.',
         executeFallbackError: 'No se pudo recibir las ORDs en tienda.',
         relacionProvider: ordenesTrabajoRegresarTiendaRelacionProvider,
-        validateOrd: (code) =>
-            ref.read(ordenesTrabajoApiProvider).validarOrdRegresarTienda(code),
+        validateOrd: (code) => ref
+            .read(ordenesTrabajoApiProvider)
+            .validarOrdRegresarTienda(code, suc: _resolveRequestedSucForOps()),
         executeLote: (iords) =>
             ref.read(ordenesTrabajoApiProvider).regresarTiendaLote(iords),
         confirmAction: _confirmRegresarTienda,
@@ -4046,7 +4066,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       try {
         final item = await ref
             .read(ordenesTrabajoApiProvider)
-            .validarOrdAsignar(code);
+            .validarOrdAsignar(code, suc: _resolveRequestedSucForOps());
         final current = dialogRef.read(ordenesTrabajoAsignarRelacionProvider);
         final exists = current.any(
           (row) =>
@@ -4717,7 +4737,10 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       try {
         final item = await ref
             .read(ordenesTrabajoApiProvider)
-            .validarOrdRegresarIncidencia(code);
+            .validarOrdRegresarIncidencia(
+              code,
+              suc: _resolveRequestedSucForOps(),
+            );
         final current = dialogRef.read(
           ordenesTrabajoIncidenciaRelacionProvider,
         );
@@ -5046,9 +5069,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     }
 
     await _executeAction(
-      () => ref
-          .read(ordenesTrabajoApiProvider)
-          .garantia(iord, motivo: motivo),
+      () => ref.read(ordenesTrabajoApiProvider).garantia(iord, motivo: motivo),
     );
   }
 
@@ -5087,7 +5108,9 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     String? errorMotivos;
 
     try {
-      final initialMotivos = await api.fetchMotivosMovimiento(tipo: selectedTipo);
+      final initialMotivos = await api.fetchMotivosMovimiento(
+        tipo: selectedTipo,
+      );
       final uniqueById = <int, OrdenTrabajoMotivoMovimientoOption>{};
       for (final item in initialMotivos) {
         if (item.id <= 0) continue;
@@ -5138,7 +5161,8 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
         return StatefulBuilder(
           builder: (dialogCtx, setDialogState) {
             final motivos = motivosByTipo[selectedTipo] ?? const [];
-            final motrDropdownValue = (selectedMotr != null &&
+            final motrDropdownValue =
+                (selectedMotr != null &&
                     motivos.any((item) => item.id == selectedMotr))
                 ? selectedMotr
                 : null;
@@ -5440,7 +5464,8 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       barrierDismissible: false,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) {
-          final isEstadoPanel = widget.panelMode == OrdenesTrabajoPanelMode.estado;
+          final isEstadoPanel =
+              widget.panelMode == OrdenesTrabajoPanelMode.estado;
           final panelRoleCode = (panel?.roleCode ?? '').trim().toUpperCase();
           final isCambioMermaAuthorizationRole =
               _isCambioMermaAuthorizationRole(panelRoleCode);

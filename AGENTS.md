@@ -47,6 +47,7 @@
 - Ordenes de trabajo / Panel ORDs (2026-05-06): `ANALISTA_INV` e `INVJEF` pueden consultar catálogo de asignados sin bloqueo de rol para filtros del panel.
 - Ordenes de trabajo / Panel ORDs (2026-05-06): backend repone criterio de cola para inventarios (`selCtrlOrd=14`) en `sp_ordenes_trabajo_panel`; frontend debe asumir que la lista operativa depende de ese filtro servidor.
 - Ordenes de trabajo / Panel ORDs multi-sucursal analista (2026-05-22): para usuarios `ANALISTA_ORD/ANALISTA` con acceso multi-sucursal en `USR_MOD_SUC`, al seleccionar sucursal explícita (ej. `DF14`) el panel debe mostrar ORDs recientes de esa sucursal; backend omite recorte por `HOME_SUC` cuando `@SUC` ya viene definida.
+- Ordenes de trabajo / Validación y edición multi-sucursal por IORD (2026-05-29): en panel y páginas directas, validaciones por código y guardado de detalle envían `suc` opcional al backend; corrige caso `UDF04ANALISTATALLER` con acceso `DF04/DF14` que recibía `No existe ORD ... o no tiene acceso` al operar ORDs DF14.
 - Ordenes de trabajo / ORDs derivadas cambio-merma (2026-05-22): en `Recibir en tienda`, las ORDs derivadas por cambio/merma (con relación `REEORD`) siguen flujo normal `9 -> 10`; el remapeo `9 -> 9.1/9.2` queda solo para incidencias reales (`TIPOM=1|2`), evitando que la nueva ORD vuelva a merma/cambio.
 - Datos Maestros / Puestos migrado a ROL (2026-05-05): la app deja de enviar `IDPUESTO` en `/users`, el menú/ruta `/masterdata/puestos` redirige al mantenimiento de `roles`, y catálogos de cargos consumen `ROL` para compatibilidad con bases sin tabla `PUESTO`.
 - Entorno dev API (2026-05-14): `Env.apiBaseUrl` en desarrollo web/desktop apunta a `http://127.0.0.1:3000` para usar backend local actualizado y evitar `404` de servidores remotos con build desfasado.
@@ -68,6 +69,7 @@
 - Reloj checador: `docs/modules/reloj_checador/AGENTS.md` (README: `docs/modules/reloj_checador/README.md`)
 
 ## Reglas estrictas
+- Regla principal de nuevos módulos: para cualquier módulo nuevo, backend debe respetar regla legacy de acceso (`admin` acceso total; resto de usuarios solo por sucursal autorizada según `USUARIO.SUC` y/o `USR_MOD_SUC`). Frontend debe consumir rutas/endpoints del módulo bajo esa regla y enviar contexto de sucursal cuando aplique.
 - No tocar lógica de negocio ni flujos de autenticación sin confirmación.
 - No cambiar versiones de dependencias ni agregar nuevas sin permiso.
 - No eliminar pantallas, rutas o providers sin confirmación explícita.

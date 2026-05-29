@@ -8,6 +8,7 @@ Frontend Flutter del ecosistema IOE. Consume `ioe-api` para autenticación, maes
 - Centralizar operación administrativa (maestros y permisos) y operativa (inventarios, catálogos, cotizaciones y consultas).
 - Mantener UI desacoplada de persistencia usando contratos HTTP definidos por `ioe-api`.
 - Garantizar navegación protegida con sesión JWT y refresh.
+- Regla principal para módulos nuevos: cada módulo nuevo debe operar con regla legacy de acceso (`admin` acceso total; resto de usuarios por sucursal autorizada según `USUARIO.SUC` y/o `USR_MOD_SUC`). La definición/consumo de rutas y endpoints debe construirse bajo esa regla desde el inicio.
 - Punto de venta / Pago de Servicios (2026-04): la salida operativa de folios pagados utiliza `ESTA='CERRADO_PS'` (con lectura compatible de históricos en `TRANSMITIR`).
 - Punto de venta / Pago de Servicios (2026-05-06): en detalle de adeudos PS, `Ver registros` y `Asignar referencia` se muestran en una sola línea para evitar superposición visual.
 - Punto de venta / Pago de Servicios (2026-05-22): en voucher PS (pantalla de pago y reimpresión), el renglón `IMPD` usa importe por comprobante en vez del total de transacción.
@@ -38,6 +39,7 @@ Frontend Flutter del ecosistema IOE. Consume `ioe-api` para autenticación, maes
 - Ordenes de trabajo / Panel ORDs (2026-05-06): `ANALISTA_INV` e `INVJEF` ya no reciben bloqueo al cargar catálogo de asignados del panel.
 - Ordenes de trabajo / Panel ORDs (2026-05-06): el listado operativo de inventarios vuelve a depender de la cola backend `selCtrlOrd=14` en `sp_ordenes_trabajo_panel`.
 - Ordenes de trabajo / Panel ORDs multi-sucursal analista (2026-05-22): al seleccionar una sucursal explícita permitida (ej. `DF14`), usuarios `ANALISTA_ORD/ANALISTA` con acceso multi-sucursal deben visualizar ORDs recientes de esa sucursal; backend evita recorte adicional por `HOME_SUC`.
+- Ordenes de trabajo / Validación y edición multi-sucursal por IORD (2026-05-29): validaciones por código (`*/validar`) y guardado de detalle envían `suc` de contexto cuando existe; evita bloqueo falso de acceso al operar ORDs de sucursal alterna permitida (ej. `DF14`) con usuario de home `DF04`.
 - Ordenes de trabajo / ORDs derivadas cambio-merma (2026-05-22): al `Recibir en tienda`, una ORD nueva derivada de cambio/merma debe continuar flujo normal `9 -> 10` (pendiente entrega cliente); el remapeo a `9.1/9.2` queda reservado para incidencias de la ORD original.
 - Datos Maestros / Puestos migrado a ROL (2026-05-05): el formulario de usuarios ya no envía `IDPUESTO`, `/#/masterdata/puestos` opera como acceso de compatibilidad hacia `roles`, y los catálogos de cargos toman datos desde `ROL`.
 - Entorno dev API (2026-05-14): para ejecución local en web/desktop, la base URL de desarrollo usa `http://127.0.0.1:3000` y en Android emulator `http://10.0.2.2:3000`.
