@@ -5373,14 +5373,21 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       ),
     );
 
+    final draftArt = _textOf(draft['ART'], fallback: artOriginal);
+    final draftDes = _textOf(draft['DES']);
+    final sameArtAsOriginal =
+        draftArt.trim().toUpperCase() == artOriginal.trim().toUpperCase();
+
     final artNuevoCtrl = TextEditingController(
-      text: _textOf(draft['ART'], fallback: artOriginal),
+      text: draftArt,
     );
     final upcNuevoCtrl = TextEditingController(
       text: _textOf(draft['UPC'], fallback: upcOriginal),
     );
     final desNuevoCtrl = TextEditingController(
-      text: _textOf(draft['DES'], fallback: desOriginal),
+      text: draftDes.isNotEmpty
+          ? draftDes
+          : (sameArtAsOriginal ? desOriginal : ''),
     );
     final motivoCtrl = TextEditingController();
     final docDifCtrl = TextEditingController(text: _textOf(draft['DOCDIF']));
