@@ -446,8 +446,6 @@ class _OrdenesTrabajoActionPageState
       final suc = row.suc.trim().toUpperCase();
       if (suc.isNotEmpty) return suc;
     }
-    final fromUser = _userSuc.trim().toUpperCase();
-    if (fromUser.isNotEmpty) return fromUser;
     return null;
   }
 

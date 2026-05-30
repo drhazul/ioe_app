@@ -123,8 +123,6 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     if (fromFilter.isNotEmpty) return fromFilter;
     final fromFallback = (fallbackSuc ?? '').trim().toUpperCase();
     if (fromFallback.isNotEmpty) return fromFallback;
-    final fromUser = _userSuc.trim().toUpperCase();
-    if (fromUser.isNotEmpty) return fromUser;
     return null;
   }
 
