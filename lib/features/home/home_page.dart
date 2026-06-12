@@ -521,6 +521,11 @@ class _ModuleRow extends StatelessWidget {
         moduloCode == 'MERMA') {
       return '/modulos/merma/gestion';
     }
+    if (moduloCode == 'DAT_JAA_TRAN' ||
+        moduloCode == 'TRANSFERENCIAS' ||
+        moduloCode == 'TRASPASOS_SUC') {
+      return '/modulos/transferencias';
+    }
     if (moduloCode == 'MERMA_AUDITORIA') {
       return '/modulos/merma/auditoria';
     }
@@ -617,6 +622,10 @@ class _ModuleRow extends StatelessWidget {
     }
     if (name.contains('merma')) {
       return '/modulos/merma/gestion';
+    }
+    if (name.contains('transferencia') ||
+        name.contains('traspaso') && name.contains('sucursal')) {
+      return '/modulos/transferencias';
     }
     if (name.contains('orden') &&
         name.contains('estado') &&

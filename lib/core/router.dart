@@ -92,6 +92,8 @@ import '../features/modulos/merma/presentation/pages/merma_consulta_page.dart';
 import '../features/modulos/merma/presentation/pages/merma_detail_page.dart';
 import '../features/modulos/merma/presentation/pages/merma_gestion_page.dart';
 import '../features/modulos/merma/presentation/pages/merma_reportes_page.dart';
+import '../features/modulos/transferencias/presentation/pages/transferencia_detail_page.dart';
+import '../features/modulos/transferencias/presentation/pages/transferencias_page.dart';
 
 import 'auth/auth_controller.dart';
 
@@ -569,6 +571,17 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'modulos/merma/reportes',
             builder: (c, s) => const MermaReportesPage(),
+          ),
+          GoRoute(
+            path: 'modulos/transferencias',
+            builder: (c, s) => const TransferenciasPage(),
+            routes: [
+              GoRoute(
+                path: ':doc',
+                builder: (c, s) =>
+                    TransferenciaDetailPage(doc: s.pathParameters['doc'] ?? ''),
+              ),
+            ],
           ),
           GoRoute(
             path: 'punto-venta',

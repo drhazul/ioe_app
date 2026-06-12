@@ -51,12 +51,17 @@
 - Inventarios / Merma (2026-05-20): la vista de gestión/detalle debe permitir editar área responsable por renglón (`DET_ART_MERMA.AREAM`) y capturar evidencia de imagen por renglón (`EVI_M`) desde cámara, galería o archivo local, mostrándola en la columna `Evidencia`.
 - Inventarios / Merma (2026-05-20): `AREAM` opera como texto libre (sin catálogo), debe persistir desde alta/edición de artículo y mostrarse en su columna de detalle.
 
+- Inventarios / Merma (2026-06-12): la evidencia adjunta en `MermaAddItemDialog` se comprime antes de generar el data URL y se bloquea si queda arriba de 500 KB para evitar `request entity too large`.
+
+- Inventarios / Transferencias entre sucursales (2026-06-09): se agrega feature `lib/features/modulos/transferencias` con rutas `/modulos/transferencias` y `/modulos/transferencias/:doc`; Home resuelve `DAT_JAA_TRAN` hacia gestion y el flujo consume `/transferencias`.
+
 ## Documentación por módulos
 - Base de módulos: `docs/modules/base_modulos/AGENTS.md` (README: `docs/modules/base_modulos/README.md`)
 - Core y seguridad: `docs/modules/core_seguridad/AGENTS.md` (README: `docs/modules/core_seguridad/README.md`)
 - Punto de venta: `docs/modules/punto_venta/AGENTS.md` (README: `docs/modules/punto_venta/README.md`)
 - Ordenes de trabajo: `docs/modules/ordenes_trabajo/AGENTS.md` (README: `docs/modules/ordenes_trabajo/README.md`)
 - Reloj checador: `docs/modules/reloj_checador/AGENTS.md` (README: `docs/modules/reloj_checador/README.md`)
+- Inventarios: `docs/modules/inventarios/AGENTS.md` (README: `docs/modules/inventarios/README.md`)
 
 ## Reglas estrictas
 - No tocar lógica de negocio ni flujos de autenticación sin confirmación.

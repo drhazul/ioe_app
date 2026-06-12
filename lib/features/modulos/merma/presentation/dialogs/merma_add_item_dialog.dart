@@ -60,6 +60,7 @@ class _MermaAddItemDialogState extends ConsumerState<MermaAddItemDialog> {
   String? _evidenceMime;
   String? _evidenceName;
   final ImagePicker _imagePicker = ImagePicker();
+  static const int _maxEvidenceBytes = 500 * 1024;
 
   @override
   void initState() {
@@ -107,111 +108,111 @@ class _MermaAddItemDialogState extends ConsumerState<MermaAddItemDialog> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-            TextField(
-              controller: _artCtrl,
-              decoration: InputDecoration(
-                labelText: 'Artículo',
-                border: const OutlineInputBorder(),
-                suffixIcon: IconButton(
-                  tooltip: 'Buscar artículo',
-                  onPressed: _searchingArticulo
-                      ? null
-                      : _openBuscarArticuloDialog,
-                  icon: _searchingArticulo
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.search),
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _ctdCtrl,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              decoration: const InputDecoration(
-                labelText: 'Cantidad',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 8),
-            DropdownButtonFormField<int>(
-              initialValue: selectedMotivo,
-              decoration: const InputDecoration(
-                labelText: 'Motivo',
-                border: OutlineInputBorder(),
-              ),
-              items: motivos
-                  .map(
-                    (m) => DropdownMenuItem(
-                      value: m.id,
-                      child: Text(
-                        '${m.id} - ${m.desc}${_readMotivoRequiresEvidence(m) ? ' (EVIDENCIA OBLIGATORIA)' : ''}',
-                      ),
+                TextField(
+                  controller: _artCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'Artículo',
+                    border: const OutlineInputBorder(),
+                    suffixIcon: IconButton(
+                      tooltip: 'Buscar artículo',
+                      onPressed: _searchingArticulo
+                          ? null
+                          : _openBuscarArticuloDialog,
+                      icon: _searchingArticulo
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.search),
                     ),
-                  )
-                  .toList(),
-              onChanged: (value) => setState(() => _motM = value),
-            ),
-            if (selectedMotivo != null) ...[
-              const SizedBox(height: 6),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  motivoRequiereEvidencia
-                      ? 'Este motivo requiere evidencia obligatoria.'
-                      : 'Este motivo no requiere evidencia obligatoria.',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: motivoRequiereEvidencia
-                        ? Colors.red.shade700
-                        : Colors.green.shade700,
                   ),
                 ),
-              ),
-            ],
-            const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              initialValue: selectedArea,
-              hint: const Text('Seleccionar área'),
-              decoration: const InputDecoration(
-                labelText: 'Área responsable',
-                border: OutlineInputBorder(),
-              ),
-              items: areas
-                  .map(
-                    (a) => DropdownMenuItem<String>(
-                      value: a.desc,
-                      child: Text('${a.id} - ${a.desc}'),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _ctdCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: const InputDecoration(
+                    labelText: 'Cantidad',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<int>(
+                  initialValue: selectedMotivo,
+                  decoration: const InputDecoration(
+                    labelText: 'Motivo',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: motivos
+                      .map(
+                        (m) => DropdownMenuItem(
+                          value: m.id,
+                          child: Text(
+                            '${m.id} - ${m.desc}${_readMotivoRequiresEvidence(m) ? ' (EVIDENCIA OBLIGATORIA)' : ''}',
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) => setState(() => _motM = value),
+                ),
+                if (selectedMotivo != null) ...[
+                  const SizedBox(height: 6),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      motivoRequiereEvidencia
+                          ? 'Este motivo requiere evidencia obligatoria.'
+                          : 'Este motivo no requiere evidencia obligatoria.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: motivoRequiereEvidencia
+                            ? Colors.red.shade700
+                            : Colors.green.shade700,
+                      ),
                     ),
-                  )
-                  .toList(),
-              onChanged: (value) => setState(() => _areaM = value?.trim()),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _respCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Responsable (persona)',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _obsCtrl,
-              maxLines: 3,
-              decoration: const InputDecoration(
-                labelText: 'Observaciones',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 8),
-            _buildEvidenceInput(context),
+                  ),
+                ],
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  initialValue: selectedArea,
+                  hint: const Text('Seleccionar área'),
+                  decoration: const InputDecoration(
+                    labelText: 'Área responsable',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: areas
+                      .map(
+                        (a) => DropdownMenuItem<String>(
+                          value: a.desc,
+                          child: Text('${a.id} - ${a.desc}'),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) => setState(() => _areaM = value?.trim()),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _respCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Responsable (persona)',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _obsCtrl,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: 'Observaciones',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _buildEvidenceInput(context),
               ],
             ),
           ),
@@ -515,44 +516,71 @@ class _MermaAddItemDialogState extends ConsumerState<MermaAddItemDialog> {
     String? extensionHint,
   }) async {
     final ext = (extensionHint ?? '').toLowerCase();
-    final targetFormat = _targetCompressFormat(ext);
-    final compressed = await _compressImage(bytes, targetFormat);
-    final mime = _mimeFor(ext, targetFormat);
+    final compressed = await _compressImage(bytes, ext);
     return _PickedEvidence(
-      bytes: compressed,
-      mimeType: mime,
-      name: suggestedName.trim().isEmpty ? 'evidencia.jpg' : suggestedName,
+      bytes: compressed.bytes,
+      mimeType: compressed.mimeType,
+      name: _normalizeEvidenceName(suggestedName, compressed.mimeType),
     );
   }
 
-  Future<Uint8List> _compressImage(
+  Future<_CompressedEvidence> _compressImage(
     Uint8List bytes,
-    CompressFormat format,
+    String extension,
   ) async {
-    try {
-      final compressed = await FlutterImageCompress.compressWithList(
-        bytes,
-        minWidth: 1280,
-        minHeight: 1280,
-        quality: 78,
-        format: format,
-      );
-      if (compressed.isNotEmpty) return compressed;
-    } catch (_) {}
-    return bytes;
+    final originalMime = _mimeForExtension(extension);
+    var bestBytes = bytes;
+    var bestMime = originalMime;
+    const widths = [1280, 1024, 800, 640];
+    const qualities = [78, 68, 58, 48];
+
+    for (final width in widths) {
+      for (final quality in qualities) {
+        try {
+          final compressed = await FlutterImageCompress.compressWithList(
+            bytes,
+            minWidth: width,
+            minHeight: width,
+            quality: quality,
+            format: CompressFormat.jpeg,
+          );
+          if (compressed.isEmpty) continue;
+          if (compressed.length < bestBytes.length ||
+              bestBytes.length > _maxEvidenceBytes) {
+            bestBytes = compressed;
+            bestMime = 'image/jpeg';
+          }
+          if (bestBytes.length <= _maxEvidenceBytes) {
+            return _CompressedEvidence(bestBytes, bestMime);
+          }
+        } catch (_) {}
+      }
+    }
+
+    if (bestBytes.length <= _maxEvidenceBytes) {
+      return _CompressedEvidence(bestBytes, bestMime);
+    }
+
+    throw Exception(
+      'La imagen supera 500 KB aun despues de comprimirla. Intenta con otra foto mas ligera.',
+    );
   }
 
-  CompressFormat _targetCompressFormat(String extension) {
-    if (extension == 'png') return CompressFormat.png;
-    if (extension == 'webp') return CompressFormat.webp;
-    return CompressFormat.jpeg;
-  }
-
-  String _mimeFor(String extension, CompressFormat format) {
-    if (format == CompressFormat.png) return 'image/png';
-    if (format == CompressFormat.webp) return 'image/webp';
+  String _mimeForExtension(String extension) {
+    if (extension == 'png') return 'image/png';
+    if (extension == 'webp') return 'image/webp';
     if (extension == 'gif') return 'image/gif';
     return 'image/jpeg';
+  }
+
+  String _normalizeEvidenceName(String suggestedName, String mimeType) {
+    final cleanName = suggestedName.trim().isEmpty
+        ? 'evidencia'
+        : suggestedName.trim();
+    if (mimeType != 'image/jpeg') return cleanName;
+    final index = cleanName.lastIndexOf('.');
+    final base = index <= 0 ? cleanName : cleanName.substring(0, index);
+    return '$base.jpg';
   }
 
   String _extractExtension(String name) {
@@ -1472,6 +1500,13 @@ class _MermaResultCell extends StatelessWidget {
 }
 
 enum _EvidenceInputSource { camera, gallery, file }
+
+class _CompressedEvidence {
+  const _CompressedEvidence(this.bytes, this.mimeType);
+
+  final Uint8List bytes;
+  final String mimeType;
+}
 
 class _PickedEvidence {
   const _PickedEvidence({
