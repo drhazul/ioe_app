@@ -1919,6 +1919,16 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     return text.isEmpty ? fallback : text;
   }
 
+  String _normalizeBase64Data(String value) {
+    final text = value.trim();
+    if (text.isEmpty) return '';
+    final comma = text.indexOf(',');
+    if (text.startsWith('data:') && comma >= 0) {
+      return text.substring(comma + 1).trim();
+    }
+    return text;
+  }
+
   DateTime? _toDate(dynamic value) {
     final text = value?.toString().trim() ?? '';
     if (text.isEmpty) return null;
@@ -2447,6 +2457,11 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
           !isEstadoPanel &&
           isFlowGarantiaPendiente &&
           (can('CAMBIO_MATERIAL') || can('MERMA'));
+      final firmaClienteBase64 = _normalizeBase64Data(detail.firmaCliente);
+      final showEntregaEvidenceBtn =
+          isEstadoPanel &&
+          _isFlowStatus(flujoCode, 11) &&
+          firmaClienteBase64.isNotEmpty;
 
       Future<bool> saveCurrentDetail({required bool showSuccessMessage}) async {
         try {
@@ -3050,6 +3065,19 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                     icon: const Icon(Icons.rule_folder_outlined),
                     label: const Text('Aplicar merma o cambio'),
                   ),
+                if (showEntregaEvidenceBtn)
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      final canPrint =
+                          isConsultaDetalle ||
+                          await saveCurrentDetail(showSuccessMessage: false);
+                      if (!canPrint || !mounted || !ctx.mounted) return;
+                      Navigator.of(ctx).pop();
+                      await _printEntregaEvidenciaPdf(detail);
+                    },
+                    icon: const Icon(Icons.picture_as_pdf),
+                    label: const Text('Imprimir evidencia'),
+                  ),
                 if (canManageTipoAndPrint && !isGarantiaPanel && !isEstadoPanel)
                   OutlinedButton.icon(
                     onPressed: () async {
@@ -3273,6 +3301,232 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
         ),
       );
     }
+    return doc;
+  }
+
+  Future<void> _printEntregaEvidenciaPdf(
+    OrdenTrabajoDetalleResponse detail,
+  ) async {
+    final firmaBase64 = _normalizeBase64Data(detail.firmaCliente);
+    if (firmaBase64.isEmpty) {
+      _showError('La ORD no tiene firma de entrega registrada.');
+      return;
+    }
+
+    final doc = _buildEntregaEvidenciaPdf(
+      detail,
+      firmaClienteBase64: firmaBase64,
+    );
+    final now = DateTime.now();
+    final y = now.year.toString().padLeft(4, '0');
+    final m = now.month.toString().padLeft(2, '0');
+    final d = now.day.toString().padLeft(2, '0');
+    final hh = now.hour.toString().padLeft(2, '0');
+    final mm = now.minute.toString().padLeft(2, '0');
+    final ordId = _textOf(detail.header['IORD'], fallback: 'ORD');
+    await Printing.layoutPdf(
+      name: 'evidencia_entrega_${ordId}_$y$m$d-$hh$mm.pdf',
+      onLayout: (_) => doc.save(),
+    );
+  }
+
+  pw.Document _buildEntregaEvidenciaPdf(
+    OrdenTrabajoDetalleResponse detail, {
+    required String firmaClienteBase64,
+  }) {
+    final header = detail.header;
+    final firmaBytes = base64Decode(base64.normalize(firmaClienteBase64));
+    final firmaImage = pw.MemoryImage(firmaBytes);
+    final detalleRows = _toEditableDetailRows(detail.details);
+    final ordId = _textOf(header['IORD']);
+    final idfol = _textOf(header['IDFOL']);
+    final folioEntrega = detail.folioEntrega;
+    final cliente = _textOf(header['CLIEN']);
+    final receptor = _textOf(
+      header['RAZONSOCIALRECEPTOR'],
+      fallback: _textOf(header['NCLIENTE']),
+    );
+    final createdAt = _fmtDate(_toDate(header['FCNS']));
+    final fechaEntrega = _fmtDate(_toDate(header['FCNM']));
+    final hrEnt = _formatHourMinuteValue(
+      header['HR_ENT'],
+      fallback: _formatHourMinuteValue(header['HREN'], fallback: '-'),
+    );
+    final articulo = _textOf(header['ART']);
+    final descripcion = _textOf(
+      header['DESCART'],
+      fallback: _textOf(header['DESCRT']),
+    );
+    final piezas = _textOf(header['CTD']);
+    final flujo = _flowDescripcion(
+      _textOf(header['ESTSEGU']),
+      _textOf(header['ESTSEGU_DESC']),
+    );
+    final tipo = _textOf(header['TIPO']);
+    final laboratorio = _textOf(header['LABOR']);
+    final comentarios = _textOf(header['COMAD']);
+
+    pw.Widget field(String label, String value, {double? width}) {
+      final content = value.trim().isEmpty ? 'N/D' : value.trim();
+      return pw.Container(
+        width: width,
+        padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: pw.BoxDecoration(
+          border: pw.Border.all(color: PdfColors.grey400, width: 0.8),
+          borderRadius: pw.BorderRadius.circular(6),
+        ),
+        child: pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          mainAxisSize: pw.MainAxisSize.min,
+          children: [
+            pw.Text(
+              label,
+              style: pw.TextStyle(
+                fontSize: 8.5,
+                fontWeight: pw.FontWeight.bold,
+                color: PdfColors.grey700,
+              ),
+            ),
+            pw.SizedBox(height: 4),
+            pw.Text(
+              content,
+              style: const pw.TextStyle(fontSize: 10),
+              maxLines: 4,
+            ),
+          ],
+        ),
+      );
+    }
+
+    pw.Widget sectionTitle(String text) => pw.Padding(
+      padding: const pw.EdgeInsets.only(bottom: 6),
+      child: pw.Text(
+        text,
+        style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
+      ),
+    );
+
+    final detailTableData = detalleRows
+        .map(
+          (row) => [
+            row['job'] ?? '',
+            row['esf'] ?? '',
+            row['cil'] ?? '',
+            row['eje'] ?? '',
+          ],
+        )
+        .toList(growable: false);
+
+    final doc = pw.Document();
+    doc.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(24),
+        build: (_) => [
+          pw.Text(
+            'EVIDENCIA DE ENTREGA A CLIENTE',
+            style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
+          ),
+          pw.SizedBox(height: 4),
+          pw.Text(
+            ordId.isEmpty ? 'ORD entregada' : 'ORD $ordId',
+            style: const pw.TextStyle(fontSize: 11),
+          ),
+          if (folioEntrega.isNotEmpty)
+            pw.Text(
+              'Folio de entrega: $folioEntrega',
+              style: const pw.TextStyle(fontSize: 11),
+            ),
+          pw.SizedBox(height: 12),
+          sectionTitle('Cabecera'),
+          pw.Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              field('ID ORD', ordId, width: 165),
+              field('Fch creación', createdAt, width: 165),
+              field('IDFOL', idfol, width: 165),
+              field('Folio entrega', folioEntrega, width: 165),
+              field('Cliente', cliente, width: 165),
+              field('Razón social receptor', receptor, width: 250),
+              field('Artículo', articulo, width: 165),
+              field('Descripción artículo', descripcion, width: 250),
+              field('Piezas', piezas, width: 90),
+              field('Tipo', tipo, width: 140),
+              field('Laboratorio', laboratorio, width: 180),
+              field('Estado flujo', flujo, width: 250),
+              field('Fecha entrega', fechaEntrega, width: 165),
+              field('HR_ENT', hrEnt, width: 120),
+              field('Comentarios', comentarios, width: 515),
+            ],
+          ),
+          pw.SizedBox(height: 16),
+          sectionTitle('Detalle de graduación'),
+          if (detailTableData.isEmpty)
+            pw.Padding(
+              padding: const pw.EdgeInsets.only(top: 4),
+              child: pw.Text('Sin detalle registrado.'),
+            )
+          else
+            pw.TableHelper.fromTextArray(
+              headers: const ['JOB', 'ESF', 'CIL', 'EJE'],
+              data: detailTableData,
+              headerDecoration: const pw.BoxDecoration(
+                color: PdfColors.grey200,
+              ),
+              headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+              cellStyle: const pw.TextStyle(fontSize: 10),
+              cellAlignment: pw.Alignment.centerLeft,
+              columnWidths: const {
+                0: pw.FixedColumnWidth(60),
+                1: pw.FixedColumnWidth(90),
+                2: pw.FixedColumnWidth(90),
+                3: pw.FixedColumnWidth(90),
+              },
+              border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.6),
+              cellPadding: const pw.EdgeInsets.symmetric(
+                horizontal: 8,
+                vertical: 6,
+              ),
+            ),
+          pw.SizedBox(height: 16),
+          sectionTitle('Firma del cliente'),
+          pw.Container(
+            width: double.infinity,
+            padding: const pw.EdgeInsets.all(10),
+            decoration: pw.BoxDecoration(
+              border: pw.Border.all(color: PdfColors.grey400, width: 0.8),
+              borderRadius: pw.BorderRadius.circular(8),
+            ),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text(
+                  'Firma capturada en entrega a cliente',
+                  style: pw.TextStyle(
+                    fontSize: 9,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColors.grey700,
+                  ),
+                ),
+                pw.SizedBox(height: 8),
+                pw.Container(
+                  height: 170,
+                  width: double.infinity,
+                  alignment: pw.Alignment.center,
+                  decoration: pw.BoxDecoration(
+                    color: PdfColors.white,
+                    border: pw.Border.all(color: PdfColors.grey300, width: 0.8),
+                    borderRadius: pw.BorderRadius.circular(6),
+                  ),
+                  child: pw.Image(firmaImage, fit: pw.BoxFit.contain),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
     return doc;
   }
 

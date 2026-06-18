@@ -40,6 +40,10 @@ class AccessPage extends StatelessWidget {
             onTap: () =>
                 context.go('/masterdata/access/enrolamiento-front-usr'),
           ),
+          ListTile(
+            title: const Text('Compartir colaboradores entre sucursales'),
+            onTap: () => context.go('/masterdata/access/suc-colab-acceso'),
+          ),
         ],
       ),
     );

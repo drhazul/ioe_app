@@ -552,14 +552,28 @@ class OrdenesTrabajoApi {
   }
 
   Future<OrdenTrabajoActionResult> entregarLote(List<String> iords) async {
+    return entregarLoteConFirma(iords);
+  }
+
+  Future<OrdenTrabajoActionResult> entregarLoteConFirma(
+    List<String> iords, {
+    String? observaciones,
+    String? firmaCliente,
+  }) async {
     final normalized = iords
         .map((item) => item.trim().toUpperCase())
         .where((item) => item.isNotEmpty)
         .toSet()
         .toList(growable: false);
+    final observacionesValue = (observaciones ?? '').trim();
+    final firmaClienteValue = (firmaCliente ?? '').trim();
     final res = await dio.post(
       '/ordenes-trabajo/entregar/lote',
-      data: {'iords': normalized},
+      data: {
+        'iords': normalized,
+        if (observacionesValue.isNotEmpty) 'observaciones': observacionesValue,
+        if (firmaClienteValue.isNotEmpty) 'firmaCliente': firmaClienteValue,
+      },
     );
     return _actionFrom(res);
   }

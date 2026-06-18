@@ -408,22 +408,51 @@ class OrdenTrabajoItem {
 }
 
 class OrdenTrabajoDetalleResponse {
-  OrdenTrabajoDetalleResponse({required this.header, required this.details});
+  OrdenTrabajoDetalleResponse({
+    required this.header,
+    required this.details,
+    required this.idEntrega,
+    required this.folioEntrega,
+    required this.firmaCliente,
+  });
 
   final Map<String, dynamic> header;
   final List<Map<String, dynamic>> details;
+  final String idEntrega;
+  final String folioEntrega;
+  final String firmaCliente;
+
+  bool get hasFirmaCliente => firmaCliente.trim().isNotEmpty;
 
   factory OrdenTrabajoDetalleResponse.fromJson(Map<String, dynamic> json) {
     final rawHeader = json['header'];
     final rawDetails = (json['details'] as List?) ?? const [];
+    final header = rawHeader is Map
+        ? Map<String, dynamic>.from(rawHeader)
+        : <String, dynamic>{};
     return OrdenTrabajoDetalleResponse(
-      header: rawHeader is Map
-          ? Map<String, dynamic>.from(rawHeader)
-          : <String, dynamic>{},
+      header: header,
       details: rawDetails
           .whereType<Map>()
           .map((item) => Map<String, dynamic>.from(item))
           .toList(growable: false),
+      idEntrega:
+          _toText(
+            header['ID_ENTREGA_REL'] ??
+                header['ID_ENTREGA'] ??
+                header['IDFOL_ENTREGA'],
+          ) ??
+          '',
+      folioEntrega:
+          _toText(header['FOLIO_ENTREGA'] ?? header['FOLIOENTREGA']) ?? '',
+      firmaCliente:
+          _toText(
+            header['FIRMA_CLIENTE_ENTREGA'] ??
+                header['FIRMA_CLIENTE'] ??
+                header['FIRMACLIENTE'] ??
+                header['FIRMA'],
+          ) ??
+          '',
     );
   }
 }

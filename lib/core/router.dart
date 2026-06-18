@@ -17,6 +17,8 @@ import '../features/masterdata/access/permisos_rol_backend_page.dart';
 import '../features/masterdata/access/grupos_front_page.dart';
 import '../features/masterdata/access/enrolamiento_front_page.dart';
 import '../features/masterdata/access/enrolamiento_front_usuario_page.dart';
+import '../features/masterdata/suc_colab_acceso/suc_colab_acceso_page.dart';
+import '../features/masterdata/suc_colab_acceso/suc_colab_acceso_form_page.dart';
 import '../features/masterdata/roles/roles_page.dart';
 import '../features/masterdata/roles/role_form_page.dart';
 import '../features/masterdata/deptos/deptos_page.dart';
@@ -130,6 +132,19 @@ final routerProvider = Provider<GoRouter>((ref) {
     GoRoute(
       path: 'enrolamiento-front-usr',
       builder: (c, s) => const EnrolamientoFrontUsuarioPage(),
+    ),
+    GoRoute(
+      path: 'suc-colab-acceso',
+      builder: (c, s) => const SucColabAccesoPage(),
+      routes: [
+        GoRoute(path: 'new', builder: (c, s) => const SucColabAccesoFormPage()),
+        GoRoute(
+          path: ':id',
+          builder: (c, s) => SucColabAccesoFormPage(
+            id: int.tryParse(s.pathParameters['id'] ?? ''),
+          ),
+        ),
+      ],
     ),
   ];
 

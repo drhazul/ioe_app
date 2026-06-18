@@ -571,49 +571,43 @@ class _OrdenesTrabajoActionPageState
               '${iords.length} ORD${iords.length == 1 ? '' : 's'} recibida${iords.length == 1 ? '' : 's'} correctamente.',
         );
       case OrdenesTrabajoInitialAction.entregar:
-        return _executeEntregaIndividual();
+        return _executeEntregaBatch();
     }
   }
 
-  Future<String> _executeEntregaIndividual() async {
+  Future<String> _executeEntregaBatch() async {
     final api = ref.read(ordenesTrabajoApiProvider);
-    final total = _relaciones.length;
     final observaciones = _observacionesCtrl.text.trim();
     final firmaCliente = await _exportSignatureBase64();
-    var processed = 0;
-    String lastMessage = '';
+    final iords = _relaciones
+        .map((item) => item.iord.trim())
+        .where((item) => item.isNotEmpty)
+        .toList(growable: false);
+    if (iords.isEmpty) {
+      throw _PageActionException(
+        'No hay ORDs relacionadas para entregar a cliente.',
+      );
+    }
 
-    while (_relaciones.isNotEmpty) {
-      final current = _relaciones.first;
-      try {
-        final result = await api.entregar(
-          current.iord,
-          observaciones: observaciones.isEmpty ? null : observaciones,
-          firmaCliente: firmaCliente,
-        );
-        processed++;
-        lastMessage = result.message;
-        if (!mounted) break;
+    String lastMessage = '';
+    try {
+      final result = await api.entregarLoteConFirma(
+        iords,
+        observaciones: observaciones.isEmpty ? null : observaciones,
+        firmaCliente: firmaCliente,
+      );
+      lastMessage = result.message;
+      if (mounted) {
         setState(() {
-          _relaciones = _relaciones
-              .where(
-                (item) =>
-                    _normalizeOrd(item.iord) != _normalizeOrd(current.iord),
-              )
-              .toList(growable: false);
+          _relaciones = const <OrdenTrabajoEnviarRelacionItem>[];
         });
-      } catch (e) {
-        final fallback = apiErrorMessage(
-          e,
-          fallback: widget.action.executeFallbackError,
-        );
-        if (processed > 0) {
-          throw _PageActionException(
-            'Se entregaron $processed de $total ORDs antes del error. $fallback',
-          );
-        }
-        throw _PageActionException(fallback);
       }
+    } catch (e) {
+      final fallback = apiErrorMessage(
+        e,
+        fallback: widget.action.executeFallbackError,
+      );
+      throw _PageActionException(fallback);
     }
 
     _observacionesCtrl.clear();
@@ -621,7 +615,7 @@ class _OrdenesTrabajoActionPageState
     return _resolveSuccessMessage(
       lastMessage,
       fallback:
-          '$total ORD${total == 1 ? '' : 's'} entregada${total == 1 ? '' : 's'} correctamente.',
+          '${iords.length} ORD${iords.length == 1 ? '' : 's'} entregada${iords.length == 1 ? '' : 's'} correctamente.',
     );
   }
 
