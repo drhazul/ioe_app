@@ -130,6 +130,10 @@ class PagoCotizacionController extends StateNotifier<PagoCotizacionState> {
         rqfac: effectiveRqfac,
         suc: context.suc,
       );
+      final shouldHydratePersistedForms = _isEstadoPagado(preview.context.esta);
+      final persistedForms = shouldHydratePersistedForms
+          ? await _loadPersistedForms(preview.context.idfol)
+          : const <PagoCierreFormaDraft>[];
 
       state = state.copyWith(
         loading: false,
@@ -138,6 +142,7 @@ class PagoCotizacionController extends StateNotifier<PagoCotizacionState> {
         tipotran: normalizedTipo,
         rqfac: preview.totales.rqfac,
         totales: preview.totales,
+        formas: persistedForms,
         error: null,
       );
     } catch (e) {
@@ -327,7 +332,9 @@ class PagoCotizacionController extends StateNotifier<PagoCotizacionState> {
       );
     }
     if (creditoDeudorCount > 1) {
-      throw Exception('Las formas CREDITO/DEUDOR solo pueden registrarse una vez');
+      throw Exception(
+        'Las formas CREDITO/DEUDOR solo pueden registrarse una vez',
+      );
     }
 
     state = state.copyWith(submitting: true, error: null);
@@ -393,9 +400,34 @@ class PagoCotizacionController extends StateNotifier<PagoCotizacionState> {
     }
   }
 
+  Future<List<PagoCierreFormaDraft>> _loadPersistedForms(String idfol) async {
+    try {
+      final preview = await _api.fetchPrintPreview(idfol);
+      return preview.formas
+          .map(
+            (item) => PagoCierreFormaDraft(
+              id: item.idf.trim().isNotEmpty ? item.idf.trim() : _nextId(),
+              form: item.form,
+              impp: _round2(item.impp),
+              aut: item.aut?.trim().isEmpty ?? true ? null : item.aut!.trim(),
+            ),
+          )
+          .toList();
+    } catch (_) {
+      return const <PagoCierreFormaDraft>[];
+    }
+  }
+
   String _normalizeTipoTran(String value) {
     final text = value.trim().toUpperCase();
     return text == 'CA' ? 'CA' : 'VF';
+  }
+
+  bool _isEstadoPagado(String? value) {
+    final estado = (value ?? '').trim().toUpperCase();
+    return estado == 'PAGADO' ||
+        estado == 'MB51PROCES' ||
+        estado == 'TRANSMITIR';
   }
 
   String? _validateCreditoDeudorCombination({
@@ -409,7 +441,9 @@ class PagoCotizacionController extends StateNotifier<PagoCotizacionState> {
       }
       return null;
     }
-    final hasCreditoDeudor = existing.any((item) => _isCreditoODeudor(item.form));
+    final hasCreditoDeudor = existing.any(
+      (item) => _isCreditoODeudor(item.form),
+    );
     if (hasCreditoDeudor) {
       return 'Las formas CREDITO y DEUDOR no se pueden combinar con otras formas de pago';
     }
