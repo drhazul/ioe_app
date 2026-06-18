@@ -12,6 +12,7 @@ class PvTicketLogItem {
     this.iddev,
     this.ctdd,
     this.ctddf,
+    this.ticketRel,
     this.updatedAt,
   });
 
@@ -27,6 +28,7 @@ class PvTicketLogItem {
   final String? iddev;
   final double? ctdd;
   final double? ctddf;
+  final String? ticketRel;
   final DateTime? updatedAt;
 
   factory PvTicketLogItem.fromJson(Map<String, dynamic> json) {
@@ -43,25 +45,27 @@ class PvTicketLogItem {
       iddev: json['IDDEV']?.toString(),
       ctdd: _asDouble(json['CTDD']),
       ctddf: _asDouble(json['CTDDF']),
+      ticketRel: json['TICKET_REL']?.toString(),
       updatedAt: _asDate(json['UPDATED_AT']),
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'ID': id,
-        'IDFOL': idfol,
-        'UPC': upc,
-        'ART': art,
-        'DES': des,
-        'CTD': ctd,
-        'PVTA': pvta,
-        'PVTAT': pvtat,
-        'ORD': ord,
-        'IDDEV': iddev,
-        'CTDD': ctdd,
-        'CTDDF': ctddf,
-        'UPDATED_AT': updatedAt?.toIso8601String(),
-      };
+    'ID': id,
+    'IDFOL': idfol,
+    'UPC': upc,
+    'ART': art,
+    'DES': des,
+    'CTD': ctd,
+    'PVTA': pvta,
+    'PVTAT': pvtat,
+    'ORD': ord,
+    'IDDEV': iddev,
+    'CTDD': ctdd,
+    'CTDDF': ctddf,
+    'TICKET_REL': ticketRel,
+    'UPDATED_AT': updatedAt?.toIso8601String(),
+  };
 
   static double? _asDouble(dynamic value) {
     if (value == null) return null;

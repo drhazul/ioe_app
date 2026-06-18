@@ -97,7 +97,7 @@ Enlaces relacionados:
 - PS cálculo de adeudo (2026-03-03): backend consolida `DAT_CTRL_CTAS` por `IDFOL/NDOC + RELACION` al validar referencia y `PVTA`, evitando falsos rechazos cuando el mismo folio tiene cargos y abonos.
 - PS regla AD/AP/CR (2026-03-03): backend bloquea `PVTA` por línea cuando supera la deuda del folio referenciado y valida consumo acumulado por `ORD` considerando todas las líneas `AD/AP/CR`.
 - PS pago UI (2026-03): en `/ps/:idFol/pago` el alta de forma se captura en modal emergente desde el bloque `Formas de pago`; las formas quedan en appstate local y no se insertan en DB hasta finalizar.
-- PS pago UI (2026-03): el modal de alta de forma toma catálogo desde `DAT_FORM` y aplica reglas de referencia igual a cotizaciones (`TARJETA/CHEQUE/TRANSFERENCIA/DEPOSITO 3RO`).
+- PS pago UI (2026-03): el modal de alta de forma toma catálogo desde `DAT_FORM` y aplica reglas de referencia igual a cotizaciones (`TARJETA/TARJETA CREDITO/CHEQUE/TRANSFERENCIA/DEPOSITO 3RO`).
 - PS pago backend (2026-03): `POST /ps/folios/:idFol/finalizar` persiste formas en `PV_CTR_FOL_FORM` (`IMPP/IMPC/IMPD/AUT`) y registra movimientos contables en `DAT_CTRL_CTAS`; al finalizar fija `ESTA='PAGADO'`.
 - PS pago UI (2026-03): el modal de formas de pago excluye `CREDITO` y `DEUDOR`.
 - PS pago UI (2026-03): para formas no `EFECTIVO`, `Autorización / referencia` se muestra en solo lectura y se asigna reutilizando `ref_detalle_page.dart` de cotizaciones.
@@ -108,7 +108,7 @@ Enlaces relacionados:
 - Ordenes de trabajo detalle/roles (2026-03-30): el campo `TIPO` (`TALLADO`/`BISELADO`) se muestra antes de `Laboratorio` y comparte visibilidad restringida con `Imprimir etiqueta` para `admin`, `JEF_TALLER`, `ANALISTA_ORD` y `ANALISTA`.
 - Referencias `/refdetalle` -> `REF_DETALLE`.
 - Referencias PV `/pv/refdetalle` -> `REF_DETALLE` (crear/asignar/eliminar por `IDFOL`).
-- Catalogo formas `/dat-form` -> `DAT_FORM` (`IDFORM`, `ASPEL`, `FORM`, `NOM`, `ESTADO`).
+- Catalogo formas `/dat-form` -> `DAT_FORM` (`IDFORM`, `ASPEL`, `FORM`, `NOM`, `ESTADO`); `ASPEL` alimenta `FormaPagoSAT` y `TARJETA CREDITO` debe resolverse como `04`.
 - Mantenimiento maestro DAT_FORM (UI) -> rutas `/masterdata/dat-form`, `/masterdata/dat-form/new`, `/masterdata/dat-form/:id`.
 - Visualización por ROLL en ORD (UI) -> rutas `/masterdata/ord-flujo-vis`, `/masterdata/ord-flujo-vis/new`, `/masterdata/ord-flujo-vis/:id`.
 - Visualización por ROLL en ORD (API) -> `/ord-flujo-vis` + `/ord-flujo-vis/catalogos` sobre `DAT_JAO_ORD_FLUJO_VIS`, `ROL` y `DAT_EST_ORD`; UI filtra por `ROLL`/`ESTSEGU`, bloquea `MODULO` y calcula `ORDEN` automático.

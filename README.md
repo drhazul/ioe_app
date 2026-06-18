@@ -25,6 +25,8 @@ Frontend Flutter del ecosistema IOE. Consume `ioe-api` para autenticación, maes
 - Ordenes de trabajo / Cambio material y Merma (2026-04-19): la captura muestra costo de artículo igual al de la ORD original para evitar diferencias de precio contra la nueva ORD.
 - Ordenes de trabajo / Cambio material y Merma (2026-04-21): `Solicitar autorización` solo mueve a `selCtrlOrd=14`; `Retrabajo` devuelve a `15`; `Autorizar` queda visible solo para `admin`, `ANALISTA_INV` e `INVJEF` y ejecuta el cierre final del proceso.
 - Ordenes de trabajo / Cambio material y Merma (2026-04-22): la captura de `Nueva ORD` vuelve a mostrar `Diferencia` y leyenda `Saldo a favor/en contra` según el artículo seleccionado y el cálculo homologado del backend.
+- Ordenes de trabajo / Cambio material y Merma (2026-06-17): `Subtotal` e `IVA` de la ORD original se calculan desde `PVTAT base` y la impresión deja ese campo con la misma etiqueta.
+- Ordenes de trabajo / Cambio material y Merma (2026-06-17): `CTD_C_M` depende de `CTD` original (`1` -> `1|0.5`, `0.5` -> `0.5`) y la diferencia económica compara el total original prorrateado contra el total de la nueva ORD.
 - Ordenes de trabajo / Panel ORDs (2026-04-21): `ANALISTA_INV` e `INVJEF` participan en revisión de cambio/merma (`selCtrlOrd=14`); la visibilidad efectiva del panel queda gobernada por matriz de flujos en backend.
 - Ordenes de trabajo / Garantía (2026-04-29): se restituye el módulo de entregadas/garantía en Home; en ese panel solo se habilita `Ver detalle` para `admin` y `JEF_TALLER`, el detalle mantiene `Guardar cambios` para comentario y `Garantía` confirma transición `11 -> 9.3`. En `9.3` aparece solo el botón `Aplicar merma o cambio` para elegir `TIPOM` (1/2) y `MOTR`, continuando el flujo existente de `9.1/9.2`.
 - Ordenes de trabajo / Recepción laboratorio externo (2026-05-01): `Recibir en taller` permite a `ANALISTA_ORD/ANALISTA` recibir únicamente ORDs de laboratorio externo; en ese caso la transición es `ESTSEGU 5 -> 10` (pendiente entrega cliente), mientras laboratorio interno conserva `5 -> 7`.
@@ -102,6 +104,8 @@ Frontend Flutter del ecosistema IOE. Consume `ioe-api` para autenticación, maes
 - Si pruebas release en `127.0.0.1:8088`, por defecto no existe proxy `/api`; para login real apunta API explícita con `-ApiBaseUrlWeb` al backend (ejemplo arriba).
 - La pantalla de login dispara `GET /health` durante el bootstrap de conectividad.
 - Al presionar `Entrar`, la pantalla de login dispara `POST /auth/login`.
+
+- Punto de venta / Cambio forma de pago REQF (2026-06-18): al cambiar forma de pago, si el `IDFOL` tiene `REQF=1` y `AUT=VF`, backend re-sincroniza `FAC_SVR_SHAP/FACT_TICKET_SHP` vía `sp_fact_sync_folio_vf`; frontend muestra trazabilidad `facturacionSync` en el aviso.
 
 ## Documentacion viva
 - Mantén este índice y los README/AGENTS de módulo actualizados cuando cambien flujos o contratos.

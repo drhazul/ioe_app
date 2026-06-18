@@ -98,6 +98,7 @@ Enlaces relacionados:
 - `Cambio material/Merma` (2026-04-08): ambos botones abren modal en dos zonas con distribución obligatoria `Resumen ORD original` (izquierda) y `Nueva ORD (captura)` (derecha), usando contexto enriquecido (`DESCFLUJO`, `DESAUTO`, `PVTAT_BASE`, `CTD_C_M`).
 - `Cambio material/Merma` (2026-04-21): el flujo queda en `Crear Nueva ORD` (staging inicial, fija `selCtrlOrd=13`) -> `Solicitar autorización` (`selCtrlOrd=14`) -> `Retrabajo` (`selCtrlOrd=15`, solo inventario/admin) -> `Autorizar` (crea ORD final, ejecuta SP, registra MB51/diferencia y anula la original).
 - `Cambio material/Merma` (2026-04-08): la captura se bloquea cuando `selCtrlOrd=14`; los cálculos se muestran como `Subtotal/IVA/Total` + `Diferencia económica`, y `CTD_C_M` se restringe visualmente a `1` o `0.5`.
+- `Cambio material/Merma` (2026-06-17): `CTD_C_M` permitido depende de `CTD` original (`1` -> `1|0.5`, `0.5` -> `0.5`) y la diferencia económica usa el total original prorrateado por la fracción afectada.
 - `Cambio material/Merma` (2026-04-21): `Autorizar` y `Retrabajo` solo aparecen para `admin`, `ANALISTA_INV` e `INVJEF`; tras autorizar el modal queda solo lectura con impresión de formato y saldo.
 - `Cambio material/Merma` (2026-04-22): la tarjeta `Nueva ORD (captura)` vuelve a mostrar `Diferencia` y una leyenda de `Saldo a favor del cliente` / `Saldo en contra del cliente` / `Sin diferencia` de acuerdo al artículo seleccionado.
 - `Panel ORDs` (2026-04-21): `ANALISTA_INV` e `INVJEF` participan en revisión de cambio/merma (`selCtrlOrd=14`) y su visibilidad efectiva depende de la matriz configurada en backend.
@@ -114,6 +115,7 @@ Enlaces relacionados:
 - `Cambio material/Merma` (2026-04-19): la captura temporal sigue permitiendo recaptura en `selCtrlOrd=15` antes de volver a solicitar autorización.
 - `Cambio material/Merma` (2026-04-19): se agrega botón `Crear Nueva ORD` para crear staging de preparación; sin staging no se muestran campos/botones de captura y autorización.
 - `Cambio material/Merma` (2026-04-19): el costo de la nueva ORD en captura usa el mismo `PVTA` de la ORD original para evitar diferencias de precio.
+- `Cambio material/Merma` (2026-06-17): `Subtotal` e `IVA` de la ORD original se calculan desde `PVTAT base`; la etiqueta visible se mantiene igual en vista y PDF.
 - `Cambio material` (2026-04-21): mantiene `Buscar Articulo para cambiar` reutilizando el panel de artículos de cotizaciones; al elegir artículo actualiza staging y recalcula diferencia/subtotal/iva/total.
 - `Merma` (2026-04-21): ya no usa checkbox `Crear nueva ORD derivada`; el proceso siempre genera nueva ORD en la autorización final.
 - `Garantia` deja de mostrarse en el panel operativo y queda reservada para el panel de entregadas con estado `11`.

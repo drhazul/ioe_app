@@ -33,6 +33,8 @@
 - Ordenes de trabajo / Cambio material y Merma (2026-04-19): el costo de la nueva ORD se alinea al costo de la ORD original para evitar diferencias de precio en captura.
 - Ordenes de trabajo / Cambio material y Merma (2026-04-21): `Solicitar autorización` fija `selCtrlOrd=14`; `Retrabajo` devuelve a `15`; `Autorizar` visible solo para `admin`, `ANALISTA_INV` e `INVJEF` crea la nueva ORD y anula la original.
 - Ordenes de trabajo / Cambio material y Merma (2026-04-22): la sección `Nueva ORD` debe mostrar `Diferencia` y el estado `Saldo a favor/en contra` con el valor calculado para el artículo capturado.
+- Ordenes de trabajo / Cambio material y Merma (2026-06-17): `Subtotal` e `IVA` de `ORD original` se anclan al `PVTAT base` del ticket log; el PDF deja visible ese origen como `PVTAT base`.
+- Ordenes de trabajo / Cambio material y Merma (2026-06-17): `CTD_C_M` depende de `CTD` original (`1` -> `1|0.5`, `0.5` -> `0.5`) y la diferencia económica compara el total original prorrateado contra el total nuevo.
 - Ordenes de trabajo / Panel ORDs (2026-04-21): `ANALISTA_INV` e `INVJEF` operan revisión de cambio/merma con flujo `selCtrlOrd=14`; la visibilidad operativa final se controla por matriz de flujos en backend.
 - Ordenes de trabajo / Garantía (2026-04-29): el módulo de entregadas se restaura en Home para `admin`/`JEF_TALLER`, muestra solo `Ver detalle`; desde detalle la acción `Garantía` mueve `11 -> 9.3`, permite editar comentario y agrega `Aplicar merma o cambio` solo en `9.3` (captura `TIPOM` 1/2 + `MOTR`) para continuar el mismo flujo de `9.1/9.2`.
 - Ordenes de trabajo / Recepción laboratorio externo (2026-05-01): `Recibir en taller` habilita también a `ANALISTA_ORD/ANALISTA` para ORDs de laboratorio externo; la recepción cambia `5 -> 10` en externo y conserva `5 -> 7` en laboratorio interno.
@@ -97,3 +99,4 @@
 ## Documentacion viva obligatoria
 - Cada cambio funcional debe reflejarse en el README/AGENTS principal y en los README/AGENTS del módulo afectado (app y API) en el mismo trabajo.
 - Cambio material / Merma (2026-04-22): la nueva ORD derivada debe quedar sin colaborador asignado y la UI/PDF deben mostrar la diferencia contable real basada en `CTD_C_M`/importe sellado, no la diferencia por `CTD` completa.
+- Punto de venta / Cambio forma de pago REQF (2026-06-18): al cambiar forma de pago, si el folio tiene `REQF=1` y `AUT=VF`, backend re-sincroniza `FAC_SVR_SHAP/FACT_TICKET_SHP` vía `sp_fact_sync_folio_vf`; la UI muestra trazabilidad `facturacionSync` en el snack de confirmación.

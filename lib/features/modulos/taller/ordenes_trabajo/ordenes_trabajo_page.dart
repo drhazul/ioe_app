@@ -3379,7 +3379,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
             _textOf(original['MOTR'], fallback: _textOf(draft['MOTIVO'])),
           ),
           row('Laboratorio', _textOf(draft['LABOR'])),
-          row('PVTA original', _money(_toNum(original['PVTAT_BASE']) ?? 0)),
+          row('PVTAT base', _money(_toNum(original['PVTAT_BASE']) ?? 0)),
           row('PVTA nuevo', _money(_toNum(draft['PVTA']) ?? 0)),
           row('Subtotal original', _money(contextData.subtotalOriginal)),
           row('IVA original', _money(contextData.ivaOriginal)),
@@ -5376,9 +5376,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     final sameArtAsOriginal =
         draftArt.trim().toUpperCase() == artOriginal.trim().toUpperCase();
 
-    final artNuevoCtrl = TextEditingController(
-      text: draftArt,
-    );
+    final artNuevoCtrl = TextEditingController(text: draftArt);
     final upcNuevoCtrl = TextEditingController(
       text: _textOf(draft['UPC'], fallback: upcOriginal),
     );
@@ -5420,7 +5418,19 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       return null;
     }
 
+    List<double> allowedCtdCMValues() {
+      final originalCtd = _toNum(original['CTD'])?.toDouble();
+      if (originalCtd != null && (originalCtd - 0.5).abs() <= 0.0001) {
+        return const [0.5];
+      }
+      return const [1, 0.5];
+    }
+
+    final initialCtdCMOptions = allowedCtdCMValues();
     double? selectedCtdCM = normalizeCtdCMValue(_toNum(original['CTD_C_M']));
+    if (selectedCtdCM == null || !initialCtdCMOptions.contains(selectedCtdCM)) {
+      selectedCtdCM = initialCtdCMOptions.first;
+    }
     double? selectedPvtaNuevo =
         _toNum(draft['PVTA'])?.toDouble() ??
         _toNum(original['PVTAT_BASE'])?.toDouble();
@@ -5435,7 +5445,14 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       selectedLabor = _normalizeLaboratorioValue(
         _textOf(updated.draft['LABOR']),
       );
-      selectedCtdCM = normalizeCtdCMValue(_toNum(updated.original['CTD_C_M']));
+      final updatedCtdOptions = allowedCtdCMValues();
+      final updatedCtdCM = normalizeCtdCMValue(
+        _toNum(updated.original['CTD_C_M']),
+      );
+      selectedCtdCM =
+          updatedCtdCM != null && updatedCtdOptions.contains(updatedCtdCM)
+          ? updatedCtdCM
+          : updatedCtdOptions.first;
       selectedPvtaNuevo =
           _toNum(updated.draft['PVTA'])?.toDouble() ??
           _toNum(updated.original['PVTAT_BASE'])?.toDouble();
@@ -5544,6 +5561,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
           final canPrintSaldo =
               hasCreatedOrd && cmContext.canPrintSaldo && !submitting;
           final diferenciaCaptura = cmContext.diferenciaEconomica;
+          final ctdCMOptions = allowedCtdCMValues();
           final saldoCapturaLabel = diferenciaCaptura > 0.009
               ? 'SALDO EN CONTRA DEL CLIENTE'
               : diferenciaCaptura < -0.009
@@ -6083,16 +6101,14 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                                   border: OutlineInputBorder(),
                                   isDense: true,
                                 ),
-                                items: const [
-                                  DropdownMenuItem<double>(
-                                    value: 1,
-                                    child: Text('1'),
-                                  ),
-                                  DropdownMenuItem<double>(
-                                    value: 0.5,
-                                    child: Text('0.5'),
-                                  ),
-                                ],
+                                items: ctdCMOptions
+                                    .map(
+                                      (value) => DropdownMenuItem<double>(
+                                        value: value,
+                                        child: Text(value == 1 ? '1' : '0.5'),
+                                      ),
+                                    )
+                                    .toList(growable: false),
                                 onChanged: canEditBaseFields
                                     ? (value) => setDialogState(() {
                                         selectedCtdCM = value;
@@ -6251,9 +6267,12 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                             _showError('Selecciona CTD_C_M para continuar.');
                             return;
                           }
-                          if ((ctdCMValue - 1).abs() > 0.0001 &&
-                              (ctdCMValue - 0.5).abs() > 0.0001) {
-                            _showError('CTD_C_M solo permite 1 o 0.5.');
+                          if (!ctdCMOptions.contains(ctdCMValue)) {
+                            _showError(
+                              ctdCMOptions.length == 1
+                                  ? 'CTD_C_M solo permite 0.5 cuando la ORD original fue creada por 0.5.'
+                                  : 'CTD_C_M solo permite 1 o 0.5 cuando la ORD original fue creada por 1.',
+                            );
                             return;
                           }
                           final artNuevo = artNuevoCtrl.text.trim();

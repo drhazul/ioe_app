@@ -71,11 +71,12 @@
 - los botones `Cambio material` y `Merma` se mueven al modal `DETALLE DE ORDEN DE TRABAJO`; solo aparecen cuando la ORD está en flujo `9.1` y se muestra el botón correspondiente según `TIPOM` (`1=CAMBIO DE ARTICULO`, `2=MERMA DE ART Y CAMBIO`).
 - cambio/merma UI (2026-04-08): el modal invierte visualización (izquierda `Resumen ORD original`, derecha `Nueva ORD`) y consume contexto enriquecido (`DESCFLUJO`, `DESAUTO`, `PVTAT_BASE`, `CTD_C_M`).
 - cambio/merma UI (2026-04-21): flujo interno por `selCtrlOrd` (`NULL/0/13/15` editable, `14` pendiente revisión) con pasos `Crear Nueva ORD -> Solicitar autorización -> Retrabajo (opcional) -> Autorizar`; `Autorizar` crea la ORD final, registra MB51/diferencia y anula la original.
-- cambio/merma UI (2026-04-08): la captura usa `CTD_C_M` restringido a `1|0.5`, muestra `Subtotal/IVA/Total` + `Diferencia económica`, y mantiene `Buscar Articulo para cambiar` reutilizando `DAT_ART`.
+- cambio/merma UI (2026-04-08): la captura usa `CTD_C_M` restringido por `CTD` original (`1` -> `1|0.5`, `0.5` -> `0.5`), muestra `Subtotal/IVA/Total` + `Diferencia económica`, y mantiene `Buscar Articulo para cambiar` reutilizando `DAT_ART`.
 - cambio/merma UI (2026-04-09): el cálculo mostrado depende de `DAT_SUC.IVA_INTEGRADO` + fiscalidad/tipo del folio origen (`REQF/RQFAC`, `AUT/ORIGEN_AUT`), sin inferir `tipotran` por el texto de `IDFOL`.
 - cambio/merma UI (2026-04-19): la captura temporal sigue permitiendo recaptura/reenvío cuando el flujo regresa a `selCtrlOrd=15`.
 - cambio/merma UI (2026-04-19): nuevo botón `Crear Nueva ORD` inserta el registro temporal; sin staging (`PV_ORD_CAMBIO_MERMA_TMP`) no se visualizan campos ni botones de captura/autorización.
 - cambio/merma UI (2026-04-19): `PVTA` de la nueva ORD en captura se mantiene igual al costo base de la ORD original.
+- cambio/merma UI (2026-06-17): `Subtotal` e `IVA` de la ORD original se calculan desde `PVTAT base`; el PDF usa la misma etiqueta para mantener visible la fuente.
 - cambio/merma UI (2026-04-21): `Autorizar` y `Retrabajo` solo son visibles para `admin`, `ANALISTA_INV` e `INVJEF`; `Solicitar autorización` deja siempre el caso en `selCtrlOrd=14`, y tras autorizar el modal queda solo lectura con impresión de formato/saldo.
 - cambio/merma UI (2026-04-22): en la sección `Nueva ORD` siempre mostrar `Diferencia` y el texto de saldo (`a favor`, `en contra` o `sin diferencia`) usando el cálculo del contexto actual.
 - panel ORDs (2026-04-21): `ANALISTA_INV` e `INVJEF` atienden revisión de cambio/merma (`selCtrlOrd=14`); la visibilidad del listado depende de la matriz configurada en backend.

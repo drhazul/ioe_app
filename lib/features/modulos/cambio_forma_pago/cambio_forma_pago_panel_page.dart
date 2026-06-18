@@ -44,9 +44,7 @@ class _CambioFormaPagoPanelPageState
       _redirectToAuth(
         message: 'Se requiere autorizacion supervisor para continuar.',
       );
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     final catalogAsync = ref.watch(cambioFormaPagoCatalogProvider);
@@ -126,8 +124,9 @@ class _CambioFormaPagoPanelPageState
                           children: [
                             Text(
                               'Supervisor: ${validSession.supervisorId}',
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.w600),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                             Text('Registros: ${sortedRows.length}'),
                             const Text(
@@ -197,14 +196,13 @@ class _CambioFormaPagoPanelPageState
                         elevation: 0,
                         child: Padding(
                           padding: EdgeInsets.all(14),
-                          child: Text('No hay cambios de forma de pago para hoy.'),
+                          child: Text(
+                            'No hay cambios de forma de pago para hoy.',
+                          ),
                         ),
                       )
                     else
-                      _buildTable(
-                        rows: sortedRows,
-                        catalog: sortedCatalog,
-                      ),
+                      _buildTable(rows: sortedRows, catalog: sortedCatalog),
                   ],
                 ),
               );
@@ -245,59 +243,73 @@ class _CambioFormaPagoPanelPageState
             children: [
               Container(
                 color: Colors.grey.shade200,
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
                 child: const Row(
                   children: [
                     SizedBox(
                       width: 140,
-                      child: Text('FCN',
-                          style: TextStyle(fontWeight: FontWeight.w600)),
+                      child: Text(
+                        'FCN',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
                     ),
                     SizedBox(
                       width: 100,
-                      child: Text('AUT',
-                          style: TextStyle(fontWeight: FontWeight.w600)),
+                      child: Text(
+                        'AUT',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
                     ),
                     SizedBox(
                       width: 170,
-                      child: Text('IDFOL',
-                          style: TextStyle(fontWeight: FontWeight.w600)),
+                      child: Text(
+                        'IDFOL',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
                     ),
                     SizedBox(
                       width: 170,
-                      child:
-                          Text('IDF', style: TextStyle(fontWeight: FontWeight.w600)),
+                      child: Text(
+                        'IDF',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
                     ),
                     SizedBox(
                       width: 250,
-                      child: Text('FORM (editable)',
-                          style: TextStyle(fontWeight: FontWeight.w600)),
+                      child: Text(
+                        'FORM (editable)',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
                     ),
                     SizedBox(
                       width: 120,
-                      child: Text('IMPD',
-                          style: TextStyle(fontWeight: FontWeight.w600)),
+                      child: Text(
+                        'IMPD',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
                     ),
                     SizedBox(
                       width: 180,
-                      child: Text('AUT FORM',
-                          style: TextStyle(fontWeight: FontWeight.w600)),
+                      child: Text(
+                        'AUT FORM',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
                     ),
                     SizedBox(
                       width: 150,
-                      child: Text('ACCION',
-                          style: TextStyle(fontWeight: FontWeight.w600)),
+                      child: Text(
+                        'ACCION',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
                     ),
                   ],
                 ),
               ),
               const Divider(height: 1),
-              ...rows.map(
-                (row) => _buildTableRow(
-                  row: row,
-                  catalog: catalog,
-                ),
-              ),
+              ...rows.map((row) => _buildTableRow(row: row, catalog: catalog)),
             ],
           ),
         ),
@@ -337,10 +349,7 @@ class _CambioFormaPagoPanelPageState
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           child: Row(
             children: [
-              SizedBox(
-                width: 140,
-                child: Text(_fmtDateTime(row.fcn)),
-              ),
+              SizedBox(width: 140, child: Text(_fmtDateTime(row.fcn))),
               SizedBox(
                 width: 100,
                 child: Text(row.autAsvr.isEmpty ? '-' : row.autAsvr),
@@ -368,7 +377,9 @@ class _CambioFormaPagoPanelPageState
                             ? const SizedBox(
                                 width: 14,
                                 height: 14,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               )
                             : const Icon(Icons.arrow_drop_down),
                         items: rowCatalog
@@ -376,9 +387,11 @@ class _CambioFormaPagoPanelPageState
                               (item) => DropdownMenuItem<String>(
                                 value: item.form,
                                 enabled:
-                                    !item.isBlocked || item.form == normalizedCurrent,
+                                    !item.isBlocked ||
+                                    item.form == normalizedCurrent,
                                 child: Text(
-                                  item.isBlocked && item.form != normalizedCurrent
+                                  item.isBlocked &&
+                                          item.form != normalizedCurrent
                                       ? '${item.form} (BLOQ)'
                                       : item.form,
                                   overflow: TextOverflow.ellipsis,
@@ -391,24 +404,23 @@ class _CambioFormaPagoPanelPageState
                             : !hasIdf
                             ? null
                             : (selected) => _onSelectForm(
-                                  row: row,
-                                  selectedForm: selected,
-                                  selectedCatalog: rowCatalog,
-                                ),
+                                row: row,
+                                selectedForm: selected,
+                                selectedCatalog: rowCatalog,
+                              ),
                         decoration: const InputDecoration(
                           border: OutlineInputBorder(),
                           isDense: true,
-                          contentPadding:
-                              EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 8,
+                          ),
                         ),
                       ),
               ),
               SizedBox(
                 width: 120,
-                child: Text(
-                  _money(row.impd),
-                  textAlign: TextAlign.right,
-                ),
+                child: Text(_money(row.impd), textAlign: TextAlign.right),
               ),
               SizedBox(
                 width: 180,
@@ -422,9 +434,9 @@ class _CambioFormaPagoPanelPageState
                 child: FilledButton(
                   onPressed: canApply
                       ? () => _applyFormChange(
-                            row: row,
-                            selectedCatalog: rowCatalog,
-                          )
+                          row: row,
+                          selectedCatalog: rowCatalog,
+                        )
                       : null,
                   child: saving
                       ? const SizedBox(
@@ -462,11 +474,7 @@ class _CambioFormaPagoPanelPageState
         !forms.any((item) => item.form == currentForm)) {
       forms.insert(
         0,
-        CambioFormaPagoCatalogItem(
-          form: currentForm,
-          tipotran: '',
-          bloq: 1,
-        ),
+        CambioFormaPagoCatalogItem(form: currentForm, tipotran: '', bloq: 1),
       );
     }
     forms.sort((a, b) => a.form.compareTo(b.form));
@@ -484,7 +492,8 @@ class _CambioFormaPagoPanelPageState
     final currentForm = row.form.trim().toUpperCase();
     final selectedItem = selectedCatalog.firstWhere(
       (item) => item.form == nextForm,
-      orElse: () => CambioFormaPagoCatalogItem(form: nextForm, tipotran: '', bloq: 0),
+      orElse: () =>
+          CambioFormaPagoCatalogItem(form: nextForm, tipotran: '', bloq: 0),
     );
     if (selectedItem.isBlocked && selectedItem.form != currentForm) {
       _showSnack('La forma seleccionada esta bloqueada.');
@@ -512,7 +521,8 @@ class _CambioFormaPagoPanelPageState
 
     final selectedItem = selectedCatalog.firstWhere(
       (item) => item.form == nextForm,
-      orElse: () => CambioFormaPagoCatalogItem(form: nextForm, tipotran: '', bloq: 0),
+      orElse: () =>
+          CambioFormaPagoCatalogItem(form: nextForm, tipotran: '', bloq: 0),
     );
     if (selectedItem.isBlocked && selectedItem.form != currentForm) {
       _showSnack('La forma seleccionada esta bloqueada.');
@@ -528,8 +538,9 @@ class _CambioFormaPagoPanelPageState
 
     setState(() => _savingByIdf[row.idf] = true);
     try {
-      String? autToSend =
-          row.autForm.trim().isEmpty ? null : row.autForm.trim();
+      String? autToSend = row.autForm.trim().isEmpty
+          ? null
+          : row.autForm.trim();
       var clearAut = false;
 
       final fromEfectivoToOther =
@@ -577,7 +588,9 @@ class _CambioFormaPagoPanelPageState
         autToSend = null;
       }
 
-      final result = await ref.read(cambioFormaPagoApiProvider).updateForma(
+      final result = await ref
+          .read(cambioFormaPagoApiProvider)
+          .updateForma(
             idf: row.idf,
             newForm: nextForm,
             aut: autToSend,
@@ -590,20 +603,26 @@ class _CambioFormaPagoPanelPageState
       if (!mounted) return;
       setState(() => _selectedFormByIdf.remove(row.idf));
 
-      final before = result.beforeForm.isEmpty ? currentForm : result.beforeForm;
+      final before = result.beforeForm.isEmpty
+          ? currentForm
+          : result.beforeForm;
       final after = result.afterForm.isEmpty ? nextForm : result.afterForm;
       final afterAut = result.afterAut.trim();
       final autMsg = afterAut.isEmpty ? 'AUT limpio' : 'AUT $afterAut';
-      _showSnack('IDF ${row.idf}: FORM $before -> $after | $autMsg');
+      final sync = result.facturacionSync;
+      final syncMsg = sync?.syncApplied == true
+          ? ' | Facturación sincronizada'
+          : sync != null
+          ? ' | Facturación no sincronizada'
+          : '';
+      _showSnack('IDF ${row.idf}: FORM $before -> $after | $autMsg$syncMsg');
     } catch (e) {
       if (!mounted) return;
       if (e is DioException) {
         final status = e.response?.statusCode ?? 0;
         if (status == 401 || status == 403) {
           ref.read(cambioFormaPagoSessionProvider.notifier).clear();
-          _redirectToAuth(
-            message: 'Se requiere autorización de supervisor.',
-          );
+          _redirectToAuth(message: 'Se requiere autorización de supervisor.');
           return;
         }
       }
@@ -688,7 +707,9 @@ class _CambioFormaPagoPanelPageState
   }) async {
     final wanted = idref.trim().toUpperCase();
     if (wanted.isEmpty) return false;
-    final refs = await ref.read(refDetalleApiProvider).fetchByFolio(idfol: idfol);
+    final refs = await ref
+        .read(refDetalleApiProvider)
+        .fetchByFolio(idfol: idfol);
     for (final item in refs) {
       if (item.idref.trim().toUpperCase() == wanted) {
         return true;
@@ -703,9 +724,9 @@ class _CambioFormaPagoPanelPageState
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if ((message ?? '').trim().isNotEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message!.trim())),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message!.trim())));
       }
       context.go('/cambio-forma-pago/auth');
     });
@@ -713,7 +734,9 @@ class _CambioFormaPagoPanelPageState
 
   void _showSnack(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   String _fmtDateTime(DateTime? value) {
@@ -732,10 +755,7 @@ class _CambioFormaPagoPanelPageState
 }
 
 class _ErrorBlock extends StatelessWidget {
-  const _ErrorBlock({
-    required this.message,
-    required this.onRetry,
-  });
+  const _ErrorBlock({required this.message, required this.onRetry});
 
   final String message;
   final VoidCallback onRetry;

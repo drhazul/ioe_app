@@ -136,7 +136,8 @@ Enlaces relacionados:
 - El dropdown de formas de pago en el modal se alimenta desde `DAT_FORM` via `GET /dat-form` (ya no lista fija hardcodeada).
 - Con `tipotran=CA`, el selector de formas en el modal permite `EFECTIVO` y `CREDITO`.
 - `CREDITO` y `DEUDOR` no se pueden combinar con otras formas de pago en el mismo cierre.
-- El campo `Autorizacion / referencia` y el boton `Generar/Asignar referencia` solo se muestran para `TARJETA`, `CHEQUE`, `TRANSFERENCIA` y `DEPOSITO 3RO`.
+- `TARJETA CREDITO` usa `DAT_FORM.ASPEL=4`; en VF con factura se trata como forma no efectivo, requiere referencia y termina en `FormaPagoSAT='04'`.
+- El campo `Autorizacion / referencia` y el boton `Generar/Asignar referencia` solo se muestran para `TARJETA`, `TARJETA CREDITO`, `CHEQUE`, `TRANSFERENCIA` y `DEPOSITO 3RO`.
 - La referencia ya no se captura manualmente: se crea/asigna via `REF_DETALLE` y se regresa `IDREF` al formulario de pago.
 - Si hay referencias del folio en `CAPTURADO` o `PROCESADO` que no se usan en el cierre, backend rechaza finalizar hasta eliminarlas.
 - En cierre `VF`, para formas `CREDITO`/`DEUDOR` backend inserta en `PV_CTR_FOL_FORM_SVR` (si existe; fallback `PV_CTR_FOL_FORM`) con `IMPP` positivo y `AUT=IDFOL`.
@@ -297,6 +298,21 @@ Enlaces relacionados:
 - Ticket PS formato (2026-03): el PDF se homologa a cotizaciones con bloques `DETALLE`, `TOTALES`, `FORMAS`, `TRANSACCION`, `RESUMEN DE ORDS`, `ORDS` (barcode `CODE39` + tabla `JOB/ESF/CIL/EJE`) y vouchers para formas no `EFECTIVO`.
 - en panel PS, al seleccionar folio con `ESTA='PAGADO'` la navegación abre directo `/ps/:idFol/pago` (sin pasar por detalle).
 - en panel PS, `CERRADO_PS` no forma parte del listado principal (`PENDIENTE/EDITANDO/PAGADO`); solo se conserva para salida operativa/auditoría.
+
+## Cambio de forma de pago (2026-06-18)
+- Ruta UI:
+- `/cambio-forma-pago/auth`
+- `/cambio-forma-pago`
+- Capas:
+- `lib/features/modulos/cambio_forma_pago/cambio_forma_pago_auth_page.dart`
+- `lib/features/modulos/cambio_forma_pago/cambio_forma_pago_panel_page.dart`
+- `lib/features/modulos/cambio_forma_pago/cambio_forma_pago_api.dart`
+- `lib/features/modulos/cambio_forma_pago/cambio_forma_pago_models.dart`
+- `lib/features/modulos/cambio_forma_pago/cambio_forma_pago_providers.dart`
+- Reglas:
+- el supervisor `SUPERPV` sigue siendo obligatorio para autorizar cambios.
+- cuando el folio tiene `REQF=1` y `AUT=VF`, backend debe re-sincronizar `FAC_SVR_SHAP/FACT_TICKET_SHP` con `sp_fact_sync_folio_vf`.
+- la UI muestra trazabilidad `facturacionSync` en el snack final del cambio.
 
 ## Retiros Parciales (implementado 2026-03)
 - Rutas UI:

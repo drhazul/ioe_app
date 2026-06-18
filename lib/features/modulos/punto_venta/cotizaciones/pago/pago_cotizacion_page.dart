@@ -19,6 +19,7 @@ import 'ref_detalle/ref_detalle_providers.dart';
 
 const Set<String> _formasConReferencia = {
   'TARJETA',
+  'TARJETA CREDITO',
   'CHEQUE',
   'TRANSFERENCIA',
   'DEPOSITO 3RO',

@@ -57,6 +57,21 @@ Enlaces relacionados:
 - al salir de `/estado-cajon`, la sesión de autorización se limpia y al reingresar vuelve a pedir contraseña.
 - aplica mounted-checks después de `await` (`if (!mounted) return;`) en flujo de diálogo/autorización.
 
+## Cambio de forma de pago (2026-06-18)
+- Ruta UI:
+- `/cambio-forma-pago/auth`
+- `/cambio-forma-pago`
+- Archivos frontend:
+- `lib/features/modulos/cambio_forma_pago/cambio_forma_pago_auth_page.dart`
+- `lib/features/modulos/cambio_forma_pago/cambio_forma_pago_panel_page.dart`
+- `lib/features/modulos/cambio_forma_pago/cambio_forma_pago_api.dart`
+- `lib/features/modulos/cambio_forma_pago/cambio_forma_pago_models.dart`
+- `lib/features/modulos/cambio_forma_pago/cambio_forma_pago_providers.dart`
+- Regla funcional:
+- el cambio de forma sigue requiriendo supervisor `SUPERPV`.
+- si el folio tiene `REQF=1` y `AUT=VF`, backend re-sincroniza `FAC_SVR_SHAP/FACT_TICKET_SHP` con `sp_fact_sync_folio_vf`.
+- la UI muestra trazabilidad `facturacionSync` en el aviso de confirmación.
+
 ## Pago de Servicios (nuevo flujo 2026-03)
 - Rutas:
 - `/ps` (panel)
@@ -107,7 +122,7 @@ Enlaces relacionados:
 - en detalle/adeudos, cada renglón incluye botón `Ver registros` para abrir un popup tabular (listado por columnas) con todos los movimientos de `DAT_CTRL_CTAS` del `IDFOL` seleccionado.
 - en detalle/adeudos (2026-05-06), los botones `Ver registros` y `Asignar referencia` se muestran en una sola línea para prevenir traslape visual.
 - en pago, la vista usa dos contenedores (resumen y formas); el botón `Agregar` está dentro de `Formas de pago` y abre modal emergente para capturar `Forma/Importe/Autorización`.
-- el modal de formas PS usa catálogo dinámico `DAT_FORM` (`GET /dat-form`) y la regla de referencia igual a cotizaciones (`TARJETA/CHEQUE/TRANSFERENCIA/DEPOSITO 3RO`).
+- el modal de formas PS usa catálogo dinámico `DAT_FORM` (`GET /dat-form`) y la regla de referencia igual a cotizaciones (`TARJETA/TARJETA CREDITO/CHEQUE/TRANSFERENCIA/DEPOSITO 3RO`).
 - en pago, el dropdown del modal no muestra `CREDITO` ni `DEUDOR`.
 - en pago, para formas no `EFECTIVO`, `Autorización/referencia` no es editable y se captura reutilizando `ref_detalle_page.dart` (`Generar/Asignar referencia`).
 - en pago, una forma distinta de `EFECTIVO` no puede superar el restante por pagar (`total - pagado`), validado en modal y nuevamente antes de enviar al API.
@@ -240,7 +255,7 @@ Enlaces relacionados:
 - El dropdown de formas en pago usa `GET /dat-form` (tabla `DAT_FORM`) y respeta `ESTADO` para visibilidad.
 - En cierre `CA`, el selector del modal lista `EFECTIVO` y `CREDITO`.
 - `CREDITO` y `DEUDOR` no se pueden combinar con otras formas de pago en el mismo cierre.
-- `Autorizacion / referencia` y el boton `Generar/Asignar referencia` solo aplican para `TARJETA`, `CHEQUE`, `TRANSFERENCIA` y `DEPOSITO 3RO`.
+- `Autorizacion / referencia` y el boton `Generar/Asignar referencia` solo aplican para `TARJETA`, `TARJETA CREDITO`, `CHEQUE`, `TRANSFERENCIA` y `DEPOSITO 3RO`.
 - La referencia no se captura manualmente: se crea/asigna en `REF_DETALLE` y se usa `IDREF` como `aut` de la forma.
 - Si existen referencias en `CAPTURADO` o `PROCESADO` que no se usan en el payload final, backend rechaza el cierre hasta eliminarlas.
 - Mantenimiento maestro de formas:
@@ -248,6 +263,7 @@ Enlaces relacionados:
 - rutas formulario: `/masterdata/dat-form/new` y `/masterdata/dat-form/:id`
 - archivos: `lib/features/masterdata/dat_form/dat_form_page.dart`, `dat_form_form_page.dart`, `dat_form_providers.dart`, `dat_form_api.dart`, `dat_form_models.dart`.
 - Para `CREDITO`/`DEUDOR`, backend guarda la forma en `PV_CTR_FOL_FORM_SVR` (fallback `PV_CTR_FOL_FORM`) con `IMPP` positivo y `AUT=IDFOL`.
+- `TARJETA CREDITO` entra por `DAT_FORM` con `ASPEL=4`; en VF con factura se trata como forma no efectivo y se sincroniza como `FormaPagoSAT='04'`.
 - Para `CREDITO`, backend valida disponible usando saldo neto de `DAT_CTRL_CTAS` (`SUM(IMPT)`) con `CTA='101001002'` y `CLIENT=@IDC`; disponible = `FACT_CLIENT_SHP.L_CRED - MAX(-SUM(IMPT), 0)` (cargos negativos consumen crédito y abonos positivos lo liberan).
 - Para `CREDITO`/`DEUDOR`, backend inserta cargo en `DAT_CTRL_CTAS` con `CMOV=602`, `CTA='101001002'`, `CLIENT`, `IDFOL`, `NDOC` e `IMPT` negativo.
 - Compatibilidad de esquema backend: si `DAT_CTRL_CTAS` no tiene `CMOV`, usa `CLSD`; y cuando existen `FCND`/`RTXT` tambien se llenan en el cargo.

@@ -108,7 +108,7 @@ Enlaces relacionados:
 - `/ordenes-trabajo/*` -> `PV_CTR_ORDS`, `PV_CTR_ORDS_DET`, `DAT_EST_ORD`, `DAT_MB51`, `DAT_CTRL_CTAS`.
 - `/refdetalle` -> `REF_DETALLE`.
 - `/pv/refdetalle` -> `REF_DETALLE` (crear/asignar/eliminar referencias ligadas al folio).
-- `/dat-form` -> `DAT_FORM` (CRUD de catalogo de formas de pago con estado activo/inactivo).
+- `/dat-form` -> `DAT_FORM` (CRUD de catalogo de formas de pago con estado activo/inactivo; `ASPEL` resuelve `FormaPagoSAT` y `TARJETA CREDITO` usa `04`).
 - `/ord-flujo-vis` -> `DAT_JAO_ORD_FLUJO_VIS` (CRUD de visualización por ROLL en ORD, filtros por `ROLL`/`ESTSEGU`, combos `ROL`/`DAT_EST_ORD`, `MODULO` bloqueado y `ORDEN` automático).
 - `/jrqdepa|jrqsubd|jrqclas|jrqscla|jrqscla2|jrqguia` ->
   `JRQ_DEPA`, `JRQ_SUBD`, `JRQ_CLAS`, `JRQ_SCLA`, `JRQ_SCLA2`, `JRQ_GUIA`.
