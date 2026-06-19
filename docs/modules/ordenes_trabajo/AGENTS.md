@@ -76,7 +76,7 @@
 - cambio/merma UI (2026-04-09): el cálculo mostrado depende de `DAT_SUC.IVA_INTEGRADO` + fiscalidad/tipo del folio origen (`REQF/RQFAC`, `AUT/ORIGEN_AUT`), sin inferir `tipotran` por el texto de `IDFOL`.
 - cambio/merma UI (2026-04-19): la captura temporal sigue permitiendo recaptura/reenvío cuando el flujo regresa a `selCtrlOrd=15`.
 - cambio/merma UI (2026-04-19): nuevo botón `Crear Nueva ORD` inserta el registro temporal; sin staging (`PV_ORD_CAMBIO_MERMA_TMP`) no se visualizan campos ni botones de captura/autorización.
-- cambio/merma UI (2026-04-19): `PVTA` de la nueva ORD en captura se mantiene igual al costo base de la ORD original.
+- cambio/merma UI (2026-04-19): `PVTA` de la nueva ORD en captura sale de `DAT_ART` por sucursal y artículo; la ORD original muestra `PVTAT base` del ticket log.
 - cambio/merma UI (2026-06-17): `Subtotal` e `IVA` de la ORD original se calculan desde `PVTAT base`; el PDF usa la misma etiqueta para mantener visible la fuente.
 - cambio/merma UI (2026-04-21): `Autorizar` y `Retrabajo` solo son visibles para `admin`, `ANALISTA_INV` e `INVJEF`; `Solicitar autorización` deja siempre el caso en `selCtrlOrd=14`, y tras autorizar el modal queda solo lectura con impresión de formato/saldo.
 - cambio/merma UI (2026-04-22): en la sección `Nueva ORD` siempre mostrar `Diferencia` y el texto de saldo (`a favor`, `en contra` o `sin diferencia`) usando el cálculo del contexto actual.
