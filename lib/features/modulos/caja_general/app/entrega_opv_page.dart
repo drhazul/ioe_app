@@ -57,6 +57,7 @@ class _EntregaOpvPageState extends ConsumerState<EntregaOpvPage> {
       tipo: _reportTipo,
     );
     final resumenAsync = ref.watch(cajaGeneralEntregaOpvProvider(filtros));
+    final isLoading = resumenAsync.isLoading;
     final isClosedForRefresh =
         (resumenAsync.asData?.value.header?.esta ?? '').trim().toUpperCase() ==
             'CERRADO';
@@ -67,7 +68,7 @@ class _EntregaOpvPageState extends ConsumerState<EntregaOpvPage> {
         actions: [
           IconButton(
             tooltip: 'Refrescar',
-            onPressed: _submitting || isClosedForRefresh
+            onPressed: _submitting || isClosedForRefresh || isLoading
                 ? null
                 : () => ref.invalidate(cajaGeneralEntregaOpvProvider(filtros)),
             icon: const Icon(Icons.refresh),

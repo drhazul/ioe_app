@@ -374,7 +374,10 @@ Enlaces relacionados:
   - tras autorizar, consulta resumen del día por forma (`FORM`, `IMPT`, `IMPR`, `IMPE`, `DIFD`) con selector de fecha.
   - no hay botón de autorización manual dentro de la vista; la reautorización se solicita al reingresar al módulo.
   - al salir de la pantalla, se limpia la sesión local de autorización para forzar contraseña en el siguiente ingreso.
-  - `IMPE` se muestra como `-` cuando llega `null`.
-  - footer de tabla calcula totales de `IMPT`, `IMPR` y `DIFD`.
-  - mantiene `mounted-checks` (`if (!mounted) return;`) tras operaciones async.
+- `IMPE` se muestra como `-` cuando llega `null`.
+- footer de tabla calcula totales de `IMPT`, `IMPR` y `DIFD`.
+- mantiene `mounted-checks` (`if (!mounted) return;`) tras operaciones async.
+
+## Caja General: entrega OPV (2026-06-18)
+- la vista de entrega deshabilita refresco mientras carga para evitar consultas simultáneas al sync de OPV.
 
