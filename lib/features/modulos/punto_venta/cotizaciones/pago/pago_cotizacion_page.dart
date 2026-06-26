@@ -99,9 +99,8 @@ class _PagoCotizacionPageState extends ConsumerState<PagoCotizacionPage> {
     final canFinalize =
         !isEstadoPagado &&
         !state.submitting &&
-        state.formas.isNotEmpty &&
-        total > 0 &&
-        sumPagos >= total;
+        ((total <= 0 && state.formas.isEmpty) ||
+            (state.formas.isNotEmpty && total > 0 && sumPagos >= total));
     final canChangeTipoCierre =
         !isEstadoPagado && !state.submitting && state.formas.isEmpty;
     final canChangeRqfac =

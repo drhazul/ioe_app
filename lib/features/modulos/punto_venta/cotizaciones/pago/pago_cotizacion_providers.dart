@@ -320,7 +320,8 @@ class PagoCotizacionController extends StateNotifier<PagoCotizacionState> {
     if (state.totales == null || state.context == null) {
       throw Exception('No se pudo cargar el contexto de cierre');
     }
-    if (state.formas.isEmpty) {
+    final total = state.totales!.total;
+    if (state.formas.isEmpty && total > 0) {
       throw Exception('Debe agregar al menos una forma de pago');
     }
     final creditoDeudorCount = state.formas

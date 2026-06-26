@@ -44,6 +44,9 @@ class CotizacionLocalItem {
   final SyncStatus syncStatus;
   final String? syncError;
 
+  bool get isRelatedCounterMovement =>
+      ctd < 0 && (ticketRel ?? '').trim().isNotEmpty;
+
   CotizacionLocalItem copyWith({
     String? id,
     String? idfol,

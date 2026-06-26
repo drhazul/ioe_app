@@ -163,7 +163,7 @@ Enlaces relacionados:
 - Validacion UI de importes: al agregar/editar forma, el `impp` de formas no `EFECTIVO` no puede exceder el faltante por pagar (`total - sum(formas restantes)`); solo `EFECTIVO` (única forma o segunda forma) puede exceder para calcular cambio.
 - Ajuste tecnico Flutter: dialogos de seleccion migrados a `RadioGroup` (cliente en cotizaciones y referencia en `REF_DETALLE`) para eliminar uso deprecated de `Radio.groupValue/onChanged`.
 - Regla CA/RQFAC: cuando el tipo de cierre es `CA` (al entrar o al cambiar), app fuerza `RQFAC=false` y persiste `PV_CTR_FOL_ASVR.REQF=0` antes del recalculo de preview/totales.
-- Cotizaciones con ORD relacionada (2026-06-25): la app consume preview backend donde `totalBase` excluye contramovimientos tecnicos (`CTD < 0` con `TICKET_REL`) para evitar bloqueo falso "total base invalido" al seleccionar `CA` o `VF`.
+- Cotizaciones con ORD relacionada (2026-06-26): detalle y pago suman todos los renglones capturados en `PV_TICKET_LOG`; los contramovimientos tecnicos (`CTD < 0` con `TICKET_REL`) permanecen visibles/protegidos y se incluyen para cancelar importes, incluso dejando ticket en cero.
 ## Punto de venta: devoluciones de cotizacion/venta/apartado (implementado 2026-02)
 - Rutas UI:
 - `/punto-venta/devoluciones` (panel)

@@ -1609,8 +1609,7 @@ bool hasOrdAssignedToItem(CotizacionLocalItem item) {
 }
 
 bool isRelatedCounterMovementItem(CotizacionLocalItem item) {
-  final ticketRel = (item.ticketRel ?? '').trim();
-  return ticketRel.isNotEmpty && item.ctd < 0;
+  return item.isRelatedCounterMovement;
 }
 
 class _HeaderSection extends StatelessWidget {
