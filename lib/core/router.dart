@@ -25,6 +25,8 @@ import '../features/masterdata/deptos/deptos_page.dart';
 import '../features/masterdata/deptos/depto_form_page.dart';
 import '../features/masterdata/users/users_page.dart';
 import '../features/masterdata/users/user_form_page.dart';
+import '../features/masterdata/empresas/empresas_page.dart';
+import '../features/masterdata/empresas/empresa_form_page.dart';
 import '../features/masterdata/sucursales/sucursales_page.dart';
 import '../features/masterdata/sucursales/sucursal_form_page.dart';
 import '../features/masterdata/datmodulos/datmodulos_page.dart';
@@ -256,6 +258,22 @@ final routerProvider = Provider<GoRouter>((ref) {
                     path: ':id',
                     builder: (c, s) => UserFormPage(
                       userId: int.tryParse(s.pathParameters['id'] ?? ''),
+                    ),
+                  ),
+                ],
+              ),
+              GoRoute(
+                path: 'empresas',
+                builder: (c, s) => const EmpresasPage(),
+                routes: [
+                  GoRoute(
+                    path: 'new',
+                    builder: (c, s) => const EmpresaFormPage(),
+                  ),
+                  GoRoute(
+                    path: ':id',
+                    builder: (c, s) => EmpresaFormPage(
+                      idempresa: int.tryParse(s.pathParameters['id'] ?? ''),
                     ),
                   ),
                 ],

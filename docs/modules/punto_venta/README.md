@@ -286,6 +286,7 @@ Enlaces relacionados:
 - Validacion UI de importe por forma: al agregar/editar, el `impp` de formas no `EFECTIVO` no puede exceder el faltante de la cotizacion (`total - sum(formas restantes)`); solo `EFECTIVO` (única forma o segunda forma) puede exceder para calcular cambio.
 - Ajuste tecnico: controles `Radio` migrados a `RadioGroup` en dialogos de seleccion (cliente y referencias) para compatibilidad con Flutter >= 3.32.
 - Regla funcional CA: cuando `tipotran=CA`, app fuerza `rqfac=false` y persiste `REQF=0` en `PV_CTR_FOL_ASVR` antes del preview para recalcular importes sin factura.
+- Cotizaciones con ORD relacionada (2026-06-25): los totales de cierre y la impresion consumen el cálculo backend que excluye contramovimientos tecnicos (`CTD < 0` con `TICKET_REL`) para que seleccionar `CA` o `VF` no falle con "total base invalido".
 - Al cierre exitoso, backend deja la cotizacion en `PV_CTR_FOL_ASVR.ESTA='PAGADO'` y app no redirige de inmediato.
 - Al cierre exitoso, backend ejecuta `dbo.sp_mb51_transmitir_folio` para insertar renglones en `DAT_MB51` y ajustar `DAT_ART.STOCK` por resumen de `ART+SUC`; `ESTA` permanece en `PAGADO`.
 - política de fecha de finalización cotización (2026-03): backend registra fecha de proceso actual al cerrar en `PV_CTR_FOL_FORM(_SVR).FCN`, `PV_CTR_FOL_ASVR.FCNM` y movimientos contables de `CREDITO/DEUDOR`.

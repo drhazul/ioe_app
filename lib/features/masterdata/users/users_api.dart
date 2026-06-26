@@ -31,6 +31,12 @@ class UsersApi {
     return UserModel.fromJson(Map<String, dynamic>.from(res.data as Map));
   }
 
+  Future<String> fetchNextCajaUsername() async {
+    final res = await dio.get('/users/sugerencias/caja-username');
+    final data = Map<String, dynamic>.from(res.data as Map);
+    return (data['username'] ?? '').toString().trim();
+  }
+
   Future<void> deleteUser(int id) async {
     await dio.delete('/users/$id');
   }
