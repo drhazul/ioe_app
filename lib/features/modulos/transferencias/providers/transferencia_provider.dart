@@ -67,9 +67,38 @@ final transferenciasProvider = FutureProvider.autoDispose
           );
     });
 
+final transferenciaReportesProvider = FutureProvider.autoDispose
+    .family<
+      TransferenciaPagedResult<TransferenciaDocModel>,
+      TransferenciaFilters
+    >((ref, filters) {
+      return ref
+          .read(transferenciaApiProvider)
+          .reportes(
+            page: filters.page,
+            limit: filters.limit,
+            doc: _toText(filters.doc),
+            usuario: _toText(filters.usuario),
+            from: _toText(filters.fecha),
+            to: _toText(filters.fecha),
+            suc: _toText(filters.suc),
+            estatus: _toText(filters.estatus),
+          );
+    });
+
 final transferenciaDetalleProvider = FutureProvider.autoDispose
     .family<TransferenciaDocModel, String>((ref, doc) {
       return ref.read(transferenciaApiProvider).fetchOne(doc);
+    });
+
+final transferenciaReporteDetalleProvider = FutureProvider.autoDispose
+    .family<TransferenciaDocModel, String>((ref, doc) {
+      return ref.read(transferenciaApiProvider).reporteDetalle(doc);
+    });
+
+final transferenciaNotificacionesProvider =
+    FutureProvider.autoDispose<List<TransferenciaDocModel>>((ref) {
+      return ref.read(transferenciaApiProvider).notificaciones();
     });
 
 final transferenciaSucursalesProvider =

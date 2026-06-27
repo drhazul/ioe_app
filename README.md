@@ -42,6 +42,7 @@ Frontend Flutter del ecosistema IOE. Consume `ioe-api` para autenticación, maes
 - Inventarios / Merma (2026-05-20): en gestión/detalle se expone área responsable por renglón (`DET_ART_MERMA.AREAM`) y en alta/edición se permite adjuntar evidencia fotográfica desde PC/móvil; la evidencia viaja en `eviM` (data URL) y se previsualiza en la columna `Evidencia`.
 - Inventarios / Merma (2026-05-20): `AREAM` se captura como texto libre desde el modal de artículo, se conserva al editar y se visualiza como columna en la tabla de detalle.
 - Inventarios / Transferencias entre sucursales (2026-06-09): nueva feature `lib/features/modulos/transferencias` con gestion, detalle, flujo operativo, captura de cantidades liberadas/recibidas y PDF de envio; `DAT_JAA_TRAN` navega a `/#/modulos/transferencias`.
+- Inventarios / Reportes traspaso entre sucursales (2026-06-17): `DAT_REP_TRAN` navega a `/#/modulos/transferencias-reportes`; consulta solo despues de filtrar, incluye estatus sin `INCIDENCIA`, oculta notificaciones y muestra detalle de solo lectura.
 - Notas de documentación viva: este README solo debe cambiarse cuando se agreguen/modifiquen módulos, rutas o datos de arquitectura/base (no para ajustes locales de pantalla). Otros cambios funcionales van al README/AGENTS del módulo afectado.
 
 ## Arquitectura general

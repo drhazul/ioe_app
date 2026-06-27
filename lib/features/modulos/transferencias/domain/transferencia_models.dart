@@ -32,7 +32,11 @@ class TransferenciaDocModel {
     this.usrE,
     this.docMb51Sal,
     this.docMb51Ent,
+    this.evidencias = 0,
+    this.evidenciaUrl,
+    this.evidenciaMime,
     this.detalleActivo = 0,
+    this.hasIncidencia = false,
     this.detalle = const [],
     this.paqueteria,
   });
@@ -55,7 +59,11 @@ class TransferenciaDocModel {
   final String? usrE;
   final String? docMb51Sal;
   final String? docMb51Ent;
+  final int evidencias;
+  final String? evidenciaUrl;
+  final String? evidenciaMime;
   final int detalleActivo;
+  final bool hasIncidencia;
   final List<TransferenciaDetalleModel> detalle;
   final TransferenciaPaqModel? paqueteria;
 
@@ -80,7 +88,11 @@ class TransferenciaDocModel {
       usrE: _txtNullable(json['usrE']),
       docMb51Sal: _txtNullable(json['docMb51Sal']),
       docMb51Ent: _txtNullable(json['docMb51Ent']),
+      evidencias: _toInt(json['evidencias']),
+      evidenciaUrl: _txtNullable(json['evidenciaUrl']),
+      evidenciaMime: _txtNullable(json['evidenciaMime']),
       detalleActivo: _toInt(json['detalleActivo']),
+      hasIncidencia: _toBool(json['hasIncidencia']),
       detalle: detalleRaw is List
           ? detalleRaw
                 .map(
@@ -110,11 +122,29 @@ class TransferenciaDetalleModel {
     required this.ctdLib,
     required this.ctotal,
     required this.ctolib,
+    required this.ctdRCapturada,
     required this.ctdR,
     required this.ctoR,
     required this.difR,
     required this.difctoR,
     required this.ctop,
+    this.ctdRRegistrada = false,
+    this.estatusR,
+    this.usrE,
+    this.suc,
+    this.upc,
+    this.depa,
+    this.subd,
+    this.clas,
+    this.scla,
+    this.scla2,
+    this.jerarquiaNombre,
+    this.sph,
+    this.cyl,
+    this.adic,
+    this.evidencias = 0,
+    this.evidenciaUrl,
+    this.evidenciaMime,
     this.txt,
   });
 
@@ -127,11 +157,29 @@ class TransferenciaDetalleModel {
   final double ctdLib;
   final double ctotal;
   final double ctolib;
+  final bool ctdRCapturada;
   final double ctdR;
   final double ctoR;
   final double difR;
   final double difctoR;
   final double ctop;
+  final bool ctdRRegistrada;
+  final String? estatusR;
+  final String? usrE;
+  final String? suc;
+  final String? upc;
+  final String? depa;
+  final String? subd;
+  final String? clas;
+  final String? scla;
+  final String? scla2;
+  final String? jerarquiaNombre;
+  final String? sph;
+  final String? cyl;
+  final String? adic;
+  final int evidencias;
+  final String? evidenciaUrl;
+  final String? evidenciaMime;
   final String? txt;
 
   factory TransferenciaDetalleModel.fromJson(Map<String, dynamic> json) {
@@ -145,11 +193,29 @@ class TransferenciaDetalleModel {
       ctdLib: _toDouble(json['ctdLib']),
       ctotal: _toDouble(json['ctotal']),
       ctolib: _toDouble(json['ctolib']),
+      ctdRCapturada: _toBool(json['ctdRCapturada']),
       ctdR: _toDouble(json['ctdR']),
       ctoR: _toDouble(json['ctoR']),
       difR: _toDouble(json['difR']),
       difctoR: _toDouble(json['difctoR']),
       ctop: _toDouble(json['ctop']),
+      ctdRRegistrada: _toBool(json['ctdRRegistrada']),
+      estatusR: _txtNullable(json['estatusR']),
+      usrE: _txtNullable(json['usrE']),
+      suc: _txtNullable(json['suc']),
+      upc: _txtNullable(json['upc']),
+      depa: _txtNullable(json['depa']),
+      subd: _txtNullable(json['subd']),
+      clas: _txtNullable(json['clas']),
+      scla: _txtNullable(json['scla']),
+      scla2: _txtNullable(json['scla2']),
+      jerarquiaNombre: _txtNullable(json['jerarquiaNombre']),
+      sph: _txtNullable(json['sph']),
+      cyl: _txtNullable(json['cyl']),
+      adic: _txtNullable(json['adic']),
+      evidencias: _toInt(json['evidencias']),
+      evidenciaUrl: _txtNullable(json['evidenciaUrl']),
+      evidenciaMime: _txtNullable(json['evidenciaMime']),
       txt: _txtNullable(json['txt']),
     );
   }
@@ -253,6 +319,13 @@ double _toDouble(dynamic value) {
 int _toInt(dynamic value) {
   if (value is num) return value.toInt();
   return int.tryParse('${value ?? ''}') ?? 0;
+}
+
+bool _toBool(dynamic value) {
+  if (value is bool) return value;
+  if (value is num) return value != 0;
+  final text = _txt(value).toLowerCase();
+  return text == 'true' || text == '1' || text == 'si' || text == 'sí';
 }
 
 DateTime? _toDate(dynamic value) {

@@ -54,6 +54,7 @@
 - Inventarios / Merma (2026-06-12): la evidencia adjunta en `MermaAddItemDialog` se comprime antes de generar el data URL y se bloquea si queda arriba de 500 KB para evitar `request entity too large`.
 
 - Inventarios / Transferencias entre sucursales (2026-06-09): se agrega feature `lib/features/modulos/transferencias` con rutas `/modulos/transferencias` y `/modulos/transferencias/:doc`; Home resuelve `DAT_JAA_TRAN` hacia gestion y el flujo consume `/transferencias`.
+- Inventarios / Reportes traspaso entre sucursales (2026-06-17): `DAT_REP_TRAN` navega a `/modulos/transferencias-reportes`, solo para jefe de inventarios, sin notificaciones y con detalle de solo lectura.
 
 ## Documentación por módulos
 - Base de módulos: `docs/modules/base_modulos/AGENTS.md` (README: `docs/modules/base_modulos/README.md`)

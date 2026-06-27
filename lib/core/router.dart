@@ -94,6 +94,7 @@ import '../features/modulos/merma/presentation/pages/merma_gestion_page.dart';
 import '../features/modulos/merma/presentation/pages/merma_reportes_page.dart';
 import '../features/modulos/transferencias/presentation/pages/transferencia_detail_page.dart';
 import '../features/modulos/transferencias/presentation/pages/transferencias_page.dart';
+import '../features/modulos/transferencias/presentation/pages/transferencias_reportes_page.dart';
 
 import 'auth/auth_controller.dart';
 
@@ -580,6 +581,19 @@ final routerProvider = Provider<GoRouter>((ref) {
                 path: ':doc',
                 builder: (c, s) =>
                     TransferenciaDetailPage(doc: s.pathParameters['doc'] ?? ''),
+              ),
+            ],
+          ),
+          GoRoute(
+            path: 'modulos/transferencias-reportes',
+            builder: (c, s) => const TransferenciasReportesPage(),
+            routes: [
+              GoRoute(
+                path: ':doc',
+                builder: (c, s) => TransferenciaDetailPage(
+                  doc: s.pathParameters['doc'] ?? '',
+                  reportMode: true,
+                ),
               ),
             ],
           ),

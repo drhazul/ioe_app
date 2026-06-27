@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../../core/auth/auth_controller.dart';
+import '../../../../../core/storage.dart';
 import '../../domain/transferencia_models.dart';
 import '../../providers/transferencia_provider.dart';
 
@@ -26,6 +27,9 @@ class _TransferenciasPageState extends ConsumerState<TransferenciasPage> {
   String _estatus = '';
   String _suc = '';
   bool _hasAppliedFilters = false;
+  String? _seenNotificationScope;
+  bool _seenNotificationsLoaded = false;
+  Set<String> _seenNotificationKeys = {};
 
   @override
   void dispose() {
@@ -40,17 +44,36 @@ class _TransferenciasPageState extends ConsumerState<TransferenciasPage> {
     final auth = ref.watch(authControllerProvider);
     final isJefeInventarios = auth.roleId == 2;
     final isLimitedEstatusRole = auth.roleId == 13008 || auth.roleId == 14008;
+    final hideEstatusFilter = isJefeInventarios || isLimitedEstatusRole;
+    final hideSucursalFilter = isLimitedEstatusRole;
+    final hideUsuarioFilter = isLimitedEstatusRole;
     final effectiveEstatus = isJefeInventarios ? 'PENDIENTE' : _estatus;
+    final effectiveSuc = hideSucursalFilter ? '' : _suc;
+    final effectiveUsuario = hideUsuarioFilter ? '' : _usuario;
+    final notificationScope = _notificationSeenScope(auth);
+    _ensureSeenNotificationsLoaded(notificationScope);
     final filters = TransferenciaFilters(
       doc: _doc,
-      usuario: _usuario,
+      usuario: effectiveUsuario,
       fecha: _fecha,
       estatus: effectiveEstatus,
-      suc: _suc,
+      suc: effectiveSuc,
     );
     final asyncList = _hasAppliedFilters
         ? ref.watch(transferenciasProvider(filters))
         : null;
+    final asyncNotifications = ref.watch(transferenciaNotificacionesProvider);
+    final notificationCount = !_seenNotificationsLoaded
+        ? 0
+        : asyncNotifications.maybeWhen(
+            data: (items) => _visibleNotificationItems(items, isJefeInventarios)
+                .where(
+                  (item) =>
+                      !_seenNotificationKeys.contains(_notificationKey(item)),
+                )
+                .length,
+            orElse: () => 0,
+          );
     final asyncSucursales = ref.watch(transferenciaSucursalesProvider);
     return Scaffold(
       appBar: AppBar(
@@ -62,9 +85,8 @@ class _TransferenciasPageState extends ConsumerState<TransferenciasPage> {
               icon: const Icon(Icons.add_circle_outline),
               onPressed: _openCreateDialog,
             ),
-          IconButton(
-            tooltip: 'Notificaciones',
-            icon: const Icon(Icons.notifications_none),
+          _NotificationIconButton(
+            count: notificationCount,
             onPressed: _openNotifications,
           ),
           IconButton(
@@ -97,18 +119,19 @@ class _TransferenciasPageState extends ConsumerState<TransferenciasPage> {
                     onSubmitted: (_) => _applyFilters(),
                   ),
                 ),
-                SizedBox(
-                  width: 190,
-                  child: TextField(
-                    controller: _usuarioCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Usuario',
-                      border: OutlineInputBorder(),
-                      isDense: true,
+                if (!hideUsuarioFilter)
+                  SizedBox(
+                    width: 190,
+                    child: TextField(
+                      controller: _usuarioCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Usuario',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      onSubmitted: (_) => _applyFilters(),
                     ),
-                    onSubmitted: (_) => _applyFilters(),
                   ),
-                ),
                 SizedBox(
                   width: 170,
                   child: TextField(
@@ -127,7 +150,7 @@ class _TransferenciasPageState extends ConsumerState<TransferenciasPage> {
                     onTap: _pickFecha,
                   ),
                 ),
-                if (!isJefeInventarios)
+                if (!hideEstatusFilter)
                   SizedBox(
                     width: 170,
                     child: DropdownButtonFormField<String>(
@@ -143,42 +166,43 @@ class _TransferenciasPageState extends ConsumerState<TransferenciasPage> {
                           setState(() => _estatus = value ?? ''),
                     ),
                   ),
-                SizedBox(
-                  width: 150,
-                  child: asyncSucursales.when(
-                    data: (sucs) {
-                      final filterSucs =
-                          sucs
-                              .map((s) => s.trim().toUpperCase())
-                              .where(_filterSucursales.contains)
-                              .toSet()
-                              .toList()
-                            ..sort();
-                      return DropdownButtonFormField<String>(
-                        initialValue: _suc,
-                        isDense: true,
-                        decoration: const InputDecoration(
-                          labelText: 'Sucursal',
-                          border: OutlineInputBorder(),
+                if (!hideSucursalFilter)
+                  SizedBox(
+                    width: 150,
+                    child: asyncSucursales.when(
+                      data: (sucs) {
+                        final filterSucs =
+                            sucs
+                                .map((s) => s.trim().toUpperCase())
+                                .where(_filterSucursales.contains)
+                                .toSet()
+                                .toList()
+                              ..sort();
+                        return DropdownButtonFormField<String>(
+                          initialValue: _suc,
                           isDense: true,
-                        ),
-                        items: [
-                          const DropdownMenuItem(
-                            value: '',
-                            child: Text('Todas'),
+                          decoration: const InputDecoration(
+                            labelText: 'Sucursal',
+                            border: OutlineInputBorder(),
+                            isDense: true,
                           ),
-                          ...filterSucs.map(
-                            (s) => DropdownMenuItem(value: s, child: Text(s)),
-                          ),
-                        ],
-                        onChanged: (value) =>
-                            setState(() => _suc = value ?? ''),
-                      );
-                    },
-                    loading: () => const LinearProgressIndicator(),
-                    error: (_, _) => const Text('Sin sucursales'),
+                          items: [
+                            const DropdownMenuItem(
+                              value: '',
+                              child: Text('Todas'),
+                            ),
+                            ...filterSucs.map(
+                              (s) => DropdownMenuItem(value: s, child: Text(s)),
+                            ),
+                          ],
+                          onChanged: (value) =>
+                              setState(() => _suc = value ?? ''),
+                        );
+                      },
+                      loading: () => const LinearProgressIndicator(),
+                      error: (_, _) => const Text('Sin sucursales'),
+                    ),
                   ),
-                ),
                 FilledButton.icon(
                   onPressed: _applyFilters,
                   icon: const Icon(Icons.search),
@@ -236,19 +260,31 @@ class _TransferenciasPageState extends ConsumerState<TransferenciasPage> {
       DropdownMenuItem(value: 'RECHAZADA', child: Text('Rechazada')),
     ];
     if (!limited) return allItems;
-    const allowed = {'', 'BORRADOR', 'PREPARACION', 'TRANSITO', 'REVISANDO'};
+    const allowed = {
+      '',
+      'BORRADOR',
+      'LIBERADA',
+      'PREPARACION',
+      'TRANSITO',
+      'REVISANDO',
+    };
     return allItems
         .where((item) => allowed.contains(item.value ?? ''))
         .toList();
   }
 
   void _applyFilters() {
+    final auth = ref.read(authControllerProvider);
+    final hideSucursalFilter = auth.roleId == 13008 || auth.roleId == 14008;
+    final hideUsuarioFilter = auth.roleId == 13008 || auth.roleId == 14008;
+    final hideEstatusFilter =
+        auth.roleId == 2 || auth.roleId == 13008 || auth.roleId == 14008;
     final hasVisibleFilter =
         _docCtrl.text.trim().isNotEmpty ||
-        _usuarioCtrl.text.trim().isNotEmpty ||
+        (!hideUsuarioFilter && _usuarioCtrl.text.trim().isNotEmpty) ||
         _fechaCtrl.text.trim().isNotEmpty ||
-        _suc.trim().isNotEmpty ||
-        _estatus.trim().isNotEmpty;
+        (!hideSucursalFilter && _suc.trim().isNotEmpty) ||
+        (!hideEstatusFilter && _estatus.trim().isNotEmpty);
     if (!hasVisibleFilter) {
       setState(() => _hasAppliedFilters = false);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -258,8 +294,11 @@ class _TransferenciasPageState extends ConsumerState<TransferenciasPage> {
     }
     setState(() {
       _doc = _docCtrl.text.trim();
-      _usuario = _usuarioCtrl.text.trim();
+      _usuario = hideUsuarioFilter ? '' : _usuarioCtrl.text.trim();
       _fecha = _fechaCtrl.text.trim();
+      if (hideSucursalFilter) _suc = '';
+      if (hideUsuarioFilter) _usuarioCtrl.clear();
+      if (hideEstatusFilter) _estatus = '';
       _hasAppliedFilters = true;
     });
   }
@@ -295,6 +334,26 @@ class _TransferenciasPageState extends ConsumerState<TransferenciasPage> {
   }
 
   Future<void> _openCreateDialog() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Nueva solicitud'),
+        content: const Text(
+          'Desea crear una nueva solicitud de transferencia?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Continuar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
     final created = await showDialog<TransferenciaDocModel>(
       context: context,
       builder: (_) => const _CreateTransferenciaDialog(),
@@ -304,17 +363,130 @@ class _TransferenciasPageState extends ConsumerState<TransferenciasPage> {
   }
 
   Future<void> _openNotifications() async {
+    ref.invalidate(transferenciaNotificacionesProvider);
+    final items = await ref.read(transferenciaNotificacionesProvider.future);
+    await _markNotificationsSeen(items);
+    if (!mounted) return;
+    final isJefeInventarios = ref.read(authControllerProvider).roleId == 2;
     final selectedDoc = await showDialog<String>(
       context: context,
-      builder: (_) => const _TransferNotificationsDialog(),
+      builder: (_) =>
+          _TransferNotificationsDialog(isJefeInventarios: isJefeInventarios),
     );
     if (selectedDoc == null || !mounted) return;
     context.go('/modulos/transferencias/$selectedDoc');
   }
+
+  void _ensureSeenNotificationsLoaded(String scope) {
+    if (_seenNotificationScope == scope) return;
+    _seenNotificationScope = scope;
+    _seenNotificationsLoaded = false;
+    ref.read(storageProvider).getTransferSeenNotificationKeys(scope).then((
+      keys,
+    ) {
+      if (!mounted || _seenNotificationScope != scope) return;
+      setState(() {
+        _seenNotificationKeys = keys;
+        _seenNotificationsLoaded = true;
+      });
+    });
+  }
+
+  Future<void> _markNotificationsSeen(List<TransferenciaDocModel> items) async {
+    final scope = _seenNotificationScope;
+    if (scope == null) return;
+    final isJefeInventarios = ref.read(authControllerProvider).roleId == 2;
+    final visibleItems = _visibleNotificationItems(items, isJefeInventarios);
+    final nextKeys = {
+      ..._seenNotificationKeys,
+      ...visibleItems.map(_notificationKey),
+    };
+    await ref
+        .read(storageProvider)
+        .saveTransferSeenNotificationKeys(scope, nextKeys);
+    if (!mounted || _seenNotificationScope != scope) return;
+    setState(() {
+      _seenNotificationKeys = nextKeys;
+      _seenNotificationsLoaded = true;
+    });
+  }
+
+  String _notificationSeenScope(dynamic auth) {
+    final user = auth.userId ?? auth.username ?? 'anon';
+    final role = auth.roleId ?? 'sin_rol';
+    final suc = (auth.suc ?? 'sin_suc').toString().trim().toUpperCase();
+    return '$user|$role|$suc';
+  }
+
+  List<TransferenciaDocModel> _visibleNotificationItems(
+    List<TransferenciaDocModel> items,
+    bool isJefeInventarios,
+  ) {
+    if (!isJefeInventarios) return items;
+    return items
+        .where((item) => item.estatus.trim().toUpperCase() == 'PENDIENTE')
+        .toList();
+  }
+
+  String _notificationKey(TransferenciaDocModel item) {
+    return [
+      item.doc.trim(),
+      item.estatus.trim().toUpperCase(),
+      item.sucSal.trim().toUpperCase(),
+      item.sucEnt.trim().toUpperCase(),
+    ].join('|');
+  }
+}
+
+class _NotificationIconButton extends StatelessWidget {
+  const _NotificationIconButton({required this.count, required this.onPressed});
+
+  final int count;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      clipBehavior: Clip.none,
+      alignment: Alignment.center,
+      children: [
+        IconButton(
+          tooltip: 'Notificaciones',
+          icon: const Icon(Icons.notifications_none),
+          onPressed: onPressed,
+        ),
+        if (count > 0)
+          Positioned(
+            right: 6,
+            top: 8,
+            child: Container(
+              constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+              padding: const EdgeInsets.symmetric(horizontal: 5),
+              decoration: BoxDecoration(
+                color: Colors.red.shade700,
+                borderRadius: BorderRadius.circular(9),
+                border: Border.all(color: Colors.white, width: 1.5),
+              ),
+              child: Text(
+                count > 99 ? '99+' : '$count',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
 }
 
 class _TransferNotificationsDialog extends ConsumerWidget {
-  const _TransferNotificationsDialog();
+  const _TransferNotificationsDialog({required this.isJefeInventarios});
+
+  final bool isJefeInventarios;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -323,42 +495,49 @@ class _TransferNotificationsDialog extends ConsumerWidget {
       content: SizedBox(
         width: 560,
         height: 420,
-        child: FutureBuilder<List<TransferenciaDocModel>>(
-          future: ref.read(transferenciaApiProvider).notificaciones(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (snapshot.hasError) {
-              return Center(child: Text(_friendlyError(snapshot.error!)));
-            }
-            final items = snapshot.data ?? const <TransferenciaDocModel>[];
-            if (items.isEmpty) {
-              return const Center(
-                child: Text('Sin transferencias pendientes de seguimiento.'),
-              );
-            }
-            return ListView.separated(
-              itemCount: items.length,
-              separatorBuilder: (_, _) => const Divider(height: 1),
-              itemBuilder: (context, index) {
-                final item = items[index];
-                return ListTile(
-                  leading: Icon(
-                    _notificationIcon(item.estatus),
-                    color: _notificationColor(item.estatus),
-                  ),
-                  title: Text('DOC ${item.doc} | ${item.estatus}'),
-                  subtitle: Text(
-                    '${item.sucSal} -> ${item.sucEnt} | ${_fmtDate(item.fcnd)} | ${item.detalleActivo} artículos',
-                  ),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => Navigator.of(context).pop(item.doc),
+        child: ref
+            .watch(transferenciaNotificacionesProvider)
+            .when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, _) => Center(child: Text(_friendlyError(error))),
+              data: (items) {
+                final visibleItems = isJefeInventarios
+                    ? items
+                          .where(
+                            (item) =>
+                                item.estatus.trim().toUpperCase() ==
+                                'PENDIENTE',
+                          )
+                          .toList()
+                    : items;
+                if (visibleItems.isEmpty) {
+                  return const Center(
+                    child: Text(
+                      'Sin transferencias pendientes de seguimiento.',
+                    ),
+                  );
+                }
+                return ListView.separated(
+                  itemCount: visibleItems.length,
+                  separatorBuilder: (_, _) => const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    final item = visibleItems[index];
+                    return ListTile(
+                      leading: Icon(
+                        _notificationIcon(item.estatus),
+                        color: _notificationColor(item.estatus),
+                      ),
+                      title: Text(_notificationTitle(item)),
+                      subtitle: Text(
+                        '${item.sucSal} -> ${item.sucEnt} | ${_fmtDate(item.fcnd)} | ${item.detalleActivo} artículos',
+                      ),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => Navigator.of(context).pop(item.doc),
+                    );
+                  },
                 );
               },
-            );
-          },
-        ),
+            ),
       ),
       actions: [
         TextButton(
@@ -369,12 +548,28 @@ class _TransferNotificationsDialog extends ConsumerWidget {
     );
   }
 
+  String _notificationTitle(TransferenciaDocModel item) {
+    final estatus = item.estatus.trim().toUpperCase();
+    if (isJefeInventarios && estatus == 'PENDIENTE') {
+      return 'Nueva solicitud de ${item.sucEnt} | DOC ${item.doc}';
+    }
+    if (estatus == 'LIBERADA') {
+      return 'Mercancia por surtir | DOC ${item.doc}';
+    }
+    if (estatus == 'TRANSITO') {
+      return 'Documento en transito | DOC ${item.doc}';
+    }
+    return 'DOC ${item.doc} | ${item.estatus}';
+  }
+
   IconData _notificationIcon(String estatus) {
     switch (estatus.trim().toUpperCase()) {
       case 'INCIDENCIA':
         return Icons.report_problem_outlined;
       case 'PENDIENTE':
         return Icons.rule;
+      case 'LIBERADA':
+        return Icons.inventory_2_outlined;
       case 'TRANSITO':
         return Icons.local_shipping;
       default:
@@ -388,6 +583,8 @@ class _TransferNotificationsDialog extends ConsumerWidget {
         return Colors.red.shade700;
       case 'PENDIENTE':
         return Colors.orange.shade700;
+      case 'LIBERADA':
+        return Colors.purple.shade700;
       case 'TRANSITO':
         return Colors.blue.shade700;
       default:
@@ -433,6 +630,7 @@ class _CreateTransferenciaDialog extends ConsumerStatefulWidget {
 class _CreateTransferenciaDialogState
     extends ConsumerState<_CreateTransferenciaDialog> {
   static const _transferSucursales = {'DF01', 'DF02', 'DF04', 'DF05', 'DF06'};
+  static const _originSucursales = {'DF01', 'DF04', 'DF05', 'DF06'};
 
   final _txtCtrl = TextEditingController();
   String _sucEnt = '';
@@ -473,10 +671,12 @@ class _CreateTransferenciaDialogState
                       ? allowedSucs.first
                       : allTransferSucs.first;
                 }
-                final validOrigenSucs = allTransferSucs
+                final validOrigenSucs = _originSucursales.toList()..sort();
+                final filteredOrigenSucs = validOrigenSucs
                     .where((s) => s != _sucEnt.trim().toUpperCase())
                     .toList();
-                if (_sucSal.isNotEmpty && !validOrigenSucs.contains(_sucSal)) {
+                if (_sucSal.isNotEmpty &&
+                    !filteredOrigenSucs.contains(_sucSal)) {
                   _sucSal = '';
                 }
                 return Row(
@@ -497,7 +697,7 @@ class _CreateTransferenciaDialogState
                       child: _combo(
                         label: 'Sucursal origen',
                         value: _sucSal,
-                        values: validOrigenSucs,
+                        values: filteredOrigenSucs,
                         onChanged: (v) => setState(() => _sucSal = v ?? ''),
                       ),
                     ),

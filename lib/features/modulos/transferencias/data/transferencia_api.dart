@@ -70,6 +70,64 @@ class TransferenciaApi {
         .toList();
   }
 
+  Future<TransferenciaPagedResult<TransferenciaDocModel>> reportes({
+    int page = 1,
+    int limit = 50,
+    String? doc,
+    String? usuario,
+    String? from,
+    String? to,
+    String? suc,
+    String? estatus,
+  }) async {
+    final query = <String, dynamic>{'page': page, 'limit': limit};
+    if ((doc ?? '').trim().isNotEmpty) query['doc'] = doc!.trim();
+    if ((usuario ?? '').trim().isNotEmpty) {
+      query['usuario'] = usuario!.trim();
+    }
+    if ((from ?? '').trim().isNotEmpty) query['from'] = from!.trim();
+    if ((to ?? '').trim().isNotEmpty) query['to'] = to!.trim();
+    if ((suc ?? '').trim().isNotEmpty) query['suc'] = suc!.trim();
+    if ((estatus ?? '').trim().isNotEmpty) query['estatus'] = estatus!.trim();
+    final res = await dio.get(
+      '/transferencias/reportes',
+      queryParameters: query,
+    );
+    final data = res.data;
+    if (data is! Map) {
+      return TransferenciaPagedResult(
+        items: const [],
+        total: 0,
+        page: page,
+        limit: limit,
+      );
+    }
+    final map = Map<String, dynamic>.from(data);
+    final raw = map['items'];
+    final items = raw is List
+        ? raw
+              .map(
+                (row) => TransferenciaDocModel.fromJson(
+                  Map<String, dynamic>.from(row as Map),
+                ),
+              )
+              .toList()
+        : <TransferenciaDocModel>[];
+    return TransferenciaPagedResult(
+      items: items,
+      total: _toInt(map['total']),
+      page: _toInt(map['page']),
+      limit: _toInt(map['limit']),
+    );
+  }
+
+  Future<TransferenciaDocModel> reporteDetalle(String doc) async {
+    final res = await dio.get('/transferencias/reportes/$doc');
+    return TransferenciaDocModel.fromJson(
+      Map<String, dynamic>.from(res.data as Map),
+    );
+  }
+
   Future<TransferenciaDocModel> fetchOne(String doc) async {
     final res = await dio.get('/transferencias/$doc');
     return TransferenciaDocModel.fromJson(
@@ -118,18 +176,39 @@ class TransferenciaApi {
     );
   }
 
+  Future<TransferenciaDocModel> addDetalleBulk(
+    String doc, {
+    required List<Map<String, dynamic>> items,
+  }) async {
+    final res = await dio.post(
+      '/transferencias/$doc/detalle/bulk',
+      data: {'items': items},
+      options: Options(
+        sendTimeout: const Duration(minutes: 10),
+        receiveTimeout: const Duration(minutes: 10),
+      ),
+    );
+    return TransferenciaDocModel.fromJson(
+      Map<String, dynamic>.from(res.data as Map),
+    );
+  }
+
   Future<TransferenciaDocModel> updateDetalle(
     String doc,
     String idpd, {
     double? ctd,
     double? ctdLib,
     double? ctdR,
+    String? estatusR,
     String? txt,
   }) async {
     final payload = <String, dynamic>{};
     if (ctd != null) payload['ctd'] = ctd;
     if (ctdLib != null) payload['ctdLib'] = ctdLib;
     if (ctdR != null) payload['ctdR'] = ctdR;
+    if ((estatusR ?? '').trim().isNotEmpty) {
+      payload['estatusR'] = estatusR!.trim();
+    }
     if ((txt ?? '').trim().isNotEmpty) payload['txt'] = txt!.trim();
     final res = await dio.patch(
       '/transferencias/$doc/detalle/$idpd',
@@ -142,6 +221,41 @@ class TransferenciaApi {
 
   Future<TransferenciaDocModel> removeDetalle(String doc, String idpd) async {
     final res = await dio.delete('/transferencias/$doc/detalle/$idpd');
+    return TransferenciaDocModel.fromJson(
+      Map<String, dynamic>.from(res.data as Map),
+    );
+  }
+
+  Future<TransferenciaDocModel> addEvidencia(
+    String doc,
+    String idpd, {
+    required String imgEvi,
+    String? tipo,
+  }) async {
+    final res = await dio.post(
+      '/transferencias/$doc/detalle/$idpd/evidencia',
+      data: {
+        'imgEvi': imgEvi,
+        if ((tipo ?? '').trim().isNotEmpty) 'tipo': tipo!.trim(),
+      },
+    );
+    return TransferenciaDocModel.fromJson(
+      Map<String, dynamic>.from(res.data as Map),
+    );
+  }
+
+  Future<TransferenciaDocModel> addDocumentoEvidencia(
+    String doc, {
+    required String imgEvi,
+    String? tipo,
+  }) async {
+    final res = await dio.post(
+      '/transferencias/$doc/evidencia',
+      data: {
+        'imgEvi': imgEvi,
+        if ((tipo ?? '').trim().isNotEmpty) 'tipo': tipo!.trim(),
+      },
+    );
     return TransferenciaDocModel.fromJson(
       Map<String, dynamic>.from(res.data as Map),
     );
