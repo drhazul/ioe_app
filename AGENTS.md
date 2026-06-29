@@ -104,4 +104,5 @@
 - Cada cambio funcional debe reflejarse en el README/AGENTS principal y en los README/AGENTS del módulo afectado (app y API) en el mismo trabajo.
 - Cambio material / Merma (2026-04-22): la nueva ORD derivada debe quedar sin colaborador asignado y la UI/PDF deben mostrar la diferencia contable real basada en `CTD_C_M`/importe sellado, no la diferencia por `CTD` completa.
 - Punto de venta / Cambio forma de pago REQF (2026-06-18): al cambiar forma de pago, si el folio tiene `REQF=1` y `AUT=VF`, backend re-sincroniza `FAC_SVR_SHAP/FACT_TICKET_SHP` vía `sp_fact_sync_folio_vf`; la UI muestra trazabilidad `facturacionSync` en el snack de confirmación.
+- Punto de venta / Cambio forma de pago (2026-06-26): el panel muestra filtros admin de `Sucursal` y `OPV` en cascada; backend acepta `suc/opv` en `GET /formas-pago/cambios/today` para admin y permite actualizar filas fuera del `OPVM` del usuario solo bajo contexto admin + supervisor `SUPERPV`.
 - Punto de venta / Caja General - Entrega OPV (2026-06-18): la vista de entrega deshabilita refresco mientras carga para evitar consultas simultáneas al sync de OPV.

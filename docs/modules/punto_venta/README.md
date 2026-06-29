@@ -69,8 +69,9 @@ Enlaces relacionados:
 - `lib/features/modulos/cambio_forma_pago/cambio_forma_pago_providers.dart`
 - Regla funcional:
 - el cambio de forma sigue requiriendo supervisor `SUPERPV`.
-- si el folio tiene `REQF=1` y `AUT=VF`, backend re-sincroniza `FAC_SVR_SHAP/FACT_TICKET_SHP` con `sp_fact_sync_folio_vf`.
+- si el folio tiene `REQF=1` y `AUT=VF`, backend re-sincroniza `FAC_SVR_SHAP/FACT_TICKET_SHP` con `sp_fact_sync_folio_vf`; si el primer intento no aplica, reintenta con `FORCE=1`.
 - la UI muestra trazabilidad `facturacionSync` en el aviso de confirmación.
+- para admin, el panel agrega filtros en cascada `Sucursal` -> `OPV`; la consulta diaria acepta `suc/opv` y solo ese contexto puede operar filas de otras sucursales/OPV junto con `SUPERPV`.
 
 ## Pago de Servicios (nuevo flujo 2026-03)
 - Rutas:

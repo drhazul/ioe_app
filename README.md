@@ -108,7 +108,7 @@ Frontend Flutter del ecosistema IOE. Consume `ioe-api` para autenticación, maes
 - La pantalla de login dispara `GET /health` durante el bootstrap de conectividad.
 - Al presionar `Entrar`, la pantalla de login dispara `POST /auth/login`.
 
-- Punto de venta / Cambio forma de pago REQF (2026-06-18): al cambiar forma de pago, si el `IDFOL` tiene `REQF=1` y `AUT=VF`, backend re-sincroniza `FAC_SVR_SHAP/FACT_TICKET_SHP` vía `sp_fact_sync_folio_vf`; frontend muestra trazabilidad `facturacionSync` en el aviso.
+- Punto de venta / Cambio forma de pago REQF (2026-06-18): al cambiar forma de pago, si el `IDFOL` tiene `REQF=1` y `AUT=VF`, backend re-sincroniza `FAC_SVR_SHAP/FACT_TICKET_SHP` vía `sp_fact_sync_folio_vf`; si el primer intento no aplica, reintenta con `FORCE=1`; frontend muestra trazabilidad `facturacionSync` en el aviso.
 
 ## Documentacion viva
 - Mantén este índice y los README/AGENTS de módulo actualizados cuando cambien flujos o contratos.
