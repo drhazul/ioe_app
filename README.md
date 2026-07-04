@@ -85,6 +85,7 @@ Frontend Flutter del ecosistema IOE. Consume `ioe-api` para autenticación, maes
 - Punto de venta: `docs/modules/punto_venta/README.md` (instrucciones: `docs/modules/punto_venta/AGENTS.md`)
 - Ordenes de trabajo: `docs/modules/ordenes_trabajo/README.md` (instrucciones: `docs/modules/ordenes_trabajo/AGENTS.md`)
 - Reloj checador: `docs/modules/reloj_checador/README.md` (instrucciones: `docs/modules/reloj_checador/AGENTS.md`)
+- Inventarios: `docs/modules/inventarios/README.md` (instrucciones: `docs/modules/inventarios/AGENTS.md`)
 
 ## Tecnologias
 - Flutter / Dart

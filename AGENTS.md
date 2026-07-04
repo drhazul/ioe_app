@@ -75,6 +75,7 @@
 - Punto de venta: `docs/modules/punto_venta/AGENTS.md` (README: `docs/modules/punto_venta/README.md`)
 - Ordenes de trabajo: `docs/modules/ordenes_trabajo/AGENTS.md` (README: `docs/modules/ordenes_trabajo/README.md`)
 - Reloj checador: `docs/modules/reloj_checador/AGENTS.md` (README: `docs/modules/reloj_checador/README.md`)
+- Inventarios: `docs/modules/inventarios/AGENTS.md` (README: `docs/modules/inventarios/README.md`)
 
 ## Reglas estrictas
 - Regla principal de nuevos módulos: para cualquier módulo nuevo, backend debe respetar regla legacy de acceso (`admin` acceso total; resto de usuarios solo por sucursal autorizada según `USUARIO.SUC` y/o `USR_MOD_SUC`). Frontend debe consumir rutas/endpoints del módulo bajo esa regla y enviar contexto de sucursal cuando aplique.
