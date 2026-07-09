@@ -13,6 +13,8 @@ class CreateOrdFromQuoteLineRequest {
     this.fechaEntrega,
     this.comad,
     this.ordExistente,
+    this.ticketRel,
+    this.relationAuthorizationToken,
   });
 
   final String idfol;
@@ -28,22 +30,52 @@ class CreateOrdFromQuoteLineRequest {
   final DateTime? fechaEntrega;
   final String? comad;
   final String? ordExistente;
+  final String? ticketRel;
+  final String? relationAuthorizationToken;
 
   Map<String, dynamic> toJson() => {
-        'idfol': idfol,
-        'ticketId': ticketId,
-        'art': art,
-        'descArt': descArt,
-        'ctd': ctd,
-        'clien': clien,
-        'estado': estado,
-        'tipo': tipo,
-        'suc': suc,
-        'opv': opv,
-        'fechaEntrega': fechaEntrega?.toIso8601String(),
-        'comad': comad,
-        'ordExistente': ordExistente,
-      };
+    'idfol': idfol,
+    'ticketId': ticketId,
+    'art': art,
+    'descArt': descArt,
+    'ctd': ctd,
+    'clien': clien,
+    'estado': estado,
+    'tipo': tipo,
+    'suc': suc,
+    'opv': opv,
+    'fechaEntrega': fechaEntrega?.toIso8601String(),
+    'comad': comad,
+    'ordExistente': ordExistente,
+    'ticketRel': ticketRel,
+    'relationAuthorizationToken': relationAuthorizationToken,
+  };
+}
+
+class NewOrdRelationAuthorization {
+  NewOrdRelationAuthorization({
+    required this.authorized,
+    required this.authorizationToken,
+    required this.supervisorUserId,
+    this.username,
+    this.roleCode,
+  });
+
+  final bool authorized;
+  final String authorizationToken;
+  final String supervisorUserId;
+  final String? username;
+  final String? roleCode;
+
+  factory NewOrdRelationAuthorization.fromJson(Map<String, dynamic> json) {
+    return NewOrdRelationAuthorization(
+      authorized: json['authorized'] == true,
+      authorizationToken: _asString(json['authorizationToken']) ?? '',
+      supervisorUserId: _asString(json['supervisorUserId']) ?? '',
+      username: _asString(json['username']),
+      roleCode: _asString(json['roleCode']),
+    );
+  }
 }
 
 class CreateOrdFromQuoteLineResponse {
@@ -137,6 +169,9 @@ class NewOrdDialogResult {
     required this.descArt,
     required this.fechaEntrega,
     required this.comad,
+    this.ticketRel,
+    this.relationAuthorizationToken,
+    this.successMessage,
   });
 
   final NewOrdDialogAction action;
@@ -144,6 +179,9 @@ class NewOrdDialogResult {
   final String descArt;
   final DateTime? fechaEntrega;
   final String? comad;
+  final String? ticketRel;
+  final String? relationAuthorizationToken;
+  final String? successMessage;
 }
 
 class DeleteOrdFromQuoteLineRequest {
@@ -160,11 +198,11 @@ class DeleteOrdFromQuoteLineRequest {
   final String? art;
 
   Map<String, dynamic> toJson() => {
-        'iord': iord,
-        'ticketId': ticketId,
-        'idfol': idfol,
-        'art': art,
-      };
+    'iord': iord,
+    'ticketId': ticketId,
+    'idfol': idfol,
+    'art': art,
+  };
 }
 
 class DeleteOrdFromQuoteLineResponse {
@@ -187,9 +225,12 @@ class DeleteOrdFromQuoteLineResponse {
   }
 }
 
+String? _asString(dynamic value) {
+  if (value == null) return null;
+  final text = value.toString().trim();
+  return text.isEmpty ? null : text;
+}
+
 const String kOrdTipoTallado = 'TALLADO';
 const String kOrdTipoBiselado = 'BISELADO';
-const List<String> kOrdTipos = <String>[
-  kOrdTipoTallado,
-  kOrdTipoBiselado,
-];
+const List<String> kOrdTipos = <String>[kOrdTipoTallado, kOrdTipoBiselado];

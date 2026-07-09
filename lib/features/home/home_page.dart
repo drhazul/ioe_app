@@ -632,7 +632,7 @@ class _ModuleRow extends StatelessWidget {
       return '/modulos/transferencias-reportes';
     }
     if (name.contains('transferencia') ||
-        name.contains('traspaso') && name.contains('sucursal')) {
+        (name.contains('traspaso') && name.contains('sucursal'))) {
       return '/modulos/transferencias';
     }
     if (name.contains('orden') &&

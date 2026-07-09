@@ -92,8 +92,8 @@ Enlaces relacionados:
 - Facturación prevención CFDI40108 (2026-03-23): el modal de validación muestra estado `Subtotal SAT` y, cuando backend reporta `requiereAjusteSubtotalSat`, informa que en `emitir` se aplica ajuste de redondeo SAT para evitar error de timbrado en folios `PENDIENTE`.
 - Facturación filtro por error (2026-03-27): la pantalla respeta el valor seleccionado en `ESTATUS` y permite consultar `PENDIENTE`, `CANCELACION PENDIENTE`, `FACTURADO`, `FACTURADO Y CANCELACION PENDIENTE` y `CON ERROR` contra `GET /facturacion/pendientes`.
 - Facturación nomenclatura CFDI (2026-03-27): el backend controla la visual `RFC4-00001`; Facturify recibe `serie=RFC4` y `folio` entero puro, por lo que la app no recompone año/mes/día ni reinicia consecutivo localmente.
-- Facturación paginación (2026-03-31): el panel de pendientes/consulta carga 60 registros por página por defecto para reducir navegación.
-- Facturación selección por IDFOL (2026-04-01): el panel de pendientes agrega botón `Cargar IDFOL` para capturar folios manualmente o cargar un Excel (una sola columna). Tras validar la lista, `SELECCIONAR relacionados` marca únicamente los folios en ESTATUS `PENDIENTE` visibles en la página actual.
+- Facturación paginación (2026-03-31, actualizado 2026-06-29): el panel de pendientes/consulta carga 150 registros por página por defecto, alineado al límite backend de `/facturacion/pendientes`.
+- Facturación selección por IDFOL (2026-04-01, actualizado 2026-06-29): el panel de pendientes agrega botón `Cargar IDFOL` para capturar folios manualmente o cargar un Excel (una sola columna). Tras validar hasta 500 folios, `SELECCIONAR relacionados` filtra la tabla a todos los folios `PENDIENTE` encontrados mediante `POST /facturacion/pendientes/idfols`, sin limitarse a la página visible.
 - Facturación unificación sucursal JWT (2026-03-16): backend dejó de forzar `user.suc` en `preview/create` de unificación para usuarios con permisos de gestión (`FACTURA`/compat), evitando bloqueos falsos de "folios fuera de la sucursal autorizada".
 - REQF sin facturar (2026-03-16): la pantalla `/facturacion-sreqf` (módulo `REG_SINREQF`) consulta `GET /facturacion/reqf/folios`; backend aplica alcance no-admin por `USR_MOD_SUC` y frontend no fija `SUC` inicial por JWT para permitir ver todas las sucursales autorizadas.
 - Panel clientes UI (2026-03): en alta de cliente, el modal usa valores predeterminados `SELECCIONAR` para `RfcEmisor`/`RegimenFiscalReceptor`/`UsoCfdi` (en payload `RegimenFiscalReceptor=0` por tipo numérico) y `COLOCAR` para `EmailReceptor`; incluye botón `CANCELAR` y, después de `Guardar registro`, cierra el modal y refresca la consulta del panel.
@@ -108,7 +108,7 @@ Enlaces relacionados:
 - `/ordenes-trabajo/*` -> `PV_CTR_ORDS`, `PV_CTR_ORDS_DET`, `DAT_EST_ORD`, `DAT_MB51`, `DAT_CTRL_CTAS`.
 - `/refdetalle` -> `REF_DETALLE`.
 - `/pv/refdetalle` -> `REF_DETALLE` (crear/asignar/eliminar referencias ligadas al folio).
-- `/dat-form` -> `DAT_FORM` (CRUD de catalogo de formas de pago con estado activo/inactivo).
+- `/dat-form` -> `DAT_FORM` (CRUD de catalogo de formas de pago con estado activo/inactivo; `ASPEL` resuelve `FormaPagoSAT` y `TARJETA CREDITO` usa `04`).
 - `/ord-flujo-vis` -> `DAT_JAO_ORD_FLUJO_VIS` (CRUD de visualización por ROLL en ORD, filtros por `ROLL`/`ESTSEGU`, combos `ROL`/`DAT_EST_ORD`, `MODULO` bloqueado y `ORDEN` automático).
 - `/jrqdepa|jrqsubd|jrqclas|jrqscla|jrqscla2|jrqguia` ->
   `JRQ_DEPA`, `JRQ_SUBD`, `JRQ_CLAS`, `JRQ_SCLA`, `JRQ_SCLA2`, `JRQ_GUIA`.

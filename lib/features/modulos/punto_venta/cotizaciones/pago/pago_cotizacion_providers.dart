@@ -130,6 +130,10 @@ class PagoCotizacionController extends StateNotifier<PagoCotizacionState> {
         rqfac: effectiveRqfac,
         suc: context.suc,
       );
+      final shouldHydratePersistedForms = _isEstadoPagado(preview.context.esta);
+      final persistedForms = shouldHydratePersistedForms
+          ? await _loadPersistedForms(preview.context.idfol)
+          : const <PagoCierreFormaDraft>[];
 
       state = state.copyWith(
         loading: false,
@@ -138,6 +142,7 @@ class PagoCotizacionController extends StateNotifier<PagoCotizacionState> {
         tipotran: normalizedTipo,
         rqfac: preview.totales.rqfac,
         totales: preview.totales,
+        formas: persistedForms,
         error: null,
       );
     } catch (e) {
@@ -208,7 +213,7 @@ class PagoCotizacionController extends StateNotifier<PagoCotizacionState> {
 
   void addForma({required String form, required double impp, String? aut}) {
     final normalizedForm = form.trim().toUpperCase();
-    final creditoError = _validateCreditoCombination(
+    final creditoError = _validateCreditoDeudorCombination(
       form: normalizedForm,
       existing: state.formas,
     );
@@ -256,7 +261,7 @@ class PagoCotizacionController extends StateNotifier<PagoCotizacionState> {
   }) {
     final normalizedForm = form.trim().toUpperCase();
     final otrasFormas = state.formas.where((item) => item.id != id).toList();
-    final creditoError = _validateCreditoCombination(
+    final creditoError = _validateCreditoDeudorCombination(
       form: normalizedForm,
       existing: otrasFormas,
     );
@@ -315,15 +320,22 @@ class PagoCotizacionController extends StateNotifier<PagoCotizacionState> {
     if (state.totales == null || state.context == null) {
       throw Exception('No se pudo cargar el contexto de cierre');
     }
-    if (state.formas.isEmpty) {
+    final total = state.totales!.total;
+    if (state.formas.isEmpty && total > 0) {
       throw Exception('Debe agregar al menos una forma de pago');
     }
-    final creditoCount = state.formas.where((item) => _isCredito(item.form)).length;
-    if (creditoCount > 0 && state.formas.length > 1) {
-      throw Exception('La forma CREDITO no se puede combinar con otras formas de pago');
+    final creditoDeudorCount = state.formas
+        .where((item) => _isCreditoODeudor(item.form))
+        .length;
+    if (creditoDeudorCount > 0 && state.formas.length > 1) {
+      throw Exception(
+        'Las formas CREDITO y DEUDOR no se pueden combinar con otras formas de pago',
+      );
     }
-    if (creditoCount > 1) {
-      throw Exception('La forma CREDITO solo puede registrarse una vez');
+    if (creditoDeudorCount > 1) {
+      throw Exception(
+        'Las formas CREDITO/DEUDOR solo pueden registrarse una vez',
+      );
     }
 
     state = state.copyWith(submitting: true, error: null);
@@ -389,25 +401,52 @@ class PagoCotizacionController extends StateNotifier<PagoCotizacionState> {
     }
   }
 
+  Future<List<PagoCierreFormaDraft>> _loadPersistedForms(String idfol) async {
+    try {
+      final preview = await _api.fetchPrintPreview(idfol);
+      return preview.formas
+          .map(
+            (item) => PagoCierreFormaDraft(
+              id: item.idf.trim().isNotEmpty ? item.idf.trim() : _nextId(),
+              form: item.form,
+              impp: _round2(item.impp),
+              aut: item.aut?.trim().isEmpty ?? true ? null : item.aut!.trim(),
+            ),
+          )
+          .toList();
+    } catch (_) {
+      return const <PagoCierreFormaDraft>[];
+    }
+  }
+
   String _normalizeTipoTran(String value) {
     final text = value.trim().toUpperCase();
     return text == 'CA' ? 'CA' : 'VF';
   }
 
-  String? _validateCreditoCombination({
+  bool _isEstadoPagado(String? value) {
+    final estado = (value ?? '').trim().toUpperCase();
+    return estado == 'PAGADO' ||
+        estado == 'MB51PROCES' ||
+        estado == 'TRANSMITIR';
+  }
+
+  String? _validateCreditoDeudorCombination({
     required String form,
     required List<PagoCierreFormaDraft> existing,
   }) {
     final normalized = form.trim().toUpperCase();
-    if (_isCredito(normalized)) {
+    if (_isCreditoODeudor(normalized)) {
       if (existing.isNotEmpty) {
-        return 'La forma CREDITO no se puede combinar con otras formas de pago';
+        return 'Las formas CREDITO y DEUDOR no se pueden combinar con otras formas de pago';
       }
       return null;
     }
-    final hasCredito = existing.any((item) => _isCredito(item.form));
-    if (hasCredito) {
-      return 'La forma CREDITO no se puede combinar con otras formas de pago';
+    final hasCreditoDeudor = existing.any(
+      (item) => _isCreditoODeudor(item.form),
+    );
+    if (hasCreditoDeudor) {
+      return 'Las formas CREDITO y DEUDOR no se pueden combinar con otras formas de pago';
     }
     return null;
   }
@@ -425,4 +464,7 @@ double _round2(double value) =>
 
 String _money(double value) => '\$${value.toStringAsFixed(2)}';
 
-bool _isCredito(String form) => form.trim().toUpperCase() == 'CREDITO';
+bool _isCreditoODeudor(String form) {
+  final normalized = form.trim().toUpperCase();
+  return normalized == 'CREDITO' || normalized == 'DEUDOR';
+}

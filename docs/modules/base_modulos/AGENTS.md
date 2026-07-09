@@ -76,8 +76,8 @@ Enlaces relacionados:
 - Facturación prevención CFDI40108 (2026-03-23): la UI muestra badge `Subtotal SAT` en validación y, cuando backend indica `requiereAjusteSubtotalSat`, presenta aviso de ajuste automático en `emitir` para prevenir errores SAT en folios `PENDIENTE`.
 - Facturación filtro por error (2026-03-27): el combo `ESTATUS` del panel ya no se fija a `PENDIENTE`; la UI puede enviar `PENDIENTE`, `CANCELACION PENDIENTE`, `FACTURADO`, `FACTURADO Y CANCELACION PENDIENTE` y `CON ERROR` a `GET /facturacion/pendientes`.
 - Facturación nomenclatura CFDI (2026-03-27): la emisión usa control backend con visual `RFC4-00001`; Facturify recibe `serie=RFC4` y `folio` entero puro, por lo que la UI solo refleja el resultado del backend y no debe recomponer fecha ni consecutivo diario localmente.
-- Facturación paginación (2026-03-31): el panel de pendientes/consulta carga 60 registros por página por defecto para reducir navegación.
-- Facturación selección por IDFOL (2026-04-01): el panel agrega botón `Cargar IDFOL` para capturar folios manualmente o cargar un Excel (columna única) y, tras validar, `SELECCIONAR relacionados` marca solo folios en ESTATUS `PENDIENTE` visibles en la tabla.
+- Facturación paginación (2026-03-31, actualizado 2026-06-29): el panel de pendientes/consulta carga 150 registros por página por defecto, alineado al límite backend de `/facturacion/pendientes`.
+- Facturación selección por IDFOL (2026-04-01, actualizado 2026-06-29): el panel agrega botón `Cargar IDFOL` para capturar folios manualmente o cargar un Excel (columna única) y, tras validar hasta 500 folios, `SELECCIONAR relacionados` filtra la tabla a todos los folios `PENDIENTE` encontrados con `POST /facturacion/pendientes/idfols`, sin limitarse a la página visible.
 - Facturación unificación sucursal JWT (2026-03-16): backend no fuerza `user.suc` en `preview/create` de unificación para usuarios con permisos de gestión (`FACTURA`/compat), evitando bloqueos falsos de "folios fuera de la sucursal autorizada".
 - REQF sin facturar (2026-03-16): la ruta `/facturacion-sreqf` (módulo `REG_SINREQF`) consulta `GET /facturacion/reqf/folios`; backend delimita sucursales no-admin por `USR_MOD_SUC` y la UI no debe forzar `SUC` inicial desde JWT.
 - Panel clientes UI (2026-03): en alta de cliente, el modal predetermina `RfcEmisor`/`RegimenFiscalReceptor`/`UsoCfdi` con `SELECCIONAR` (en payload `RegimenFiscalReceptor=0` por tipo numérico) y `EmailReceptor` con `COLOCAR`; agrega botón `CANCELAR` y, al guardar, cierra el modal y recarga el panel.
@@ -97,7 +97,7 @@ Enlaces relacionados:
 - PS cálculo de adeudo (2026-03-03): backend consolida `DAT_CTRL_CTAS` por `IDFOL/NDOC + RELACION` al validar referencia y `PVTA`, evitando falsos rechazos cuando el mismo folio tiene cargos y abonos.
 - PS regla AD/AP/CR (2026-03-03): backend bloquea `PVTA` por línea cuando supera la deuda del folio referenciado y valida consumo acumulado por `ORD` considerando todas las líneas `AD/AP/CR`.
 - PS pago UI (2026-03): en `/ps/:idFol/pago` el alta de forma se captura en modal emergente desde el bloque `Formas de pago`; las formas quedan en appstate local y no se insertan en DB hasta finalizar.
-- PS pago UI (2026-03): el modal de alta de forma toma catálogo desde `DAT_FORM` y aplica reglas de referencia igual a cotizaciones (`TARJETA/CHEQUE/TRANSFERENCIA/DEPOSITO 3RO`).
+- PS pago UI (2026-03): el modal de alta de forma toma catálogo desde `DAT_FORM` y aplica reglas de referencia igual a cotizaciones (`TARJETA/TARJETA CREDITO/CHEQUE/TRANSFERENCIA/DEPOSITO 3RO`).
 - PS pago backend (2026-03): `POST /ps/folios/:idFol/finalizar` persiste formas en `PV_CTR_FOL_FORM` (`IMPP/IMPC/IMPD/AUT`) y registra movimientos contables en `DAT_CTRL_CTAS`; al finalizar fija `ESTA='PAGADO'`.
 - PS pago UI (2026-03): el modal de formas de pago excluye `CREDITO` y `DEUDOR`.
 - PS pago UI (2026-03): para formas no `EFECTIVO`, `Autorización / referencia` se muestra en solo lectura y se asigna reutilizando `ref_detalle_page.dart` de cotizaciones.
@@ -108,7 +108,7 @@ Enlaces relacionados:
 - Ordenes de trabajo detalle/roles (2026-03-30): el campo `TIPO` (`TALLADO`/`BISELADO`) se muestra antes de `Laboratorio` y comparte visibilidad restringida con `Imprimir etiqueta` para `admin`, `JEF_TALLER`, `ANALISTA_ORD` y `ANALISTA`.
 - Referencias `/refdetalle` -> `REF_DETALLE`.
 - Referencias PV `/pv/refdetalle` -> `REF_DETALLE` (crear/asignar/eliminar por `IDFOL`).
-- Catalogo formas `/dat-form` -> `DAT_FORM` (`IDFORM`, `ASPEL`, `FORM`, `NOM`, `ESTADO`).
+- Catalogo formas `/dat-form` -> `DAT_FORM` (`IDFORM`, `ASPEL`, `FORM`, `NOM`, `ESTADO`); `ASPEL` alimenta `FormaPagoSAT` y `TARJETA CREDITO` debe resolverse como `04`.
 - Mantenimiento maestro DAT_FORM (UI) -> rutas `/masterdata/dat-form`, `/masterdata/dat-form/new`, `/masterdata/dat-form/:id`.
 - Visualización por ROLL en ORD (UI) -> rutas `/masterdata/ord-flujo-vis`, `/masterdata/ord-flujo-vis/new`, `/masterdata/ord-flujo-vis/:id`.
 - Visualización por ROLL en ORD (API) -> `/ord-flujo-vis` + `/ord-flujo-vis/catalogos` sobre `DAT_JAO_ORD_FLUJO_VIS`, `ROL` y `DAT_EST_ORD`; UI filtra por `ROLL`/`ESTSEGU`, bloquea `MODULO` y calcula `ORDEN` automático.

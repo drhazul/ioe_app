@@ -424,20 +424,29 @@ class _OrdenesTrabajoActionPageState
 
   Future<OrdenTrabajoEnviarRelacionItem> _validateOrd(String code) {
     final api = ref.read(ordenesTrabajoApiProvider);
+    final requestedSuc = _resolveRequestedSucForOps();
     switch (widget.action) {
       case OrdenesTrabajoInitialAction.enviar:
-        return api.validarOrdEnviar(code);
+        return api.validarOrdEnviar(code, suc: requestedSuc);
       case OrdenesTrabajoInitialAction.asignar:
-        return api.validarOrdAsignar(code);
+        return api.validarOrdAsignar(code, suc: requestedSuc);
       case OrdenesTrabajoInitialAction.trabajoTerminado:
-        return api.validarOrdTrabajoTerminado(code);
+        return api.validarOrdTrabajoTerminado(code, suc: requestedSuc);
       case OrdenesTrabajoInitialAction.regresarTienda:
-        return api.validarOrdRegresarTienda(code);
+        return api.validarOrdRegresarTienda(code, suc: requestedSuc);
       case OrdenesTrabajoInitialAction.recibir:
-        return api.validarOrdRecibir(code);
+        return api.validarOrdRecibir(code, suc: requestedSuc);
       case OrdenesTrabajoInitialAction.entregar:
-        return api.validarOrdEntregar(code);
+        return api.validarOrdEntregar(code, suc: requestedSuc);
     }
+  }
+
+  String? _resolveRequestedSucForOps() {
+    for (final row in _relaciones) {
+      final suc = row.suc.trim().toUpperCase();
+      if (suc.isNotEmpty) return suc;
+    }
+    return null;
   }
 
   Future<void> _loadCollaborators(String suc) async {
@@ -562,49 +571,43 @@ class _OrdenesTrabajoActionPageState
               '${iords.length} ORD${iords.length == 1 ? '' : 's'} recibida${iords.length == 1 ? '' : 's'} correctamente.',
         );
       case OrdenesTrabajoInitialAction.entregar:
-        return _executeEntregaIndividual();
+        return _executeEntregaBatch();
     }
   }
 
-  Future<String> _executeEntregaIndividual() async {
+  Future<String> _executeEntregaBatch() async {
     final api = ref.read(ordenesTrabajoApiProvider);
-    final total = _relaciones.length;
     final observaciones = _observacionesCtrl.text.trim();
     final firmaCliente = await _exportSignatureBase64();
-    var processed = 0;
-    String lastMessage = '';
+    final iords = _relaciones
+        .map((item) => item.iord.trim())
+        .where((item) => item.isNotEmpty)
+        .toList(growable: false);
+    if (iords.isEmpty) {
+      throw _PageActionException(
+        'No hay ORDs relacionadas para entregar a cliente.',
+      );
+    }
 
-    while (_relaciones.isNotEmpty) {
-      final current = _relaciones.first;
-      try {
-        final result = await api.entregar(
-          current.iord,
-          observaciones: observaciones.isEmpty ? null : observaciones,
-          firmaCliente: firmaCliente,
-        );
-        processed++;
-        lastMessage = result.message;
-        if (!mounted) break;
+    String lastMessage = '';
+    try {
+      final result = await api.entregarLoteConFirma(
+        iords,
+        observaciones: observaciones.isEmpty ? null : observaciones,
+        firmaCliente: firmaCliente,
+      );
+      lastMessage = result.message;
+      if (mounted) {
         setState(() {
-          _relaciones = _relaciones
-              .where(
-                (item) =>
-                    _normalizeOrd(item.iord) != _normalizeOrd(current.iord),
-              )
-              .toList(growable: false);
+          _relaciones = const <OrdenTrabajoEnviarRelacionItem>[];
         });
-      } catch (e) {
-        final fallback = apiErrorMessage(
-          e,
-          fallback: widget.action.executeFallbackError,
-        );
-        if (processed > 0) {
-          throw _PageActionException(
-            'Se entregaron $processed de $total ORDs antes del error. $fallback',
-          );
-        }
-        throw _PageActionException(fallback);
       }
+    } catch (e) {
+      final fallback = apiErrorMessage(
+        e,
+        fallback: widget.action.executeFallbackError,
+      );
+      throw _PageActionException(fallback);
     }
 
     _observacionesCtrl.clear();
@@ -612,7 +615,7 @@ class _OrdenesTrabajoActionPageState
     return _resolveSuccessMessage(
       lastMessage,
       fallback:
-          '$total ORD${total == 1 ? '' : 's'} entregada${total == 1 ? '' : 's'} correctamente.',
+          '${iords.length} ORD${iords.length == 1 ? '' : 's'} entregada${iords.length == 1 ? '' : 's'} correctamente.',
     );
   }
 
@@ -840,7 +843,7 @@ extension on OrdenesTrabajoInitialAction {
       case OrdenesTrabajoInitialAction.trabajoTerminado:
         return 'Captura o escanea una ORD para validarla en estatus 8 (ASIGNADA) y relacionarla para trabajo terminado.';
       case OrdenesTrabajoInitialAction.regresarTienda:
-        return 'Captura o escanea una ORD para validarla en estatus 9 (TRABAJO TERMINADO) y recibirla en tienda. Mapeo: TIPOM=1 -> 9.1, TIPOM=2 -> 9.2.';
+        return 'Captura o escanea una ORD para validarla en estatus 9 (TRABAJO TERMINADO) y recibirla en tienda. Mapeo: TIPOM=1 -> 9.1, TIPOM=2 -> 9.2; ORDs derivadas o sin incidencia -> 10.';
       case OrdenesTrabajoInitialAction.recibir:
         return 'Captura o escanea una ORD para validarla en estatus 5 (interno) o 9 (externo) y recibirla en taller. Recepción aplica 5 -> 7 en laboratorio interno y 9 -> 10 en laboratorio externo.\n\n$_recibirRolHint';
       case OrdenesTrabajoInitialAction.entregar:
@@ -959,7 +962,7 @@ extension on OrdenesTrabajoInitialAction {
       case OrdenesTrabajoInitialAction.trabajoTerminado:
         return '9 (TRABAJO TERMINADO)';
       case OrdenesTrabajoInitialAction.regresarTienda:
-        return 'TIPOM=1 -> 9.1, TIPOM=2 -> 9.2, o 10';
+        return 'TIPOM=1 -> 9.1, TIPOM=2 -> 9.2; ORDs derivadas o sin incidencia -> 10';
       case OrdenesTrabajoInitialAction.recibir:
         return '7 (interno) o 10 (externo)';
       case OrdenesTrabajoInitialAction.entregar:

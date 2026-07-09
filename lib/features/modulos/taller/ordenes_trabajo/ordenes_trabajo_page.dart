@@ -118,6 +118,14 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     super.dispose();
   }
 
+  String? _resolveRequestedSucForOps([String? fallbackSuc]) {
+    final fromFilter = _sucCtrl.text.trim().toUpperCase();
+    if (fromFilter.isNotEmpty) return fromFilter;
+    final fromFallback = (fallbackSuc ?? '').trim().toUpperCase();
+    if (fromFallback.isNotEmpty) return fromFallback;
+    return null;
+  }
+
   void _restoreFilterInputs(OrdenesTrabajoFilter filter) {
     _iordCtrl.text = filter.iord ?? '';
     _idfolCtrl.text = filter.idfol ?? '';
@@ -1911,6 +1919,16 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     return text.isEmpty ? fallback : text;
   }
 
+  String _normalizeBase64Data(String value) {
+    final text = value.trim();
+    if (text.isEmpty) return '';
+    final comma = text.indexOf(',');
+    if (text.startsWith('data:') && comma >= 0) {
+      return text.substring(comma + 1).trim();
+    }
+    return text;
+  }
+
   DateTime? _toDate(dynamic value) {
     final text = value?.toString().trim() ?? '';
     if (text.isEmpty) return null;
@@ -2427,7 +2445,9 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
           _isFlowStatus(flujoCode, 9.1) || _isFlowStatus(flujoCode, 9.2);
       final isFlowGarantiaPendiente = _isFlowStatus(flujoCode, 9.3);
       final showGarantiaBtn =
-          isGarantiaPanel && canGarantiaPanelDetail && _isFlowStatus(flujoCode, 11);
+          isGarantiaPanel &&
+          canGarantiaPanelDetail &&
+          _isFlowStatus(flujoCode, 11);
       final showCambioMaterialBtn =
           tipom == 1 &&
           ((isRegresoFlow && can('CAMBIO_MATERIAL')) || isEstadoPanel);
@@ -2437,6 +2457,11 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
           !isEstadoPanel &&
           isFlowGarantiaPendiente &&
           (can('CAMBIO_MATERIAL') || can('MERMA'));
+      final firmaClienteBase64 = _normalizeBase64Data(detail.firmaCliente);
+      final showEntregaEvidenceBtn =
+          isEstadoPanel &&
+          _isFlowStatus(flujoCode, 11) &&
+          firmaClienteBase64.isNotEmpty;
 
       Future<bool> saveCurrentDetail({required bool showSuccessMessage}) async {
         try {
@@ -2454,6 +2479,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                 tipo: canManageTipoAndPrint ? selectedTipo : null,
                 hrEnt: hrEntValue.isEmpty ? null : hrEntValue,
                 comentarios: comentarios,
+                suc: _resolveRequestedSucForOps(sucOrd),
                 details: jobRows,
               );
           if (!mounted) return false;
@@ -3039,6 +3065,19 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                     icon: const Icon(Icons.rule_folder_outlined),
                     label: const Text('Aplicar merma o cambio'),
                   ),
+                if (showEntregaEvidenceBtn)
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      final canPrint =
+                          isConsultaDetalle ||
+                          await saveCurrentDetail(showSuccessMessage: false);
+                      if (!canPrint || !mounted || !ctx.mounted) return;
+                      Navigator.of(ctx).pop();
+                      await _printEntregaEvidenciaPdf(detail);
+                    },
+                    icon: const Icon(Icons.picture_as_pdf),
+                    label: const Text('Imprimir evidencia'),
+                  ),
                 if (canManageTipoAndPrint && !isGarantiaPanel && !isEstadoPanel)
                   OutlinedButton.icon(
                     onPressed: () async {
@@ -3265,6 +3304,232 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     return doc;
   }
 
+  Future<void> _printEntregaEvidenciaPdf(
+    OrdenTrabajoDetalleResponse detail,
+  ) async {
+    final firmaBase64 = _normalizeBase64Data(detail.firmaCliente);
+    if (firmaBase64.isEmpty) {
+      _showError('La ORD no tiene firma de entrega registrada.');
+      return;
+    }
+
+    final doc = _buildEntregaEvidenciaPdf(
+      detail,
+      firmaClienteBase64: firmaBase64,
+    );
+    final now = DateTime.now();
+    final y = now.year.toString().padLeft(4, '0');
+    final m = now.month.toString().padLeft(2, '0');
+    final d = now.day.toString().padLeft(2, '0');
+    final hh = now.hour.toString().padLeft(2, '0');
+    final mm = now.minute.toString().padLeft(2, '0');
+    final ordId = _textOf(detail.header['IORD'], fallback: 'ORD');
+    await Printing.layoutPdf(
+      name: 'evidencia_entrega_${ordId}_$y$m$d-$hh$mm.pdf',
+      onLayout: (_) => doc.save(),
+    );
+  }
+
+  pw.Document _buildEntregaEvidenciaPdf(
+    OrdenTrabajoDetalleResponse detail, {
+    required String firmaClienteBase64,
+  }) {
+    final header = detail.header;
+    final firmaBytes = base64Decode(base64.normalize(firmaClienteBase64));
+    final firmaImage = pw.MemoryImage(firmaBytes);
+    final detalleRows = _toEditableDetailRows(detail.details);
+    final ordId = _textOf(header['IORD']);
+    final idfol = _textOf(header['IDFOL']);
+    final folioEntrega = detail.folioEntrega;
+    final cliente = _textOf(header['CLIEN']);
+    final receptor = _textOf(
+      header['RAZONSOCIALRECEPTOR'],
+      fallback: _textOf(header['NCLIENTE']),
+    );
+    final createdAt = _fmtDate(_toDate(header['FCNS']));
+    final fechaEntrega = _fmtDate(_toDate(header['FCNM']));
+    final hrEnt = _formatHourMinuteValue(
+      header['HR_ENT'],
+      fallback: _formatHourMinuteValue(header['HREN'], fallback: '-'),
+    );
+    final articulo = _textOf(header['ART']);
+    final descripcion = _textOf(
+      header['DESCART'],
+      fallback: _textOf(header['DESCRT']),
+    );
+    final piezas = _textOf(header['CTD']);
+    final flujo = _flowDescripcion(
+      _textOf(header['ESTSEGU']),
+      _textOf(header['ESTSEGU_DESC']),
+    );
+    final tipo = _textOf(header['TIPO']);
+    final laboratorio = _textOf(header['LABOR']);
+    final comentarios = _textOf(header['COMAD']);
+
+    pw.Widget field(String label, String value, {double? width}) {
+      final content = value.trim().isEmpty ? 'N/D' : value.trim();
+      return pw.Container(
+        width: width,
+        padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: pw.BoxDecoration(
+          border: pw.Border.all(color: PdfColors.grey400, width: 0.8),
+          borderRadius: pw.BorderRadius.circular(6),
+        ),
+        child: pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          mainAxisSize: pw.MainAxisSize.min,
+          children: [
+            pw.Text(
+              label,
+              style: pw.TextStyle(
+                fontSize: 8.5,
+                fontWeight: pw.FontWeight.bold,
+                color: PdfColors.grey700,
+              ),
+            ),
+            pw.SizedBox(height: 4),
+            pw.Text(
+              content,
+              style: const pw.TextStyle(fontSize: 10),
+              maxLines: 4,
+            ),
+          ],
+        ),
+      );
+    }
+
+    pw.Widget sectionTitle(String text) => pw.Padding(
+      padding: const pw.EdgeInsets.only(bottom: 6),
+      child: pw.Text(
+        text,
+        style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
+      ),
+    );
+
+    final detailTableData = detalleRows
+        .map(
+          (row) => [
+            row['job'] ?? '',
+            row['esf'] ?? '',
+            row['cil'] ?? '',
+            row['eje'] ?? '',
+          ],
+        )
+        .toList(growable: false);
+
+    final doc = pw.Document();
+    doc.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(24),
+        build: (_) => [
+          pw.Text(
+            'EVIDENCIA DE ENTREGA A CLIENTE',
+            style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
+          ),
+          pw.SizedBox(height: 4),
+          pw.Text(
+            ordId.isEmpty ? 'ORD entregada' : 'ORD $ordId',
+            style: const pw.TextStyle(fontSize: 11),
+          ),
+          if (folioEntrega.isNotEmpty)
+            pw.Text(
+              'Folio de entrega: $folioEntrega',
+              style: const pw.TextStyle(fontSize: 11),
+            ),
+          pw.SizedBox(height: 12),
+          sectionTitle('Cabecera'),
+          pw.Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              field('ID ORD', ordId, width: 165),
+              field('Fch creación', createdAt, width: 165),
+              field('IDFOL', idfol, width: 165),
+              field('Folio entrega', folioEntrega, width: 165),
+              field('Cliente', cliente, width: 165),
+              field('Razón social receptor', receptor, width: 250),
+              field('Artículo', articulo, width: 165),
+              field('Descripción artículo', descripcion, width: 250),
+              field('Piezas', piezas, width: 90),
+              field('Tipo', tipo, width: 140),
+              field('Laboratorio', laboratorio, width: 180),
+              field('Estado flujo', flujo, width: 250),
+              field('Fecha entrega', fechaEntrega, width: 165),
+              field('HR_ENT', hrEnt, width: 120),
+              field('Comentarios', comentarios, width: 515),
+            ],
+          ),
+          pw.SizedBox(height: 16),
+          sectionTitle('Detalle de graduación'),
+          if (detailTableData.isEmpty)
+            pw.Padding(
+              padding: const pw.EdgeInsets.only(top: 4),
+              child: pw.Text('Sin detalle registrado.'),
+            )
+          else
+            pw.TableHelper.fromTextArray(
+              headers: const ['JOB', 'ESF', 'CIL', 'EJE'],
+              data: detailTableData,
+              headerDecoration: const pw.BoxDecoration(
+                color: PdfColors.grey200,
+              ),
+              headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+              cellStyle: const pw.TextStyle(fontSize: 10),
+              cellAlignment: pw.Alignment.centerLeft,
+              columnWidths: const {
+                0: pw.FixedColumnWidth(60),
+                1: pw.FixedColumnWidth(90),
+                2: pw.FixedColumnWidth(90),
+                3: pw.FixedColumnWidth(90),
+              },
+              border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.6),
+              cellPadding: const pw.EdgeInsets.symmetric(
+                horizontal: 8,
+                vertical: 6,
+              ),
+            ),
+          pw.SizedBox(height: 16),
+          sectionTitle('Firma del cliente'),
+          pw.Container(
+            width: double.infinity,
+            padding: const pw.EdgeInsets.all(10),
+            decoration: pw.BoxDecoration(
+              border: pw.Border.all(color: PdfColors.grey400, width: 0.8),
+              borderRadius: pw.BorderRadius.circular(8),
+            ),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text(
+                  'Firma capturada en entrega a cliente',
+                  style: pw.TextStyle(
+                    fontSize: 9,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColors.grey700,
+                  ),
+                ),
+                pw.SizedBox(height: 8),
+                pw.Container(
+                  height: 170,
+                  width: double.infinity,
+                  alignment: pw.Alignment.center,
+                  decoration: pw.BoxDecoration(
+                    color: PdfColors.white,
+                    border: pw.Border.all(color: PdfColors.grey300, width: 0.8),
+                    borderRadius: pw.BorderRadius.circular(6),
+                  ),
+                  child: pw.Image(firmaImage, fit: pw.BoxFit.contain),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+    return doc;
+  }
+
   Future<void> _printCambioMermaFormato({
     required _OrdCambioMermaMode mode,
     required OrdenTrabajoCambioMermaContext contextData,
@@ -3368,7 +3633,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
             _textOf(original['MOTR'], fallback: _textOf(draft['MOTIVO'])),
           ),
           row('Laboratorio', _textOf(draft['LABOR'])),
-          row('PVTA original', _money(_toNum(original['PVTAT_BASE']) ?? 0)),
+          row('PVTAT base', _money(_toNum(original['PVTAT_BASE']) ?? 0)),
           row('PVTA nuevo', _money(_toNum(draft['PVTA']) ?? 0)),
           row('Subtotal original', _money(contextData.subtotalOriginal)),
           row('IVA original', _money(contextData.ivaOriginal)),
@@ -3711,7 +3976,8 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
   Future<bool?> _confirmRegresarTienda(int total) {
     return _confirmCambioEstatus(
       title: 'Confirmar recepción en tienda',
-      targetStatus: 'TIPOM=1 -> 9.1, TIPOM=2 -> 9.2, o 10 (sin incidencia)',
+      targetStatus:
+          'TIPOM=1 -> 9.1, TIPOM=2 -> 9.2; ORDs derivadas o sin incidencia -> 10',
       total: total,
     );
   }
@@ -3837,8 +4103,9 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
             'No se pudo validar la ORD. Debe estar en estatus 3 y tener laboratorio asignado.',
         executeFallbackError: 'No se pudo enviar las ORDs.',
         relacionProvider: ordenesTrabajoEnviarRelacionProvider,
-        validateOrd: (code) =>
-            ref.read(ordenesTrabajoApiProvider).validarOrdEnviar(code),
+        validateOrd: (code) => ref
+            .read(ordenesTrabajoApiProvider)
+            .validarOrdEnviar(code, suc: _resolveRequestedSucForOps()),
         executeLote: (iords) =>
             ref.read(ordenesTrabajoApiProvider).enviarLote(iords),
         confirmAction: _confirmEnviarAmaqBisel,
@@ -3859,8 +4126,9 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
             'No se pudo validar la ORD. Debe estar en estatus 5 (interno) o 9 (externo).',
         executeFallbackError: 'No se pudo recibir las ORDs en taller.',
         relacionProvider: ordenesTrabajoRecibirRelacionProvider,
-        validateOrd: (code) =>
-            ref.read(ordenesTrabajoApiProvider).validarOrdRecibir(code),
+        validateOrd: (code) => ref
+            .read(ordenesTrabajoApiProvider)
+            .validarOrdRecibir(code, suc: _resolveRequestedSucForOps()),
         executeLote: (iords) =>
             ref.read(ordenesTrabajoApiProvider).recibirLote(iords),
         confirmAction: _confirmRecibirATaller,
@@ -3881,8 +4149,9 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
             'No se pudo validar la ORD. Debe estar en estatus 10.',
         executeFallbackError: 'No se pudo entregar las ORDs a cliente.',
         relacionProvider: ordenesTrabajoEntregarRelacionProvider,
-        validateOrd: (code) =>
-            ref.read(ordenesTrabajoApiProvider).validarOrdEntregar(code),
+        validateOrd: (code) => ref
+            .read(ordenesTrabajoApiProvider)
+            .validarOrdEntregar(code, suc: _resolveRequestedSucForOps()),
         executeLote: (iords) =>
             ref.read(ordenesTrabajoApiProvider).entregarLote(iords),
         confirmAction: _confirmEntregarCliente,
@@ -3905,7 +4174,10 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
         relacionProvider: ordenesTrabajoTrabajoTerminadoRelacionProvider,
         validateOrd: (code) => ref
             .read(ordenesTrabajoApiProvider)
-            .validarOrdTrabajoTerminado(code),
+            .validarOrdTrabajoTerminado(
+              code,
+              suc: _resolveRequestedSucForOps(),
+            ),
         executeLote: (iords) =>
             ref.read(ordenesTrabajoApiProvider).trabajoTerminadoLote(iords),
         confirmAction: _confirmTrabajoTerminado,
@@ -3922,7 +4194,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       _RelacionDialogConfig(
         title: 'ORDs: Recibir en tienda',
         helperText:
-            'Captura o escanea una ORD para validarla en estatus 9 (TRABAJO TERMINADO) y relacionarla en appstate para recibirla en tienda. Mapeo: TIPOM=1 -> 9.1, TIPOM=2 -> 9.2.',
+            'Captura o escanea una ORD para validarla en estatus 9 (TRABAJO TERMINADO) y relacionarla en appstate para recibirla en tienda. Mapeo: TIPOM=1 -> 9.1, TIPOM=2 -> 9.2; ORDs derivadas o sin incidencia -> 10.',
         submitLabel: 'Recibir en tienda',
         submitIcon: Icons.storefront_outlined,
         emptySubmitError: 'No hay ORDs relacionadas para recibir en tienda.',
@@ -3930,8 +4202,9 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
             'No se pudo validar la ORD. Debe estar en estatus 9.',
         executeFallbackError: 'No se pudo recibir las ORDs en tienda.',
         relacionProvider: ordenesTrabajoRegresarTiendaRelacionProvider,
-        validateOrd: (code) =>
-            ref.read(ordenesTrabajoApiProvider).validarOrdRegresarTienda(code),
+        validateOrd: (code) => ref
+            .read(ordenesTrabajoApiProvider)
+            .validarOrdRegresarTienda(code, suc: _resolveRequestedSucForOps()),
         executeLote: (iords) =>
             ref.read(ordenesTrabajoApiProvider).regresarTiendaLote(iords),
         confirmAction: _confirmRegresarTienda,
@@ -4045,7 +4318,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       try {
         final item = await ref
             .read(ordenesTrabajoApiProvider)
-            .validarOrdAsignar(code);
+            .validarOrdAsignar(code, suc: _resolveRequestedSucForOps());
         final current = dialogRef.read(ordenesTrabajoAsignarRelacionProvider);
         final exists = current.any(
           (row) =>
@@ -4716,7 +4989,10 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       try {
         final item = await ref
             .read(ordenesTrabajoApiProvider)
-            .validarOrdRegresarIncidencia(code);
+            .validarOrdRegresarIncidencia(
+              code,
+              suc: _resolveRequestedSucForOps(),
+            );
         final current = dialogRef.read(
           ordenesTrabajoIncidenciaRelacionProvider,
         );
@@ -5045,9 +5321,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     }
 
     await _executeAction(
-      () => ref
-          .read(ordenesTrabajoApiProvider)
-          .garantia(iord, motivo: motivo),
+      () => ref.read(ordenesTrabajoApiProvider).garantia(iord, motivo: motivo),
     );
   }
 
@@ -5086,7 +5360,9 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     String? errorMotivos;
 
     try {
-      final initialMotivos = await api.fetchMotivosMovimiento(tipo: selectedTipo);
+      final initialMotivos = await api.fetchMotivosMovimiento(
+        tipo: selectedTipo,
+      );
       final uniqueById = <int, OrdenTrabajoMotivoMovimientoOption>{};
       for (final item in initialMotivos) {
         if (item.id <= 0) continue;
@@ -5137,7 +5413,8 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
         return StatefulBuilder(
           builder: (dialogCtx, setDialogState) {
             final motivos = motivosByTipo[selectedTipo] ?? const [];
-            final motrDropdownValue = (selectedMotr != null &&
+            final motrDropdownValue =
+                (selectedMotr != null &&
                     motivos.any((item) => item.id == selectedMotr))
                 ? selectedMotr
                 : null;
@@ -5348,14 +5625,19 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       ),
     );
 
-    final artNuevoCtrl = TextEditingController(
-      text: _textOf(draft['ART'], fallback: artOriginal),
-    );
+    final draftArt = _textOf(draft['ART'], fallback: artOriginal);
+    final draftDes = _textOf(draft['DES']);
+    final sameArtAsOriginal =
+        draftArt.trim().toUpperCase() == artOriginal.trim().toUpperCase();
+
+    final artNuevoCtrl = TextEditingController(text: draftArt);
     final upcNuevoCtrl = TextEditingController(
       text: _textOf(draft['UPC'], fallback: upcOriginal),
     );
     final desNuevoCtrl = TextEditingController(
-      text: _textOf(draft['DES'], fallback: desOriginal),
+      text: draftDes.isNotEmpty
+          ? draftDes
+          : (sameArtAsOriginal ? desOriginal : ''),
     );
     final motivoCtrl = TextEditingController();
     final docDifCtrl = TextEditingController(text: _textOf(draft['DOCDIF']));
@@ -5390,7 +5672,19 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       return null;
     }
 
+    List<double> allowedCtdCMValues() {
+      final originalCtd = _toNum(original['CTD'])?.toDouble();
+      if (originalCtd != null && (originalCtd - 0.5).abs() <= 0.0001) {
+        return const [0.5];
+      }
+      return const [1, 0.5];
+    }
+
+    final initialCtdCMOptions = allowedCtdCMValues();
     double? selectedCtdCM = normalizeCtdCMValue(_toNum(original['CTD_C_M']));
+    if (selectedCtdCM == null || !initialCtdCMOptions.contains(selectedCtdCM)) {
+      selectedCtdCM = initialCtdCMOptions.first;
+    }
     double? selectedPvtaNuevo =
         _toNum(draft['PVTA'])?.toDouble() ??
         _toNum(original['PVTAT_BASE'])?.toDouble();
@@ -5405,7 +5699,14 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       selectedLabor = _normalizeLaboratorioValue(
         _textOf(updated.draft['LABOR']),
       );
-      selectedCtdCM = normalizeCtdCMValue(_toNum(updated.original['CTD_C_M']));
+      final updatedCtdOptions = allowedCtdCMValues();
+      final updatedCtdCM = normalizeCtdCMValue(
+        _toNum(updated.original['CTD_C_M']),
+      );
+      selectedCtdCM =
+          updatedCtdCM != null && updatedCtdOptions.contains(updatedCtdCM)
+          ? updatedCtdCM
+          : updatedCtdOptions.first;
       selectedPvtaNuevo =
           _toNum(updated.draft['PVTA'])?.toDouble() ??
           _toNum(updated.original['PVTAT_BASE'])?.toDouble();
@@ -5439,7 +5740,8 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       barrierDismissible: false,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) {
-          final isEstadoPanel = widget.panelMode == OrdenesTrabajoPanelMode.estado;
+          final isEstadoPanel =
+              widget.panelMode == OrdenesTrabajoPanelMode.estado;
           final panelRoleCode = (panel?.roleCode ?? '').trim().toUpperCase();
           final isCambioMermaAuthorizationRole =
               _isCambioMermaAuthorizationRole(panelRoleCode);
@@ -5513,6 +5815,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
           final canPrintSaldo =
               hasCreatedOrd && cmContext.canPrintSaldo && !submitting;
           final diferenciaCaptura = cmContext.diferenciaEconomica;
+          final ctdCMOptions = allowedCtdCMValues();
           final saldoCapturaLabel = diferenciaCaptura > 0.009
               ? 'SALDO EN CONTRA DEL CLIENTE'
               : diferenciaCaptura < -0.009
@@ -5684,6 +5987,13 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                                 SizedBox(
                                   width: 130,
                                   child: roField('PVTA', _money(pvtaCaptura)),
+                                ),
+                                SizedBox(
+                                  width: 120,
+                                  child: roField(
+                                    'Cantidad',
+                                    _money(_toNum(draft['CTD']) ?? 0),
+                                  ),
                                 ),
                                 SizedBox(
                                   width: 130,
@@ -6052,16 +6362,14 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                                   border: OutlineInputBorder(),
                                   isDense: true,
                                 ),
-                                items: const [
-                                  DropdownMenuItem<double>(
-                                    value: 1,
-                                    child: Text('1'),
-                                  ),
-                                  DropdownMenuItem<double>(
-                                    value: 0.5,
-                                    child: Text('0.5'),
-                                  ),
-                                ],
+                                items: ctdCMOptions
+                                    .map(
+                                      (value) => DropdownMenuItem<double>(
+                                        value: value,
+                                        child: Text(value == 1 ? '1' : '0.5'),
+                                      ),
+                                    )
+                                    .toList(growable: false),
                                 onChanged: canEditBaseFields
                                     ? (value) => setDialogState(() {
                                         selectedCtdCM = value;
@@ -6220,9 +6528,12 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                             _showError('Selecciona CTD_C_M para continuar.');
                             return;
                           }
-                          if ((ctdCMValue - 1).abs() > 0.0001 &&
-                              (ctdCMValue - 0.5).abs() > 0.0001) {
-                            _showError('CTD_C_M solo permite 1 o 0.5.');
+                          if (!ctdCMOptions.contains(ctdCMValue)) {
+                            _showError(
+                              ctdCMOptions.length == 1
+                                  ? 'CTD_C_M solo permite 0.5 cuando la ORD original fue creada por 0.5.'
+                                  : 'CTD_C_M solo permite 1 o 0.5 cuando la ORD original fue creada por 1.',
+                            );
                             return;
                           }
                           final artNuevo = artNuevoCtrl.text.trim();
@@ -6417,11 +6728,14 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                           } catch (e) {
                             if (!ctx.mounted || !mounted) return;
                             setDialogState(() => submitting = false);
+                            final message = apiErrorMessage(
+                              e,
+                              fallback: 'No se pudo autorizar la nueva ORD.',
+                            );
                             _showError(
-                              apiErrorMessage(
-                                e,
-                                fallback: 'No se pudo autorizar la nueva ORD.',
-                              ),
+                              message == 'Internal server error'
+                                  ? 'No se pudo asentar la autorización de cambio/merma.'
+                                  : message,
                             );
                           }
                         }

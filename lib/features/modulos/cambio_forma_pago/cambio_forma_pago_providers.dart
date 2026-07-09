@@ -31,41 +31,54 @@ class CambioFormaPagoSessionNotifier
 }
 
 final cambioFormaPagoSessionProvider =
-    StateNotifierProvider<CambioFormaPagoSessionNotifier,
-        CambioFormaPagoOverrideSession?>(
-  (ref) => CambioFormaPagoSessionNotifier(),
-);
+    StateNotifierProvider<
+      CambioFormaPagoSessionNotifier,
+      CambioFormaPagoOverrideSession?
+    >((ref) => CambioFormaPagoSessionNotifier());
 
 class CambioFormaPagoTodayFilter {
   const CambioFormaPagoTodayFilter({
     this.idfol = '',
     this.clien = '',
+    this.suc = '',
+    this.opv = '',
   });
 
   final String idfol;
   final String clien;
+  final String suc;
+  final String opv;
 
   CambioFormaPagoTodayFilter copyWith({
     String? idfol,
     String? clien,
+    String? suc,
+    String? opv,
   }) {
     return CambioFormaPagoTodayFilter(
       idfol: idfol ?? this.idfol,
       clien: clien ?? this.clien,
+      suc: suc ?? this.suc,
+      opv: opv ?? this.opv,
     );
   }
 }
 
 final cambioFormaPagoTodayFilterProvider =
     StateProvider.autoDispose<CambioFormaPagoTodayFilter>(
-  (ref) => const CambioFormaPagoTodayFilter(),
-);
+      (ref) => const CambioFormaPagoTodayFilter(),
+    );
 
 final cambioFormaPagoTodayProvider =
     FutureProvider.autoDispose<List<CambioFormaPagoItem>>((ref) async {
       final filter = ref.watch(cambioFormaPagoTodayFilterProvider);
       final api = ref.read(cambioFormaPagoApiProvider);
-      return api.fetchToday(idfol: filter.idfol, clien: filter.clien);
+      return api.fetchToday(
+        idfol: filter.idfol,
+        clien: filter.clien,
+        suc: filter.suc,
+        opv: filter.opv,
+      );
     });
 
 final cambioFormaPagoCatalogProvider =

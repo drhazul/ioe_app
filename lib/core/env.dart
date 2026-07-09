@@ -4,9 +4,9 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class Env {
   // Desarrollo local (web/desktop): API local levantada desde ioe-api.
-  static const String _devBaseUrl = 'http://127.0.0.1:3001';
+  static const String _devBaseUrl = 'http://127.0.0.1:3000';
   // Android emulator usa 10.0.2.2 para alcanzar localhost del host.
-  static const String _androidEmulatorBaseUrl = 'http://10.0.2.2:3001';
+  static const String _androidEmulatorBaseUrl = 'http://10.0.2.2:3000';
   static String get apiBaseUrl {
     if (!kReleaseMode) {
       if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
@@ -43,7 +43,7 @@ class Env {
     }
 
     // 2) Mobile emulator (Android)
-    return 'http://192.168.10.234:3001';
+    return 'http://192.168.10.234:3000';
   }
 
   static String _defaultWebApiBaseUrl() {

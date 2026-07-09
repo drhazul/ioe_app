@@ -6,9 +6,9 @@
 
 ## API integration
 - Base URL logic lives in [lib/core/env.dart](lib/core/env.dart):
-  - Dev uses `http://localhost:3001`.
+  - Dev uses `http://localhost:3000`.
   - Web resolves `API_BASE_URL_WEB` (compile-time define or `.env`) or falls back to `/api`.
-  - Mobile defaults to `http://192.168.10.234:3001` unless `API_BASE_URL` is provided.
+  - Mobile defaults to `http://192.168.10.234:3000` unless `API_BASE_URL` is provided.
 - All HTTP goes through Dio in [lib/core/dio_provider.dart](lib/core/dio_provider.dart): injects `Authorization: Bearer` from `SharedPreferences`, and auto-refreshes on 401 via `/auth/refresh` once per request.
 
 ## Auth state pattern

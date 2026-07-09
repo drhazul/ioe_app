@@ -161,6 +161,7 @@ class OrdenesTrabajoApi {
     String? tipo,
     String? hrEnt,
     String? comentarios,
+    String? suc,
     required List<Map<String, dynamic>> details,
   }) async {
     final cleanComments = (comentarios ?? '').trim();
@@ -186,6 +187,7 @@ class OrdenesTrabajoApi {
         if (labor != null) 'labor': labor,
         if (cleanTipo.isNotEmpty) 'tipo': cleanTipo,
         if (cleanHrEnt.isNotEmpty) 'hrEnt': cleanHrEnt,
+        if ((suc ?? '').trim().isNotEmpty) 'suc': suc!.trim().toUpperCase(),
         'comentarios': cleanComments,
         'details': payloadDetails,
       },
@@ -223,11 +225,17 @@ class OrdenesTrabajoApi {
     return _actionFrom(res);
   }
 
-  Future<OrdenTrabajoEnviarRelacionItem> validarOrdEnviar(String code) async {
+  Future<OrdenTrabajoEnviarRelacionItem> validarOrdEnviar(
+    String code, {
+    String? suc,
+  }) async {
     final cleanCode = code.trim();
     final res = await dio.post(
       '/ordenes-trabajo/enviar/validar',
-      data: {'code': cleanCode},
+      data: {
+        'code': cleanCode,
+        if ((suc ?? '').trim().isNotEmpty) 'suc': suc!.trim().toUpperCase(),
+      },
     );
     final map = Map<String, dynamic>.from(res.data as Map);
     final rawData = map['data'];
@@ -239,11 +247,17 @@ class OrdenesTrabajoApi {
     );
   }
 
-  Future<OrdenTrabajoEnviarRelacionItem> validarOrdRecibir(String code) async {
+  Future<OrdenTrabajoEnviarRelacionItem> validarOrdRecibir(
+    String code, {
+    String? suc,
+  }) async {
     final cleanCode = code.trim();
     final res = await dio.post(
       '/ordenes-trabajo/recibir/validar',
-      data: {'code': cleanCode},
+      data: {
+        'code': cleanCode,
+        if ((suc ?? '').trim().isNotEmpty) 'suc': suc!.trim().toUpperCase(),
+      },
     );
     final map = Map<String, dynamic>.from(res.data as Map);
     final rawData = map['data'];
@@ -290,11 +304,17 @@ class OrdenesTrabajoApi {
         .toList(growable: false);
   }
 
-  Future<OrdenTrabajoEnviarRelacionItem> validarOrdAsignar(String code) async {
+  Future<OrdenTrabajoEnviarRelacionItem> validarOrdAsignar(
+    String code, {
+    String? suc,
+  }) async {
     final cleanCode = code.trim();
     final res = await dio.post(
       '/ordenes-trabajo/asignar/validar',
-      data: {'code': cleanCode},
+      data: {
+        'code': cleanCode,
+        if ((suc ?? '').trim().isNotEmpty) 'suc': suc!.trim().toUpperCase(),
+      },
     );
     final map = Map<String, dynamic>.from(res.data as Map);
     final rawData = map['data'];
@@ -307,12 +327,16 @@ class OrdenesTrabajoApi {
   }
 
   Future<OrdenTrabajoEnviarRelacionItem> validarOrdTrabajoTerminado(
-    String code,
-  ) async {
+    String code, {
+    String? suc,
+  }) async {
     final cleanCode = code.trim();
     final res = await dio.post(
       '/ordenes-trabajo/trabajo-terminado/validar',
-      data: {'code': cleanCode},
+      data: {
+        'code': cleanCode,
+        if ((suc ?? '').trim().isNotEmpty) 'suc': suc!.trim().toUpperCase(),
+      },
     );
     final map = Map<String, dynamic>.from(res.data as Map);
     final rawData = map['data'];
@@ -325,12 +349,16 @@ class OrdenesTrabajoApi {
   }
 
   Future<OrdenTrabajoEnviarRelacionItem> validarOrdRegresarIncidencia(
-    String code,
-  ) async {
+    String code, {
+    String? suc,
+  }) async {
     final cleanCode = code.trim();
     final res = await dio.post(
       '/ordenes-trabajo/regresar-incidencia/validar',
-      data: {'code': cleanCode},
+      data: {
+        'code': cleanCode,
+        if ((suc ?? '').trim().isNotEmpty) 'suc': suc!.trim().toUpperCase(),
+      },
     );
     final map = Map<String, dynamic>.from(res.data as Map);
     final rawData = map['data'];
@@ -343,12 +371,16 @@ class OrdenesTrabajoApi {
   }
 
   Future<OrdenTrabajoEnviarRelacionItem> validarOrdRegresarTienda(
-    String code,
-  ) async {
+    String code, {
+    String? suc,
+  }) async {
     final cleanCode = code.trim();
     final res = await dio.post(
       '/ordenes-trabajo/regresar-tienda/validar',
-      data: {'code': cleanCode},
+      data: {
+        'code': cleanCode,
+        if ((suc ?? '').trim().isNotEmpty) 'suc': suc!.trim().toUpperCase(),
+      },
     );
     final map = Map<String, dynamic>.from(res.data as Map);
     final rawData = map['data'];
@@ -360,11 +392,17 @@ class OrdenesTrabajoApi {
     );
   }
 
-  Future<OrdenTrabajoEnviarRelacionItem> validarOrdEntregar(String code) async {
+  Future<OrdenTrabajoEnviarRelacionItem> validarOrdEntregar(
+    String code, {
+    String? suc,
+  }) async {
     final cleanCode = code.trim();
     final res = await dio.post(
       '/ordenes-trabajo/entregar/validar',
-      data: {'code': cleanCode},
+      data: {
+        'code': cleanCode,
+        if ((suc ?? '').trim().isNotEmpty) 'suc': suc!.trim().toUpperCase(),
+      },
     );
     final map = Map<String, dynamic>.from(res.data as Map);
     final rawData = map['data'];
@@ -514,14 +552,28 @@ class OrdenesTrabajoApi {
   }
 
   Future<OrdenTrabajoActionResult> entregarLote(List<String> iords) async {
+    return entregarLoteConFirma(iords);
+  }
+
+  Future<OrdenTrabajoActionResult> entregarLoteConFirma(
+    List<String> iords, {
+    String? observaciones,
+    String? firmaCliente,
+  }) async {
     final normalized = iords
         .map((item) => item.trim().toUpperCase())
         .where((item) => item.isNotEmpty)
         .toSet()
         .toList(growable: false);
+    final observacionesValue = (observaciones ?? '').trim();
+    final firmaClienteValue = (firmaCliente ?? '').trim();
     final res = await dio.post(
       '/ordenes-trabajo/entregar/lote',
-      data: {'iords': normalized},
+      data: {
+        'iords': normalized,
+        if (observacionesValue.isNotEmpty) 'observaciones': observacionesValue,
+        if (firmaClienteValue.isNotEmpty) 'firmaCliente': firmaClienteValue,
+      },
     );
     return _actionFrom(res);
   }
@@ -558,9 +610,7 @@ class OrdenesTrabajoApi {
     final motivoValue = (motivo ?? '').trim();
     final res = await dio.post(
       '/ordenes-trabajo/${Uri.encodeComponent(iord)}/garantia',
-      data: {
-        if (motivoValue.isNotEmpty) 'motivo': motivoValue,
-      },
+      data: {if (motivoValue.isNotEmpty) 'motivo': motivoValue},
     );
     return _actionFrom(res);
   }
@@ -618,18 +668,30 @@ class OrdenesTrabajoApi {
     return _actionFrom(res);
   }
 
-  Future<OrdenTrabajoActionResult> scanRecibir({required String code}) async {
+  Future<OrdenTrabajoActionResult> scanRecibir({
+    required String code,
+    String? suc,
+  }) async {
     final res = await dio.post(
       '/ordenes-trabajo/scan/recibir',
-      data: {'code': code.trim()},
+      data: {
+        'code': code.trim(),
+        if ((suc ?? '').trim().isNotEmpty) 'suc': suc!.trim().toUpperCase(),
+      },
     );
     return _actionFrom(res);
   }
 
-  Future<OrdenTrabajoActionResult> scanEntregar({required String code}) async {
+  Future<OrdenTrabajoActionResult> scanEntregar({
+    required String code,
+    String? suc,
+  }) async {
     final res = await dio.post(
       '/ordenes-trabajo/scan/entregar',
-      data: {'code': code.trim()},
+      data: {
+        'code': code.trim(),
+        if ((suc ?? '').trim().isNotEmpty) 'suc': suc!.trim().toUpperCase(),
+      },
     );
     return _actionFrom(res);
   }

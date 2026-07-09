@@ -64,7 +64,9 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _requestQuickUpcFocus());
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _requestQuickUpcFocus(),
+    );
   }
 
   @override
@@ -89,7 +91,9 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
         next.whenData((items) async {
           if (_didMergeRemote) return;
           final remoteItems = items.map(_toLocalItem).toList();
-          await ref.read(cotizacionLocalProvider(widget.idfol).notifier).mergeRemote(remoteItems);
+          await ref
+              .read(cotizacionLocalProvider(widget.idfol).notifier)
+              .mergeRemote(remoteItems);
           _didMergeRemote = true;
           _syncPendingItems();
         });
@@ -98,7 +102,8 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
 
     return cotizacionAsync.when(
       data: (cot) => _buildScaffold(context, cot, localState),
-      loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
+      loading: () =>
+          const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (e, _) => Scaffold(body: Center(child: Text('Error: $e'))),
     );
   }
@@ -111,7 +116,9 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
     final isEstadoPagado = _isEstadoPagado(cot.esta);
     if (!isEstadoPagado && !_didRequestInitialQuickUpcFocus) {
       _didRequestInitialQuickUpcFocus = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) => _requestQuickUpcFocus());
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _requestQuickUpcFocus(),
+      );
     }
     final clientesAsync = ref.watch(clientesListProvider);
     final razonSocial = cot.clien == null
@@ -132,7 +139,9 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
                   regimenFiscalReceptor: 0,
                 ),
               );
-              return cliente.razonSocialReceptor.isEmpty ? '-' : cliente.razonSocialReceptor;
+              return cliente.razonSocialReceptor.isEmpty
+                  ? '-'
+                  : cliente.razonSocialReceptor;
             },
             loading: () => 'Cargando...',
             error: (_, _) => '-',
@@ -189,7 +198,8 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
       cyl: _appliedCyl,
       adic: _appliedAdic,
     );
-    final hasSearchCriteria = _searchTerm.trim().isNotEmpty ||
+    final hasSearchCriteria =
+        _searchTerm.trim().isNotEmpty ||
         _appliedDepa != null ||
         _appliedSubd != null ||
         _appliedClas != null ||
@@ -242,7 +252,8 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
             searchCtrl: _searchCtrl,
             searchFocus: _searchFocus,
             searchBy: _searchBy,
-            onSearchByChanged: (value) => setState(() => _searchBy = value ?? 'DES'),
+            onSearchByChanged: (value) =>
+                setState(() => _searchBy = value ?? 'DES'),
             depaAsync: depaAsync,
             subdAsync: subdAsync,
             clasAsync: clasAsync,
@@ -303,9 +314,7 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _HeaderSection(
-                          trailing: headerSearch,
-                        ),
+                        _HeaderSection(trailing: headerSearch),
                         const SizedBox(height: 12),
                         rightPanel,
                       ],
@@ -316,9 +325,7 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
                 ],
               )
             else ...[
-              _HeaderSection(
-                trailing: headerSearch,
-              ),
+              _HeaderSection(trailing: headerSearch),
               const SizedBox(height: 12),
               rightPanel,
               const SizedBox(height: 12),
@@ -419,7 +426,9 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
     if (normalizedSuc.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No se encontró sucursal para buscar UPC.')),
+        const SnackBar(
+          content: Text('No se encontró sucursal para buscar UPC.'),
+        ),
       );
       _requestQuickUpcFocus();
       return;
@@ -429,7 +438,9 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
     if (upc12 == null) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Capture un código EAN13 válido (12+ dígitos).')),
+        const SnackBar(
+          content: Text('Capture un código EAN13 válido (12+ dígitos).'),
+        ),
       );
       _requestQuickUpcFocus();
       return;
@@ -437,7 +448,9 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
 
     setState(() => _addingByQuickUpc = true);
     try {
-      final items = await ref.read(datArtApiProvider).fetchArticulos(
+      final items = await ref
+          .read(datArtApiProvider)
+          .fetchArticulos(
             suc: normalizedSuc,
             upc: upc12,
             limit: 120,
@@ -492,6 +505,30 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
   }
 
   Future<void> _removeLocalItem(CotizacionLocalItem item) async {
+    if (_isRelatedCounterMovementItem(item)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'El contramovimiento relacionado solo se elimina al eliminar la ORD del artículo relacionado.',
+            ),
+          ),
+        );
+      }
+      return;
+    }
+    if (_hasOrdAssigned(item)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'No se puede eliminar artículo cuando tiene ORD asignada. Elimina primero la ORD del artículo relacionado.',
+            ),
+          ),
+        );
+      }
+      return;
+    }
     if (item.syncStatus == SyncStatus.synced) {
       try {
         await ref.read(pvTicketLogApiProvider).remove(item.id);
@@ -505,12 +542,16 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
         return;
       }
     }
-    ref.read(cotizacionLocalProvider(widget.idfol).notifier).removeItem(item.id);
+    ref
+        .read(cotizacionLocalProvider(widget.idfol).notifier)
+        .removeItem(item.id);
   }
 
   Future<bool> _markPendiente() async {
     try {
-      await ref.read(cotizacionesApiProvider).updateCotizacion(widget.idfol, {'ESTA': 'PENDIENTE'});
+      await ref.read(cotizacionesApiProvider).updateCotizacion(widget.idfol, {
+        'ESTA': 'PENDIENTE',
+      });
       ref.invalidate(cotizacionProvider(widget.idfol));
       ref.invalidate(cotizacionesListProvider);
       return true;
@@ -533,34 +574,42 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
       await ref
           .read(cotizacionLocalProvider(widget.idfol).notifier)
           .mergeRemote([_toLocalItem(saved)]);
-      await ref.read(cotizacionLocalProvider(widget.idfol).notifier).setSyncStatus(
-            item.id,
-            SyncStatus.synced,
-            error: null,
-          );
+      await ref
+          .read(cotizacionLocalProvider(widget.idfol).notifier)
+          .setSyncStatus(item.id, SyncStatus.synced, error: null);
     } catch (e) {
       if (e is DioException && e.response?.statusCode == 409) {
-        await ref.read(cotizacionLocalProvider(widget.idfol).notifier).setSyncStatus(
-              item.id,
-              SyncStatus.synced,
-              error: null,
-            );
+        await ref
+            .read(cotizacionLocalProvider(widget.idfol).notifier)
+            .setSyncStatus(item.id, SyncStatus.synced, error: null);
         return;
       }
-      await ref.read(cotizacionLocalProvider(widget.idfol).notifier).setSyncStatus(
-            item.id,
-            SyncStatus.error,
-            error: e.toString(),
-          );
+      await ref
+          .read(cotizacionLocalProvider(widget.idfol).notifier)
+          .setSyncStatus(item.id, SyncStatus.error, error: e.toString());
     }
   }
 
   Future<void> _editQuantity(CotizacionLocalItem item) async {
+    if (_isRelatedCounterMovementItem(item)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'El contramovimiento relacionado solo se elimina al eliminar la ORD del artículo relacionado.',
+            ),
+          ),
+        );
+      }
+      return;
+    }
     if (_hasOrdAssigned(item)) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('No se permite modificar CTD cuando el artículo ya tiene ORD asignada.'),
+            content: Text(
+              'No se permite modificar CTD cuando el artículo ya tiene ORD asignada.',
+            ),
           ),
         );
       }
@@ -569,32 +618,25 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
 
     final nextQty = await _showQuantityDialog(item.ctd);
     if (nextQty == null) return;
-    await ref.read(cotizacionLocalProvider(widget.idfol).notifier).updateItem(
-          item.id,
-          ctd: nextQty,
-        );
+    await ref
+        .read(cotizacionLocalProvider(widget.idfol).notifier)
+        .updateItem(item.id, ctd: nextQty);
     final updated = ref
         .read(cotizacionLocalProvider(widget.idfol))
         .items
         .firstWhere((e) => e.id == item.id, orElse: () => item);
-    await ref.read(cotizacionLocalProvider(widget.idfol).notifier).setSyncStatus(
-          item.id,
-          SyncStatus.pending,
-          error: null,
-        );
+    await ref
+        .read(cotizacionLocalProvider(widget.idfol).notifier)
+        .setSyncStatus(item.id, SyncStatus.pending, error: null);
     try {
       await _upsertTicketLog(updated);
-      await ref.read(cotizacionLocalProvider(widget.idfol).notifier).setSyncStatus(
-            item.id,
-            SyncStatus.synced,
-            error: null,
-          );
+      await ref
+          .read(cotizacionLocalProvider(widget.idfol).notifier)
+          .setSyncStatus(item.id, SyncStatus.synced, error: null);
     } catch (e) {
-      await ref.read(cotizacionLocalProvider(widget.idfol).notifier).setSyncStatus(
-            item.id,
-            SyncStatus.error,
-            error: e.toString(),
-          );
+      await ref
+          .read(cotizacionLocalProvider(widget.idfol).notifier)
+          .setSyncStatus(item.id, SyncStatus.error, error: e.toString());
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('No se pudo actualizar cantidad: $e')),
@@ -604,11 +646,25 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
   }
 
   Future<void> _editPrice(CotizacionLocalItem item) async {
+    if (_isRelatedCounterMovementItem(item)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'El contramovimiento relacionado solo se elimina al eliminar la ORD del artículo relacionado.',
+            ),
+          ),
+        );
+      }
+      return;
+    }
     if (_hasOrdAssigned(item)) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('No se permite modificar PVTA cuando el artículo ya tiene ORD asignada.'),
+            content: Text(
+              'No se permite modificar PVTA cuando el artículo ya tiene ORD asignada.',
+            ),
           ),
         );
       }
@@ -639,11 +695,9 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
     final nextPrice = await _showPriceDialog(targetItem.pvta);
     if (nextPrice == null) return;
 
-    await ref.read(cotizacionLocalProvider(widget.idfol).notifier).setSyncStatus(
-          item.id,
-          SyncStatus.pending,
-          error: null,
-        );
+    await ref
+        .read(cotizacionLocalProvider(widget.idfol).notifier)
+        .setSyncStatus(item.id, SyncStatus.pending, error: null);
 
     try {
       final updated = await _updatePriceWithResolvedAuthorization(
@@ -651,31 +705,30 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
         nextPrice: nextPrice,
       );
       if (updated == null) {
-        await ref.read(cotizacionLocalProvider(widget.idfol).notifier).setSyncStatus(
-              item.id,
-              SyncStatus.synced,
-              error: null,
-            );
+        await ref
+            .read(cotizacionLocalProvider(widget.idfol).notifier)
+            .setSyncStatus(item.id, SyncStatus.synced, error: null);
         return;
       }
       await ref
           .read(cotizacionLocalProvider(widget.idfol).notifier)
           .mergeRemote([_toLocalItem(updated)]);
-      await ref.read(cotizacionLocalProvider(widget.idfol).notifier).setSyncStatus(
-            item.id,
-            SyncStatus.synced,
-            error: null,
-          );
+      await ref
+          .read(cotizacionLocalProvider(widget.idfol).notifier)
+          .setSyncStatus(item.id, SyncStatus.synced, error: null);
       ref.invalidate(pvTicketLogListProvider(widget.idfol));
     } catch (e) {
-      await ref.read(cotizacionLocalProvider(widget.idfol).notifier).setSyncStatus(
-            item.id,
-            SyncStatus.error,
-            error: e.toString(),
-          );
+      await ref
+          .read(cotizacionLocalProvider(widget.idfol).notifier)
+          .setSyncStatus(item.id, SyncStatus.error, error: e.toString());
       if (mounted) {
-        final msg = apiErrorMessage(e, fallback: 'No se pudo actualizar precio');
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+        final msg = apiErrorMessage(
+          e,
+          fallback: 'No se pudo actualizar precio',
+        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(msg)));
       }
     }
   }
@@ -694,11 +747,7 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
     final authPassword = await _showSuperPvAuthDialog();
     if (authPassword == null) return null;
 
-    return api.updatePrice(
-      itemId,
-      pvta: nextPrice,
-      authPassword: authPassword,
-    );
+    return api.updatePrice(itemId, pvta: nextPrice, authPassword: authPassword);
   }
 
   Future<void> _createOrdFromRow(
@@ -706,6 +755,18 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
     PvCtrFolAsvrModel cot,
     String razonSocial,
   ) async {
+    if (_isRelatedCounterMovementItem(item)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'El contramovimiento relacionado solo se elimina al eliminar la ORD del artículo relacionado.',
+            ),
+          ),
+        );
+      }
+      return;
+    }
     var targetItem = item;
     if (targetItem.syncStatus != SyncStatus.synced) {
       await _syncItem(targetItem);
@@ -717,7 +778,9 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('No se puede crear ORD hasta sincronizar el renglón seleccionado.'),
+              content: Text(
+                'No se puede crear ORD hasta sincronizar el renglón seleccionado.',
+              ),
             ),
           );
         }
@@ -729,7 +792,9 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
     if (ticketId.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No se encontró el ID del renglón seleccionado')),
+          const SnackBar(
+            content: Text('No se encontró el ID del renglón seleccionado'),
+          ),
         );
       }
       return;
@@ -739,7 +804,11 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
     if (art.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('El artículo seleccionado no es válido para crear ORD')),
+          const SnackBar(
+            content: Text(
+              'El artículo seleccionado no es válido para crear ORD',
+            ),
+          ),
         );
       }
       return;
@@ -749,7 +818,9 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('La cantidad registrada para el articulo no permite crear ORD'),
+            content: Text(
+              'La cantidad registrada para el articulo no permite crear ORD',
+            ),
           ),
         );
       }
@@ -761,7 +832,9 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
     Map<String, dynamic>? existingHeader;
     if (ordExistente.isNotEmpty) {
       try {
-        existingHeader = await ref.read(newOrdApiProvider).fetchOrd(ordExistente);
+        existingHeader = await ref
+            .read(newOrdApiProvider)
+            .fetchOrd(ordExistente);
       } catch (_) {
         existingHeader = null;
       }
@@ -770,7 +843,8 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
     final initialTipo = _extractOrdTipo(existingHeader) ?? kOrdTipoTallado;
     final initialFechaEntrega = _extractDateField(existingHeader, 'FCNM');
     final initialComad = _extractStringField(existingHeader, 'COMAD');
-    final initialDescArt = _extractStringField(existingHeader, 'DESCART') ?? targetItem.des ?? '';
+    final initialDescArt =
+        _extractStringField(existingHeader, 'DESCART') ?? targetItem.des ?? '';
 
     if (!mounted) return;
 
@@ -791,136 +865,157 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
         fechaEntregaInicial: initialFechaEntrega,
         comadInicial: initialComad,
       ),
+      onAuthorizeRelation: (passwordSupervisor) async {
+        try {
+          return await ref
+              .read(newOrdApiProvider)
+              .authorizeRelationTicket(
+                passwordSupervisor: passwordSupervisor,
+                idfol: widget.idfol,
+                ticketId: ticketId,
+                art: art,
+                ctd: targetItem.ctd,
+              );
+        } catch (e) {
+          throw Exception(
+            apiErrorMessage(e, fallback: 'Autorización SUPERPV inválida'),
+          );
+        }
+      },
+      onDelete: (dialogResult) async {
+        if (ordExistente.isEmpty) {
+          throw Exception('No existe una ORD para eliminar en este renglón');
+        }
+        try {
+          final response = await ref
+              .read(newOrdApiProvider)
+              .deleteFromQuoteLine(
+                DeleteOrdFromQuoteLineRequest(
+                  iord: ordExistente,
+                  ticketId: ticketId,
+                  idfol: widget.idfol,
+                  art: art,
+                ),
+              );
+          await _clearOrdFromItem(targetItem);
+          await _refreshRemoteTicketLog(replace: true);
+          return response.message.trim().isNotEmpty
+              ? response.message.trim()
+              : 'ORD eliminada correctamente';
+        } catch (error) {
+          throw Exception(_ordErrorMessage(error));
+        }
+      },
+      onSubmit: (dialogResult) async {
+        try {
+          final request = CreateOrdFromQuoteLineRequest(
+            idfol: widget.idfol,
+            ticketId: ticketId,
+            art: art,
+            descArt: dialogResult.descArt,
+            ctd: targetItem.ctd,
+            clien: clien,
+            estado: cot.esta ?? '',
+            tipo: dialogResult.tipo,
+            suc: cot.suc ?? '',
+            opv: cot.opv ?? '',
+            fechaEntrega: dialogResult.fechaEntrega,
+            comad: dialogResult.comad,
+            ordExistente: ordExistente.isEmpty ? null : ordExistente,
+            ticketRel: dialogResult.ticketRel,
+            relationAuthorizationToken: dialogResult.relationAuthorizationToken,
+          );
+
+          final response = await ref
+              .read(newOrdApiProvider)
+              .createFromQuoteLine(request);
+          final iord = (response.iord ?? '').trim();
+          if (iord.isNotEmpty) {
+            await _applyOrdToItem(
+              targetItem,
+              iord,
+              ticketRel: dialogResult.ticketRel,
+            );
+          }
+          if ((dialogResult.ticketRel ?? '').trim().isNotEmpty) {
+            await _refreshRemoteTicketLog(replace: true);
+          }
+
+          return response.message.trim().isNotEmpty
+              ? response.message.trim()
+              : (response.created
+                    ? 'ORD creada correctamente'
+                    : 'El artículo ya tiene una ORD');
+        } catch (error) {
+          throw Exception(_ordErrorMessage(error));
+        }
+      },
     );
     if (dialogResult == null) return;
-
-    if (dialogResult.action == NewOrdDialogAction.delete) {
-      if (ordExistente.isEmpty) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('No existe una ORD para eliminar en este renglón')),
-          );
-        }
-        return;
-      }
-      try {
-        final response = await ref.read(newOrdApiProvider).deleteFromQuoteLine(
-              DeleteOrdFromQuoteLineRequest(
-                iord: ordExistente,
-                ticketId: ticketId,
-                idfol: widget.idfol,
-                art: art,
-              ),
-            );
-        await _clearOrdFromItem(targetItem);
-        final message = response.message.trim().isNotEmpty
-            ? response.message.trim()
-            : 'ORD eliminada correctamente';
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-        }
-      } catch (error) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(_ordErrorMessage(error))),
-          );
-        }
-      }
-      return;
-    }
-
-    final request = CreateOrdFromQuoteLineRequest(
-      idfol: widget.idfol,
-      ticketId: ticketId,
-      art: art,
-      descArt: dialogResult.descArt,
-      ctd: targetItem.ctd,
-      clien: clien,
-      estado: cot.esta ?? '',
-      tipo: dialogResult.tipo,
-      suc: cot.suc ?? '',
-      opv: cot.opv ?? '',
-      fechaEntrega: dialogResult.fechaEntrega,
-      comad: dialogResult.comad,
-      ordExistente: ordExistente.isEmpty ? null : ordExistente,
-    );
-
-    try {
-      final response = await ref.read(newOrdApiProvider).createFromQuoteLine(request);
-      final iord = (response.iord ?? '').trim();
-      if (iord.isNotEmpty) {
-        await _applyOrdToItem(targetItem, iord);
-      }
-
-      final message = response.message.trim().isNotEmpty
-          ? response.message.trim()
-          : (response.created ? 'ORD creada correctamente' : 'El artículo ya tiene una ORD');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-      }
-    } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_ordErrorMessage(error))),
-        );
-      }
-    }
+    final message = (dialogResult.successMessage ?? '').trim();
+    if (message.isEmpty || !mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  Future<void> _applyOrdToItem(CotizacionLocalItem item, String iord) async {
-    await ref.read(cotizacionLocalProvider(widget.idfol).notifier).updateOrd(item.id, iord);
+  Future<void> _applyOrdToItem(
+    CotizacionLocalItem item,
+    String iord, {
+    String? ticketRel,
+  }) async {
+    await ref
+        .read(cotizacionLocalProvider(widget.idfol).notifier)
+        .updateOrd(item.id, iord, ticketRel: ticketRel);
     final updated = ref
         .read(cotizacionLocalProvider(widget.idfol))
         .items
-        .firstWhere((e) => e.id == item.id, orElse: () => item.copyWith(ord: iord));
-    await ref.read(cotizacionLocalProvider(widget.idfol).notifier).setSyncStatus(
-          item.id,
-          SyncStatus.pending,
-          error: null,
+        .firstWhere(
+          (e) => e.id == item.id,
+          orElse: () => item.copyWith(ord: iord, ticketRel: ticketRel),
         );
+    await ref
+        .read(cotizacionLocalProvider(widget.idfol).notifier)
+        .setSyncStatus(item.id, SyncStatus.pending, error: null);
     try {
       await _upsertTicketLog(updated);
-      await ref.read(cotizacionLocalProvider(widget.idfol).notifier).setSyncStatus(
-            item.id,
-            SyncStatus.synced,
-            error: null,
-          );
+      await ref
+          .read(cotizacionLocalProvider(widget.idfol).notifier)
+          .setSyncStatus(item.id, SyncStatus.synced, error: null);
     } catch (error) {
-      await ref.read(cotizacionLocalProvider(widget.idfol).notifier).setSyncStatus(
-            item.id,
-            SyncStatus.error,
-            error: error.toString(),
-          );
+      await ref
+          .read(cotizacionLocalProvider(widget.idfol).notifier)
+          .setSyncStatus(item.id, SyncStatus.error, error: error.toString());
       rethrow;
     }
   }
 
   Future<void> _clearOrdFromItem(CotizacionLocalItem item) async {
-    await ref.read(cotizacionLocalProvider(widget.idfol).notifier).updateOrd(item.id, null);
+    await ref
+        .read(cotizacionLocalProvider(widget.idfol).notifier)
+        .updateOrd(item.id, null, ticketRel: '');
     final updated = ref
         .read(cotizacionLocalProvider(widget.idfol))
         .items
-        .firstWhere((e) => e.id == item.id, orElse: () => item.copyWith(ord: null));
-    await ref.read(cotizacionLocalProvider(widget.idfol).notifier).setSyncStatus(
-          item.id,
-          SyncStatus.pending,
-          error: null,
+        .firstWhere(
+          (e) => e.id == item.id,
+          orElse: () => item.copyWith(ord: null, ticketRel: null),
         );
+    await ref
+        .read(cotizacionLocalProvider(widget.idfol).notifier)
+        .setSyncStatus(item.id, SyncStatus.pending, error: null);
     try {
       await _upsertTicketLog(updated);
-      await ref.read(cotizacionLocalProvider(widget.idfol).notifier).setSyncStatus(
-            item.id,
-            SyncStatus.synced,
-            error: null,
-          );
+      await ref
+          .read(cotizacionLocalProvider(widget.idfol).notifier)
+          .setSyncStatus(item.id, SyncStatus.synced, error: null);
     } catch (error) {
-      await ref.read(cotizacionLocalProvider(widget.idfol).notifier).setSyncStatus(
-            item.id,
-            SyncStatus.error,
-            error: error.toString(),
-          );
+      await ref
+          .read(cotizacionLocalProvider(widget.idfol).notifier)
+          .setSyncStatus(item.id, SyncStatus.error, error: error.toString());
       rethrow;
     }
+    await _refreshRemoteTicketLog(replace: true);
   }
 
   bool _isAllowedOrdQty(double qty) {
@@ -929,7 +1024,11 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
   }
 
   bool _hasOrdAssigned(CotizacionLocalItem item) {
-    return (item.ord ?? '').trim().isNotEmpty;
+    return hasOrdAssignedToItem(item);
+  }
+
+  bool _isRelatedCounterMovementItem(CotizacionLocalItem item) {
+    return isRelatedCounterMovementItem(item);
   }
 
   String _ordErrorMessage(Object error) {
@@ -938,19 +1037,19 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
       if (data is Map) {
         final code = data['code']?.toString().trim();
         if (code == 'CLIENT_REQUIRED') {
-          return 'No se permite crear ORD para el cliente seleccionado.';
+          return 'No se permite crear ORD para cliente seleccionado.';
         }
         if (code == 'INVALID_STATUS') {
-          return 'El documento no está en estado PENDIENTE.';
+          return 'Documento no está en estado PENDIENTE.';
         }
         if (code == 'INVALID_QTY') {
-          return 'La cantidad registrada para el articulo no permite crear ORD';
+          return 'Cantidad registrada para articulo no permite crear ORD';
         }
         if (code == 'FCNM_REQUIRED') {
-          return 'La fecha de entrega es obligatoria.';
+          return 'Fecha de entrega es obligatoria.';
         }
         if (code == 'COMAD_REQUIRED') {
-          return 'El campo COMAD es obligatorio.';
+          return 'Campo COMAD es obligatorio.';
         }
         if (code == 'ORD_EXISTS') {
           return 'El artículo ya tiene una ORD';
@@ -959,7 +1058,22 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
           return 'La ORD seleccionada no existe.';
         }
         if (code == 'TICKET_LINE_NOT_FOUND') {
-          return 'No se encontró el renglón seleccionado en el ticket.';
+          return 'No se encontró renglón seleccionado en ticket.';
+        }
+        if (code == 'RELATION_AUTH_REQUIRED') {
+          return 'Se requiere autorización supervisor para registrar TICKET_REL.';
+        }
+        if (code == 'RELATION_TICKET_REQUIRED') {
+          return 'Debe capturar TICKET_REL para crear ORD relacionada.';
+        }
+        if (code == 'RELATED_TICKET_MISMATCH') {
+          return 'El Articulo o catidad no coresponden en la cotizacion relacionada';
+        }
+        if (code == 'RELATED_TICKET_CLIENT_MISMATCH') {
+          return 'La cotizacion relacionada no corresponde al mismo cliente.';
+        }
+        if (code == 'RELATION_CREATE_ONLY') {
+          return 'La relacion de venta anterior solo aplica al crear una nueva ORD.';
         }
       }
     }
@@ -974,6 +1088,9 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
       'CTD': item.ctd,
       'PVTAT': nextPvtat,
       'ORD': normalizedOrd.isEmpty ? null : normalizedOrd,
+      'TICKET_REL': (item.ticketRel ?? '').trim().isEmpty
+          ? null
+          : item.ticketRel,
     };
     try {
       final saved = await api.update(item.id, payload);
@@ -993,6 +1110,19 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
       }
       rethrow;
     }
+  }
+
+  Future<void> _refreshRemoteTicketLog({bool replace = false}) async {
+    final remoteItems = await ref
+        .read(pvTicketLogApiProvider)
+        .fetchByIdfol(widget.idfol);
+    final localItems = remoteItems.map(_toLocalItem).toList();
+    final notifier = ref.read(cotizacionLocalProvider(widget.idfol).notifier);
+    if (replace) {
+      await notifier.replaceWithRemote(localItems);
+      return;
+    }
+    await notifier.mergeRemote(localItems);
   }
 
   String? _extractStringField(Map<String, dynamic>? row, String key) {
@@ -1035,7 +1165,9 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
                 children: [
                   TextField(
                     controller: ctrl,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
                     autofocus: true,
                     decoration: InputDecoration(
                       hintText: 'Ej. 1 o 1.5',
@@ -1063,7 +1195,8 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
                   return;
                 }
                 final doubleTimes2 = value * 2;
-                final isHalfStep = (doubleTimes2 - doubleTimes2.round()).abs() < 0.0001;
+                final isHalfStep =
+                    (doubleTimes2 - doubleTimes2.round()).abs() < 0.0001;
                 if (!isHalfStep) {
                   error = 'Solo enteros o .5';
                   dialogSetState?.call(() {});
@@ -1299,14 +1432,17 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
         return;
       }
 
-      final cierreContext =
-          await ref.read(pagoCotizacionApiProvider).fetchContext(widget.idfol);
+      final cierreContext = await ref
+          .read(pagoCotizacionApiProvider)
+          .fetchContext(widget.idfol);
       if (!mounted) return;
 
-      final rqfacDefault =
-          selectedTipo == 'CA' ? false : cierreContext.rqfacDefault;
+      final rqfacDefault = selectedTipo == 'CA'
+          ? false
+          : cierreContext.rqfacDefault;
       final uri = Uri(
-        path: '/punto-venta/cotizaciones/${Uri.encodeComponent(widget.idfol)}/pago',
+        path:
+            '/punto-venta/cotizaciones/${Uri.encodeComponent(widget.idfol)}/pago',
         queryParameters: {
           'tipotran': selectedTipo,
           'rqfac': rqfacDefault ? '1' : '0',
@@ -1371,7 +1507,10 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
   }
 
   Future<void> _addFromDatArt(DatArtModel match) async {
-    final wasEmpty = ref.read(cotizacionLocalProvider(widget.idfol)).items.isEmpty;
+    final wasEmpty = ref
+        .read(cotizacionLocalProvider(widget.idfol))
+        .items
+        .isEmpty;
     final pvta = match.pvta;
     final pvtat = (pvta ?? 0) * 1;
     final item = CotizacionLocalItem(
@@ -1387,7 +1526,9 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
       updatedAt: DateTime.now(),
       syncStatus: SyncStatus.pending,
     );
-    await ref.read(cotizacionLocalProvider(widget.idfol).notifier).addItem(item);
+    await ref
+        .read(cotizacionLocalProvider(widget.idfol).notifier)
+        .addItem(item);
     if (wasEmpty) {
       await _markPendiente();
     }
@@ -1431,6 +1572,9 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
       pvta: item.pvta,
       pvtat: item.pvtat ?? (qty * price),
       ord: item.ord?.trim().isEmpty ?? true ? null : item.ord!.trim(),
+      ticketRel: item.ticketRel?.trim().isEmpty ?? true
+          ? null
+          : item.ticketRel!.trim(),
       iddev: item.iddev,
       ctdd: item.ctdd,
       ctddf: item.ctddf,
@@ -1451,6 +1595,7 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
       pvta: item.pvta,
       pvtat: item.pvtat,
       ord: item.ord,
+      ticketRel: item.ticketRel,
       iddev: item.iddev,
       ctdd: item.ctdd,
       ctddf: item.ctddf,
@@ -1459,10 +1604,16 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
   }
 }
 
+bool hasOrdAssignedToItem(CotizacionLocalItem item) {
+  return (item.ord ?? '').trim().isNotEmpty;
+}
+
+bool isRelatedCounterMovementItem(CotizacionLocalItem item) {
+  return item.isRelatedCounterMovement;
+}
+
 class _HeaderSection extends StatelessWidget {
-  const _HeaderSection({
-    this.trailing,
-  });
+  const _HeaderSection({this.trailing});
 
   final Widget? trailing;
 
@@ -1477,9 +1628,7 @@ class _HeaderSection extends StatelessWidget {
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (trailing != null) trailing!,
-        ],
+        children: [if (trailing != null) trailing!],
       ),
     );
   }
@@ -1491,7 +1640,6 @@ class _HeaderSection extends StatelessWidget {
     final d = value.day.toString().padLeft(2, '0');
     return '$d/$m/$y';
   }
-
 }
 
 class _InfoBarInline extends StatelessWidget {
@@ -1511,11 +1659,17 @@ class _InfoBarInline extends StatelessWidget {
         const SizedBox(width: 12),
         _InfoTile(label: 'Cotizacion', value: cotizacion.idfol),
         const SizedBox(width: 12),
-        _InfoTile(label: 'Fecha', value: _HeaderSection._formatDateTime(cotizacion.fcn)),
+        _InfoTile(
+          label: 'Fecha',
+          value: _HeaderSection._formatDateTime(cotizacion.fcn),
+        ),
         const SizedBox(width: 12),
         _InfoTile(label: 'Nombre OPV', value: cotizacion.opv ?? '-'),
         const SizedBox(width: 12),
-        _InfoTile(label: 'N Cliente', value: cotizacion.clien?.toString() ?? '-'),
+        _InfoTile(
+          label: 'N Cliente',
+          value: cotizacion.clien?.toString() ?? '-',
+        ),
         const SizedBox(width: 12),
         _InfoTile(label: 'Nombre Cliente', value: razonSocialReceptor),
       ],
@@ -1587,11 +1741,14 @@ class _LeftPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final headerStyle = Theme.of(context).textTheme.titleSmall;
-    final sortedItems = [...localState.items]..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-    final hasPendingPromo =
-        sortedItems.any((item) => item.syncStatus == SyncStatus.pending);
-    final totalText =
-        hasPendingPromo ? 'Calculando promociones...' : _formatMoney(localState.total);
+    final sortedItems = [...localState.items]
+      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    final hasPendingPromo = sortedItems.any(
+      (item) => item.syncStatus == SyncStatus.pending,
+    );
+    final totalText = hasPendingPromo
+        ? 'Sincronizando ticket...'
+        : _formatMoney(localState.total);
     const rowHeight = 34.0;
     return Card(
       elevation: 0,
@@ -1633,37 +1790,46 @@ class _LeftPanel extends StatelessWidget {
                   separatorBuilder: (_, _) => const Divider(height: 1),
                   itemBuilder: (_, index) {
                     final item = sortedItems[index];
-                    final hasOrd = (item.ord ?? '').trim().isNotEmpty;
+                    final hasOrd = hasOrdAssignedToItem(item);
+                    final isCounterMovement = isRelatedCounterMovementItem(
+                      item,
+                    );
+                    final isProtectedRow = hasOrd || isCounterMovement;
                     final isPending = item.syncStatus == SyncStatus.pending;
                     final isError = item.syncStatus == SyncStatus.error;
                     final pvtaText = isPending
                         ? '...'
                         : item.pvta == null
-                            ? '-'
-                            : _formatMoney(item.pvta!);
+                        ? '-'
+                        : _formatMoney(item.pvta!);
                     final pvtatText = isPending
                         ? '...'
                         : item.pvta == null
-                            ? '-'
-                            : _formatMoney(item.pvtat);
+                        ? '-'
+                        : _formatMoney(item.pvtat);
                     final desText = isPending
-                        ? '${item.des ?? '-'} (Aplicando promoción...)'
+                        ? '${item.des ?? '-'} (Sincronizando...)'
                         : isError
-                            ? '${item.des ?? '-'} (Error al aplicar promoción)'
-                            : (item.des ?? '-');
+                        ? '${item.des ?? '-'} (Error al aplicar promoción)'
+                        : (item.des ?? '-');
                     return SizedBox(
                       height: rowHeight,
                       child: _TableRow(
                         children: [
-                          _TableCell(width: 220, child: _SelectableDescriptionText(desText)),
+                          _TableCell(
+                            width: 220,
+                            child: _SelectableDescriptionText(desText),
+                          ),
                           _TableCell(
                             width: 60,
                             child: MouseRegion(
-                              cursor: readOnly || hasOrd
+                              cursor: readOnly || isProtectedRow
                                   ? SystemMouseCursors.basic
                                   : SystemMouseCursors.click,
                               child: GestureDetector(
-                                onDoubleTap: readOnly || hasOrd ? null : () => onEditQty(item),
+                                onDoubleTap: readOnly || isProtectedRow
+                                    ? null
+                                    : () => onEditQty(item),
                                 child: Text(item.ctd.toStringAsFixed(2)),
                               ),
                             ),
@@ -1671,13 +1837,17 @@ class _LeftPanel extends StatelessWidget {
                           _TableCell(
                             width: 80,
                             child: MouseRegion(
-                              cursor: readOnly || hasOrd
+                              cursor: readOnly || isProtectedRow
                                   ? SystemMouseCursors.basic
                                   : SystemMouseCursors.click,
                               child: GestureDetector(
-                                onDoubleTap: readOnly || hasOrd ? null : () => onEditPrice(item),
+                                onDoubleTap: readOnly || isProtectedRow
+                                    ? null
+                                    : () => onEditPrice(item),
                                 child: Tooltip(
-                                  message: hasOrd
+                                  message: isCounterMovement
+                                      ? 'Contramovimiento relacionado'
+                                      : hasOrd
                                       ? 'No editable: ORD asignada'
                                       : 'Doble clic para editar precio',
                                   child: Text(pvtaText),
@@ -1689,13 +1859,17 @@ class _LeftPanel extends StatelessWidget {
                           _TableCell(
                             width: 130,
                             child: MouseRegion(
-                              cursor: readOnly
+                              cursor: readOnly || isCounterMovement
                                   ? SystemMouseCursors.basic
                                   : SystemMouseCursors.click,
                               child: GestureDetector(
-                                onDoubleTap: readOnly ? null : () => onCreateOrd(item),
+                                onDoubleTap: readOnly || isCounterMovement
+                                    ? null
+                                    : () => onCreateOrd(item),
                                 child: Tooltip(
-                                  message: 'Doble clic para crear ORD',
+                                  message: isCounterMovement
+                                      ? 'Contramovimiento: se elimina al borrar ORD relacionada'
+                                      : 'Doble clic para crear ORD',
                                   child: Text(
                                     item.ord ?? '-',
                                     overflow: TextOverflow.ellipsis,
@@ -1707,7 +1881,9 @@ class _LeftPanel extends StatelessWidget {
                           IconButton(
                             tooltip: 'Quitar',
                             icon: const Icon(Icons.close, size: 18),
-                            onPressed: readOnly ? null : () => onRemove(item),
+                            onPressed: readOnly || isProtectedRow
+                                ? null
+                                : () => onRemove(item),
                           ),
                         ],
                       ),
@@ -1765,62 +1941,82 @@ class _RightPanel extends StatelessWidget {
               child: !hasSearchCriteria
                   ? const Padding(
                       padding: EdgeInsets.all(12),
-                      child: Text('Ingresa un criterio o selecciona filtros para ver articulos.'),
+                      child: Text(
+                        'Ingresa un criterio o selecciona filtros para ver articulos.',
+                      ),
                     )
                   : datArtAsync.when(
-                data: (items) {
-                  if (items.isEmpty) {
-                    return const Padding(
-                      padding: EdgeInsets.all(12),
-                      child: Text('Sin articulos para la sucursal seleccionada.'),
-                    );
-                  }
-                  return ListView.separated(
-                    itemCount: items.length,
-                    separatorBuilder: (_, _) => const Divider(height: 1),
-                    itemBuilder: (_, index) {
-                      const rowHeight = 30.0;
-                      final item = items[index];
-                      final stock = item.stock?.toStringAsFixed(2) ?? '-';
-                      final pvta = item.pvta == null ? '-' : '\$${item.pvta!.toStringAsFixed(2)}';
-                      return SizedBox(
-                        height: rowHeight,
-                        child: _TableRow(
-                          children: [
-                            _TableCell(
-                              width: 36,
-                              child: IconButton(
-                                tooltip: 'Agregar',
-                                icon: const Icon(Icons.add_circle_outline, size: 18),
-                                onPressed: readOnly ? null : () => onAdd(item),
+                      data: (items) {
+                        if (items.isEmpty) {
+                          return const Padding(
+                            padding: EdgeInsets.all(12),
+                            child: Text(
+                              'Sin articulos para la sucursal seleccionada.',
+                            ),
+                          );
+                        }
+                        return ListView.separated(
+                          itemCount: items.length,
+                          separatorBuilder: (_, _) => const Divider(height: 1),
+                          itemBuilder: (_, index) {
+                            const rowHeight = 30.0;
+                            final item = items[index];
+                            final stock = item.stock?.toStringAsFixed(2) ?? '-';
+                            final pvta = item.pvta == null
+                                ? '-'
+                                : '\$${item.pvta!.toStringAsFixed(2)}';
+                            return SizedBox(
+                              height: rowHeight,
+                              child: _TableRow(
+                                children: [
+                                  _TableCell(
+                                    width: 36,
+                                    child: IconButton(
+                                      tooltip: 'Agregar',
+                                      icon: const Icon(
+                                        Icons.add_circle_outline,
+                                        size: 18,
+                                      ),
+                                      onPressed: readOnly
+                                          ? null
+                                          : () => onAdd(item),
+                                    ),
+                                  ),
+                                  _TableCell(
+                                    width: 80,
+                                    child: _SelectableDescriptionText(item.art),
+                                  ),
+                                  _TableCell(
+                                    width: 100,
+                                    child: _SelectableDescriptionText(item.upc),
+                                  ),
+                                  _TableCell(
+                                    width: 240,
+                                    child: _SelectableDescriptionText(
+                                      item.des ?? '-',
+                                    ),
+                                  ),
+                                  _TableCell(
+                                    width: 80,
+                                    child: _SelectableDescriptionText(stock),
+                                  ),
+                                  _TableCell(
+                                    width: 70,
+                                    child: _SelectableDescriptionText(pvta),
+                                  ),
+                                ],
                               ),
-                            ),
-                            _TableCell(width: 80, child: _SelectableDescriptionText(item.art)),
-                            _TableCell(width: 100, child: _SelectableDescriptionText(item.upc)),
-                            _TableCell(
-                              width: 240,
-                              child: _SelectableDescriptionText(item.des ?? '-'),
-                            ),
-                            _TableCell(
-                              width: 80,
-                              child: _SelectableDescriptionText(stock),
-                            ),
-                            _TableCell(
-                              width: 70,
-                              child: _SelectableDescriptionText(pvta),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  );
-                },
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (e, _) => Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Text('Error al cargar DAT_ART: $e'),
-                ),
-              ),
+                            );
+                          },
+                        );
+                      },
+                      loading: () =>
+                          const Center(child: CircularProgressIndicator()),
+                      error: (e, _) => Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Text('Error al cargar DAT_ART: $e'),
+                      ),
+                    ),
             ),
             const SizedBox(height: 8),
           ],
@@ -1871,7 +2067,10 @@ class _QuickUpcPanel extends StatelessWidget {
             decoration: InputDecoration(
               border: const OutlineInputBorder(),
               isDense: true,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 8,
+                vertical: 8,
+              ),
               hintText: 'EAN13 (Enter para agregar)',
               suffixIcon: loading
                   ? const Padding(
@@ -2035,7 +2234,10 @@ class _SearchFilters extends StatelessWidget {
   final bool enabled;
   static const double _filterHeight = 28;
   static const double _filterFontSize = 11;
-  static const EdgeInsets _filterPadding = EdgeInsets.symmetric(horizontal: 8, vertical: 6);
+  static const EdgeInsets _filterPadding = EdgeInsets.symmetric(
+    horizontal: 8,
+    vertical: 6,
+  );
   static const double _filterMenuWidth = 260;
 
   @override
@@ -2050,7 +2252,10 @@ class _SearchFilters extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Buscar por:', style: TextStyle(fontWeight: FontWeight.w600)),
+          const Text(
+            'Buscar por:',
+            style: TextStyle(fontWeight: FontWeight.w600),
+          ),
           const SizedBox(height: 6),
           Wrap(
             spacing: 6,
@@ -2063,10 +2268,34 @@ class _SearchFilters extends StatelessWidget {
                   iconSize: 16,
                   style: const TextStyle(fontSize: _filterFontSize),
                   items: const [
-                    DropdownMenuItem(value: 'ART', child: Text('ART', style: TextStyle(fontSize: _filterFontSize))),
-                    DropdownMenuItem(value: 'UPC', child: Text('UPC', style: TextStyle(fontSize: _filterFontSize))),
-                    DropdownMenuItem(value: 'DES', child: Text('DES', style: TextStyle(fontSize: _filterFontSize))),
-                    DropdownMenuItem(value: 'MODELO', child: Text('MODELO', style: TextStyle(fontSize: _filterFontSize))),
+                    DropdownMenuItem(
+                      value: 'ART',
+                      child: Text(
+                        'ART',
+                        style: TextStyle(fontSize: _filterFontSize),
+                      ),
+                    ),
+                    DropdownMenuItem(
+                      value: 'UPC',
+                      child: Text(
+                        'UPC',
+                        style: TextStyle(fontSize: _filterFontSize),
+                      ),
+                    ),
+                    DropdownMenuItem(
+                      value: 'DES',
+                      child: Text(
+                        'DES',
+                        style: TextStyle(fontSize: _filterFontSize),
+                      ),
+                    ),
+                    DropdownMenuItem(
+                      value: 'MODELO',
+                      child: Text(
+                        'MODELO',
+                        style: TextStyle(fontSize: _filterFontSize),
+                      ),
+                    ),
                   ],
                   initialValue: searchBy,
                   onChanged: enabled ? onSearchByChanged : null,
@@ -2168,7 +2397,10 @@ class _SearchFilters extends StatelessWidget {
                 onPressed: enabled ? onSearchApply : null,
                 icon: const Icon(Icons.search, size: 18),
                 padding: EdgeInsets.zero,
-                constraints: const BoxConstraints.tightFor(width: _filterHeight, height: _filterHeight),
+                constraints: const BoxConstraints.tightFor(
+                  width: _filterHeight,
+                  height: _filterHeight,
+                ),
                 visualDensity: VisualDensity.compact,
               ),
               IconButton(
@@ -2176,7 +2408,10 @@ class _SearchFilters extends StatelessWidget {
                 onPressed: enabled ? onClearSearch : null,
                 icon: const Icon(Icons.clear, size: 18),
                 padding: EdgeInsets.zero,
-                constraints: const BoxConstraints.tightFor(width: _filterHeight, height: _filterHeight),
+                constraints: const BoxConstraints.tightFor(
+                  width: _filterHeight,
+                  height: _filterHeight,
+                ),
                 visualDensity: VisualDensity.compact,
               ),
             ],
@@ -2218,13 +2453,18 @@ class _MiniField extends StatelessWidget {
       child: TextField(
         controller: controller,
         enabled: enabled,
-        keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+        keyboardType: const TextInputType.numberWithOptions(
+          decimal: true,
+          signed: true,
+        ),
         decoration: InputDecoration(
           labelText: label,
           isDense: true,
           contentPadding: _SearchFilters._filterPadding,
           labelStyle: const TextStyle(fontSize: _SearchFilters._filterFontSize),
-          constraints: const BoxConstraints.tightFor(height: _SearchFilters._filterHeight),
+          constraints: const BoxConstraints.tightFor(
+            height: _SearchFilters._filterHeight,
+          ),
           border: const OutlineInputBorder(),
         ),
         style: const TextStyle(fontSize: _SearchFilters._filterFontSize),
@@ -2269,7 +2509,10 @@ class _JrqDropdown<T> extends StatelessWidget {
           final menuItems = <DropdownMenuItem<double?>>[
             const DropdownMenuItem<double?>(
               value: null,
-              child: Text('', style: TextStyle(fontSize: _SearchFilters._filterFontSize)),
+              child: Text(
+                '',
+                style: TextStyle(fontSize: _SearchFilters._filterFontSize),
+              ),
             ),
             ...items.map(
               (item) => DropdownMenuItem<double?>(
@@ -2278,23 +2521,31 @@ class _JrqDropdown<T> extends StatelessWidget {
                   itemLabel(item),
                   overflow: TextOverflow.visible,
                   softWrap: true,
-                  style: const TextStyle(fontSize: _SearchFilters._filterFontSize),
+                  style: const TextStyle(
+                    fontSize: _SearchFilters._filterFontSize,
+                  ),
                 ),
               ),
             ),
           ];
           final selectedWidgets = <Widget>[
-            const Text('', style: TextStyle(fontSize: _SearchFilters._filterFontSize)),
+            const Text(
+              '',
+              style: TextStyle(fontSize: _SearchFilters._filterFontSize),
+            ),
             ...items.map(
               (item) => Text(
                 itemLabel(item),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: _SearchFilters._filterFontSize),
+                style: const TextStyle(
+                  fontSize: _SearchFilters._filterFontSize,
+                ),
               ),
             ),
           ];
-          final hasValue = value != null && menuItems.any((item) => item.value == value);
+          final hasValue =
+              value != null && menuItems.any((item) => item.value == value);
           return _buildDropdown(
             context: context,
             menuItems: menuItems,
@@ -2309,7 +2560,10 @@ class _JrqDropdown<T> extends StatelessWidget {
           menuItems: const [
             DropdownMenuItem<double?>(
               value: null,
-              child: Text('...', style: TextStyle(fontSize: _SearchFilters._filterFontSize)),
+              child: Text(
+                '...',
+                style: TextStyle(fontSize: _SearchFilters._filterFontSize),
+              ),
             ),
           ],
           value: null,
@@ -2321,7 +2575,10 @@ class _JrqDropdown<T> extends StatelessWidget {
           menuItems: const [
             DropdownMenuItem<double?>(
               value: null,
-              child: Text('Err', style: TextStyle(fontSize: _SearchFilters._filterFontSize)),
+              child: Text(
+                'Err',
+                style: TextStyle(fontSize: _SearchFilters._filterFontSize),
+              ),
             ),
           ],
           value: null,
@@ -2347,7 +2604,9 @@ class _JrqDropdown<T> extends StatelessWidget {
         border: const OutlineInputBorder(),
         contentPadding: _SearchFilters._filterPadding,
         labelStyle: const TextStyle(fontSize: _SearchFilters._filterFontSize),
-        constraints: const BoxConstraints.tightFor(height: _SearchFilters._filterHeight),
+        constraints: const BoxConstraints.tightFor(
+          height: _SearchFilters._filterHeight,
+        ),
       ),
       isEmpty: value == null,
       child: DropdownButtonHideUnderline(
@@ -2382,10 +2641,7 @@ class _SelectableDescriptionText extends StatelessWidget {
       waitDuration: const Duration(milliseconds: 250),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        child: SelectableText(
-          text,
-          maxLines: 1,
-        ),
+        child: SelectableText(text, maxLines: 1),
       ),
     );
   }
@@ -2404,7 +2660,10 @@ class _TableHeader extends StatelessWidget {
         for (var i = 0; i < columns.length; i++)
           _TableCell(
             width: widths[i],
-            child: Text(columns[i], style: const TextStyle(fontWeight: FontWeight.w600)),
+            child: Text(
+              columns[i],
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
           ),
       ],
     );
@@ -2445,6 +2704,3 @@ class _TableCell extends StatelessWidget {
     );
   }
 }
-
-
-

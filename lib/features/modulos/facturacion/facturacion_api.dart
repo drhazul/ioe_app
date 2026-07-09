@@ -21,7 +21,7 @@ class FacturacionPendientesPage {
         data: [],
         total: 0,
         page: 1,
-        pageSize: 60,
+        pageSize: 150,
         totalPages: 0,
       );
     }
@@ -36,8 +36,11 @@ class FacturacionPendientesPage {
 
     final total = _toInt(map['total']) ?? rows.length;
     final page = _clampInt(_toInt(map['page']) ?? 1, min: 1, max: 2147483647);
-    final pageSize =
-        _clampInt(_toInt(map['pageSize']) ?? 60, min: 1, max: 2147483647);
+    final pageSize = _clampInt(
+      _toInt(map['pageSize']) ?? 150,
+      min: 1,
+      max: 2147483647,
+    );
     final totalPages = _clampInt(
       _toInt(map['totalPages']) ?? (total == 0 ? 0 : (total / pageSize).ceil()),
       min: 0,
@@ -61,11 +64,7 @@ int? _toInt(dynamic value) {
   return int.tryParse('$value');
 }
 
-int _clampInt(
-  int value, {
-  required int min,
-  required int max,
-}) {
+int _clampInt(int value, {required int min, required int max}) {
   if (value < min) return min;
   if (value > max) return max;
   return value;
@@ -148,13 +147,27 @@ class FacturacionApi {
     return _asMap(res.data);
   }
 
+  Future<FacturacionPendientesPage> fetchPendientesByIdFols(
+    List<String> idFols,
+  ) async {
+    final ids = _normalizeIdFols(idFols);
+    final res = await dio.post(
+      '/facturacion/pendientes/idfols',
+      data: <String, dynamic>{'idFols': ids},
+    );
+    return FacturacionPendientesPage.fromJson(res.data);
+  }
+
   Future<Map<String, dynamic>> validar(String idFol) async {
     final res = await dio.get('/facturacion/${_folioPath(idFol)}/validar');
     return _asMap(res.data);
   }
 
   Future<Map<String, dynamic>> emitir(String idFol) async {
-    final res = await dio.post('/facturacion/${_folioPath(idFol)}/emitir', data: const {});
+    final res = await dio.post(
+      '/facturacion/${_folioPath(idFol)}/emitir',
+      data: const {},
+    );
     return _asMap(res.data);
   }
 
@@ -170,21 +183,29 @@ class FacturacionApi {
   }
 
   Future<Map<String, dynamic>> refrescarEstado(String idFol) async {
-    final res = await dio.post('/facturacion/${_folioPath(idFol)}/refrescar-estado', data: const {});
+    final res = await dio.post(
+      '/facturacion/${_folioPath(idFol)}/refrescar-estado',
+      data: const {},
+    );
     return _asMap(res.data);
   }
 
-  Future<Map<String, dynamic>> reenviarEmail(String idFol, {String? email}) async {
-    final res = await dio.post('/facturacion/${_folioPath(idFol)}/reenviar-email', data: {
-      if ((email ?? '').trim().isNotEmpty) 'email': email!.trim(),
-    });
+  Future<Map<String, dynamic>> reenviarEmail(
+    String idFol, {
+    String? email,
+  }) async {
+    final res = await dio.post(
+      '/facturacion/${_folioPath(idFol)}/reenviar-email',
+      data: {if ((email ?? '').trim().isNotEmpty) 'email': email!.trim()},
+    );
     return _asMap(res.data);
   }
 
   Future<Map<String, dynamic>> cancelar(String idFol, {String? motivo}) async {
-    final res = await dio.post('/facturacion/${_folioPath(idFol)}/cancelar', data: {
-      if ((motivo ?? '').trim().isNotEmpty) 'motivo': motivo!.trim(),
-    });
+    final res = await dio.post(
+      '/facturacion/${_folioPath(idFol)}/cancelar',
+      data: {if ((motivo ?? '').trim().isNotEmpty) 'motivo': motivo!.trim()},
+    );
     return _asMap(res.data);
   }
 
@@ -211,7 +232,8 @@ class FacturacionApi {
       '/facturacion/unificaciones',
       data: <String, dynamic>{
         'idFols': ids,
-        if ((comentario ?? '').trim().isNotEmpty) 'comentario': comentario!.trim(),
+        if ((comentario ?? '').trim().isNotEmpty)
+          'comentario': comentario!.trim(),
       },
     );
     return _asMap(res.data);
@@ -229,8 +251,9 @@ class FacturacionApi {
   }
 
   Future<Map<String, dynamic>> detalleUnificacion(String grupoId) async {
-    final res = await dio.get('/facturacion/unificaciones/${_folioPath(grupoId)}');
+    final res = await dio.get(
+      '/facturacion/unificaciones/${_folioPath(grupoId)}',
+    );
     return _asMap(res.data);
   }
 }
-

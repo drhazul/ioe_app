@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:dio/dio.dart';
 
+import '../../../../../core/auth/auth_controller.dart';
 import '../../domain/merma_models.dart';
 import '../../providers/merma_catalogs_provider.dart';
 import '../../providers/merma_provider.dart';
@@ -35,6 +36,14 @@ class _MermaDetailPageState extends ConsumerState<MermaDetailPage> {
   Widget build(BuildContext context) {
     final asyncDoc = ref.watch(mermaDetalleProvider(widget.docmer));
     final roleName = ref.watch(mermaCurrentRoleNameProvider).valueOrNull ?? '';
+    final auth = ref.watch(authControllerProvider);
+    final roleId = auth.roleId ?? 0;
+    final username = (auth.username ?? '').trim().toUpperCase();
+    final isAdmin = _isAdminRole(
+      roleName: roleName,
+      roleId: roleId,
+      username: username,
+    );
     final asyncMotivos = ref.watch(mermaMotivosProvider);
     final asyncAreas = ref.watch(mermaAreasProvider);
     return PopScope(
@@ -66,113 +75,114 @@ class _MermaDetailPageState extends ConsumerState<MermaDetailPage> {
           ],
         ),
         body: asyncDoc.when(
-          data: (doc) => ListView(
-            padding: const EdgeInsets.all(12),
-            children: [
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  Text(
-                    'DOCMER: ${doc.docmer}',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  Text('Sucursal: ${doc.suc}'),
-                  Text('Usuario: ${doc.user}'),
-                  MermaStatusChip(estatus: doc.estatus),
-                ],
-              ),
-              const SizedBox(height: 10),
-              MermaTotalsCard(narts: doc.narts, total: doc.total),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  if (!_isOnlyPrintMode(doc, roleName) && _editable(doc))
-                    FilledButton.icon(
-                      onPressed: () =>
-                          _addItem(context, ref, doc, asyncMotivos, asyncAreas),
-                      icon: const Icon(Icons.add),
-                      label: const Text('Agregar artículo'),
+          data: (doc) {
+            final onlyPrintMode = _isOnlyPrintMode(doc, roleName, isAdmin);
+            return ListView(
+              padding: const EdgeInsets.all(12),
+              children: [
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    Text(
+                      'DOCMER: ${doc.docmer}',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
-                  if (!_isOnlyPrintMode(doc, roleName) && _editable(doc))
-                    OutlinedButton.icon(
-                      onPressed: () =>
-                          _solicitarAutorizacion(context, ref, doc),
-                      icon: const Icon(Icons.send),
-                      label: const Text('Solicitar autorización'),
-                    ),
-                  if (!_isOnlyPrintMode(doc, roleName) &&
-                      doc.idEstatus == 2 &&
-                      !_isEncargadoMermaRole(roleName))
-                    OutlinedButton.icon(
-                      onPressed: () => _revisar(context, ref, doc),
-                      icon: const Icon(Icons.rule),
-                      label: const Text('Revisar'),
-                    ),
-                  if (!_isOnlyPrintMode(doc, roleName) &&
-                      doc.idEstatus == 2 &&
-                      !_isEncargadoMermaRole(roleName))
-                    FilledButton.icon(
-                      onPressed: () => _contabilizar(context, ref, doc),
-                      icon: const Icon(Icons.check_circle),
-                      label: const Text('Contabilizar'),
-                    ),
-                  if (!_isOnlyPrintMode(doc, roleName) &&
-                      !_hideExtraButtonsForEncargado(roleName) &&
-                      (doc.idEstatus == 1 ||
-                          doc.idEstatus == 2 ||
-                          doc.idEstatus == 4))
-                    if (!widget.createdFromNew)
-                    OutlinedButton.icon(
-                      onPressed: () => _anular(context, ref, doc),
-                      icon: const Icon(Icons.cancel),
-                      label: const Text('Anular'),
-                    ),
-                  if (!_isOnlyPrintMode(doc, roleName) &&
-                      !_hideExtraButtonsForEncargado(roleName) &&
-                      !widget.createdFromNew)
-                    OutlinedButton.icon(
-                      onPressed: () =>
-                          context.go('/modulos/merma/consulta/${doc.docmer}'),
-                      icon: const Icon(Icons.visibility),
-                      label: const Text('Ver en consulta'),
-                    ),
-                  if (_isOnlyPrintMode(doc, roleName))
-                    FilledButton.icon(
-                      onPressed: () => _openEtiqueta(context, ref, doc.docmer),
-                      icon: const Icon(Icons.print),
-                      label: const Text('Imprimir etiqueta'),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              MermaItemTable(
-                items: doc.detalle,
-                documentArea: doc.areaM,
-                readOnly: _isOnlyPrintMode(doc, roleName) ? true : !_editable(doc),
-                showEvidenceColumn: true,
-                onEdit: _isOnlyPrintMode(doc, roleName)
-                    ? null
-                    : _editable(doc)
-                    ? (item) => _editItem(
-                        context,
-                        ref,
-                        doc,
-                        item,
-                        asyncMotivos,
-                        asyncAreas,
-                      )
-                    : null,
-                onDelete: _isOnlyPrintMode(doc, roleName)
-                    ? null
-                    : _editable(doc)
-                    ? (item) => _removeItem(context, ref, doc, item)
-                    : null,
-              ),
-            ],
-          ),
+                    Text('Sucursal: ${doc.suc}'),
+                    Text('Usuario: ${doc.user}'),
+                    MermaStatusChip(estatus: doc.estatus),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                MermaTotalsCard(narts: doc.narts, total: doc.total),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    if (!onlyPrintMode && _editable(doc))
+                      FilledButton.icon(
+                        onPressed: () => _addItem(
+                          context,
+                          ref,
+                          doc,
+                          asyncMotivos,
+                          asyncAreas,
+                        ),
+                        icon: const Icon(Icons.add),
+                        label: const Text('Agregar artículo'),
+                      ),
+                    if (!onlyPrintMode && _editable(doc))
+                      OutlinedButton.icon(
+                        onPressed: () =>
+                            _solicitarAutorizacion(context, ref, doc),
+                        icon: const Icon(Icons.send),
+                        label: const Text('Solicitar autorización'),
+                      ),
+                    if (!onlyPrintMode &&
+                        doc.idEstatus == 2 &&
+                        !_isEncargadoMermaRole(roleName))
+                      OutlinedButton.icon(
+                        onPressed: () => _revisar(context, ref, doc),
+                        icon: const Icon(Icons.rule),
+                        label: const Text('Revisar'),
+                      ),
+                    if (!onlyPrintMode &&
+                        doc.idEstatus == 2 &&
+                        !_isEncargadoMermaRole(roleName))
+                      FilledButton.icon(
+                        onPressed: () => _contabilizar(context, ref, doc),
+                        icon: const Icon(Icons.check_circle),
+                        label: const Text('Contabilizar'),
+                      ),
+                    if (!onlyPrintMode &&
+                        !_hideExtraButtonsForEncargado(roleName) &&
+                        (doc.idEstatus == 1 ||
+                            doc.idEstatus == 2 ||
+                            doc.idEstatus == 4))
+                      if (!widget.createdFromNew)
+                        OutlinedButton.icon(
+                          onPressed: () => _anular(context, ref, doc),
+                          icon: const Icon(Icons.cancel),
+                          label: const Text('Anular'),
+                        ),
+                    if (doc.idEstatus == 5 &&
+                        _canPrintEtiqueta(roleName, isAdmin))
+                      FilledButton.icon(
+                        onPressed: () =>
+                            _openEtiqueta(context, ref, doc.docmer),
+                        icon: const Icon(Icons.print),
+                        label: const Text('Imprimir etiqueta'),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                MermaItemTable(
+                  items: doc.detalle,
+                  documentArea: doc.areaM,
+                  readOnly: onlyPrintMode ? true : !_editable(doc),
+                  showEvidenceColumn: true,
+                  onEdit: onlyPrintMode
+                      ? null
+                      : _editable(doc)
+                      ? (item) => _editItem(
+                          context,
+                          ref,
+                          doc,
+                          item,
+                          asyncMotivos,
+                          asyncAreas,
+                        )
+                      : null,
+                  onDelete: onlyPrintMode
+                      ? null
+                      : _editable(doc)
+                      ? (item) => _removeItem(context, ref, doc, item)
+                      : null,
+                ),
+              ],
+            );
+          },
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (error, _) => Center(child: Text('Error: $error')),
         ),
@@ -193,15 +203,25 @@ class _MermaDetailPageState extends ConsumerState<MermaDetailPage> {
         (role.contains('ENCARGADO') && role.contains('MERMA'));
   }
 
-  bool _isOnlyPrintMode(MermaDocModel doc, String roleName) {
-    return doc.idEstatus == 5 && _canOnlyPrintEtiqueta(roleName);
+  bool _isOnlyPrintMode(MermaDocModel doc, String roleName, bool isAdmin) {
+    return doc.idEstatus == 5 &&
+        !isAdmin &&
+        _canPrintEtiqueta(roleName, isAdmin);
   }
 
-  bool _canOnlyPrintEtiqueta(String roleName) {
+  bool _canPrintEtiqueta(String roleName, bool isAdmin) {
+    if (isAdmin) return true;
     final role = roleName.trim().toUpperCase();
-    return role.contains('ENCARGADO DE SUCURSAL') ||
-        role.contains('ADMINISTRADOR') ||
-        role == 'ADMIN';
+    return role.contains('ENCARGADO DE SUCURSAL');
+  }
+
+  bool _isAdminRole({
+    required String roleName,
+    required int roleId,
+    required String username,
+  }) {
+    if (roleId == 0 || roleId == 1 || username == 'ADMIN') return true;
+    return roleName.trim().toUpperCase().contains('ADMIN');
   }
 
   Future<bool> _handleExit() async {

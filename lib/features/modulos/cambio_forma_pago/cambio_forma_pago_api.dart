@@ -21,8 +21,9 @@ class CambioFormaPagoApi {
       throw Exception('Autorización SUPERPV inválida');
     }
 
-    final supervisorId =
-        (data['username'] ?? data['idUsuario'] ?? '').toString().trim();
+    final supervisorId = (data['username'] ?? data['idUsuario'] ?? '')
+        .toString()
+        .trim();
     return CambioFormaPagoOverrideSession(
       overrideToken: '',
       supervisorId: supervisorId.isEmpty ? 'SUPERPV' : supervisorId,
@@ -33,14 +34,20 @@ class CambioFormaPagoApi {
   Future<List<CambioFormaPagoItem>> fetchToday({
     String? idfol,
     String? clien,
+    String? suc,
+    String? opv,
   }) async {
     final idfolNorm = (idfol ?? '').trim();
     final clienNorm = (clien ?? '').trim();
+    final sucNorm = (suc ?? '').trim().toUpperCase();
+    final opvNorm = (opv ?? '').trim().toUpperCase();
     final res = await dio.get(
       '/formas-pago/cambios/today',
       queryParameters: {
         if (idfolNorm.isNotEmpty) 'idfol': idfolNorm,
         if (clienNorm.isNotEmpty) 'clien': clienNorm,
+        if (sucNorm.isNotEmpty) 'suc': sucNorm,
+        if (opvNorm.isNotEmpty) 'opv': opvNorm,
       },
     );
     final raw = res.data;

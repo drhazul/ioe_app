@@ -24,6 +24,28 @@ class NewOrdApi {
     return Map<String, dynamic>.from(res.data as Map);
   }
 
+  Future<NewOrdRelationAuthorization> authorizeRelationTicket({
+    required String passwordSupervisor,
+    required String idfol,
+    required String ticketId,
+    required String art,
+    required double ctd,
+  }) async {
+    final res = await dio.post(
+      '/pvctrords/relacion-venta-anterior/authorize',
+      data: {
+        'passwordSupervisor': passwordSupervisor.trim(),
+        'idfol': idfol,
+        'ticketId': ticketId,
+        'art': art,
+        'ctd': ctd,
+      },
+    );
+    return NewOrdRelationAuthorization.fromJson(
+      Map<String, dynamic>.from(res.data as Map),
+    );
+  }
+
   Future<DeleteOrdFromQuoteLineResponse> deleteFromQuoteLine(
     DeleteOrdFromQuoteLineRequest payload,
   ) async {

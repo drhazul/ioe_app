@@ -1999,7 +1999,6 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
               clienteId: header?.clien?.toString(),
               tra: header?.tra,
               fecha: forma.fcn ?? transDate,
-              totalOperacion: summary.total,
               baseFontSize: baseFont,
               smallFontSize: smallFont,
             ),
@@ -2089,12 +2088,11 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
     required String? clienteId,
     required String? tra,
     required DateTime? fecha,
-    required double totalOperacion,
     required double baseFontSize,
     required double smallFontSize,
   }) {
     final form = forma.form.trim().isEmpty ? '-' : forma.form.trim().toUpperCase();
-    final impd = _money(totalOperacion);
+    final impd = _money(forma.impp);
     final autRef = (forma.aut ?? '').trim().isEmpty ? '-' : forma.aut!.trim();
     final clienteNom = (clienteNombre ?? '').trim().isEmpty ? '-' : clienteNombre!.trim();
     final clienteCodigo = (clienteId ?? '').trim().isEmpty ? '-' : clienteId!.trim();

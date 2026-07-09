@@ -188,8 +188,7 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
       _wTipoFact +
       (_columnGap * 14);
 
-  double get _kTableWidth =>
-      _kTableContentWidth + (_kRowHorizontalPadding * 2);
+  double get _kTableWidth => _kTableContentWidth + (_kRowHorizontalPadding * 2);
 
   double get _gridRowVerticalPadding {
     final computed = (_fontDataCell * _facturacionFontScale * 0.42) - 1;
@@ -227,24 +226,9 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
         min: 50,
         max: 120,
       );
-      _wRfcEmisor = _readPrefDouble(
-        prefs,
-        _pWRfcEmisor,
-        _dWRfcEmisor,
-        min: 80,
-      );
-      _wUsoCfdi = _readPrefDouble(
-        prefs,
-        _pWUsoCfdi,
-        _dWUsoCfdi,
-        min: 70,
-      );
-      _wClien = _readPrefDouble(
-        prefs,
-        _pWClien,
-        _dWClien,
-        min: 70,
-      );
+      _wRfcEmisor = _readPrefDouble(prefs, _pWRfcEmisor, _dWRfcEmisor, min: 80);
+      _wUsoCfdi = _readPrefDouble(prefs, _pWUsoCfdi, _dWUsoCfdi, min: 70);
+      _wClien = _readPrefDouble(prefs, _pWClien, _dWClien, min: 70);
       _wRfcReceptor = _readPrefDouble(
         prefs,
         _pWRfcReceptor,
@@ -257,29 +241,14 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
         _dWRazonSocial,
         min: 130,
       );
-      _wIdFol = _readPrefDouble(
-        prefs,
-        _pWIdFol,
-        _dWIdFol,
-        min: 110,
-      );
+      _wIdFol = _readPrefDouble(prefs, _pWIdFol, _dWIdFol, min: 110);
       _wFcn = _readPrefDouble(prefs, _pWFcn, _dWFcn, min: 80);
       _wImpt = _readPrefDouble(prefs, _pWImpt, _dWImpt, min: 80);
       _wFPago = _readPrefDouble(prefs, _pWFPago, _dWFPago, min: 70);
       _wMetodo = _readPrefDouble(prefs, _pWMetodo, _dWMetodo, min: 80);
       _wAutRef = _readPrefDouble(prefs, _pWAutRef, _dWAutRef, min: 95);
-      _wTipoFact = _readPrefDouble(
-        prefs,
-        _pWTipoFact,
-        _dWTipoFact,
-        min: 90,
-      );
-      _wEstatus = _readPrefDouble(
-        prefs,
-        _pWEstatus,
-        _dWEstatus,
-        min: 90,
-      );
+      _wTipoFact = _readPrefDouble(prefs, _pWTipoFact, _dWTipoFact, min: 90);
+      _wEstatus = _readPrefDouble(prefs, _pWEstatus, _dWEstatus, min: 90);
       _columnGap = _readPrefDouble(
         prefs,
         _pColumnGap,
@@ -472,108 +441,166 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
       return Scaffold(
         appBar: appBar,
         body: const Center(
-          child: Text('Sesión no activa. Inicia sesión para consultar facturación.'),
+          child: Text(
+            'Sesión no activa. Inicia sesión para consultar facturación.',
+          ),
         ),
       );
     }
 
     final pendientesAsync = providerRef.watch(facturasPendientesProvider);
-    final currentEstatusFilter = providerRef.watch(facturacionFilterEstatusProvider);
+    final currentEstatusFilter = providerRef.watch(
+      facturacionFilterEstatusProvider,
+    );
 
     return Theme(
       data: facturacionTheme,
       child: Scaffold(
         appBar: appBar,
         body: pendientesAsync.when(
-        data: (pageData) {
-          final filterIds =
-              ref.watch(facturacionIdFolSelectionFilterProvider).toSet();
-          var rows = _sortRowsByFcnDesc(pageData.data);
-          var page = pageData.page;
-          var pageSize = pageData.pageSize;
-          var total = pageData.total;
-          var totalPages = pageData.totalPages;
+          data: (pageData) {
+            final filterIds = ref
+                .watch(facturacionIdFolSelectionFilterProvider)
+                .toSet();
+            var rows = _sortRowsByFcnDesc(pageData.data);
+            var page = pageData.page;
+            var pageSize = pageData.pageSize;
+            var total = pageData.total;
+            var totalPages = pageData.totalPages;
 
-          if (filterIds.isNotEmpty) {
-            rows = rows
-                .where((row) =>
-                    filterIds.contains(
+            if (filterIds.isNotEmpty) {
+              rows = rows
+                  .where(
+                    (row) =>
+                        filterIds.contains(
+                          _pickText(row, const [
+                            'IDFOL',
+                            'idfol',
+                          ]).toUpperCase(),
+                        ) &&
+                        _pickText(row, const [
+                              'ESTATUS',
+                              'estatus',
+                            ]).toUpperCase() ==
+                            'PENDIENTE',
+                  )
+                  .toList();
+              total = rows.length;
+              totalPages = rows.isEmpty ? 0 : 1;
+              page = 1;
+              pageSize = rows.length;
+            }
+
+            if (totalPages > 0 && page > totalPages) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                providerRef.read(facturacionPageProvider.notifier).state =
+                    totalPages;
+              });
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            final rawSelectedIdFol = providerRef.watch(
+              selectedFacturaIdFolProvider,
+            );
+            final selectedIdFol =
+                rows.any((row) {
+                  final id = _pickText(row, const ['IDFOL', 'idfol']);
+                  return id == rawSelectedIdFol && id != '-';
+                })
+                ? rawSelectedIdFol
+                : null;
+            if (rawSelectedIdFol != null && selectedIdFol == null) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                providerRef.read(selectedFacturaIdFolProvider.notifier).state =
+                    null;
+              });
+            }
+            final selectedRow = selectedIdFol == null
+                ? null
+                : _findRowById(rows, selectedIdFol);
+
+            final rawSelectedForUnificacion = providerRef.watch(
+              selectedFacturasUnificacionProvider,
+            );
+            final visibleIds = rows
+                .map(
+                  (row) =>
                       _pickText(row, const ['IDFOL', 'idfol']).toUpperCase(),
-                    ) &&
-                    _pickText(row, const ['ESTATUS', 'estatus'])
-                            .toUpperCase() ==
-                        'PENDIENTE')
-                .toList();
-            total = rows.length;
-            totalPages = rows.isEmpty ? 0 : 1;
-            page = 1;
-            pageSize = rows.length;
-          }
-
-          if (totalPages > 0 && page > totalPages) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              providerRef.read(facturacionPageProvider.notifier).state = totalPages;
-            });
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          final rawSelectedIdFol = providerRef.watch(selectedFacturaIdFolProvider);
-          final selectedIdFol = rows.any(
-            (row) {
-              final id = _pickText(row, const ['IDFOL', 'idfol']);
-              return id == rawSelectedIdFol && id != '-';
-            },
-          )
-              ? rawSelectedIdFol
-              : null;
-          if (rawSelectedIdFol != null && selectedIdFol == null) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              providerRef.read(selectedFacturaIdFolProvider.notifier).state = null;
-            });
-          }
-          final selectedRow = selectedIdFol == null
-              ? null
-              : _findRowById(rows, selectedIdFol);
-
-          final rawSelectedForUnificacion = providerRef.watch(
-            selectedFacturasUnificacionProvider,
-          );
-          final visibleIds = rows
-              .map((row) => _pickText(row, const ['IDFOL', 'idfol']).toUpperCase())
-              .where((id) => id != '-')
-              .toSet();
+                )
+                .where((id) => id != '-')
+                .toSet();
             final selectedForUnificacion = rawSelectedForUnificacion
                 .where(visibleIds.contains)
                 .toSet();
-            if (!_sameStringSet(rawSelectedForUnificacion, selectedForUnificacion)) {
+            if (!_sameStringSet(
+              rawSelectedForUnificacion,
+              selectedForUnificacion,
+            )) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
-                providerRef.read(selectedFacturasUnificacionProvider.notifier).state =
+                providerRef
+                        .read(selectedFacturasUnificacionProvider.notifier)
+                        .state =
                     selectedForUnificacion;
               });
             }
 
-          final idFilterSet =
-              providerRef.watch(facturacionIdFolSelectionFilterProvider);
-          if (idFilterSet.isNotEmpty &&
-              !_sameStringSet(selectedForUnificacion, idFilterSet)) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              providerRef.read(selectedFacturasUnificacionProvider.notifier).state =
-                  idFilterSet;
-            });
-          }
+            final idFilterSet = providerRef.watch(
+              facturacionIdFolSelectionFilterProvider,
+            );
+            if (idFilterSet.isNotEmpty &&
+                !_sameStringSet(selectedForUnificacion, idFilterSet)) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                providerRef
+                        .read(selectedFacturasUnificacionProvider.notifier)
+                        .state =
+                    idFilterSet;
+              });
+            }
 
-          if (rows.isEmpty) {
+            if (rows.isEmpty) {
+              return Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  children: [
+                    _buildTopSection(
+                      context,
+                      providerRef,
+                      selectedIdFol,
+                      selectedRow,
+                      selectedForUnificacion,
+                    ),
+                    const SizedBox(height: 12),
+                    _buildPaginationBar(
+                      context,
+                      providerRef,
+                      total: total,
+                      page: page,
+                      pageSize: pageSize,
+                      totalPages: totalPages,
+                    ),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: Center(
+                        child: Text(
+                          'Sin registros con estatus ${currentEstatusFilter.trim().isEmpty ? 'PENDIENTE' : currentEstatusFilter}',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+
             return Padding(
               padding: const EdgeInsets.all(12),
               child: Column(
                 children: [
                   _buildTopSection(
                     context,
-                    providerRef,
+                    ref,
                     selectedIdFol,
                     selectedRow,
                     selectedForUnificacion,
-                    visibleRows: rows,
                   ),
                   const SizedBox(height: 12),
                   _buildPaginationBar(
@@ -586,98 +613,69 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
                   ),
                   const SizedBox(height: 12),
                   Expanded(
-                    child: Center(
-                      child: Text(
-                        'Sin registros con estatus ${currentEstatusFilter.trim().isEmpty ? 'PENDIENTE' : currentEstatusFilter}',
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.black12),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Scrollbar(
+                        controller: _mainTableHorizontalController,
+                        thumbVisibility: true,
+                        trackVisibility: true,
+                        scrollbarOrientation: ScrollbarOrientation.bottom,
+                        child: SingleChildScrollView(
+                          controller: _mainTableHorizontalController,
+                          scrollDirection: Axis.horizontal,
+                          child: SizedBox(
+                            width: _kTableWidth,
+                            child: Column(
+                              children: [
+                                _buildHeaderRow(context),
+                                Expanded(
+                                  child: SelectionArea(
+                                    child: RadioGroup<String>(
+                                      groupValue: selectedIdFol,
+                                      onChanged: (value) {
+                                        if (value == null) return;
+                                        if (value.trim().isEmpty ||
+                                            value == '-') {
+                                          return;
+                                        }
+                                        providerRef
+                                                .read(
+                                                  selectedFacturaIdFolProvider
+                                                      .notifier,
+                                                )
+                                                .state =
+                                            value;
+                                      },
+                                      child: ListView.separated(
+                                        itemCount: rows.length,
+                                        separatorBuilder: (_, _) =>
+                                            const Divider(height: 1),
+                                        itemBuilder: (_, i) => _buildDataRow(
+                                          providerRef,
+                                          rows[i],
+                                          selectedIdFolsForUnificacion:
+                                              selectedForUnificacion,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ),
                 ],
               ),
             );
-          }
-
-          return Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              children: [
-                _buildTopSection(
-                  context,
-                  ref,
-                  selectedIdFol,
-                  selectedRow,
-                  selectedForUnificacion,
-                  visibleRows: rows,
-                ),
-                const SizedBox(height: 12),
-                _buildPaginationBar(
-                  context,
-                  providerRef,
-                  total: total,
-                  page: page,
-                  pageSize: pageSize,
-                  totalPages: totalPages,
-                ),
-                const SizedBox(height: 12),
-                Expanded(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.black12),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Scrollbar(
-                      controller: _mainTableHorizontalController,
-                      thumbVisibility: true,
-                      trackVisibility: true,
-                      scrollbarOrientation: ScrollbarOrientation.bottom,
-                      child: SingleChildScrollView(
-                        controller: _mainTableHorizontalController,
-                        scrollDirection: Axis.horizontal,
-                        child: SizedBox(
-                          width: _kTableWidth,
-                          child: Column(
-                            children: [
-                              _buildHeaderRow(context),
-                              Expanded(
-                                child: SelectionArea(
-                                  child: RadioGroup<String>(
-                                    groupValue: selectedIdFol,
-                                    onChanged: (value) {
-                                      if (value == null) return;
-                                      if (value.trim().isEmpty || value == '-') {
-                                        return;
-                                      }
-                                      providerRef
-                                          .read(selectedFacturaIdFolProvider.notifier)
-                                          .state = value;
-                                    },
-                                    child: ListView.separated(
-                                      itemCount: rows.length,
-                                      separatorBuilder: (_, _) =>
-                                          const Divider(height: 1),
-                                      itemBuilder: (_, i) => _buildDataRow(
-                                        providerRef,
-                                        rows[i],
-                                        selectedIdFolsForUnificacion:
-                                            selectedForUnificacion,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error cargando pendientes: $e')),
+          },
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Center(child: Text('Error cargando pendientes: $e')),
         ),
       ),
     );
@@ -727,50 +725,42 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
     return base.copyWith(
       textTheme: textTheme,
       appBarTheme: base.appBarTheme.copyWith(
-        titleTextStyle: (base.appBarTheme.titleTextStyle ??
-                textTheme.titleMedium ??
-                const TextStyle(fontWeight: FontWeight.w600))
-            .copyWith(
-          fontSize: fontSize(_fontAppBarTitle),
-        ),
-        toolbarTextStyle: (base.appBarTheme.toolbarTextStyle ??
-                textTheme.bodyMedium ??
-                const TextStyle())
-            .copyWith(
-          fontSize: fontSize(_fontBodyMedium),
-        ),
+        titleTextStyle:
+            (base.appBarTheme.titleTextStyle ??
+                    textTheme.titleMedium ??
+                    const TextStyle(fontWeight: FontWeight.w600))
+                .copyWith(fontSize: fontSize(_fontAppBarTitle)),
+        toolbarTextStyle:
+            (base.appBarTheme.toolbarTextStyle ??
+                    textTheme.bodyMedium ??
+                    const TextStyle())
+                .copyWith(fontSize: fontSize(_fontBodyMedium)),
       ),
       inputDecorationTheme: base.inputDecorationTheme.copyWith(
-        labelStyle: (
-          base.inputDecorationTheme.labelStyle ??
-              textTheme.bodySmall ??
-              const TextStyle()
-        ).copyWith(
-          fontSize: fontSize(_fontLabelSmall),
-        ),
-        hintStyle: (
-          base.inputDecorationTheme.hintStyle ??
-              textTheme.bodySmall ??
-              const TextStyle()
-        ).copyWith(
-          fontSize: fontSize(_fontLabelSmall),
-        ),
+        labelStyle:
+            (base.inputDecorationTheme.labelStyle ??
+                    textTheme.bodySmall ??
+                    const TextStyle())
+                .copyWith(fontSize: fontSize(_fontLabelSmall)),
+        hintStyle:
+            (base.inputDecorationTheme.hintStyle ??
+                    textTheme.bodySmall ??
+                    const TextStyle())
+                .copyWith(fontSize: fontSize(_fontLabelSmall)),
       ),
       dataTableTheme: base.dataTableTheme.copyWith(
-        headingTextStyle: (
-          base.dataTableTheme.headingTextStyle ??
-              (textTheme.labelMedium ?? const TextStyle())
-        ).copyWith(
-          fontWeight: FontWeight.w700,
-          fontSize: fontSize(_fontDataHeader),
-        ),
-        dataTextStyle: (
-          base.dataTableTheme.dataTextStyle ??
-              textTheme.bodySmall ??
-              const TextStyle()
-        ).copyWith(
-          fontSize: fontSize(_fontDataCell),
-        ),
+        headingTextStyle:
+            (base.dataTableTheme.headingTextStyle ??
+                    (textTheme.labelMedium ?? const TextStyle()))
+                .copyWith(
+                  fontWeight: FontWeight.w700,
+                  fontSize: fontSize(_fontDataHeader),
+                ),
+        dataTextStyle:
+            (base.dataTableTheme.dataTextStyle ??
+                    textTheme.bodySmall ??
+                    const TextStyle())
+                .copyWith(fontSize: fontSize(_fontDataCell)),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(textStyle: buttonStyle),
@@ -788,9 +778,9 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
   }
 
   Widget _buildHeaderRow(BuildContext context) {
-    final textStyle = Theme.of(context).textTheme.labelMedium?.copyWith(
-          fontWeight: FontWeight.w700,
-        );
+    final textStyle = Theme.of(
+      context,
+    ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700);
     return Container(
       color: const Color(0xFFEDEDED),
       padding: const EdgeInsets.symmetric(
@@ -923,9 +913,8 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
     WidgetRef ref,
     String? selectedIdFol,
     Map<String, dynamic>? selectedRow,
-    Set<String> selectedIdFolsForUnificacion, {
-    required List<Map<String, dynamic>> visibleRows,
-  }) {
+    Set<String> selectedIdFolsForUnificacion,
+  ) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final compact = constraints.maxWidth < 1150;
@@ -936,17 +925,12 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
           selectedIdFol,
           selectedRow,
           selectedIdFolsForUnificacion,
-          visibleRows: visibleRows,
         );
 
         if (compact) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              filters,
-              const SizedBox(height: 12),
-              actions,
-            ],
+            children: [filters, const SizedBox(height: 12), actions],
           );
         }
 
@@ -1024,9 +1008,7 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
     return value.clamp(min, max).toDouble();
   }
 
-  Widget _buildResizeHandle({
-    required void Function(double delta) onDelta,
-  }) {
+  Widget _buildResizeHandle({required void Function(double delta) onDelta}) {
     return MouseRegion(
       cursor: SystemMouseCursors.resizeColumn,
       child: GestureDetector(
@@ -1111,9 +1093,15 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
             }
 
             return Dialog(
-              insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              insetPadding: const EdgeInsets.symmetric(
+                horizontal: 20,
+                vertical: 14,
+              ),
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 980, maxHeight: 740),
+                constraints: const BoxConstraints(
+                  maxWidth: 980,
+                  maxHeight: 740,
+                ),
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
@@ -1121,9 +1109,8 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
                     children: [
                       Text(
                         'Configuración visual de Facturación',
-                        style: Theme.of(dialogContext).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
+                        style: Theme.of(dialogContext).textTheme.titleLarge
+                            ?.copyWith(fontWeight: FontWeight.w700),
                       ),
                       const SizedBox(height: 8),
                       Text(
@@ -1136,7 +1123,10 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _buildConfigSectionTitle(dialogContext, 'Escala Global'),
+                              _buildConfigSectionTitle(
+                                dialogContext,
+                                'Escala Global',
+                              ),
                               _buildConfigSlider(
                                 context: dialogContext,
                                 label: 'Escala general',
@@ -1532,9 +1522,9 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
       padding: const EdgeInsets.only(top: 4, bottom: 4),
       child: Text(
         title,
-        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
+        style: Theme.of(
+          context,
+        ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
       ),
     );
   }
@@ -1625,11 +1615,15 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
                     runSpacing: 8,
                     children: [
                       OutlinedButton(
-                        onPressed: canPrev ? () => _setPage(ref, page - 1) : null,
+                        onPressed: canPrev
+                            ? () => _setPage(ref, page - 1)
+                            : null,
                         child: const Text('PAGINA ANTERIOR'),
                       ),
                       OutlinedButton(
-                        onPressed: canNext ? () => _setPage(ref, page + 1) : null,
+                        onPressed: canNext
+                            ? () => _setPage(ref, page + 1)
+                            : null,
                         child: const Text('PAGINA SIGUIENTE'),
                       ),
                     ],
@@ -1667,20 +1661,27 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
   }
 
   void _applyFilters(WidgetRef ref) {
-    ref.read(facturacionFilterSucProvider.notifier).state =
-        ref.read(facturacionDraftFilterSucProvider);
-    ref.read(facturacionFilterEstatusProvider.notifier).state =
-        ref.read(facturacionDraftFilterEstatusProvider);
-    ref.read(facturacionFilterRazonSocialProvider.notifier).state =
-        ref.read(facturacionDraftFilterRazonSocialProvider);
-    ref.read(facturacionFilterRfcReceptorProvider.notifier).state =
-        ref.read(facturacionDraftFilterRfcReceptorProvider);
-    ref.read(facturacionFilterClienProvider.notifier).state =
-        ref.read(facturacionDraftFilterClienProvider);
-    ref.read(facturacionFilterIdFolProvider.notifier).state =
-        ref.read(facturacionDraftFilterIdFolProvider);
-    ref.read(facturacionFilterTipoFactProvider.notifier).state =
-        ref.read(facturacionDraftFilterTipoFactProvider);
+    ref.read(facturacionFilterSucProvider.notifier).state = ref.read(
+      facturacionDraftFilterSucProvider,
+    );
+    ref.read(facturacionFilterEstatusProvider.notifier).state = ref.read(
+      facturacionDraftFilterEstatusProvider,
+    );
+    ref.read(facturacionFilterRazonSocialProvider.notifier).state = ref.read(
+      facturacionDraftFilterRazonSocialProvider,
+    );
+    ref.read(facturacionFilterRfcReceptorProvider.notifier).state = ref.read(
+      facturacionDraftFilterRfcReceptorProvider,
+    );
+    ref.read(facturacionFilterClienProvider.notifier).state = ref.read(
+      facturacionDraftFilterClienProvider,
+    );
+    ref.read(facturacionFilterIdFolProvider.notifier).state = ref.read(
+      facturacionDraftFilterIdFolProvider,
+    );
+    ref.read(facturacionFilterTipoFactProvider.notifier).state = ref.read(
+      facturacionDraftFilterTipoFactProvider,
+    );
 
     _setPage(ref, 1);
     ref.read(selectedFacturasUnificacionProvider.notifier).state = <String>{};
@@ -1689,7 +1690,8 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
 
   void _clearFilters(WidgetRef ref) {
     ref.read(facturacionDraftFilterSucProvider.notifier).state = '';
-    ref.read(facturacionDraftFilterEstatusProvider.notifier).state = 'PENDIENTE';
+    ref.read(facturacionDraftFilterEstatusProvider.notifier).state =
+        'PENDIENTE';
     ref.read(facturacionDraftFilterRazonSocialProvider.notifier).state = '';
     ref.read(facturacionDraftFilterRfcReceptorProvider.notifier).state = '';
     ref.read(facturacionDraftFilterClienProvider.notifier).state = '';
@@ -1707,7 +1709,8 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
     ref.read(facturacionFilterInputRevisionProvider.notifier).state++;
     _setPage(ref, 1);
     ref.read(selectedFacturasUnificacionProvider.notifier).state = <String>{};
-    ref.read(facturacionIdFolSelectionFilterProvider.notifier).state = <String>{};
+    ref.read(facturacionIdFolSelectionFilterProvider.notifier).state =
+        <String>{};
     ref.invalidate(facturasPendientesProvider);
   }
 
@@ -1716,7 +1719,9 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
     final draftSuc = ref.watch(facturacionDraftFilterSucProvider);
     final draftEstatus = ref.watch(facturacionDraftFilterEstatusProvider);
     final draftTipoFact = ref.watch(facturacionDraftFilterTipoFactProvider);
-    final sucursales = ref.watch(sucursalesListProvider).maybeWhen(
+    final sucursales = ref
+        .watch(sucursalesListProvider)
+        .maybeWhen(
           data: (items) {
             final ordered = [...items];
             ordered.sort((a, b) => a.suc.compareTo(b.suc));
@@ -1725,20 +1730,13 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
           orElse: () => const <SucursalModel>[],
         );
     final sucItems = <DropdownMenuItem<String>>[
-      const DropdownMenuItem(
-        value: '',
-        child: Text('TODAS'),
-      ),
+      const DropdownMenuItem(value: '', child: Text('TODAS')),
       ...sucursales.map((sucursal) {
         final desc = (sucursal.desc ?? '').trim();
-        final label =
-            desc.isEmpty ? sucursal.suc : '${sucursal.suc} - $desc';
+        final label = desc.isEmpty ? sucursal.suc : '${sucursal.suc} - $desc';
         return DropdownMenuItem<String>(
           value: sucursal.suc,
-          child: Text(
-            label,
-            overflow: TextOverflow.ellipsis,
-          ),
+          child: Text(label, overflow: TextOverflow.ellipsis),
         );
       }),
     ];
@@ -1749,22 +1747,12 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
         ? draftEstatus
         : _estatusFilterOptions.first;
     const tipoFactItems = <DropdownMenuItem<String>>[
-      DropdownMenuItem(
-        value: '',
-        child: Text('TODOS'),
-      ),
-      DropdownMenuItem(
-        value: 'INDIVIDUAL',
-        child: Text('INDIVIDUAL'),
-      ),
-      DropdownMenuItem(
-        value: 'CREDITO',
-        child: Text('CREDITO'),
-      ),
+      DropdownMenuItem(value: '', child: Text('TODOS')),
+      DropdownMenuItem(value: 'INDIVIDUAL', child: Text('INDIVIDUAL')),
+      DropdownMenuItem(value: 'CREDITO', child: Text('CREDITO')),
     ];
-    final selectedDraftTipoFact = tipoFactItems.any(
-      (item) => item.value == draftTipoFact,
-    )
+    final selectedDraftTipoFact =
+        tipoFactItems.any((item) => item.value == draftTipoFact)
         ? draftTipoFact
         : '';
 
@@ -1786,10 +1774,7 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Filtros',
-              style: Theme.of(context).textTheme.titleSmall,
-            ),
+            Text('Filtros', style: Theme.of(context).textTheme.titleSmall),
             const SizedBox(height: 8),
             Wrap(
               spacing: 10,
@@ -1805,7 +1790,9 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
                     isExpanded: true,
                     items: sucItems,
                     onChanged: (value) {
-                      ref.read(facturacionDraftFilterSucProvider.notifier).state =
+                      ref
+                              .read(facturacionDraftFilterSucProvider.notifier)
+                              .state =
                           value ?? '';
                     },
                     decoration: inputDecoration.copyWith(labelText: 'SUC'),
@@ -1841,8 +1828,11 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
                     ],
                     onChanged: (value) {
                       ref
-                          .read(facturacionDraftFilterEstatusProvider.notifier)
-                          .state = value ?? 'PENDIENTE';
+                              .read(
+                                facturacionDraftFilterEstatusProvider.notifier,
+                              )
+                              .state =
+                          value ?? 'PENDIENTE';
                     },
                     decoration: inputDecoration.copyWith(labelText: 'ESTATUS'),
                   ),
@@ -1853,11 +1843,16 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
                     key: ValueKey('ff-razon-$revision'),
                     onChanged: (value) {
                       ref
-                          .read(facturacionDraftFilterRazonSocialProvider.notifier)
-                          .state = value;
+                              .read(
+                                facturacionDraftFilterRazonSocialProvider
+                                    .notifier,
+                              )
+                              .state =
+                          value;
                     },
-                    decoration:
-                        inputDecoration.copyWith(labelText: 'Razon social Receptor'),
+                    decoration: inputDecoration.copyWith(
+                      labelText: 'Razon social Receptor',
+                    ),
                   ),
                 ),
                 SizedBox(
@@ -1866,11 +1861,16 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
                     key: ValueKey('ff-rfc-$revision'),
                     onChanged: (value) {
                       ref
-                          .read(facturacionDraftFilterRfcReceptorProvider.notifier)
-                          .state = value;
+                              .read(
+                                facturacionDraftFilterRfcReceptorProvider
+                                    .notifier,
+                              )
+                              .state =
+                          value;
                     },
-                    decoration:
-                        inputDecoration.copyWith(labelText: 'RFC receptor'),
+                    decoration: inputDecoration.copyWith(
+                      labelText: 'RFC receptor',
+                    ),
                   ),
                 ),
                 SizedBox(
@@ -1878,7 +1878,11 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
                   child: TextField(
                     key: ValueKey('ff-clien-$revision'),
                     onChanged: (value) {
-                      ref.read(facturacionDraftFilterClienProvider.notifier).state =
+                      ref
+                              .read(
+                                facturacionDraftFilterClienProvider.notifier,
+                              )
+                              .state =
                           value;
                     },
                     decoration: inputDecoration.copyWith(labelText: 'CLIEN'),
@@ -1889,7 +1893,11 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
                   child: TextField(
                     key: ValueKey('ff-idfol-$revision'),
                     onChanged: (value) {
-                      ref.read(facturacionDraftFilterIdFolProvider.notifier).state =
+                      ref
+                              .read(
+                                facturacionDraftFilterIdFolProvider.notifier,
+                              )
+                              .state =
                           value;
                     },
                     decoration: inputDecoration.copyWith(labelText: 'IDFOL'),
@@ -1906,8 +1914,11 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
                     items: tipoFactItems,
                     onChanged: (value) {
                       ref
-                          .read(facturacionDraftFilterTipoFactProvider.notifier)
-                          .state = value ?? '';
+                              .read(
+                                facturacionDraftFilterTipoFactProvider.notifier,
+                              )
+                              .state =
+                          value ?? '';
                     },
                     decoration: inputDecoration.copyWith(labelText: 'Tipofact'),
                   ),
@@ -1933,9 +1944,8 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
     WidgetRef ref,
     String? selectedIdFol,
     Map<String, dynamic>? selectedRow,
-    Set<String> selectedIdFolsForUnificacion, {
-    required List<Map<String, dynamic>> visibleRows,
-  }) {
+    Set<String> selectedIdFolsForUnificacion,
+  ) {
     final selectedStatus = selectedRow == null
         ? '-'
         : _pickText(selectedRow, const ['ESTATUS', 'estatus']);
@@ -1991,17 +2001,18 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
               runSpacing: 8,
               children: [
                 FilledButton.tonal(
-                  onPressed:
-                      canUnificar ? () => _onUnificarSeleccion(ref, selectedIds) : null,
+                  onPressed: canUnificar
+                      ? () => _onUnificarSeleccion(ref, selectedIds)
+                      : null,
                   child: const Text('UNIFICAR'),
                 ),
                 OutlinedButton(
                   onPressed: canReversar
                       ? () => _onReversarUnificacion(
-                            ref,
-                            selectedIdFol ?? '',
-                            grupoReversar,
-                          )
+                          ref,
+                          selectedIdFol ?? '',
+                          grupoReversar,
+                        )
                       : null,
                   child: const Text('REVERSAR UNIFICACIÓN'),
                 ),
@@ -2012,11 +2023,8 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
                   child: const Text('Validar'),
                 ),
                 OutlinedButton.icon(
-                  onPressed: () => _openIdFolSelectorDialog(
-                    context: context,
-                    ref: ref,
-                    visibleRows: visibleRows,
-                  ),
+                  onPressed: () =>
+                      _openIdFolSelectorDialog(context: context, ref: ref),
                   icon: const Icon(Icons.upload_file, size: 18),
                   label: const Text('Cargar IDFOL'),
                 ),
@@ -2031,7 +2039,6 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
   Future<void> _openIdFolSelectorDialog({
     required BuildContext context,
     required WidgetRef ref,
-    required List<Map<String, dynamic>> visibleRows,
   }) async {
     if (!mounted) return;
     final manualController = TextEditingController();
@@ -2080,7 +2087,9 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
                   if (!context.mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('El archivo no tiene datos en la primera columna.'),
+                      content: Text(
+                        'El archivo no tiene datos en la primera columna.',
+                      ),
                     ),
                   );
                   return;
@@ -2126,30 +2135,32 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
                 if (!context.mounted) return;
                 final validos = (res['validos'] is List)
                     ? (res['validos'] as List)
-                        .whereType<Map>()
-                        .map(
-                          (row) => _firstNonEmptyText(
-                            [row['idFol'], row['IDFOL']],
-                          ).toUpperCase(),
-                        )
-                        .where((id) => id.isNotEmpty)
-                        .toList()
+                          .whereType<Map>()
+                          .map(
+                            (row) => _firstNonEmptyText([
+                              row['idFol'],
+                              row['IDFOL'],
+                            ]).toUpperCase(),
+                          )
+                          .where((id) => id.isNotEmpty)
+                          .toList()
                     : const <String>[];
                 final rechazados = (res['rechazados'] is List)
                     ? (res['rechazados'] as List)
-                        .whereType<Map>()
-                        .map(
-                          (row) => FacturacionIdFolIssue(
-                            idFol: _firstNonEmptyText(
-                              [row['idFol'], row['IDFOL']],
-                            ).toUpperCase(),
-                            motivo: _firstNonEmptyText(
-                              [row['motivo'], row['MOTIVO']],
-                              fallback: 'ERROR',
+                          .whereType<Map>()
+                          .map(
+                            (row) => FacturacionIdFolIssue(
+                              idFol: _firstNonEmptyText([
+                                row['idFol'],
+                                row['IDFOL'],
+                              ]).toUpperCase(),
+                              motivo: _firstNonEmptyText([
+                                row['motivo'],
+                                row['MOTIVO'],
+                              ], fallback: 'ERROR'),
                             ),
-                          ),
-                        )
-                        .toList()
+                          )
+                          .toList()
                     : const <FacturacionIdFolIssue>[];
                 ref
                     .read(facturacionIdFolSelectorProvider.notifier)
@@ -2186,9 +2197,8 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
                 );
                 return;
               }
-              ref
-                  .read(facturacionIdFolSelectionFilterProvider.notifier)
-                  .state = validos;
+              ref.read(facturacionIdFolSelectionFilterProvider.notifier).state =
+                  validos;
               ref.read(facturacionPageSizeProvider.notifier).state = 100;
               ref.read(facturacionPageProvider.notifier).state = 1;
               ref.read(selectedFacturasUnificacionProvider.notifier).state =
@@ -2196,19 +2206,12 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
               ref.read(selectedFacturaIdFolProvider.notifier).state =
                   validos.isNotEmpty ? validos.first : null;
               ref.invalidate(facturasPendientesProvider);
-              final result = _applyValidatedSelection(
-                ref: ref,
-                validos: validos,
-                visibleRows: visibleRows,
-              );
               Navigator.of(dialogContext).pop();
               if (!mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(
-                    result['applied'] == 0
-                        ? 'No hay folios PENDIENTE de la lista en la página actual.'
-                        : 'Seleccionados ${result['applied']} en la página | Fuera de página: ${result['outOfView']} | En página con otro estatus: ${result['skippedNotPending']}.',
+                    'Seleccionados ${validos.length} IDFOL PENDIENTE. La tabla se filtró a la lista cargada.',
                   ),
                 ),
               );
@@ -2226,14 +2229,12 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
                       children: [
                         Text(
                           'Marcar folios por IDFOL',
-                          style: Theme.of(dialogContext)
-                              .textTheme
-                              .titleLarge
+                          style: Theme.of(dialogContext).textTheme.titleLarge
                               ?.copyWith(fontWeight: FontWeight.w700),
                         ),
                         const SizedBox(height: 10),
                         Text(
-                          'Captura manual o carga un Excel con una columna IDFOL. Solo se seleccionan folios con ESTATUS "PENDIENTE" visibles en la consulta.',
+                          'Captura manual o carga un Excel con una columna IDFOL. Se validan hasta 500 folios y la tabla se filtra a los PENDIENTE encontrados.',
                           style: Theme.of(dialogContext).textTheme.bodySmall,
                         ),
                         const SizedBox(height: 12),
@@ -2260,7 +2261,10 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
                         const SizedBox(height: 10),
                         OutlinedButton.icon(
                           onPressed: importExcel,
-                          icon: const Icon(Icons.file_upload_outlined, size: 18),
+                          icon: const Icon(
+                            Icons.file_upload_outlined,
+                            size: 18,
+                          ),
                           label: const Text('Cargar Excel (columna IDFOL)'),
                         ),
                         const SizedBox(height: 10),
@@ -2272,9 +2276,7 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
                           const SizedBox(height: 6),
                           Text(
                             lastValidationMsg,
-                            style: Theme.of(dialogContext)
-                                .textTheme
-                                .bodySmall
+                            style: Theme.of(dialogContext).textTheme.bodySmall
                                 ?.copyWith(color: Colors.green[800]),
                           ),
                         ],
@@ -2288,7 +2290,10 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
                                 label: Text(id),
                                 onDeleted: () {
                                   ref
-                                      .read(facturacionIdFolSelectorProvider.notifier)
+                                      .read(
+                                        facturacionIdFolSelectorProvider
+                                            .notifier,
+                                      )
                                       .remove(id);
                                   setDialogState(() {});
                                 },
@@ -2318,21 +2323,26 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
                           if (selectorState.issues.length > 6)
                             Text(
                               '+${selectorState.issues.length - 6} adicionales...',
-                              style: Theme.of(dialogContext).textTheme.bodySmall,
+                              style: Theme.of(
+                                dialogContext,
+                              ).textTheme.bodySmall,
                             ),
                         ],
                         const SizedBox(height: 14),
                         Row(
                           children: [
                             FilledButton(
-                              onPressed: validating || selectorState.idFols.isEmpty
+                              onPressed:
+                                  validating || selectorState.idFols.isEmpty
                                   ? null
                                   : validar,
                               child: validating
                                   ? const SizedBox(
                                       height: 20,
                                       width: 20,
-                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
                                     )
                                   : const Text('Validar'),
                             ),
@@ -2341,22 +2351,24 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
                               onPressed: validating
                                   ? null
                                   : selectorState.idFols.isEmpty
-                                      ? null
-                                      : () {
-                                          ref
-                                              .read(
-                                                facturacionIdFolSelectorProvider.notifier,
-                                              )
-                                              .clear();
-                                          setDialogState(() {
-                                            lastValidationMsg = '';
-                                          });
-                                        },
+                                  ? null
+                                  : () {
+                                      ref
+                                          .read(
+                                            facturacionIdFolSelectorProvider
+                                                .notifier,
+                                          )
+                                          .clear();
+                                      setDialogState(() {
+                                        lastValidationMsg = '';
+                                      });
+                                    },
                               child: const Text('Limpiar'),
                             ),
                             const SizedBox(width: 8),
                             OutlinedButton(
-                              onPressed: validating ||
+                              onPressed:
+                                  validating ||
                                       !selectorState.validated ||
                                       selectorState.validos.isEmpty
                                   ? null
@@ -2365,7 +2377,8 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
                             ),
                             const Spacer(),
                             TextButton(
-                              onPressed: () => Navigator.of(dialogContext).pop(),
+                              onPressed: () =>
+                                  Navigator.of(dialogContext).pop(),
                               child: const Text('Cerrar'),
                             ),
                           ],
@@ -2407,44 +2420,9 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
     return '$raw'.trim();
   }
 
-  Map<String, int> _applyValidatedSelection({
-    required WidgetRef ref,
-    required Set<String> validos,
-    required List<Map<String, dynamic>> visibleRows,
-  }) {
-    final normalizedValidos = validos
-        .map((id) => id.trim().toUpperCase())
-        .where((id) => id.isNotEmpty && id != '-')
-        .toSet();
-    final selected = <String>{};
-    var skippedNotPending = 0;
-    // Selecciona sobre la página visible ya filtrada.
-    for (final row in visibleRows) {
-      final id = _pickText(row, const ['IDFOL', 'idfol']).toUpperCase();
-      if (id.isEmpty || id == '-') continue;
-      if (!normalizedValidos.contains(id)) continue;
-      final estatus = _pickText(row, const ['ESTATUS', 'estatus']).toUpperCase();
-      if (estatus != 'PENDIENTE') {
-        skippedNotPending++;
-        continue;
-      }
-      selected.add(id);
-    }
-    final outOfView = normalizedValidos.length - selected.length;
-    ref.read(selectedFacturasUnificacionProvider.notifier).state = selected;
-    ref.read(selectedFacturaIdFolProvider.notifier).state =
-        selected.isNotEmpty ? selected.first : null;
-    return {
-      'applied': selected.length,
-      'outOfView': outOfView < 0 ? 0 : outOfView,
-      'skippedNotPending': skippedNotPending,
-    };
-  }
-
   Widget _buildDataRow(
     WidgetRef ref,
-    Map<String, dynamic> row,
-    {
+    Map<String, dynamic> row, {
     required Set<String> selectedIdFolsForUnificacion,
   }) {
     final idFol = _pickText(row, const ['IDFOL', 'idfol']);
@@ -2464,18 +2442,22 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
       'RAZONSOCIALRECEPTOR',
       'RazonSocialReceptor',
       'NOMBRE',
-      'NOMBRE_CLIENTE'
+      'NOMBRE_CLIENTE',
     ]);
     final fcn = _formatDate(_pickValue(row, const ['FCN', 'fcn']));
     final impt = _formatMoney(_pickValue(row, const ['IMPT', 'impt']));
-    final fPago = _pickText(row, const ['FORMAPAGO', 'FormaPagoSAT', 'FormaPago']);
+    final fPago = _pickText(row, const [
+      'FORMAPAGO',
+      'FormaPagoSAT',
+      'FormaPago',
+    ]);
     final metodo = _pickText(row, const ['METODODEPAGO', 'MetodoDePago']);
     final autRef = _pickText(row, const [
       'TARJETAULTIMOS4DIGITOS',
       'TarjetaUltimos4Digitos',
       'AUT',
       'aut',
-      'NAUT'
+      'NAUT',
     ]);
     final tipoFact = _pickText(row, const ['TIPOFACT', 'Tipofact']);
     final estatus = _pickText(row, const ['ESTATUS', 'estatus']);
@@ -2485,9 +2467,8 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
       onTap: canSelect
           ? () {
               ref.read(selectedFacturaIdFolProvider.notifier).state = idFol;
-              ref
-                  .read(facturacionIdFolSelectionFilterProvider.notifier)
-                  .state = <String>{};
+              ref.read(facturacionIdFolSelectionFilterProvider.notifier).state =
+                  <String>{};
             }
           : null,
       child: Padding(
@@ -2514,7 +2495,8 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
                             width: 24,
                             child: Checkbox(
                               value:
-                                  canSelectForUnificacion && isSelectedForUnificacion,
+                                  canSelectForUnificacion &&
+                                  isSelectedForUnificacion,
                               onChanged: canSelectForUnificacion
                                   ? (value) {
                                       _toggleUnificacionSelection(
@@ -2566,11 +2548,7 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
     );
   }
 
-  void _toggleUnificacionSelection(
-    WidgetRef ref,
-    String idFol,
-    bool selected,
-  ) {
+  void _toggleUnificacionSelection(WidgetRef ref, String idFol, bool selected) {
     final normalized = idFol.trim().toUpperCase();
     if (normalized.isEmpty || normalized == '-') return;
     final current = ref.read(selectedFacturasUnificacionProvider);
@@ -2817,9 +2795,7 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(_formatActionError('No se pudo unificar', e)),
-        ),
+        SnackBar(content: Text(_formatActionError('No se pudo unificar', e))),
       );
     }
   }
@@ -2953,10 +2929,7 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
       final api = ref.read(facturacionApiProvider);
       final result = await api.validar(idFol);
       if (!mounted) return;
-      await _showDetalleValidacionDialog(
-        idFol: idFol,
-        result: result,
-      );
+      await _showDetalleValidacionDialog(idFol: idFol, result: result);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -2988,25 +2961,26 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
         : const <Map<String, dynamic>>[];
 
     final importeCuadra = _asBool(validaciones['importeCuadra']);
-    final clienteFiscalCompleto = _asBool(validaciones['clienteFiscalCompleto']);
+    final clienteFiscalCompleto = _asBool(
+      validaciones['clienteFiscalCompleto'],
+    );
     final rfcGenerico = _asBool(validaciones['rfcGenerico']);
-    final subtotalSatCuadra =
-        validaciones.containsKey('subtotalSatCuadra')
-            ? _asBool(validaciones['subtotalSatCuadra'])
-            : true;
+    final subtotalSatCuadra = validaciones.containsKey('subtotalSatCuadra')
+        ? _asBool(validaciones['subtotalSatCuadra'])
+        : true;
     final requiereAjusteSubtotalSat =
         validaciones.containsKey('requiereAjusteSubtotalSat')
-            ? _asBool(validaciones['requiereAjusteSubtotalSat'])
-            : false;
+        ? _asBool(validaciones['requiereAjusteSubtotalSat'])
+        : false;
     final subtotalSatDiferencia =
         _asDouble(validaciones['subtotalSatDiferencia']) ?? 0;
     final camposFiscalesFaltantes =
         (validaciones['camposFiscalesFaltantes'] is List)
-            ? (validaciones['camposFiscalesFaltantes'] as List)
-                .map((e) => '$e'.trim())
-                .where((e) => e.isNotEmpty)
-                .toList()
-            : const <String>[];
+        ? (validaciones['camposFiscalesFaltantes'] as List)
+              .map((e) => '$e'.trim())
+              .where((e) => e.isNotEmpty)
+              .toList()
+        : const <String>[];
     final totalDetalle = _formatMoney(
       totalesDetalle['total'] ??
           rows.fold<double>(
@@ -3060,7 +3034,8 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
       headerMap['RFCEMISOR'],
       sucursalMap['RFC'],
     ], fallback: '-');
-    final canFacturar = importeCuadra &&
+    final canFacturar =
+        importeCuadra &&
         clienteFiscalCompleto &&
         camposFiscalesFaltantes.isEmpty &&
         rows.isNotEmpty;
@@ -3088,267 +3063,296 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Vista detalle factura',
-                          style:
-                              Theme.of(dialogContext).textTheme.titleLarge?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                        ),
-                      ),
-                      DefaultTextStyle(
-                        style: Theme.of(dialogContext).textTheme.bodyMedium ??
-                            const TextStyle(),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text('Cabecera: $totalCabecera'),
-                            Text('Detalle: $totalDetalle'),
-                            Text('Diferencia: $diferencia'),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text('IDFOL: $idFol'),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      _buildValidationBadge(
-                        'Importe cuadra',
-                        importeCuadra,
-                      ),
-                      _buildValidationBadge(
-                        'Cliente fiscal completo',
-                        clienteFiscalCompleto,
-                      ),
-                      _buildValidationBadge(
-                        requiereAjusteSubtotalSat
-                            ? 'Subtotal SAT ajustable'
-                            : 'Subtotal SAT listo',
-                        subtotalSatCuadra || requiereAjusteSubtotalSat,
-                      ),
-                      _buildValidationBadge(
-                        'Conceptos: ${rows.length}',
-                        rows.isNotEmpty,
-                      ),
-                    ],
-                  ),
-                  if (requiereAjusteSubtotalSat) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      'Se detectó precisión decimal en conceptos '
-                      '(diferencia SAT: ${subtotalSatDiferencia.toStringAsFixed(6)}). '
-                      'Al emitir, backend aplicará redondeo SAT en subtotal para prevenir CFDI40108.',
-                      style: Theme.of(dialogContext).textTheme.bodySmall?.copyWith(
-                            color: const Color(0xFF5D4037),
-                            fontWeight: FontWeight.w600,
-                          ),
-                    ),
-                  ],
-                  if (camposFiscalesFaltantes.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      'Campos fiscales obligatorios incompletos'
-                      '${rfcGenerico ? ' (RFC genérico)' : ''}: '
-                      '${camposFiscalesFaltantes.join(', ')}',
-                      style: Theme.of(dialogContext).textTheme.bodySmall?.copyWith(
-                            color: const Color(0xFFB71C1C),
-                            fontWeight: FontWeight.w600,
-                          ),
-                    ),
-                  ],
-                  const SizedBox(height: 10),
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF7F7F7),
-                      border: Border.all(color: Colors.black12),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(10),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      Row(
                         children: [
-                          Row(
-                            children: [
-                              Text(
-                                'Datos fiscales del cliente',
-                                style: Theme.of(dialogContext)
-                                    .textTheme
-                                    .titleSmall
-                                    ?.copyWith(fontWeight: FontWeight.w700),
-                              ),
-                              const SizedBox(width: 8),
-                              if (clienteId != null)
-                                Text(
-                                  'IDC: $clienteId',
-                                  style:
-                                      Theme.of(dialogContext).textTheme.bodySmall,
-                                ),
-                              const Spacer(),
-                              OutlinedButton(
-                                onPressed: () async {
-                                  final updated =
-                                      await _showEditarClienteFiscalDialog(
-                                    context: dialogContext,
-                                    idFol: idFol,
-                                    cliente: clienteMap,
-                                    header: headerMap,
-                                    sucursal: sucursalMap,
-                                  );
-                                  if (!updated || !dialogContext.mounted) return;
-                                  Navigator.of(dialogContext).pop();
-                                  final refreshed = await api.validar(idFol);
-                                  if (!mounted) return;
-                                  await _showDetalleValidacionDialog(
-                                    idFol: idFol,
-                                    result: refreshed,
-                                  );
-                                },
-                                child: const Text('EDITAR'),
-                              ),
-                            ],
+                          Expanded(
+                            child: Text(
+                              'Vista detalle factura',
+                              style: Theme.of(dialogContext)
+                                  .textTheme
+                                  .titleLarge
+                                  ?.copyWith(fontWeight: FontWeight.w700),
+                            ),
                           ),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 10,
-                            runSpacing: 8,
-                            children: [
-                              Text('RfcReceptor: $rfcReceptor'),
-                              Text('RazonSocial: $razonSocial'),
-                              Text('Regimen: $regimenFiscal'),
-                              Text('UsoCfdi: $usoCfdi'),
-                              Text('CodigoPostal: $codigoPostal'),
-                              Text('Email: $emailReceptor'),
-                              Text('RfcEmisor: $rfcEmisor'),
-                            ],
+                          DefaultTextStyle(
+                            style:
+                                Theme.of(dialogContext).textTheme.bodyMedium ??
+                                const TextStyle(),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text('Cabecera: $totalCabecera'),
+                                Text('Detalle: $totalDetalle'),
+                                Text('Diferencia: $diferencia'),
+                              ],
+                            ),
                           ),
                         ],
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Expanded(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.black12),
-                        borderRadius: BorderRadius.circular(8),
+                      const SizedBox(height: 8),
+                      Text('IDFOL: $idFol'),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          _buildValidationBadge(
+                            'Importe cuadra',
+                            importeCuadra,
+                          ),
+                          _buildValidationBadge(
+                            'Cliente fiscal completo',
+                            clienteFiscalCompleto,
+                          ),
+                          _buildValidationBadge(
+                            requiereAjusteSubtotalSat
+                                ? 'Subtotal SAT ajustable'
+                                : 'Subtotal SAT listo',
+                            subtotalSatCuadra || requiereAjusteSubtotalSat,
+                          ),
+                          _buildValidationBadge(
+                            'Conceptos: ${rows.length}',
+                            rows.isNotEmpty,
+                          ),
+                        ],
                       ),
-                      child: rows.isEmpty
-                          ? const Center(
-                              child: Text('Sin artículos relacionados al folio.'),
-                            )
-                          : SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: SingleChildScrollView(
-                                child: DataTable(
-                                  columnSpacing: 14,
-                                  headingRowHeight: 40,
-                                  dataRowMinHeight: 36,
-                                  dataRowMaxHeight: 42,
-                                  columns: const [
-                                    DataColumn(label: Text('IDFOL')),
-                                    DataColumn(label: Text('UPC')),
-                                    DataColumn(label: Text('Descripcion')),
-                                    DataColumn(label: Text('ClaveProdServ')),
-                                    DataColumn(label: Text('Unidad')),
-                                    DataColumn(label: Text('Cantidad')),
-                                    DataColumn(label: Text('ValorUnitario')),
-                                    DataColumn(label: Text('PVTAT')),
-                                    DataColumn(label: Text('Impuesto')),
-                                    DataColumn(label: Text('Total')),
-                                  ],
-                                  rows: rows.map((row) {
-                                    return DataRow(
-                                      cells: [
-                                        DataCell(
-                                          Text(
-                                            _pickText(row, const ['IDFOL']),
-                                          ),
-                                        ),
-                                        DataCell(
-                                          Text(
-                                            _pickText(row, const ['UPC']),
-                                          ),
-                                        ),
-                                        DataCell(
-                                          ConstrainedBox(
-                                            constraints:
-                                                const BoxConstraints(maxWidth: 260),
-                                            child: Text(
-                                              _pickText(row, const ['Descripcion']),
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                        ),
-                                        DataCell(
-                                          Text(
-                                            _pickText(
-                                              row,
-                                              const ['ClaveProdServ'],
-                                            ),
-                                          ),
-                                        ),
-                                        DataCell(
-                                          Text(
-                                            _pickText(row, const ['Unidad']),
-                                          ),
-                                        ),
-                                        DataCell(
-                                          Align(
-                                            alignment: Alignment.centerRight,
-                                            child: Text(
-                                              _formatCantidad(row['Cantidad']),
-                                            ),
-                                          ),
-                                        ),
-                                        DataCell(
-                                          Align(
-                                            alignment: Alignment.centerRight,
-                                            child: Text(
-                                              _formatMoney(row['ValorUnitario']),
-                                            ),
-                                          ),
-                                        ),
-                                        DataCell(
-                                          Align(
-                                            alignment: Alignment.centerRight,
-                                            child: Text(
-                                              _formatMoney(row['PVTAT']),
-                                            ),
-                                          ),
-                                        ),
-                                        DataCell(
-                                          Align(
-                                            alignment: Alignment.centerRight,
-                                            child: Text(
-                                              _formatMoney(row['Impuesto']),
-                                            ),
-                                          ),
-                                        ),
-                                        DataCell(
-                                          Align(
-                                            alignment: Alignment.centerRight,
-                                            child: Text(
-                                              _formatMoney(row['Total']),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    );
-                                  }).toList(),
-                                ),
+                      if (requiereAjusteSubtotalSat) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          'Se detectó precisión decimal en conceptos '
+                          '(diferencia SAT: ${subtotalSatDiferencia.toStringAsFixed(6)}). '
+                          'Al emitir, backend aplicará redondeo SAT en subtotal para prevenir CFDI40108.',
+                          style: Theme.of(dialogContext).textTheme.bodySmall
+                              ?.copyWith(
+                                color: const Color(0xFF5D4037),
+                                fontWeight: FontWeight.w600,
                               ),
-                            ),
-                    ),
-                  ),
+                        ),
+                      ],
+                      if (camposFiscalesFaltantes.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          'Campos fiscales obligatorios incompletos'
+                          '${rfcGenerico ? ' (RFC genérico)' : ''}: '
+                          '${camposFiscalesFaltantes.join(', ')}',
+                          style: Theme.of(dialogContext).textTheme.bodySmall
+                              ?.copyWith(
+                                color: const Color(0xFFB71C1C),
+                                fontWeight: FontWeight.w600,
+                              ),
+                        ),
+                      ],
+                      const SizedBox(height: 10),
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF7F7F7),
+                          border: Border.all(color: Colors.black12),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(10),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    'Datos fiscales del cliente',
+                                    style: Theme.of(dialogContext)
+                                        .textTheme
+                                        .titleSmall
+                                        ?.copyWith(fontWeight: FontWeight.w700),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  if (clienteId != null)
+                                    Text(
+                                      'IDC: $clienteId',
+                                      style: Theme.of(
+                                        dialogContext,
+                                      ).textTheme.bodySmall,
+                                    ),
+                                  const Spacer(),
+                                  OutlinedButton(
+                                    onPressed: () async {
+                                      final updated =
+                                          await _showEditarClienteFiscalDialog(
+                                            context: dialogContext,
+                                            idFol: idFol,
+                                            cliente: clienteMap,
+                                            header: headerMap,
+                                            sucursal: sucursalMap,
+                                          );
+                                      if (!updated || !dialogContext.mounted) {
+                                        return;
+                                      }
+                                      Navigator.of(dialogContext).pop();
+                                      final refreshed = await api.validar(
+                                        idFol,
+                                      );
+                                      if (!mounted) return;
+                                      await _showDetalleValidacionDialog(
+                                        idFol: idFol,
+                                        result: refreshed,
+                                      );
+                                    },
+                                    child: const Text('EDITAR'),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 10,
+                                runSpacing: 8,
+                                children: [
+                                  Text('RfcReceptor: $rfcReceptor'),
+                                  Text('RazonSocial: $razonSocial'),
+                                  Text('Regimen: $regimenFiscal'),
+                                  Text('UsoCfdi: $usoCfdi'),
+                                  Text('CodigoPostal: $codigoPostal'),
+                                  Text('Email: $emailReceptor'),
+                                  Text('RfcEmisor: $rfcEmisor'),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Expanded(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.black12),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: rows.isEmpty
+                              ? const Center(
+                                  child: Text(
+                                    'Sin artículos relacionados al folio.',
+                                  ),
+                                )
+                              : SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  child: SingleChildScrollView(
+                                    child: DataTable(
+                                      columnSpacing: 14,
+                                      headingRowHeight: 40,
+                                      dataRowMinHeight: 36,
+                                      dataRowMaxHeight: 42,
+                                      columns: const [
+                                        DataColumn(label: Text('IDFOL')),
+                                        DataColumn(label: Text('UPC')),
+                                        DataColumn(label: Text('Descripcion')),
+                                        DataColumn(
+                                          label: Text('ClaveProdServ'),
+                                        ),
+                                        DataColumn(label: Text('Unidad')),
+                                        DataColumn(label: Text('Cantidad')),
+                                        DataColumn(
+                                          label: Text('ValorUnitario'),
+                                        ),
+                                        DataColumn(label: Text('PVTAT')),
+                                        DataColumn(label: Text('Impuesto')),
+                                        DataColumn(label: Text('Total')),
+                                      ],
+                                      rows: rows.map((row) {
+                                        return DataRow(
+                                          cells: [
+                                            DataCell(
+                                              Text(
+                                                _pickText(row, const ['IDFOL']),
+                                              ),
+                                            ),
+                                            DataCell(
+                                              Text(
+                                                _pickText(row, const ['UPC']),
+                                              ),
+                                            ),
+                                            DataCell(
+                                              ConstrainedBox(
+                                                constraints:
+                                                    const BoxConstraints(
+                                                      maxWidth: 260,
+                                                    ),
+                                                child: Text(
+                                                  _pickText(row, const [
+                                                    'Descripcion',
+                                                  ]),
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            ),
+                                            DataCell(
+                                              Text(
+                                                _pickText(row, const [
+                                                  'ClaveProdServ',
+                                                ]),
+                                              ),
+                                            ),
+                                            DataCell(
+                                              Text(
+                                                _pickText(row, const [
+                                                  'Unidad',
+                                                ]),
+                                              ),
+                                            ),
+                                            DataCell(
+                                              Align(
+                                                alignment:
+                                                    Alignment.centerRight,
+                                                child: Text(
+                                                  _formatCantidad(
+                                                    row['Cantidad'],
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                            DataCell(
+                                              Align(
+                                                alignment:
+                                                    Alignment.centerRight,
+                                                child: Text(
+                                                  _formatMoney(
+                                                    row['ValorUnitario'],
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                            DataCell(
+                                              Align(
+                                                alignment:
+                                                    Alignment.centerRight,
+                                                child: Text(
+                                                  _formatMoney(row['PVTAT']),
+                                                ),
+                                              ),
+                                            ),
+                                            DataCell(
+                                              Align(
+                                                alignment:
+                                                    Alignment.centerRight,
+                                                child: Text(
+                                                  _formatMoney(row['Impuesto']),
+                                                ),
+                                              ),
+                                            ),
+                                            DataCell(
+                                              Align(
+                                                alignment:
+                                                    Alignment.centerRight,
+                                                child: Text(
+                                                  _formatMoney(row['Total']),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        );
+                                      }).toList(),
+                                    ),
+                                  ),
+                                ),
+                        ),
+                      ),
                       const SizedBox(height: 10),
                       if (accionMsg.isNotEmpty)
                         Text(
@@ -3383,10 +3387,11 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
                                       });
 
                                       try {
-                                        final emit = await _emitirFacturaAndOpenPdf(
-                                          ref,
-                                          idFol,
-                                        );
+                                        final emit =
+                                            await _emitirFacturaAndOpenPdf(
+                                              ref,
+                                              idFol,
+                                            );
                                         if (!dialogContext.mounted) return;
                                         setDialogState(() {
                                           facturando = false;
@@ -3398,11 +3403,15 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
 
                                         Navigator.of(dialogContext).pop();
                                         if (!mounted) return;
-                                        ScaffoldMessenger.of(context).showSnackBar(
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
                                           SnackBar(content: Text(emit.message)),
                                         );
                                         if (!emit.pdfOpened) {
-                                          ScaffoldMessenger.of(context).showSnackBar(
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
                                             const SnackBar(
                                               content: Text(
                                                 'Factura emitida, pero no se recibió PDF para vista previa.',
@@ -3516,15 +3525,12 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
     var info = '';
     var isError = false;
 
-    var usoCfdiValue = _firstNonEmptyText(
-      [
-        cliente['USOCFDI'],
-        cliente['UsoCfdi'],
-        header['UsoCfdi'],
-        header['USOCFDI'],
-      ],
-      fallback: _kClienteSelectDefault,
-    );
+    var usoCfdiValue = _firstNonEmptyText([
+      cliente['USOCFDI'],
+      cliente['UsoCfdi'],
+      header['UsoCfdi'],
+      header['USOCFDI'],
+    ], fallback: _kClienteSelectDefault);
     if (usoCfdiValue.isEmpty) usoCfdiValue = _kClienteSelectDefault;
 
     var regimenValue = _firstIntValue([
@@ -3533,16 +3539,13 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
       cliente['RegimenFiscalReceptorSAT'],
     ]);
 
-    var rfcEmisorValue = _firstNonEmptyText(
-      [
-        cliente['RFCEMISOR'],
-        cliente['RfcEmisor'],
-        header['RfcEmisor'],
-        header['RFCEMISOR'],
-        sucursal['RFC'],
-      ],
-      fallback: _kClienteSelectDefault,
-    );
+    var rfcEmisorValue = _firstNonEmptyText([
+      cliente['RFCEMISOR'],
+      cliente['RfcEmisor'],
+      header['RfcEmisor'],
+      header['RFCEMISOR'],
+      sucursal['RFC'],
+    ], fallback: _kClienteSelectDefault);
     if (rfcEmisorValue.isEmpty) rfcEmisorValue = _kClienteSelectDefault;
 
     final inputFormatter = FilteringTextInputFormatter.allow(
@@ -3612,8 +3615,8 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
                 final baseLabel = _asCleanText(s.encar).isNotEmpty
                     ? _asCleanText(s.encar)
                     : _asCleanText(s.desc).isNotEmpty
-                        ? _asCleanText(s.desc)
-                        : s.suc;
+                    ? _asCleanText(s.desc)
+                    : s.suc;
                 rfcByLabel[rfc] = '$baseLabel - $rfc';
               }
               final rfcItems = <DropdownMenuItem<String>>[
@@ -3625,7 +3628,9 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
               ];
               var idx = 1;
               for (final entry in rfcByLabel.entries) {
-                rfcItems.add(_clienteMenuItem<String>(entry.key, entry.value, idx));
+                rfcItems.add(
+                  _clienteMenuItem<String>(entry.key, entry.value, idx),
+                );
                 idx++;
               }
               if (rfcEmisorValue != _kClienteSelectDefault &&
@@ -3651,12 +3656,16 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
                   'EMAILRECEPTOR': emailCtrl.text.trim(),
                   'RFCEMISOR': rfcEmisorValue.trim(),
                   'USOCFDI': usoCfdiValue.trim(),
-                  'CODIGOPOSTALRECEPTOR': codigoPostalCtrl.text.trim().toUpperCase(),
+                  'CODIGOPOSTALRECEPTOR': codigoPostalCtrl.text
+                      .trim()
+                      .toUpperCase(),
                   'REGIMENFISCALRECEPTOR': regimenValue,
                   'DOMI': domicilioCtrl.text.trim().isEmpty
                       ? null
                       : domicilioCtrl.text.trim(),
-                  'NCEL': ncelCtrl.text.trim().isEmpty ? null : ncelCtrl.text.trim(),
+                  'NCEL': ncelCtrl.text.trim().isEmpty
+                      ? null
+                      : ncelCtrl.text.trim(),
                 };
                 try {
                   await api.actualizarClienteFiscal(clienteId, payload);
@@ -3675,7 +3684,10 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
               return Dialog(
                 insetPadding: const EdgeInsets.all(16),
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 980, maxHeight: 720),
+                  constraints: const BoxConstraints(
+                    maxWidth: 980,
+                    maxHeight: 720,
+                  ),
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Form(
@@ -3685,9 +3697,7 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
                         children: [
                           Text(
                             'Edición de datos fiscales del cliente',
-                            style: Theme.of(dialogContext)
-                                .textTheme
-                                .titleMedium
+                            style: Theme.of(dialogContext).textTheme.titleMedium
                                 ?.copyWith(fontWeight: FontWeight.w700),
                           ),
                           const SizedBox(height: 4),
@@ -3754,9 +3764,11 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
                                     label: 'RegimenFiscalReceptor *',
                                     width: 300,
                                     child: DropdownButtonFormField<int>(
-                                      initialValue: regimenItems.any(
-                                        (item) => item.value == regimenValue,
-                                      )
+                                      initialValue:
+                                          regimenItems.any(
+                                            (item) =>
+                                                item.value == regimenValue,
+                                          )
                                           ? regimenValue
                                           : _kClienteRegimenDefault,
                                       isExpanded: true,
@@ -3765,15 +3777,17 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
                                       onChanged: saving
                                           ? null
                                           : (value) => setDialogState(() {
-                                                regimenValue = value ??
-                                                    _kClienteRegimenDefault;
-                                              }),
+                                              regimenValue =
+                                                  value ??
+                                                  _kClienteRegimenDefault;
+                                            }),
                                       decoration: const InputDecoration(
                                         border: OutlineInputBorder(),
                                         isDense: true,
                                       ),
-                                      validator: (value) =>
-                                          (value ?? 0) <= 0 ? 'Requerido' : null,
+                                      validator: (value) => (value ?? 0) <= 0
+                                          ? 'Requerido'
+                                          : null,
                                     ),
                                   ),
                                   _buildClienteEditorField(
@@ -3781,9 +3795,11 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
                                     label: 'UsoCfdi *',
                                     width: 300,
                                     child: DropdownButtonFormField<String>(
-                                      initialValue: usoItems.any(
-                                        (item) => item.value == usoCfdiValue,
-                                      )
+                                      initialValue:
+                                          usoItems.any(
+                                            (item) =>
+                                                item.value == usoCfdiValue,
+                                          )
                                           ? usoCfdiValue
                                           : _kClienteSelectDefault,
                                       isExpanded: true,
@@ -3792,9 +3808,10 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
                                       onChanged: saving
                                           ? null
                                           : (value) => setDialogState(() {
-                                                usoCfdiValue = value ??
-                                                    _kClienteSelectDefault;
-                                              }),
+                                              usoCfdiValue =
+                                                  value ??
+                                                  _kClienteSelectDefault;
+                                            }),
                                       decoration: const InputDecoration(
                                         border: OutlineInputBorder(),
                                         isDense: true,
@@ -3830,9 +3847,11 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
                                     label: 'RfcEmisor *',
                                     width: 300,
                                     child: DropdownButtonFormField<String>(
-                                      initialValue: rfcItems.any(
-                                        (item) => item.value == rfcEmisorValue,
-                                      )
+                                      initialValue:
+                                          rfcItems.any(
+                                            (item) =>
+                                                item.value == rfcEmisorValue,
+                                          )
                                           ? rfcEmisorValue
                                           : _kClienteSelectDefault,
                                       isExpanded: true,
@@ -3841,9 +3860,10 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
                                       onChanged: saving
                                           ? null
                                           : (value) => setDialogState(() {
-                                                rfcEmisorValue = value ??
-                                                    _kClienteSelectDefault;
-                                              }),
+                                              rfcEmisorValue =
+                                                  value ??
+                                                  _kClienteSelectDefault;
+                                            }),
                                       decoration: const InputDecoration(
                                         border: OutlineInputBorder(),
                                         isDense: true,
@@ -3913,7 +3933,9 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
                                 OutlinedButton(
                                   onPressed: saving
                                       ? null
-                                      : () => Navigator.of(dialogContext).pop(false),
+                                      : () => Navigator.of(
+                                          dialogContext,
+                                        ).pop(false),
                                   child: const Text('CANCELAR'),
                                 ),
                                 FilledButton(
@@ -3961,10 +3983,7 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         child: Text(
           label,
-          style: TextStyle(
-            color: fg,
-            fontWeight: FontWeight.w600,
-          ),
+          style: TextStyle(color: fg, fontWeight: FontWeight.w600),
         ),
       ),
     );
@@ -3989,11 +4008,7 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
       pdfOpened = await _openPdfPreviewFromEmitResult(result, idFol);
     }
 
-    return _EmitirOutcome(
-      ok: ok,
-      message: message,
-      pdfOpened: pdfOpened,
-    );
+    return _EmitirOutcome(ok: ok, message: message, pdfOpened: pdfOpened);
   }
 
   Future<bool> _openPdfPreviewFromEmitResult(
@@ -4115,10 +4130,7 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
     return text;
   }
 
-  String _firstNonEmptyText(
-    List<dynamic> values, {
-    String fallback = '',
-  }) {
+  String _firstNonEmptyText(List<dynamic> values, {String fallback = ''}) {
     for (final value in values) {
       final text = _asCleanText(value);
       if (text.isNotEmpty) return text;
@@ -4139,10 +4151,7 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
   }
 
   String? _resolveClienteId(Map<String, dynamic> cliente) {
-    final candidate = _firstNonEmptyText([
-      cliente['IDC'],
-      cliente['idc'],
-    ]);
+    final candidate = _firstNonEmptyText([cliente['IDC'], cliente['idc']]);
     if (candidate.isEmpty) return null;
     final numeric = num.tryParse(candidate);
     if (numeric == null) return candidate;
@@ -4204,9 +4213,9 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
         children: [
           Text(
             label,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 4),
           child,

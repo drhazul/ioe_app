@@ -49,7 +49,7 @@ Enlaces relacionados:
 
 ## Ajustes recientes QA (2026-04-30)
 - Persistencia de pestañas: `Horarios`, `Incidencias` y `Reporte` conservan estado/filtros al cambiar de tab (`AutomaticKeepAliveClientMixin`).
-- Conectividad API visible: se expone banner rojo en shell de Reloj Checador cuando `localhost:3001` no responde.
+- Conectividad API visible: se expone banner rojo en shell de Reloj Checador cuando `localhost:3000` no responde.
 - Interceptor Dio: set/clear de alerta global de conectividad mediante provider para feedback inmediato en UI.
 - Marcaje 2FA: campo actualizado a `ID (Matrícula) o PIN`; se bloquea marcaje sin biometría y se muestra mensaje `Faltan datos biométricos del colaborador` con acciones `Ingresar datos` y `Cambiar datos`.
 - Colaboradores: flujo de edición mantiene `UPDATE` (`PATCH /colaboradores/:id`) y mejora diagnóstico de errores 500 mostrando payload real del backend.

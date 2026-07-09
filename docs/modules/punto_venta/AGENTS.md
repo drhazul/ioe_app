@@ -25,6 +25,15 @@ Enlaces relacionados:
 - alcance funcional inicial:
 - CRUD de promociones, criterios y beneficios contra API `/promociones`.
 - filtros en listado: estado, sucursal (DAT_SUC), tipo promoción (T_PROM) y búsqueda libre.
+- compatibilidad backend (2026-05-26):
+- para guardar configuración (`PUT /promociones/:idProm/configuracion`), backend acepta JWT legacy (`idusuario/userid`) y también resuelve `IDUSUARIO` por `username` si falta `sub/idUsuario`.
+- además reconoce admin por `roleId/IDROL/idRol` con default `0,1` (usuario de acceso total).
+- frontend mantiene el mismo contrato; si hay sesión vieja en navegador, puede requerir relogin para renovar token.
+- UX/validación (2026-05-26):
+- formularios del módulo agregan mensajes y señalización para campos obligatorios (`Descripción`, `FCN_INI`, `FCN_TER`, `T_BENEFICIO`, `PRC_DESC/IMP_DESC/PRECIO_GRATIS` según beneficio, `Clave`/`Descripción` de tipo-beneficio).
+- la selección de cliente en configuración pasa a ventana emergente con buscador y selección única (no dropdown directo).
+- el listado de cliente se alimenta de catálogo backend por sucursal con base `FACT_CLIENT_SHP` (`ESTATUS=0`) usando `IDC` como identificador de cliente y se muestra completo.
+- se deduplican opciones para evitar assertion de `DropdownButton` por valores repetidos.
 
 ## Punto de venta: alta de cotizacion desde panel
 - En `CotizacionesPage`, al presionar `Agregar` primero se confirma la creacion y, al aceptar, se abre un segundo modal para buscar/seleccionar cliente.
@@ -43,6 +52,8 @@ Enlaces relacionados:
 - La actualizacion remota se hace via `PATCH /pvticketlog/:id/precio` enviando `PVTA` y, cuando aplica, `AUTH_PASSWORD`.
 - La prevalidacion de contraseña se realiza con `POST /pvticketlog/precio/authorize` cuando backend exige autorizacion.
 - La app mantiene sincronizacion local/remota del renglón y refresca providers de ticket al aplicar el cambio.
+- Cotizaciones precio manual vs promoción (2026-05-23): durante sincronización de renglón en detalle cotización se usa texto neutro (`Sincronizando...`) para representar guardado general y evitar interpretar que el cambio manual de `PVTA` reactiva cálculo de promoción.
+- Cotizaciones ORD vs precio manual (2026-05-23): al asignar/quitar `ORD` en detalle cotización, el renglón mantiene `PVTA` manual; backend evita reaplicar promoción por cambio exclusivo de `ORD`.
 - Detalle cotizacion UX (2026-03-10): en el bloque superior se agrega captura rápida por `UPC` (EAN13). La UI sanitiza a dígitos, toma los primeros 12 y busca coincidencia exacta por `SUC` en `DAT_ART` para insertar directo en ticket con `CTD=1` y `PVTA` del artículo.
 - Detalle cotizacion UX (2026-03-10): en la grilla DAT_ART el botón `Agregar` se movió al inicio del renglón.
 - Detalle cotizacion UX (2026-03-10): la columna `DES` en consulta DAT_ART y en detalle de ticket usa texto seleccionable con tooltip para visualizar/copiar la descripción completa.
@@ -124,8 +135,9 @@ Enlaces relacionados:
 - Reglas UI de formas (actualizacion):
 - El dropdown de formas de pago en el modal se alimenta desde `DAT_FORM` via `GET /dat-form` (ya no lista fija hardcodeada).
 - Con `tipotran=CA`, el selector de formas en el modal permite `EFECTIVO` y `CREDITO`.
-- `CREDITO` no se puede combinar con otras formas de pago en el mismo cierre.
-- El campo `Autorizacion / referencia` y el boton `Generar/Asignar referencia` solo se muestran para `TARJETA`, `CHEQUE`, `TRANSFERENCIA` y `DEPOSITO 3RO`.
+- `CREDITO` y `DEUDOR` no se pueden combinar con otras formas de pago en el mismo cierre.
+- `TARJETA CREDITO` usa `DAT_FORM.ASPEL=4`; en VF con factura se trata como forma no efectivo, requiere referencia y termina en `FormaPagoSAT='04'`.
+- El campo `Autorizacion / referencia` y el boton `Generar/Asignar referencia` solo se muestran para `TARJETA`, `TARJETA CREDITO`, `CHEQUE`, `TRANSFERENCIA` y `DEPOSITO 3RO`.
 - La referencia ya no se captura manualmente: se crea/asigna via `REF_DETALLE` y se regresa `IDREF` al formulario de pago.
 - Si hay referencias del folio en `CAPTURADO` o `PROCESADO` que no se usan en el cierre, backend rechaza finalizar hasta eliminarlas.
 - En cierre `VF`, para formas `CREDITO`/`DEUDOR` backend inserta en `PV_CTR_FOL_FORM_SVR` (si existe; fallback `PV_CTR_FOL_FORM`) con `IMPP` positivo y `AUT=IDFOL`.
@@ -142,14 +154,16 @@ Enlaces relacionados:
 - `_kResumenTituloSize`, `_kResumenLabelSize`, `_kResumenImporteSize`, `_kFormasItemSize`, `_kFormasRefSize`.
 - Ajuste UI: en el resumen unificado ya no se muestra el label/valor `IVA integrado sucursal`.
 - Ajuste funcional: al entrar/reingresar a la pagina de pago se vuelve a recalcular preview/totales (sin reutilizar inicializacion previa), respetando `tipotran`/`rqfac` y reglas de IVA del backend.
+- Ajuste funcional: si el folio ya esta `PAGADO/MB51PROCES`, la pagina de pago rehidrata formas persistidas con `GET /pv/cotizaciones/:idfol/cierre/print-preview` para mostrar `Pagos/Faltante/Cambio` correctos.
 - Persistencia `RQFAC`: al activar/desactivar el switch en pago se actualiza `PV_CTR_FOL_ASVR.REQF` por `IDFOL` via `PATCH /pvctrfolasvr/:idfol`.
 - Foliado visible: al finalizar cierre la pantalla adopta el `IDFOL` actual devuelto por backend (`SUC-YYYYMMDD-CA|VF-####`) para AppBar, impresión y salida a `MB51PROCES`; la ruta sigue siendo compatible por `IDFOLINICIAL`.
 - Reingreso a pago: `DetalleCotPage` abre pago tomando `rqfac` desde `cierre/context` (backend) para evitar usar valores stale de la grilla local.
 - Validacion UI previa a cierre: antes de `POST /pv/cotizaciones/:idfol/cierre`, la app consulta `GET /pv/refdetalle?idfol=:idfol` y bloquea finalizar si hay referencias `CAPTURADO/PROCESADO` no usadas en `formas.aut`.
 - Si la prevalidacion detecta referencias sin usar, la app redirige a `/punto-venta/cotizaciones/:idfol/ref-detalle` con la referencia detectada preseleccionada para su gestion (usar/eliminar) antes de permitir cerrar.
-- Validacion UI de importes: al agregar/editar forma, el `impp` no puede exceder el faltante por pagar (`total - sum(formas restantes)`) excepto cuando la forma es `EFECTIVO` (puede exceder para cambio).
+- Validacion UI de importes: al agregar/editar forma, el `impp` de formas no `EFECTIVO` no puede exceder el faltante por pagar (`total - sum(formas restantes)`); solo `EFECTIVO` (única forma o segunda forma) puede exceder para calcular cambio.
 - Ajuste tecnico Flutter: dialogos de seleccion migrados a `RadioGroup` (cliente en cotizaciones y referencia en `REF_DETALLE`) para eliminar uso deprecated de `Radio.groupValue/onChanged`.
 - Regla CA/RQFAC: cuando el tipo de cierre es `CA` (al entrar o al cambiar), app fuerza `RQFAC=false` y persiste `PV_CTR_FOL_ASVR.REQF=0` antes del recalculo de preview/totales.
+- Cotizaciones con ORD relacionada (2026-06-26): detalle y pago suman todos los renglones capturados en `PV_TICKET_LOG`; los contramovimientos tecnicos (`CTD < 0` con `TICKET_REL`) permanecen visibles/protegidos y se incluyen para cancelar importes, incluso dejando ticket en cero.
 ## Punto de venta: devoluciones de cotizacion/venta/apartado (implementado 2026-02)
 - Rutas UI:
 - `/punto-venta/devoluciones` (panel)
@@ -192,6 +206,8 @@ Enlaces relacionados:
 - en pago no se permite agregar, editar ni eliminar formas de pago.
 - en pago devolución (2026-03-10): las formas se rehidratan siempre desde `preview.formasSugeridas` (folio origen) para devolver por el mismo concepto en formas no efectivo y conservar `aut/ref` para el cierre backend.
 - forma devolución = forma origen (2026-03-20): backend valida en cierre que devoluciones no `CREDITO/DEUDOR` se paguen en la misma forma del ticket origen (ej. `EFECTIVO`->`EFECTIVO`, `TRANSFERENCIA`->`TRANSFERENCIA`); la UI mantiene el bloque de formas en solo lectura.
+- devoluciones regla simplificada (2026-05-22): parcial solo cuando origen es `EFECTIVO` único; si origen es mixto o no-efectivo, backend exige devolución total respetando cada forma/referencia origen y la UI mantiene bloque de formas en solo lectura.
+- forma original (2026-07-06): `TARJETA CREDITO` llega desde `preview.formasSugeridas`, se muestra en la sección no editable y se reenvía tal cual al finalizar para conservar forma/ref origen.
 - al finalizar devolución, backend deja el folio en `ESTA='PAGADO'`; en esa condición la navegación de regreso muestra icono candado.
 - facturación devolución VF (2026-03-20): al finalizar `POST /pv/devoluciones/:idfolDev/pago/finalizar`, backend sincroniza facturación del folio origen con `sp_fact_sync_folio_vf` y recalcula `FAC_SVR_SHAP/FACT_TICKET_SHP` con base en `CTD-CTDDF` (devolución total: `ESTATUS='VTA DEV'`, `IMPT=0`; parcial: disminuye `IMPT`).
 - saneamiento DVF facturación (2026-03-20): al finalizar devolución, backend depura registros residuales del folio devolución en `FAC_SVR_SHAP/FACT_TICKET_SHP` para evitar filas no deseadas en módulo facturación.
@@ -277,6 +293,7 @@ Enlaces relacionados:
 - compatibilidad PS (2026-04): la UI mantiene lectura de `TRANSMITIR` como estado cerrado legacy para folios históricos, pero los nuevos cierres operativos salen en `CERRADO_PS`.
 - en pago, el botón secundario es `Imprimir ticket` (reemplaza `Regresar a detalle`).
 - Ticket PS voucher (2026-03): al imprimir, si existen formas no `EFECTIVO`, el PDF agrega al final un voucher `SOPORTE RECEPCION PAGO` por cada forma no efectivo.
+- Ticket PS voucher (2026-05-22): el renglón `IMPD` imprime monto del comprobante actual (`forma.impp`) para evitar repetir el total de la operación cuando hay múltiples comprobantes.
 - Ticket PS voucher (2026-03): el voucher incluye espacio en blanco para firma y renglón `Firma cliente` debajo de `FCN`.
 - Ticket PS impresión (2026-03): el voucher se genera en un segundo PDF; al cerrar la vista previa del ticket principal, la app solicita confirmación y luego abre la vista previa del voucher.
 - Ticket PS impresión (2026-03): se agrega línea de recorte entre `RESUMEN DE ORDS` y `ORDS`; `GRACIAS POR SU CONFIANZA` se imprime después de `RESUMEN DE ORDS` y antes del recorte hacia `ORDS`.
@@ -284,6 +301,22 @@ Enlaces relacionados:
 - Ticket PS formato (2026-03): el PDF se homologa a cotizaciones con bloques `DETALLE`, `TOTALES`, `FORMAS`, `TRANSACCION`, `RESUMEN DE ORDS`, `ORDS` (barcode `CODE39` + tabla `JOB/ESF/CIL/EJE`) y vouchers para formas no `EFECTIVO`.
 - en panel PS, al seleccionar folio con `ESTA='PAGADO'` la navegación abre directo `/ps/:idFol/pago` (sin pasar por detalle).
 - en panel PS, `CERRADO_PS` no forma parte del listado principal (`PENDIENTE/EDITANDO/PAGADO`); solo se conserva para salida operativa/auditoría.
+
+## Cambio de forma de pago (2026-06-18)
+- Ruta UI:
+- `/cambio-forma-pago/auth`
+- `/cambio-forma-pago`
+- Capas:
+- `lib/features/modulos/cambio_forma_pago/cambio_forma_pago_auth_page.dart`
+- `lib/features/modulos/cambio_forma_pago/cambio_forma_pago_panel_page.dart`
+- `lib/features/modulos/cambio_forma_pago/cambio_forma_pago_api.dart`
+- `lib/features/modulos/cambio_forma_pago/cambio_forma_pago_models.dart`
+- `lib/features/modulos/cambio_forma_pago/cambio_forma_pago_providers.dart`
+- Reglas:
+- el supervisor `SUPERPV` sigue siendo obligatorio para autorizar cambios.
+- cuando el folio tiene `REQF=1` y `AUT=VF`, backend debe re-sincronizar `FAC_SVR_SHAP/FACT_TICKET_SHP` con `sp_fact_sync_folio_vf`; si el primer intento no aplica, reintenta con `FORCE=1`.
+- la UI muestra trazabilidad `facturacionSync` en el snack final del cambio.
+- 2026-06-26: para admin, el panel agrega filtros en cascada `Sucursal` -> `OPV`; backend acepta `suc/opv` en la consulta diaria y permite operar filas de otra sucursal/OPV solo bajo contexto admin + `SUPERPV`.
 
 ## Retiros Parciales (implementado 2026-03)
 - Rutas UI:
@@ -344,7 +377,10 @@ Enlaces relacionados:
   - tras autorizar, consulta resumen del día por forma (`FORM`, `IMPT`, `IMPR`, `IMPE`, `DIFD`) con selector de fecha.
   - no hay botón de autorización manual dentro de la vista; la reautorización se solicita al reingresar al módulo.
   - al salir de la pantalla, se limpia la sesión local de autorización para forzar contraseña en el siguiente ingreso.
-  - `IMPE` se muestra como `-` cuando llega `null`.
-  - footer de tabla calcula totales de `IMPT`, `IMPR` y `DIFD`.
-  - mantiene `mounted-checks` (`if (!mounted) return;`) tras operaciones async.
+- `IMPE` se muestra como `-` cuando llega `null`.
+- footer de tabla calcula totales de `IMPT`, `IMPR` y `DIFD`.
+- mantiene `mounted-checks` (`if (!mounted) return;`) tras operaciones async.
+
+## Caja General: entrega OPV (2026-06-18)
+- la vista de entrega deshabilita refresco mientras carga para evitar consultas simultáneas al sync de OPV.
 

@@ -18,6 +18,7 @@ class CotizacionLocalItem {
     this.pvta,
     required this.pvtat,
     this.ord,
+    this.ticketRel,
     this.iddev,
     this.ctdd,
     this.ctddf,
@@ -35,12 +36,16 @@ class CotizacionLocalItem {
   final double? pvta;
   final double pvtat;
   final String? ord;
+  final String? ticketRel;
   final String? iddev;
   final double? ctdd;
   final double? ctddf;
   final DateTime updatedAt;
   final SyncStatus syncStatus;
   final String? syncError;
+
+  bool get isRelatedCounterMovement =>
+      ctd < 0 && (ticketRel ?? '').trim().isNotEmpty;
 
   CotizacionLocalItem copyWith({
     String? id,
@@ -52,6 +57,7 @@ class CotizacionLocalItem {
     double? pvta,
     double? pvtat,
     Object? ord = _copyWithUnset,
+    Object? ticketRel = _copyWithUnset,
     String? iddev,
     double? ctdd,
     double? ctddf,
@@ -69,6 +75,9 @@ class CotizacionLocalItem {
       pvta: pvta ?? this.pvta,
       pvtat: pvtat ?? this.pvtat,
       ord: identical(ord, _copyWithUnset) ? this.ord : ord as String?,
+      ticketRel: identical(ticketRel, _copyWithUnset)
+          ? this.ticketRel
+          : ticketRel as String?,
       iddev: iddev ?? this.iddev,
       ctdd: ctdd ?? this.ctdd,
       ctddf: ctddf ?? this.ctddf,
@@ -79,22 +88,23 @@ class CotizacionLocalItem {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'idfol': idfol,
-        'upc': upc,
-        'art': art,
-        'des': des,
-        'ctd': ctd,
-        'pvta': pvta,
-        'pvtat': pvtat,
-        'ord': ord,
-        'iddev': iddev,
-        'ctdd': ctdd,
-        'ctddf': ctddf,
-        'updatedAt': updatedAt.toIso8601String(),
-        'syncStatus': _syncStatusToString(syncStatus),
-        'syncError': syncError,
-      };
+    'id': id,
+    'idfol': idfol,
+    'upc': upc,
+    'art': art,
+    'des': des,
+    'ctd': ctd,
+    'pvta': pvta,
+    'pvtat': pvtat,
+    'ord': ord,
+    'ticketRel': ticketRel,
+    'iddev': iddev,
+    'ctdd': ctdd,
+    'ctddf': ctddf,
+    'updatedAt': updatedAt.toIso8601String(),
+    'syncStatus': _syncStatusToString(syncStatus),
+    'syncError': syncError,
+  };
 
   static CotizacionLocalItem fromJson(Map<String, dynamic> json) {
     return CotizacionLocalItem(
@@ -107,10 +117,13 @@ class CotizacionLocalItem {
       pvta: (json['pvta'] as num?)?.toDouble(),
       pvtat: (json['pvtat'] as num?)?.toDouble() ?? 0,
       ord: _asOrd(json['ord']),
+      ticketRel: _asOrd(json['ticketRel']),
       iddev: json['iddev']?.toString(),
       ctdd: (json['ctdd'] as num?)?.toDouble(),
       ctddf: (json['ctddf'] as num?)?.toDouble(),
-      updatedAt: DateTime.tryParse(json['updatedAt']?.toString() ?? '') ?? DateTime.now(),
+      updatedAt:
+          DateTime.tryParse(json['updatedAt']?.toString() ?? '') ??
+          DateTime.now(),
       syncStatus: _syncStatusFromString(json['syncStatus']?.toString()),
       syncError: json['syncError']?.toString(),
     );
@@ -161,11 +174,11 @@ class CotizacionLocalState {
   final String? error;
 
   factory CotizacionLocalState.initial(String idfol) => CotizacionLocalState(
-        idfol: idfol,
-        items: const [],
-        loading: true,
-        error: null,
-      );
+    idfol: idfol,
+    items: const [],
+    loading: true,
+    error: null,
+  );
 
   CotizacionLocalState copyWith({
     String? idfol,
@@ -196,13 +209,18 @@ class CotizacionLocalStore {
     final decoded = json.decode(raw);
     if (decoded is! List) return [];
     return decoded
-        .map((e) => CotizacionLocalItem.fromJson(Map<String, dynamic>.from(e as Map)))
+        .map(
+          (e) =>
+              CotizacionLocalItem.fromJson(Map<String, dynamic>.from(e as Map)),
+        )
         .toList();
   }
 
   Future<void> save(String idfol, List<CotizacionLocalItem> items) async {
     final sp = await SharedPreferences.getInstance();
-    final pendingOnly = items.where((e) => e.syncStatus != SyncStatus.synced).toList();
+    final pendingOnly = items
+        .where((e) => e.syncStatus != SyncStatus.synced)
+        .toList();
     final raw = json.encode(pendingOnly.map((e) => e.toJson()).toList());
     await sp.setString('$_prefix$idfol', raw);
   }
@@ -213,14 +231,25 @@ class CotizacionLocalStore {
   }
 }
 
-final cotizacionLocalStoreProvider = Provider<CotizacionLocalStore>((ref) => CotizacionLocalStore());
-
-final cotizacionLocalProvider = StateNotifierProvider.family<CotizacionLocalController, CotizacionLocalState, String>(
-  (ref, idfol) => CotizacionLocalController(ref.read(cotizacionLocalStoreProvider), idfol),
+final cotizacionLocalStoreProvider = Provider<CotizacionLocalStore>(
+  (ref) => CotizacionLocalStore(),
 );
 
+final cotizacionLocalProvider =
+    StateNotifierProvider.family<
+      CotizacionLocalController,
+      CotizacionLocalState,
+      String
+    >(
+      (ref, idfol) => CotizacionLocalController(
+        ref.read(cotizacionLocalStoreProvider),
+        idfol,
+      ),
+    );
+
 class CotizacionLocalController extends StateNotifier<CotizacionLocalState> {
-  CotizacionLocalController(this._store, this._idfol) : super(CotizacionLocalState.initial(_idfol)) {
+  CotizacionLocalController(this._store, this._idfol)
+    : super(CotizacionLocalState.initial(_idfol)) {
     _load();
   }
 
@@ -242,7 +271,13 @@ class CotizacionLocalController extends StateNotifier<CotizacionLocalState> {
     await _store.save(_idfol, next);
   }
 
-  Future<void> updateItem(String id, {double? ctd, double? pvta, String? des, String? ord}) async {
+  Future<void> updateItem(
+    String id, {
+    double? ctd,
+    double? pvta,
+    String? des,
+    String? ord,
+  }) async {
     final next = state.items.map((item) {
       if (item.id != id) return item;
       final nextCtd = ctd ?? item.ctd;
@@ -261,13 +296,18 @@ class CotizacionLocalController extends StateNotifier<CotizacionLocalState> {
     await _store.save(_idfol, next);
   }
 
-  Future<void> updateOrd(String id, String? ord) async {
+  Future<void> updateOrd(String id, String? ord, {String? ticketRel}) async {
     final normalized = (ord ?? '').trim();
     final nextOrd = normalized.isEmpty ? null : normalized;
+    final normalizedTicketRel = (ticketRel ?? '').trim();
+    final nextTicketRel = normalizedTicketRel.isEmpty
+        ? null
+        : normalizedTicketRel;
     final next = state.items.map((item) {
       if (item.id != id) return item;
       return item.copyWith(
         ord: nextOrd,
+        ticketRel: ticketRel == null ? item.ticketRel : nextTicketRel,
         updatedAt: DateTime.now(),
       );
     }).toList();
@@ -275,7 +315,11 @@ class CotizacionLocalController extends StateNotifier<CotizacionLocalState> {
     await _store.save(_idfol, next);
   }
 
-  Future<void> setSyncStatus(String id, SyncStatus status, {String? error}) async {
+  Future<void> setSyncStatus(
+    String id,
+    SyncStatus status, {
+    String? error,
+  }) async {
     final next = state.items.map((item) {
       if (item.id != id) return item;
       return item.copyWith(syncStatus: status, syncError: error);
@@ -287,7 +331,25 @@ class CotizacionLocalController extends StateNotifier<CotizacionLocalState> {
   Future<void> mergeRemote(List<CotizacionLocalItem> remoteItems) async {
     final map = {for (final item in state.items) item.id: item};
     for (final remote in remoteItems) {
-      map[remote.id] = remote.copyWith(syncStatus: SyncStatus.synced, syncError: null);
+      map[remote.id] = remote.copyWith(
+        syncStatus: SyncStatus.synced,
+        syncError: null,
+      );
+    }
+    final merged = map.values.toList()
+      ..sort((a, b) => a.updatedAt.compareTo(b.updatedAt));
+    state = state.copyWith(items: merged, error: null);
+    await _store.save(_idfol, merged);
+  }
+
+  Future<void> replaceWithRemote(List<CotizacionLocalItem> remoteItems) async {
+    final map = <String, CotizacionLocalItem>{
+      for (final item in remoteItems)
+        item.id: item.copyWith(syncStatus: SyncStatus.synced, syncError: null),
+    };
+    for (final local in state.items) {
+      if (local.syncStatus == SyncStatus.synced) continue;
+      map.putIfAbsent(local.id, () => local);
     }
     final merged = map.values.toList()
       ..sort((a, b) => a.updatedAt.compareTo(b.updatedAt));

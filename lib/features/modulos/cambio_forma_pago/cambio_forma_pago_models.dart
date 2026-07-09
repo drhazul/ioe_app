@@ -13,16 +13,18 @@ class CambioFormaPagoOverrideSession {
 
   factory CambioFormaPagoOverrideSession.fromJson(Map<String, dynamic> json) {
     return CambioFormaPagoOverrideSession(
-      overrideToken: _asText(
+      overrideToken:
+          _asText(
             json['overrideToken'] ??
                 json['OVERRIDE_TOKEN'] ??
                 json['override_token'],
           ) ??
           '',
-      supervisorId: _asText(
+      supervisorId:
+          _asText(
             json['supervisorId'] ??
                 json['SUPERVISOR_ID'] ??
-            json['supervisor_id'],
+                json['supervisor_id'],
           ) ??
           '',
       authPassword: _asText(
@@ -91,12 +93,16 @@ class CambioFormaPagoItem {
     return CambioFormaPagoItem(
       fcn: _asDate(json['FCN'] ?? json['fcn']),
       idfol: (_asText(json['IDFOL'] ?? json['idfol']) ?? '').trim(),
-      autAsvr: (_asText(
-            json['AUT_ASVR'] ?? json['autAsvr'] ?? json['AUT'] ?? json['aut'],
-          ) ??
-          '')
-          .trim()
-          .toUpperCase(),
+      autAsvr:
+          (_asText(
+                    json['AUT_ASVR'] ??
+                        json['autAsvr'] ??
+                        json['AUT'] ??
+                        json['aut'],
+                  ) ??
+                  '')
+              .trim()
+              .toUpperCase(),
       tra: (_asText(json['TRA'] ?? json['tra']) ?? '').trim(),
       opvm: (_asText(json['OPVM'] ?? json['opvm']) ?? '').trim(),
       idf: (_asText(json['IDF'] ?? json['idf']) ?? '').trim(),
@@ -141,6 +147,7 @@ class CambioFormaPagoUpdateResult {
     required this.afterForm,
     required this.beforeAut,
     required this.afterAut,
+    this.facturacionSync,
   });
 
   final String idf;
@@ -149,6 +156,7 @@ class CambioFormaPagoUpdateResult {
   final String afterForm;
   final String beforeAut;
   final String afterAut;
+  final CambioFormaPagoFacturacionSync? facturacionSync;
 
   factory CambioFormaPagoUpdateResult.fromJson(Map<String, dynamic> json) {
     return CambioFormaPagoUpdateResult(
@@ -157,14 +165,57 @@ class CambioFormaPagoUpdateResult {
       beforeForm: (_asText(json['BEFORE_FORM'] ?? json['beforeForm']) ?? '')
           .trim()
           .toUpperCase(),
-      afterForm: (_asText(
-            json['AFTER_FORM'] ?? json['afterForm'] ?? json['FORM'] ?? json['form'],
-          ) ??
-          '')
-          .trim()
-          .toUpperCase(),
-      beforeAut: (_asText(json['BEFORE_AUT'] ?? json['beforeAut']) ?? '').trim(),
+      afterForm:
+          (_asText(
+                    json['AFTER_FORM'] ??
+                        json['afterForm'] ??
+                        json['FORM'] ??
+                        json['form'],
+                  ) ??
+                  '')
+              .trim()
+              .toUpperCase(),
+      beforeAut: (_asText(json['BEFORE_AUT'] ?? json['beforeAut']) ?? '')
+          .trim(),
       afterAut: (_asText(json['AFTER_AUT'] ?? json['afterAut']) ?? '').trim(),
+      facturacionSync: _asFacturacionSync(
+        json['FACTURACION_SYNC'] ??
+            json['facturacionSync'] ??
+            json['facturacion_sync'],
+      ),
+    );
+  }
+}
+
+class CambioFormaPagoFacturacionSync {
+  const CambioFormaPagoFacturacionSync({
+    required this.idfol,
+    required this.syncApplied,
+    required this.estatus,
+    required this.impt,
+    required this.detailRows,
+    required this.evento,
+  });
+
+  final String idfol;
+  final bool syncApplied;
+  final String? estatus;
+  final double? impt;
+  final int detailRows;
+  final String? evento;
+
+  factory CambioFormaPagoFacturacionSync.fromJson(Map<String, dynamic> json) {
+    return CambioFormaPagoFacturacionSync(
+      idfol: (_asText(json['IDFOL'] ?? json['idfol']) ?? '').trim(),
+      syncApplied:
+          _asBool(
+            json['SYNC_APPLIED'] ?? json['syncApplied'] ?? json['sync_applied'],
+          ) ??
+          false,
+      estatus: _asText(json['ESTATUS'] ?? json['estatus'] ?? json['status']),
+      impt: _asDouble(json['IMPT'] ?? json['impt']),
+      detailRows: _asInt(json['DETAIL_ROWS'] ?? json['detailRows']) ?? 0,
+      evento: _asText(json['EVENTO'] ?? json['evento']),
     );
   }
 }
@@ -193,8 +244,28 @@ int? _asInt(dynamic value) {
   return null;
 }
 
+bool? _asBool(dynamic value) {
+  if (value == null) return null;
+  if (value is bool) return value;
+  if (value is num) return value != 0;
+  final text = value.toString().trim().toLowerCase();
+  if (text.isEmpty) return null;
+  if (text == '1' || text == 'true' || text == 'yes') return true;
+  if (text == '0' || text == 'false' || text == 'no') return false;
+  return null;
+}
+
 DateTime? _asDate(dynamic value) {
   if (value == null) return null;
   if (value is DateTime) return value;
   return DateTime.tryParse(value.toString());
+}
+
+CambioFormaPagoFacturacionSync? _asFacturacionSync(dynamic value) {
+  if (value is Map) {
+    return CambioFormaPagoFacturacionSync.fromJson(
+      Map<String, dynamic>.from(value),
+    );
+  }
+  return null;
 }

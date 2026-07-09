@@ -1,10 +1,14 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ioe_app/core/api_error.dart';
+import 'package:ioe_app/core/dio_provider.dart';
 import 'package:ioe_app/core/auth/auth_controller.dart';
 import 'package:ioe_app/features/masterdata/sucursales/sucursales_providers.dart';
+import 'package:ioe_app/features/modulos/punto_venta/admin_opv_selector.dart';
 import 'package:ioe_app/features/modulos/punto_venta/cotizaciones/pago/ref_detalle/ref_detalle_models.dart';
 import 'package:ioe_app/features/modulos/punto_venta/cotizaciones/pago/ref_detalle/ref_detalle_providers.dart';
 
@@ -25,28 +29,49 @@ class _CambioFormaPagoPanelPageState
   final Map<String, String> _selectedFormByIdf = {};
   final TextEditingController _idfolSearchCtrl = TextEditingController();
   final TextEditingController _clienSearchCtrl = TextEditingController();
+  final TextEditingController _sucCtrl = TextEditingController();
+  final TextEditingController _opvCtrl = TextEditingController();
+  int? _roleId;
+  String? _username;
+  String? _userSuc;
+  String? _userOpv;
+  bool _contextReady = false;
   bool _redirectScheduled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserContext();
+  }
 
   @override
   void dispose() {
     _idfolSearchCtrl.dispose();
     _clienSearchCtrl.dispose();
+    _sucCtrl.dispose();
+    _opvCtrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    if (!_contextReady) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
     final session = ref.watch(cambioFormaPagoSessionProvider);
     final validSession = session;
     final todayFilter = ref.watch(cambioFormaPagoTodayFilterProvider);
+    final isAdmin = _isAdmin;
+    final hasAdminSuc = _sucCtrl.text.trim().isNotEmpty;
+    final hasAdminOpv = _opvCtrl.text.trim().isNotEmpty;
+    final adminScopeReady = !isAdmin || (hasAdminSuc && hasAdminOpv);
 
     if (validSession == null) {
       _redirectToAuth(
         message: 'Se requiere autorizacion supervisor para continuar.',
       );
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     final catalogAsync = ref.watch(cambioFormaPagoCatalogProvider);
@@ -126,8 +151,9 @@ class _CambioFormaPagoPanelPageState
                           children: [
                             Text(
                               'Supervisor: ${validSession.supervisorId}',
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.w600),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                             Text('Registros: ${sortedRows.length}'),
                             const Text(
@@ -139,6 +165,15 @@ class _CambioFormaPagoPanelPageState
                       ),
                     ),
                     const SizedBox(height: 10),
+                    if (isAdmin)
+                      _AdminScopeCard(
+                        sucCtrl: _sucCtrl,
+                        opvCtrl: _opvCtrl,
+                        onSucChanged: (value) => _onAdminSucChanged(value),
+                        onOpvChanged: (value) => _onAdminOpvChanged(value),
+                        isAdmin: isAdmin,
+                      ),
+                    if (isAdmin) const SizedBox(height: 10),
                     Card(
                       elevation: 0,
                       child: Padding(
@@ -185,26 +220,35 @@ class _CambioFormaPagoPanelPageState
                               label: const Text('Limpiar'),
                             ),
                             Text(
-                              'Filtro actual: IDFOL="${todayFilter.idfol.trim().isEmpty ? '*' : todayFilter.idfol.trim()}" | CLIEN="${todayFilter.clien.trim().isEmpty ? '*' : todayFilter.clien.trim()}"',
+                              'Filtro actual: SUC="${todayFilter.suc.trim().isEmpty ? '*' : todayFilter.suc.trim()}" | OPV="${todayFilter.opv.trim().isEmpty ? '*' : todayFilter.opv.trim()}" | IDFOL="${todayFilter.idfol.trim().isEmpty ? '*' : todayFilter.idfol.trim()}" | CLIEN="${todayFilter.clien.trim().isEmpty ? '*' : todayFilter.clien.trim()}"',
                             ),
                           ],
                         ),
                       ),
                     ),
                     const SizedBox(height: 10),
-                    if (sortedRows.isEmpty)
+                    if (isAdmin && !adminScopeReady)
                       const Card(
                         elevation: 0,
                         child: Padding(
                           padding: EdgeInsets.all(14),
-                          child: Text('No hay cambios de forma de pago para hoy.'),
+                          child: Text(
+                            'Selecciona sucursal y OPV para consultar cambios de forma de pago.',
+                          ),
+                        ),
+                      )
+                    else if (sortedRows.isEmpty)
+                      const Card(
+                        elevation: 0,
+                        child: Padding(
+                          padding: EdgeInsets.all(14),
+                          child: Text(
+                            'No hay cambios de forma de pago para hoy.',
+                          ),
                         ),
                       )
                     else
-                      _buildTable(
-                        rows: sortedRows,
-                        catalog: sortedCatalog,
-                      ),
+                      _buildTable(rows: sortedRows, catalog: sortedCatalog),
                   ],
                 ),
               );
@@ -218,17 +262,121 @@ class _CambioFormaPagoPanelPageState
   void _applySearch() {
     final idfol = _idfolSearchCtrl.text.trim();
     final clien = _clienSearchCtrl.text.trim();
-    ref.read(cambioFormaPagoTodayFilterProvider.notifier).state =
-        CambioFormaPagoTodayFilter(idfol: idfol, clien: clien);
+    final isAdmin = _isAdmin;
+    final suc = isAdmin ? _sucCtrl.text.trim() : (_userSuc ?? '').trim();
+    final opv = isAdmin ? _opvCtrl.text.trim() : (_userOpv ?? '').trim();
+    ref
+        .read(cambioFormaPagoTodayFilterProvider.notifier)
+        .state = CambioFormaPagoTodayFilter(
+      idfol: idfol,
+      clien: clien,
+      suc: suc,
+      opv: opv,
+    );
     ref.invalidate(cambioFormaPagoTodayProvider);
   }
 
   void _clearSearch() {
     _idfolSearchCtrl.clear();
     _clienSearchCtrl.clear();
-    ref.read(cambioFormaPagoTodayFilterProvider.notifier).state =
-        const CambioFormaPagoTodayFilter();
+    _sucCtrl.clear();
+    _opvCtrl.clear();
+    final isAdmin = _isAdmin;
+    ref.read(cambioFormaPagoTodayFilterProvider.notifier).state = isAdmin
+        ? const CambioFormaPagoTodayFilter()
+        : CambioFormaPagoTodayFilter(
+            suc: (_userSuc ?? '').trim(),
+            opv: (_userOpv ?? '').trim(),
+          );
     ref.invalidate(cambioFormaPagoTodayProvider);
+  }
+
+  void _onAdminSucChanged(String? value) {
+    setState(() {
+      _sucCtrl.text = value?.trim() ?? '';
+      _opvCtrl.clear();
+    });
+    _applySearch();
+  }
+
+  void _onAdminOpvChanged(String? value) {
+    setState(() {
+      _opvCtrl.text = value?.trim() ?? '';
+    });
+    _applySearch();
+  }
+
+  Future<void> _loadUserContext() async {
+    final storage = ref.read(storageProvider);
+    final token = await storage.getAccessToken();
+    if (token == null || token.isEmpty) {
+      if (!mounted) return;
+      final query = CambioFormaPagoTodayFilter(
+        suc: _sucCtrl.text.trim(),
+        opv: _opvCtrl.text.trim(),
+      );
+      ref.read(cambioFormaPagoTodayFilterProvider.notifier).state = query;
+      setState(() {
+        _contextReady = true;
+      });
+      return;
+    }
+
+    final payload = _decodeJwt(token);
+    if (!mounted) return;
+
+    final roleId = _asInt(payload['roleId']) ?? 0;
+    final username = (payload['username'] ?? payload['USERNAME'] ?? '')
+        .toString()
+        .trim();
+    final suc = (payload['suc'] ?? payload['SUC'] ?? '').toString().trim();
+    final opv = (payload['opv'] ?? payload['OPV'] ?? payload['username'] ?? '')
+        .toString()
+        .trim();
+    final isAdmin = roleId == 1 || username.toUpperCase() == 'ADMIN';
+    final query = CambioFormaPagoTodayFilter(suc: suc, opv: isAdmin ? '' : opv);
+
+    ref.read(cambioFormaPagoTodayFilterProvider.notifier).state = query;
+    setState(() {
+      _roleId = roleId;
+      _username = username;
+      _userSuc = suc;
+      _userOpv = opv;
+      if (isAdmin) {
+        if (suc.isNotEmpty) {
+          _sucCtrl.text = suc;
+        }
+        _opvCtrl.clear();
+      } else {
+        if (suc.isNotEmpty) _sucCtrl.text = suc;
+        if (opv.isNotEmpty) _opvCtrl.text = opv;
+      }
+      _contextReady = true;
+    });
+  }
+
+  Map<String, dynamic> _decodeJwt(String token) {
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return {};
+      final payload = utf8.decode(
+        base64Url.decode(base64Url.normalize(parts[1])),
+      );
+      return Map<String, dynamic>.from(json.decode(payload) as Map);
+    } catch (_) {
+      return {};
+    }
+  }
+
+  int? _asInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '');
+  }
+
+  bool get _isAdmin {
+    if ((_roleId ?? 0) == 1) return true;
+    return (_username ?? '').trim().toUpperCase() == 'ADMIN';
   }
 
   Widget _buildTable({
@@ -245,59 +393,73 @@ class _CambioFormaPagoPanelPageState
             children: [
               Container(
                 color: Colors.grey.shade200,
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
                 child: const Row(
                   children: [
                     SizedBox(
                       width: 140,
-                      child: Text('FCN',
-                          style: TextStyle(fontWeight: FontWeight.w600)),
+                      child: Text(
+                        'FCN',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
                     ),
                     SizedBox(
                       width: 100,
-                      child: Text('AUT',
-                          style: TextStyle(fontWeight: FontWeight.w600)),
+                      child: Text(
+                        'AUT',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
                     ),
                     SizedBox(
                       width: 170,
-                      child: Text('IDFOL',
-                          style: TextStyle(fontWeight: FontWeight.w600)),
+                      child: Text(
+                        'IDFOL',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
                     ),
                     SizedBox(
                       width: 170,
-                      child:
-                          Text('IDF', style: TextStyle(fontWeight: FontWeight.w600)),
+                      child: Text(
+                        'IDF',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
                     ),
                     SizedBox(
                       width: 250,
-                      child: Text('FORM (editable)',
-                          style: TextStyle(fontWeight: FontWeight.w600)),
+                      child: Text(
+                        'FORM (editable)',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
                     ),
                     SizedBox(
                       width: 120,
-                      child: Text('IMPD',
-                          style: TextStyle(fontWeight: FontWeight.w600)),
+                      child: Text(
+                        'IMPD',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
                     ),
                     SizedBox(
                       width: 180,
-                      child: Text('AUT FORM',
-                          style: TextStyle(fontWeight: FontWeight.w600)),
+                      child: Text(
+                        'AUT FORM',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
                     ),
                     SizedBox(
                       width: 150,
-                      child: Text('ACCION',
-                          style: TextStyle(fontWeight: FontWeight.w600)),
+                      child: Text(
+                        'ACCION',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
                     ),
                   ],
                 ),
               ),
               const Divider(height: 1),
-              ...rows.map(
-                (row) => _buildTableRow(
-                  row: row,
-                  catalog: catalog,
-                ),
-              ),
+              ...rows.map((row) => _buildTableRow(row: row, catalog: catalog)),
             ],
           ),
         ),
@@ -337,10 +499,7 @@ class _CambioFormaPagoPanelPageState
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           child: Row(
             children: [
-              SizedBox(
-                width: 140,
-                child: Text(_fmtDateTime(row.fcn)),
-              ),
+              SizedBox(width: 140, child: Text(_fmtDateTime(row.fcn))),
               SizedBox(
                 width: 100,
                 child: Text(row.autAsvr.isEmpty ? '-' : row.autAsvr),
@@ -368,7 +527,9 @@ class _CambioFormaPagoPanelPageState
                             ? const SizedBox(
                                 width: 14,
                                 height: 14,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               )
                             : const Icon(Icons.arrow_drop_down),
                         items: rowCatalog
@@ -376,9 +537,11 @@ class _CambioFormaPagoPanelPageState
                               (item) => DropdownMenuItem<String>(
                                 value: item.form,
                                 enabled:
-                                    !item.isBlocked || item.form == normalizedCurrent,
+                                    !item.isBlocked ||
+                                    item.form == normalizedCurrent,
                                 child: Text(
-                                  item.isBlocked && item.form != normalizedCurrent
+                                  item.isBlocked &&
+                                          item.form != normalizedCurrent
                                       ? '${item.form} (BLOQ)'
                                       : item.form,
                                   overflow: TextOverflow.ellipsis,
@@ -391,24 +554,23 @@ class _CambioFormaPagoPanelPageState
                             : !hasIdf
                             ? null
                             : (selected) => _onSelectForm(
-                                  row: row,
-                                  selectedForm: selected,
-                                  selectedCatalog: rowCatalog,
-                                ),
+                                row: row,
+                                selectedForm: selected,
+                                selectedCatalog: rowCatalog,
+                              ),
                         decoration: const InputDecoration(
                           border: OutlineInputBorder(),
                           isDense: true,
-                          contentPadding:
-                              EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 8,
+                          ),
                         ),
                       ),
               ),
               SizedBox(
                 width: 120,
-                child: Text(
-                  _money(row.impd),
-                  textAlign: TextAlign.right,
-                ),
+                child: Text(_money(row.impd), textAlign: TextAlign.right),
               ),
               SizedBox(
                 width: 180,
@@ -422,9 +584,9 @@ class _CambioFormaPagoPanelPageState
                 child: FilledButton(
                   onPressed: canApply
                       ? () => _applyFormChange(
-                            row: row,
-                            selectedCatalog: rowCatalog,
-                          )
+                          row: row,
+                          selectedCatalog: rowCatalog,
+                        )
                       : null,
                   child: saving
                       ? const SizedBox(
@@ -462,11 +624,7 @@ class _CambioFormaPagoPanelPageState
         !forms.any((item) => item.form == currentForm)) {
       forms.insert(
         0,
-        CambioFormaPagoCatalogItem(
-          form: currentForm,
-          tipotran: '',
-          bloq: 1,
-        ),
+        CambioFormaPagoCatalogItem(form: currentForm, tipotran: '', bloq: 1),
       );
     }
     forms.sort((a, b) => a.form.compareTo(b.form));
@@ -484,7 +642,8 @@ class _CambioFormaPagoPanelPageState
     final currentForm = row.form.trim().toUpperCase();
     final selectedItem = selectedCatalog.firstWhere(
       (item) => item.form == nextForm,
-      orElse: () => CambioFormaPagoCatalogItem(form: nextForm, tipotran: '', bloq: 0),
+      orElse: () =>
+          CambioFormaPagoCatalogItem(form: nextForm, tipotran: '', bloq: 0),
     );
     if (selectedItem.isBlocked && selectedItem.form != currentForm) {
       _showSnack('La forma seleccionada esta bloqueada.');
@@ -512,7 +671,8 @@ class _CambioFormaPagoPanelPageState
 
     final selectedItem = selectedCatalog.firstWhere(
       (item) => item.form == nextForm,
-      orElse: () => CambioFormaPagoCatalogItem(form: nextForm, tipotran: '', bloq: 0),
+      orElse: () =>
+          CambioFormaPagoCatalogItem(form: nextForm, tipotran: '', bloq: 0),
     );
     if (selectedItem.isBlocked && selectedItem.form != currentForm) {
       _showSnack('La forma seleccionada esta bloqueada.');
@@ -528,8 +688,9 @@ class _CambioFormaPagoPanelPageState
 
     setState(() => _savingByIdf[row.idf] = true);
     try {
-      String? autToSend =
-          row.autForm.trim().isEmpty ? null : row.autForm.trim();
+      String? autToSend = row.autForm.trim().isEmpty
+          ? null
+          : row.autForm.trim();
       var clearAut = false;
 
       final fromEfectivoToOther =
@@ -577,7 +738,9 @@ class _CambioFormaPagoPanelPageState
         autToSend = null;
       }
 
-      final result = await ref.read(cambioFormaPagoApiProvider).updateForma(
+      final result = await ref
+          .read(cambioFormaPagoApiProvider)
+          .updateForma(
             idf: row.idf,
             newForm: nextForm,
             aut: autToSend,
@@ -590,20 +753,26 @@ class _CambioFormaPagoPanelPageState
       if (!mounted) return;
       setState(() => _selectedFormByIdf.remove(row.idf));
 
-      final before = result.beforeForm.isEmpty ? currentForm : result.beforeForm;
+      final before = result.beforeForm.isEmpty
+          ? currentForm
+          : result.beforeForm;
       final after = result.afterForm.isEmpty ? nextForm : result.afterForm;
       final afterAut = result.afterAut.trim();
       final autMsg = afterAut.isEmpty ? 'AUT limpio' : 'AUT $afterAut';
-      _showSnack('IDF ${row.idf}: FORM $before -> $after | $autMsg');
+      final sync = result.facturacionSync;
+      final syncMsg = sync?.syncApplied == true
+          ? ' | Facturación sincronizada'
+          : sync != null
+          ? ' | Facturación no sincronizada'
+          : '';
+      _showSnack('IDF ${row.idf}: FORM $before -> $after | $autMsg$syncMsg');
     } catch (e) {
       if (!mounted) return;
       if (e is DioException) {
         final status = e.response?.statusCode ?? 0;
         if (status == 401 || status == 403) {
           ref.read(cambioFormaPagoSessionProvider.notifier).clear();
-          _redirectToAuth(
-            message: 'Se requiere autorización de supervisor.',
-          );
+          _redirectToAuth(message: 'Se requiere autorización de supervisor.');
           return;
         }
       }
@@ -634,8 +803,9 @@ class _CambioFormaPagoPanelPageState
       return null;
     }
 
+    final opvRow = row.opvm.trim();
     final opvAuth = (ref.read(authControllerProvider).username ?? '').trim();
-    final opv = opvAuth.isNotEmpty ? opvAuth : row.opvm.trim();
+    final opv = opvRow.isNotEmpty ? opvRow : opvAuth;
     if (opv.isEmpty) {
       _showSnack('No se pudo resolver OPV para gestionar referencia.');
       return null;
@@ -688,7 +858,9 @@ class _CambioFormaPagoPanelPageState
   }) async {
     final wanted = idref.trim().toUpperCase();
     if (wanted.isEmpty) return false;
-    final refs = await ref.read(refDetalleApiProvider).fetchByFolio(idfol: idfol);
+    final refs = await ref
+        .read(refDetalleApiProvider)
+        .fetchByFolio(idfol: idfol);
     for (final item in refs) {
       if (item.idref.trim().toUpperCase() == wanted) {
         return true;
@@ -703,9 +875,9 @@ class _CambioFormaPagoPanelPageState
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if ((message ?? '').trim().isNotEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message!.trim())),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message!.trim())));
       }
       context.go('/cambio-forma-pago/auth');
     });
@@ -713,7 +885,9 @@ class _CambioFormaPagoPanelPageState
 
   void _showSnack(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   String _fmtDateTime(DateTime? value) {
@@ -731,11 +905,125 @@ class _CambioFormaPagoPanelPageState
   }
 }
 
-class _ErrorBlock extends StatelessWidget {
-  const _ErrorBlock({
-    required this.message,
-    required this.onRetry,
+class _SmallField extends StatelessWidget {
+  const _SmallField({
+    required this.label,
+    required this.controller,
+    this.enabled = true,
   });
+
+  final String label;
+  final TextEditingController controller;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 160,
+      child: TextField(
+        controller: controller,
+        enabled: enabled,
+        decoration: InputDecoration(
+          labelText: label,
+          isDense: true,
+          border: const OutlineInputBorder(),
+        ),
+      ),
+    );
+  }
+}
+
+class _AdminScopeCard extends ConsumerWidget {
+  const _AdminScopeCard({
+    required this.sucCtrl,
+    required this.opvCtrl,
+    required this.onSucChanged,
+    required this.onOpvChanged,
+    required this.isAdmin,
+  });
+
+  final TextEditingController sucCtrl;
+  final TextEditingController opvCtrl;
+  final ValueChanged<String?> onSucChanged;
+  final ValueChanged<String?> onOpvChanged;
+  final bool isAdmin;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final sucAsync = ref.watch(sucursalesListProvider);
+    final selectedSuc = sucCtrl.text.trim().toUpperCase();
+    return Card(
+      elevation: 0,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Wrap(
+          spacing: 12,
+          runSpacing: 10,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            SizedBox(
+              width: 220,
+              child: sucAsync.when(
+                data: (sucursales) {
+                  final items = <DropdownMenuItem<String>>[];
+                  for (final suc in sucursales) {
+                    final value = suc.suc.trim().toUpperCase();
+                    if (value.isEmpty) continue;
+                    final desc = (suc.desc ?? '').trim();
+                    final label = desc.isEmpty ? value : '$value - $desc';
+                    items.add(
+                      DropdownMenuItem<String>(
+                        value: value,
+                        child: Text(label, overflow: TextOverflow.ellipsis),
+                      ),
+                    );
+                  }
+                  final hasValue = items.any(
+                    (item) => item.value == selectedSuc,
+                  );
+                  return DropdownButtonFormField<String>(
+                    initialValue: hasValue ? selectedSuc : null,
+                    isExpanded: true,
+                    items: items,
+                    onChanged: onSucChanged,
+                    decoration: const InputDecoration(
+                      labelText: 'Sucursal',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                  );
+                },
+                loading: () => _SmallField(
+                  label: 'Sucursal',
+                  controller: sucCtrl,
+                  enabled: false,
+                ),
+                error: (e, _) => _SmallField(
+                  label: 'Sucursal',
+                  controller: sucCtrl,
+                  enabled: false,
+                ),
+              ),
+            ),
+            AdminOpvSelector(
+              suc: sucCtrl.text,
+              selectedOpv: opvCtrl.text.trim(),
+              onOpvChanged: onOpvChanged,
+            ),
+            Text(
+              isAdmin && selectedSuc.isEmpty
+                  ? 'Selecciona sucursal primero para cargar OPV.'
+                  : 'OPV se filtra por sucursal.',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ErrorBlock extends StatelessWidget {
+  const _ErrorBlock({required this.message, required this.onRetry});
 
   final String message;
   final VoidCallback onRetry;

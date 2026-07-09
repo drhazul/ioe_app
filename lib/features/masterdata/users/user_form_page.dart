@@ -5,8 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ioe_app/core/api_error.dart';
 
-import '../roles/roles_providers.dart';
+import '../deptos/deptos_models.dart';
 import '../deptos/deptos_providers.dart';
+import '../empresas/empresas_models.dart';
+import '../empresas/empresas_providers.dart';
+import '../roles/roles_models.dart';
+import '../roles/roles_providers.dart';
 import '../sucursales/sucursales_providers.dart';
 import 'users_providers.dart';
 
@@ -26,20 +30,25 @@ class _UserFormPageState extends ConsumerState<UserFormPage> {
   final _nombreCtrl = TextEditingController();
   final _apellidosCtrl = TextEditingController();
   final _mailCtrl = TextEditingController();
-  final _nivelCtrl = TextEditingController(text: '1');
 
   late Future<void> _loader;
   bool _saving = false;
   bool _obscurePassword = true;
+  bool _loadingCajaSuggestion = false;
   String _estatus = 'ACTIVO';
+  int _nivel = 1;
   int? _roleId;
   int? _deptoId;
+  int? _empresaId;
+  String? _correoSuffix;
   String? _suc;
+  String? _lastCajaSuggestion;
   bool _forzarCambioPass = true;
 
   @override
   void initState() {
     super.initState();
+    _usernameCtrl.addListener(_syncMailFromUsername);
     if (widget.userId == null) {
       _passwordCtrl.text = _generateRandomPassword();
     }
@@ -47,50 +56,79 @@ class _UserFormPageState extends ConsumerState<UserFormPage> {
   }
 
   Future<void> _bootstrap() async {
-    if (widget.userId == null) return;
+    final empresas = await ref.read(empresasListProvider.future);
+    if (empresas.isNotEmpty) {
+      _empresaId = empresas.first.idempresa;
+      _correoSuffix = empresas.first.correo;
+    }
+
+    if (widget.userId == null) {
+      _syncMailFromUsername();
+      return;
+    }
+
     final user = await ref.read(usersApiProvider).fetchUser(widget.userId!);
     _usernameCtrl.text = user.username;
     _nombreCtrl.text = user.nombre ?? '';
     _apellidosCtrl.text = user.apellidos ?? '';
-    _mailCtrl.text = user.mail;
-    _nivelCtrl.text = user.nivel.toString();
+    _nivel = user.nivel;
     _estatus = user.estatus;
     _roleId = user.idRol;
     _deptoId = user.idDepto;
     _suc = (user.suc?.trim().isEmpty ?? true) ? null : user.suc;
     _forzarCambioPass = user.forzarCambioPass;
+
+    final empresa = _matchEmpresaByMail(user.mail, empresas);
+    if (empresa != null) {
+      _empresaId = empresa.idempresa;
+      _correoSuffix = empresa.correo;
+    } else {
+      _mailCtrl.text = user.mail;
+    }
+    _syncMailFromUsername();
   }
 
   @override
   void dispose() {
+    _usernameCtrl.removeListener(_syncMailFromUsername);
     _usernameCtrl.dispose();
     _passwordCtrl.dispose();
     _nombreCtrl.dispose();
     _apellidosCtrl.dispose();
     _mailCtrl.dispose();
-    _nivelCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_empresaId == null || (_correoSuffix ?? '').isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Configura una empresa para el correo')),
+      );
+      return;
+    }
     if (_roleId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Selecciona un rol')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Selecciona un rol')));
       return;
     }
     setState(() => _saving = true);
 
-    final nivel = int.tryParse(_nivelCtrl.text.trim()) ?? 0;
     final suc = _suc?.trim();
-
     final payload = <String, dynamic>{
       'USERNAME': _usernameCtrl.text.trim(),
+      'IDEMPRESA': _empresaId,
       'MAIL': _mailCtrl.text.trim(),
       'ESTATUS': _estatus,
-      'NIVEL': nivel,
+      'NIVEL': _nivel,
       'IDROL': _roleId,
-      'NOMBRE': _nombreCtrl.text.trim().isEmpty ? null : _nombreCtrl.text.trim(),
-      'APELLIDOS': _apellidosCtrl.text.trim().isEmpty ? null : _apellidosCtrl.text.trim(),
+      'NOMBRE': _nombreCtrl.text.trim().isEmpty
+          ? null
+          : _nombreCtrl.text.trim(),
+      'APELLIDOS': _apellidosCtrl.text.trim().isEmpty
+          ? null
+          : _apellidosCtrl.text.trim(),
       'IDDEPTO': _deptoId,
       'SUC': (suc == null || suc.isEmpty) ? null : suc,
       'FORZAR_CAMBIO_PASS': _forzarCambioPass,
@@ -99,7 +137,9 @@ class _UserFormPageState extends ConsumerState<UserFormPage> {
     if (_passwordCtrl.text.trim().isNotEmpty) {
       payload['PASSWORD'] = _passwordCtrl.text.trim();
     } else if (widget.userId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Contraseña requerida para crear')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Contraseña requerida para crear')),
+      );
       if (mounted) setState(() => _saving = false);
       return;
     }
@@ -108,18 +148,24 @@ class _UserFormPageState extends ConsumerState<UserFormPage> {
       if (widget.userId == null) {
         await ref.read(usersApiProvider).createUser(payload);
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Usuario creado')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Usuario creado')));
       } else {
         await ref.read(usersApiProvider).updateUser(widget.userId!, payload);
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Usuario actualizado')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Usuario actualizado')));
       }
       ref.invalidate(usersListProvider);
       if (mounted) context.pop();
     } catch (e) {
       if (mounted) {
         final msg = apiErrorMessage(e, fallback: 'No se pudo guardar');
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al guardar: $msg')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error al guardar: $msg')));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -138,14 +184,78 @@ class _UserFormPageState extends ConsumerState<UserFormPage> {
     });
   }
 
+  void _syncMailFromUsername() {
+    final suffix = (_correoSuffix ?? '').trim();
+    final username = _usernameCtrl.text.trim();
+    if (suffix.isEmpty || username.isEmpty) return;
+    final mail = '$username$suffix';
+    if (_mailCtrl.text != mail) {
+      _mailCtrl.text = mail;
+    }
+  }
+
+  EmpresaModel? _matchEmpresaByMail(String mail, List<EmpresaModel> empresas) {
+    final lower = mail.trim().toLowerCase();
+    for (final empresa in empresas) {
+      if (lower.endsWith(empresa.correo.toLowerCase())) return empresa;
+    }
+    return null;
+  }
+
+  bool _isCajaDepto(int? deptoId, List<DeptoModel> deptos) {
+    if (deptoId == null) return false;
+    final depto = deptos.where((item) => item.id == deptoId).firstOrNull;
+    final nombre = (depto?.nombre ?? '').trim().toUpperCase();
+    return nombre == 'CAJAS' || nombre.contains('CAJA');
+  }
+
+  List<RoleModel> _filterRoles(List<RoleModel> roles) {
+    final activeRoles = roles.where((role) => role.activo).toList();
+    if (_deptoId == null) return activeRoles;
+    return activeRoles
+        .where((role) => role.iddepartamento == _deptoId)
+        .toList();
+  }
+
+  Future<void> _applyCajaSuggestionIfNeeded() async {
+    if (widget.userId != null || _loadingCajaSuggestion) return;
+    final current = _usernameCtrl.text.trim();
+    if (current.isNotEmpty && current != _lastCajaSuggestion) return;
+
+    setState(() => _loadingCajaSuggestion = true);
+    try {
+      final next = await ref.read(usersApiProvider).fetchNextCajaUsername();
+      if (!mounted || next.isEmpty) return;
+      final now = _usernameCtrl.text.trim();
+      if (now.isEmpty || now == _lastCajaSuggestion) {
+        setState(() {
+          _lastCajaSuggestion = next;
+          _usernameCtrl.text = next;
+        });
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo obtener consecutivo PV_OPV')),
+      );
+    } finally {
+      if (mounted) setState(() => _loadingCajaSuggestion = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final rolesAsync = ref.watch(rolesListProvider);
     final deptosAsync = ref.watch(deptosListProvider);
     final sucursalesAsync = ref.watch(sucursalesListProvider);
+    final empresasAsync = ref.watch(empresasListProvider);
+    final deptosForCaja = deptosAsync.asData?.value ?? const <DeptoModel>[];
+    final isCajaSelected = _isCajaDepto(_deptoId, deptosForCaja);
 
     return Scaffold(
-      appBar: AppBar(title: Text(widget.userId == null ? 'Nuevo usuario' : 'Editar usuario')),
+      appBar: AppBar(
+        title: Text(widget.userId == null ? 'Nuevo usuario' : 'Editar usuario'),
+      ),
       body: FutureBuilder<void>(
         future: _loader,
         builder: (context, snapshot) {
@@ -163,14 +273,195 @@ class _UserFormPageState extends ConsumerState<UserFormPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  sucursalesAsync.when(
+                    data: (sucs) {
+                      final selectedSuc = sucs.any((s) => s.suc == _suc)
+                          ? _suc
+                          : null;
+                      return DropdownButtonFormField<String?>(
+                        initialValue: selectedSuc,
+                        decoration: const InputDecoration(
+                          labelText: 'Sucursal',
+                        ),
+                        items: [
+                          const DropdownMenuItem<String?>(
+                            value: null,
+                            child: Text('Sin sucursal'),
+                          ),
+                          ...sucs.map(
+                            (s) => DropdownMenuItem<String?>(
+                              value: s.suc,
+                              child: Text(
+                                s.desc != null && s.desc!.isNotEmpty
+                                    ? '${s.suc} - ${s.desc}'
+                                    : s.suc,
+                              ),
+                            ),
+                          ),
+                        ],
+                        onChanged: _saving
+                            ? null
+                            : (v) => setState(() => _suc = v),
+                      );
+                    },
+                    loading: () => const LinearProgressIndicator(),
+                    error: (e, _) => Text('Error sucursales: $e'),
+                  ),
+                  const SizedBox(height: 12),
+                  deptosAsync.when(
+                    data: (deptos) => rolesAsync.when(
+                      data: (roles) => DropdownButtonFormField<int?>(
+                        initialValue: _deptoId,
+                        decoration: const InputDecoration(
+                          labelText: 'Departamento',
+                        ),
+                        items: [
+                          const DropdownMenuItem<int?>(
+                            value: null,
+                            child: Text('Sin departamento'),
+                          ),
+                          ...deptos.map(
+                            (d) => DropdownMenuItem<int?>(
+                              value: d.id,
+                              child: Text(d.nombre),
+                            ),
+                          ),
+                        ],
+                        onChanged: _saving
+                            ? null
+                            : (value) {
+                                setState(() {
+                                  _deptoId = value;
+                                  final filtered = _filterRoles(roles);
+                                  if (!filtered.any((r) => r.id == _roleId)) {
+                                    _roleId = filtered.isEmpty
+                                        ? null
+                                        : filtered.first.id;
+                                  }
+                                });
+                                if (_isCajaDepto(value, deptos)) {
+                                  _applyCajaSuggestionIfNeeded();
+                                }
+                              },
+                      ),
+                      loading: () => const LinearProgressIndicator(),
+                      error: (e, _) => Text('Error roles: $e'),
+                    ),
+                    loading: () => const LinearProgressIndicator(),
+                    error: (e, _) => Text('Error deptos: $e'),
+                  ),
+                  const SizedBox(height: 12),
+                  rolesAsync.when(
+                    data: (roles) {
+                      final filtered = _filterRoles(roles);
+                      final selected = filtered.any((r) => r.id == _roleId)
+                          ? _roleId
+                          : (filtered.isNotEmpty ? filtered.first.id : null);
+                      if (_roleId == null && selected != null) {
+                        _roleId = selected;
+                      }
+                      return DropdownButtonFormField<int>(
+                        initialValue: selected,
+                        decoration: const InputDecoration(labelText: 'Rol'),
+                        items: filtered
+                            .map(
+                              (r) => DropdownMenuItem(
+                                value: r.id,
+                                child: Text('${r.codigo} - ${r.nombre}'),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: _saving
+                            ? null
+                            : (v) => setState(() => _roleId = v),
+                        validator: (value) =>
+                            value == null ? 'Selecciona un rol' : null,
+                      );
+                    },
+                    loading: () => const LinearProgressIndicator(),
+                    error: (e, _) => Text('Error roles: $e'),
+                  ),
+                  const SizedBox(height: 12),
+                  empresasAsync.when(
+                    data: (empresas) {
+                      final selectedEmpresa =
+                          empresas.any((e) => e.idempresa == _empresaId)
+                          ? _empresaId
+                          : (empresas.isNotEmpty
+                                ? empresas.first.idempresa
+                                : null);
+                      if (_empresaId == null && selectedEmpresa != null) {
+                        _empresaId = selectedEmpresa;
+                        _correoSuffix = empresas
+                            .firstWhere((e) => e.idempresa == selectedEmpresa)
+                            .correo;
+                        _syncMailFromUsername();
+                      }
+                      return DropdownButtonFormField<int>(
+                        initialValue: selectedEmpresa,
+                        decoration: const InputDecoration(labelText: 'Empresa'),
+                        items: empresas
+                            .map(
+                              (e) => DropdownMenuItem(
+                                value: e.idempresa,
+                                child: Text('${e.razonSocial} (${e.correo})'),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: _saving
+                            ? null
+                            : (value) {
+                                final empresa = empresas
+                                    .where((e) => e.idempresa == value)
+                                    .firstOrNull;
+                                setState(() {
+                                  _empresaId = value;
+                                  _correoSuffix = empresa?.correo;
+                                  _syncMailFromUsername();
+                                });
+                              },
+                        validator: (value) =>
+                            value == null ? 'Selecciona una empresa' : null,
+                      );
+                    },
+                    loading: () => const LinearProgressIndicator(),
+                    error: (e, _) => Text('Error empresas: $e'),
+                  ),
+                  const SizedBox(height: 12),
                   TextFormField(
                     controller: _usernameCtrl,
-                    decoration: const InputDecoration(labelText: 'Usuario'),
+                    decoration: InputDecoration(
+                      labelText: 'Usuario',
+                      helperText: isCajaSelected
+                          ? 'Bloqueado por consecutivo PV_OPV para CAJAS'
+                          : 'Captura manual disponible',
+                      suffixIcon: isCajaSelected
+                          ? (_loadingCajaSuggestion
+                                ? const Padding(
+                                    padding: EdgeInsets.all(14),
+                                    child: SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    ),
+                                  )
+                                : IconButton(
+                                    tooltip: 'Usar consecutivo PV_OPV',
+                                    icon: const Icon(Icons.pin_outlined),
+                                    onPressed: _saving || widget.userId != null
+                                        ? null
+                                        : _applyCajaSuggestionIfNeeded,
+                                  ))
+                          : null,
+                    ),
+                    readOnly: isCajaSelected || _saving,
                     enabled: !_saving,
                     validator: (v) {
                       final value = v?.trim() ?? '';
                       if (value.isEmpty) return 'Requerido';
-                      if (value.length < 3) return 'Minimo 3 caracteres';
+                      if (value.length < 3) return 'Mínimo 3 caracteres';
                       return null;
                     },
                   ),
@@ -205,9 +496,8 @@ class _UserFormPageState extends ConsumerState<UserFormPage> {
                             onPressed: _saving
                                 ? null
                                 : () => setState(
-                                      () =>
-                                          _obscurePassword = !_obscurePassword,
-                                    ),
+                                    () => _obscurePassword = !_obscurePassword,
+                                  ),
                           ),
                         ],
                       ),
@@ -227,94 +517,6 @@ class _UserFormPageState extends ConsumerState<UserFormPage> {
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
-                    controller: _mailCtrl,
-                    decoration: const InputDecoration(labelText: 'Correo'),
-                    enabled: !_saving,
-                    validator: (v) => v == null || v.trim().isEmpty ? 'Requerido' : null,
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    initialValue: _estatus,
-                    items: const [
-                      DropdownMenuItem(value: 'ACTIVO', child: Text('ACTIVO')),
-                      DropdownMenuItem(value: 'INACTIVO', child: Text('INACTIVO')),
-                    ],
-                    onChanged: _saving ? null : (v) => setState(() => _estatus = v ?? 'ACTIVO'),
-                    decoration: const InputDecoration(labelText: 'Estatus'),
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _nivelCtrl,
-                    decoration: const InputDecoration(labelText: 'Nivel'),
-                    enabled: !_saving,
-                    keyboardType: TextInputType.number,
-                    validator: (v) => v == null || int.tryParse(v) == null ? 'Nivel numérico' : null,
-                  ),
-                  const SizedBox(height: 12),
-                  rolesAsync.when(
-                    data: (roles) {
-                      final selected = _roleId ?? (roles.isNotEmpty ? roles.first.id : null);
-                      if (_roleId == null && selected != null) _roleId = selected;
-                      return DropdownButtonFormField<int>(
-                        initialValue: selected,
-                        decoration: const InputDecoration(labelText: 'Rol'),
-                        items: roles.map((r) => DropdownMenuItem(value: r.id, child: Text('${r.codigo} - ${r.nombre}'))).toList(),
-                        onChanged: _saving ? null : (v) => setState(() => _roleId = v),
-                      );
-                    },
-                    loading: () => const LinearProgressIndicator(),
-                    error: (e, _) => Text('Error roles: $e'),
-                  ),
-                  const SizedBox(height: 12),
-                  deptosAsync.when(
-                    data: (deptos) => DropdownButtonFormField<int?>(
-                      initialValue: _deptoId,
-                      decoration: const InputDecoration(labelText: 'Departamento'),
-                      items: [
-                        const DropdownMenuItem<int?>(value: null, child: Text('Sin departamento')),
-                        ...deptos.map((d) => DropdownMenuItem<int?>(value: d.id, child: Text(d.nombre))),
-                      ],
-                      onChanged: _saving ? null : (v) => setState(() => _deptoId = v),
-                    ),
-                    loading: () => const LinearProgressIndicator(),
-                    error: (e, _) => Text('Error deptos: $e'),
-                  ),
-                  sucursalesAsync.when(
-                    data: (sucs) {
-                      final selectedSuc = sucs.any((s) => s.suc == _suc) ? _suc : null;
-                      return DropdownButtonFormField<String?>(
-                        initialValue: selectedSuc,
-                        decoration: const InputDecoration(labelText: 'Sucursal'),
-                        items: [
-                          const DropdownMenuItem<String?>(value: null, child: Text('Sin sucursal')),
-                          ...sucs.map(
-                            (s) => DropdownMenuItem<String?>(
-                              value: s.suc,
-                              child: Text(s.desc != null && s.desc!.isNotEmpty ? '${s.suc} - ${s.desc}' : s.suc),
-                            ),
-                          ),
-                        ],
-                        onChanged: _saving ? null : (v) => setState(() => _suc = v),
-                      );
-                    },
-                    loading: () => const LinearProgressIndicator(),
-                    error: (e, _) => Text('Error sucursales: $e'),
-                  ),
-                  const SizedBox(height: 12),
-                  SwitchListTile.adaptive(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Forzar cambio de contraseña en próximo acceso'),
-                    subtitle: const Text(
-                      'Recomendado para usuarios nuevos o cuando se reinicia contraseña',
-                    ),
-                    value: _forzarCambioPass,
-                    onChanged: _saving
-                        ? null
-                        : (value) =>
-                            setState(() => _forzarCambioPass = value),
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
                     controller: _nombreCtrl,
                     decoration: const InputDecoration(labelText: 'Nombre'),
                     enabled: !_saving,
@@ -325,11 +527,59 @@ class _UserFormPageState extends ConsumerState<UserFormPage> {
                     decoration: const InputDecoration(labelText: 'Apellidos'),
                     enabled: !_saving,
                   ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _mailCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Correo',
+                      helperText:
+                          'Se compone como Usuario + prefijo de empresa',
+                    ),
+                    readOnly: true,
+                    enabled: !_saving,
+                    validator: (v) =>
+                        v == null || v.trim().isEmpty ? 'Requerido' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: _estatus,
+                    items: const [
+                      DropdownMenuItem(value: 'ACTIVO', child: Text('ACTIVO')),
+                      DropdownMenuItem(
+                        value: 'INACTIVO',
+                        child: Text('INACTIVO'),
+                      ),
+                    ],
+                    onChanged: _saving
+                        ? null
+                        : (v) => setState(() => _estatus = v ?? 'ACTIVO'),
+                    decoration: const InputDecoration(labelText: 'Estatus'),
+                  ),
+                  const SizedBox(height: 12),
+                  SwitchListTile.adaptive(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text(
+                      'Forzar cambio de contraseña en próximo acceso',
+                    ),
+                    subtitle: const Text(
+                      'Recomendado para usuarios nuevos o cuando se reinicia contraseña',
+                    ),
+                    value: _forzarCambioPass,
+                    onChanged: _saving
+                        ? null
+                        : (value) => setState(() => _forzarCambioPass = value),
+                  ),
                   const SizedBox(height: 24),
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
-                      icon: _saving ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.save),
+                      icon: _saving
+                          ? const SizedBox(
+                              height: 16,
+                              width: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.save),
                       label: Text(_saving ? 'Guardando...' : 'Guardar'),
                       onPressed: _saving ? null : _submit,
                     ),

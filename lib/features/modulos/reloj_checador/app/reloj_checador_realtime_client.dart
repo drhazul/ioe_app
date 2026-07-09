@@ -74,9 +74,9 @@ class RelojChecadorRealtimeClient {
 
 String _resolveSocketBase(String rawBaseUrl) {
   final value = rawBaseUrl.trim();
-  if (value.isEmpty) return 'http://localhost:3001';
+  if (value.isEmpty) return 'http://localhost:3000';
   final uri = Uri.tryParse(value);
-  if (uri == null) return 'http://localhost:3001';
+  if (uri == null) return 'http://localhost:3000';
 
   final host = uri.host.isEmpty ? 'localhost' : uri.host;
   final port = uri.hasPort ? ':${uri.port}' : '';

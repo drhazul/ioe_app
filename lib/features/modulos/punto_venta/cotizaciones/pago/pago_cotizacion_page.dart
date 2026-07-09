@@ -19,6 +19,7 @@ import 'ref_detalle/ref_detalle_providers.dart';
 
 const Set<String> _formasConReferencia = {
   'TARJETA',
+  'TARJETA CREDITO',
   'CHEQUE',
   'TRANSFERENCIA',
   'DEPOSITO 3RO',
@@ -27,7 +28,10 @@ const Set<String> _formasConReferencia = {
 bool _formRequiereReferenciaTipo(String form) =>
     _formasConReferencia.contains(form.toUpperCase().trim());
 
-bool _isCreditoForm(String form) => form.toUpperCase().trim() == 'CREDITO';
+bool _isCreditoODeudorForm(String form) {
+  final normalized = form.toUpperCase().trim();
+  return normalized == 'CREDITO' || normalized == 'DEUDOR';
+}
 
 // Ajustes de tipografia para etiquetas/importes en resumenes.
 const double _kResumenTituloSize = 16;
@@ -95,9 +99,8 @@ class _PagoCotizacionPageState extends ConsumerState<PagoCotizacionPage> {
     final canFinalize =
         !isEstadoPagado &&
         !state.submitting &&
-        state.formas.isNotEmpty &&
-        total > 0 &&
-        sumPagos >= total;
+        ((total <= 0 && state.formas.isEmpty) ||
+            (state.formas.isNotEmpty && total > 0 && sumPagos >= total));
     final canChangeTipoCierre =
         !isEstadoPagado && !state.submitting && state.formas.isEmpty;
     final canChangeRqfac =
@@ -303,11 +306,11 @@ class _PagoCotizacionPageState extends ConsumerState<PagoCotizacionPage> {
     PagoCotizacionState state, {
     required List<String> formasDisponibles,
   }) async {
-    if (state.formas.any((item) => _isCreditoForm(item.form))) {
+    if (state.formas.any((item) => _isCreditoODeudorForm(item.form))) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'La forma CREDITO no se puede combinar con otras formas de pago.',
+            'Las formas CREDITO y DEUDOR no se pueden combinar con otras formas de pago.',
           ),
         ),
       );
@@ -1569,25 +1572,27 @@ class _PagoCotizacionPageState extends ConsumerState<PagoCotizacionPage> {
   }) async {
     final formas = [...formasDisponibles];
     final initialFormNorm = (initial?.form ?? '').trim().toUpperCase();
-    final editingCredito = _isCreditoForm(initialFormNorm);
-    final hasCreditoEnOtras = existing.any((item) => _isCreditoForm(item.form));
-    final hasNoCreditoEnOtras = existing.any(
-      (item) => !_isCreditoForm(item.form),
+    final editingCreditoDeudor = _isCreditoODeudorForm(initialFormNorm);
+    final hasCreditoDeudorEnOtras = existing.any(
+      (item) => _isCreditoODeudorForm(item.form),
+    );
+    final hasNoCreditoDeudorEnOtras = existing.any(
+      (item) => !_isCreditoODeudorForm(item.form),
     );
 
-    if (!editingCredito && hasCreditoEnOtras) {
+    if (!editingCreditoDeudor && hasCreditoDeudorEnOtras) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'La forma CREDITO no se puede combinar con otras formas de pago.',
+            'Las formas CREDITO y DEUDOR no se pueden combinar con otras formas de pago.',
           ),
         ),
       );
       return null;
     }
 
-    if (!editingCredito && hasNoCreditoEnOtras) {
-      formas.removeWhere(_isCreditoForm);
+    if (!editingCreditoDeudor && hasNoCreditoDeudorEnOtras) {
+      formas.removeWhere(_isCreditoODeudorForm);
     }
 
     if (initialFormNorm.isNotEmpty && !formas.contains(initialFormNorm)) {
@@ -2115,14 +2120,14 @@ class _FormaDialogState extends State<_FormaDialog> {
       );
       return;
     }
-    final selectedIsCredito = _isCreditoForm(_form);
-    final hasCreditoEnOtras = widget.existing.any(
-      (item) => _isCreditoForm(item.form),
+    final selectedIsCreditoDeudor = _isCreditoODeudorForm(_form);
+    final hasCreditoDeudorEnOtras = widget.existing.any(
+      (item) => _isCreditoODeudorForm(item.form),
     );
-    if ((selectedIsCredito && widget.existing.isNotEmpty) ||
-        (!selectedIsCredito && hasCreditoEnOtras)) {
+    if ((selectedIsCreditoDeudor && widget.existing.isNotEmpty) ||
+        (!selectedIsCreditoDeudor && hasCreditoDeudorEnOtras)) {
       _setError(
-        'La forma CREDITO no se puede combinar con otras formas de pago',
+        'Las formas CREDITO y DEUDOR no se pueden combinar con otras formas de pago',
       );
       return;
     }
