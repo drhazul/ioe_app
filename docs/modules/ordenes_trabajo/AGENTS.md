@@ -98,3 +98,5 @@
 - recepción laboratorio externo (2026-05-03): `Recibir en taller` para `ANALISTA_ORD/ANALISTA` valida flujo `9` externo y confirma `9 -> 10`; recepción interna conserva validación `5` y transición `5 -> 7`.
 - matriz persistente de visibilidad (2026-05-03): visibilidad por flujo/rol se toma del backend (`dbo.DAT_JAO_ORD_FLUJO_VIS`, módulo `DAT_JAO_ORD`), con excepción de flujo `9` solo cuando laboratorio es externo.
 - Cambio material / Merma (2026-04-22): la nueva ORD derivada debe quedar sin colaborador asignado y la UI/PDF deben mostrar la diferencia contable real basada en `CTD_C_M`/importe sellado, no la diferencia por `CTD` completa.
+- Cambio material / Merma (2026-07-09): la captura muestra `Cantidad` para la nueva ORD desde `draft.CTD` y debe coincidir con `CTD_C_M`; si `CTD_C_M=0.5`, la nueva ORD no debe mostrarse ni guardarse como 1 pieza.
+- Cambio material / Merma (2026-07-09): `Autorizar` debe mostrar mensaje específico de asentamiento si API responde error genérico; backend corrige colisión de `DAT_CTR_DOC.DOC` en diferencia contable.

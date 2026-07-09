@@ -5989,6 +5989,13 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                                   child: roField('PVTA', _money(pvtaCaptura)),
                                 ),
                                 SizedBox(
+                                  width: 120,
+                                  child: roField(
+                                    'Cantidad',
+                                    _money(_toNum(draft['CTD']) ?? 0),
+                                  ),
+                                ),
+                                SizedBox(
                                   width: 130,
                                   child: roField(
                                     'Subtotal',
@@ -6721,11 +6728,14 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                           } catch (e) {
                             if (!ctx.mounted || !mounted) return;
                             setDialogState(() => submitting = false);
+                            final message = apiErrorMessage(
+                              e,
+                              fallback: 'No se pudo autorizar la nueva ORD.',
+                            );
                             _showError(
-                              apiErrorMessage(
-                                e,
-                                fallback: 'No se pudo autorizar la nueva ORD.',
-                              ),
+                              message == 'Internal server error'
+                                  ? 'No se pudo asentar la autorización de cambio/merma.'
+                                  : message,
                             );
                           }
                         }

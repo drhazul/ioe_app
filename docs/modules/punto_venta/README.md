@@ -374,6 +374,7 @@ Enlaces relacionados:
 - en pago devolución (2026-03-10): las formas se recargan siempre desde `preview.formasSugeridas` (folio origen) para devolver por el mismo concepto en no efectivo y conservar `aut/ref` para el cierre backend.
 - forma devolución = forma origen (2026-03-20): backend valida que devoluciones no `CREDITO/DEUDOR` se finalicen en la misma forma del ticket origen (`EFECTIVO`, `TRANSFERENCIA`, `TARJETA`, `CHEQUE`, `DEPOSITO 3RO`); la UI mantiene formas en solo lectura.
 - devoluciones regla simplificada (2026-05-22): en pago devolución, parcial solo cuando origen es `EFECTIVO` único; si origen es mixto o no-efectivo, devolución debe ser total respetando cada forma/referencia origen. Frontend conserva sección de formas no editable.
+- forma original (2026-07-06): `TARJETA CREDITO` se acepta en la sección no editable de pago devolución desde `formasSugeridas` y se envía sin transformación para que backend guarde la devolución en la misma forma/ref origen.
 - al finalizar devolución, el folio queda en `ESTA='PAGADO'`.
 - al finalizar devolución, backend ejecuta `dbo.sp_mb51_transmitir_folio` para insertar renglones en `DAT_MB51` y ajustar `DAT_ART.STOCK` por resumen de `ART+SUC`; `ESTA` permanece en `PAGADO`.
 - facturación devolución VF (2026-03-20): al finalizar `POST /pv/devoluciones/:idfolDev/pago/finalizar`, backend sincroniza facturación del folio origen con `sp_fact_sync_folio_vf` y actualiza `FAC_SVR_SHAP/FACT_TICKET_SHP` según `CTD-CTDDF` (devolución total: `ESTATUS='VTA DEV'`, `IMPT=0`; parcial: disminuye `IMPT`).
