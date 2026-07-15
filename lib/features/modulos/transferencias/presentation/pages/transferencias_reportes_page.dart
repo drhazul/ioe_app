@@ -17,7 +17,15 @@ class TransferenciasReportesPage extends ConsumerStatefulWidget {
 
 class _TransferenciasReportesPageState
     extends ConsumerState<TransferenciasReportesPage> {
-  static const _filterSucursales = {'DF01', 'DF02', 'DF04', 'DF05', 'DF06'};
+  static const _filterSucursales = {
+    'DF01',
+    'DF02',
+    'DF04',
+    'DF05',
+    'DF06',
+    'DF14',
+    'DF16',
+  };
 
   final _docCtrl = TextEditingController();
   final _usuarioCtrl = TextEditingController();

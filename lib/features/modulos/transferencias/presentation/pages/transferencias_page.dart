@@ -16,7 +16,15 @@ class TransferenciasPage extends ConsumerStatefulWidget {
 }
 
 class _TransferenciasPageState extends ConsumerState<TransferenciasPage> {
-  static const _filterSucursales = {'DF01', 'DF02', 'DF04', 'DF05', 'DF06'};
+  static const _filterSucursales = {
+    'DF01',
+    'DF02',
+    'DF04',
+    'DF05',
+    'DF06',
+    'DF14',
+    'DF16',
+  };
 
   final _docCtrl = TextEditingController();
   final _usuarioCtrl = TextEditingController();
@@ -79,12 +87,11 @@ class _TransferenciasPageState extends ConsumerState<TransferenciasPage> {
       appBar: AppBar(
         title: const Text('Transferencias entre sucursales'),
         actions: [
-          if (!isJefeInventarios)
-            IconButton(
-              tooltip: 'Nueva solicitud',
-              icon: const Icon(Icons.add_circle_outline),
-              onPressed: _openCreateDialog,
-            ),
+          IconButton(
+            tooltip: 'Nueva solicitud',
+            icon: const Icon(Icons.add_circle_outline),
+            onPressed: _openCreateDialog,
+          ),
           _NotificationIconButton(
             count: notificationCount,
             onPressed: _openNotifications,
@@ -629,8 +636,23 @@ class _CreateTransferenciaDialog extends ConsumerStatefulWidget {
 
 class _CreateTransferenciaDialogState
     extends ConsumerState<_CreateTransferenciaDialog> {
-  static const _transferSucursales = {'DF01', 'DF02', 'DF04', 'DF05', 'DF06'};
-  static const _originSucursales = {'DF01', 'DF04', 'DF05', 'DF06'};
+  static const _transferSucursales = {
+    'DF01',
+    'DF02',
+    'DF04',
+    'DF05',
+    'DF06',
+    'DF14',
+    'DF16',
+  };
+  static const _originSucursales = {
+    'DF01',
+    'DF04',
+    'DF05',
+    'DF06',
+    'DF14',
+    'DF16',
+  };
 
   final _txtCtrl = TextEditingController();
   String _sucEnt = '';
@@ -662,8 +684,12 @@ class _CreateTransferenciaDialogState
             sucsAsync.when(
               data: (_) {
                 final allTransferSucs = _transferSucursales.toList()..sort();
+                final validOrigenSucs = _originSucursales.toList()..sort();
+                final isJefeInventarios = auth.roleId == 2;
                 final userSuc = (auth.suc ?? '').trim().toUpperCase();
-                final allowedSucs = _transferSucursales.contains(userSuc)
+                final allowedSucs = isJefeInventarios
+                    ? validOrigenSucs
+                    : _transferSucursales.contains(userSuc)
                     ? <String>[userSuc]
                     : allTransferSucs;
                 if (_sucEnt.isNotEmpty && !allowedSucs.contains(_sucEnt)) {
@@ -671,7 +697,6 @@ class _CreateTransferenciaDialogState
                       ? allowedSucs.first
                       : allTransferSucs.first;
                 }
-                final validOrigenSucs = _originSucursales.toList()..sort();
                 final filteredOrigenSucs = validOrigenSucs
                     .where((s) => s != _sucEnt.trim().toUpperCase())
                     .toList();

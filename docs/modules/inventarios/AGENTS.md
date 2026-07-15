@@ -1,7 +1,19 @@
 # Instrucciones de agente para Inventarios App
 
 ## Alcance
-- Features Flutter bajo `lib/features/modulos` relacionadas con inventarios: catalogo, inventarios, MB51/MB52, merma y transferencias.
+- Features Flutter bajo `lib/features/modulos` relacionadas con inventarios: catalogo, inventarios, MB51/MB52, merma, transferencias y sugeridos.
+
+## Planeacion y sugeridos de compra
+- Feature: `lib/features/modulos/sugeridos`.
+- Ruta: `/#/modulos/sugeridos`.
+- Codigo de menu gestion: `DAT_JAA_SUG`.
+- Consumir exclusivamente `/sugeridos`; no recrear tablas temporales Access ni consumir consultas legacy locales.
+- La primera ventana del modulo debe quedar solo para calculos y no consultar resultados al entrar; el filtro de sucursal visible debe incluir `DF01`, `DF04`, `DF05` y `DF06`.
+- El calculo de sugerido se solicita al backend con filtros de sucursal/proveedor/linea de producto/categoria/marca/tipo de producto y la O.C. creada debe permanecer en `ABIERTO`.
+- Los resultados deben conservar el orden de columnas del Excel de ejemplo de compra; `Cant Final Compra` es la cantidad operativa para crear la O.C.
+- La tabla de resultados debe conservar scroll horizontal y vertical visible porque el resultado replica muchas columnas del Excel.
+- No cargar todos los resultados de calculo en una sola respuesta; usar paginacion de 100 registros y controles de pagina en UI.
+- La exportacion operativa de O.C. se entrega como CSV descargable compatible con Excel desde el detalle cargado.
 
 ## Merma
 - Feature: `lib/features/modulos/merma`.
