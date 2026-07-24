@@ -531,6 +531,11 @@ class _ModuleRow extends StatelessWidget {
         moduloCode == 'PLANEACION_COMPRAS') {
       return '/modulos/sugeridos';
     }
+    if (moduloCode == 'DAT_ORD_COMP' ||
+        moduloCode == 'ORDENES_COMPRA' ||
+        moduloCode == 'ORD_COMPRA') {
+      return '/modulos/ordenes-compra';
+    }
     if (moduloCode == 'DAT_REP_TRAN') {
       return '/modulos/transferencias-reportes';
     }
@@ -643,6 +648,9 @@ class _ModuleRow extends StatelessWidget {
     if ((name.contains('sugerid') || name.contains('planeacion')) &&
         name.contains('compra')) {
       return '/modulos/sugeridos';
+    }
+    if (name.contains('orden') && name.contains('compra')) {
+      return '/modulos/ordenes-compra';
     }
     if (name.contains('orden') &&
         name.contains('estado') &&

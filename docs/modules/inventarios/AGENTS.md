@@ -14,6 +14,13 @@
 - La tabla de resultados debe conservar scroll horizontal y vertical visible porque el resultado replica muchas columnas del Excel.
 - No cargar todos los resultados de calculo en una sola respuesta; usar paginacion de 100 registros y controles de pagina en UI.
 - La exportacion operativa de O.C. se entrega como CSV descargable compatible con Excel desde el detalle cargado.
+- El AppBar de sugeridos no debe mostrar boton de nueva O.C.; ese boton corresponde al modulo `DAT_ORD_COMP`.
+
+## Ordenes de compra
+- Feature: `lib/features/modulos/sugeridos/presentation/pages/ordenes_compra_page.dart`.
+- Ruta: `/#/modulos/ordenes-compra`.
+- Codigo de menu gestion: `DAT_ORD_COMP`.
+- Debe listar todas las O.C. consumiendo `/sugeridos`, permitir abrir detalle y mantener boton superior de nueva O.C.
 
 ## Merma
 - Feature: `lib/features/modulos/merma`.

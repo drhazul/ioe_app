@@ -213,6 +213,60 @@ class SugeridoDetalleModel {
   }
 }
 
+class SugeridoOrdenDraftItem {
+  const SugeridoOrdenDraftItem({
+    required this.art,
+    required this.ctdped,
+    required this.cto,
+    required this.uncom,
+  });
+
+  final String art;
+  final double ctdped;
+  final double cto;
+  final String uncom;
+
+  Map<String, dynamic> toJson() => {
+    'art': art,
+    'ctdped': ctdped,
+    'cto': cto,
+    'uncom': uncom,
+  };
+}
+
+class SugeridoArticuloProveedorModel {
+  const SugeridoArticuloProveedorModel({
+    required this.art,
+    required this.des,
+    required this.cto,
+    required this.unComp,
+    this.upc,
+  });
+
+  final String art;
+  final String des;
+  final double cto;
+  final String unComp;
+  final String? upc;
+
+  SugeridoOrdenDraftItem toDraft(double cantidad) => SugeridoOrdenDraftItem(
+    art: art,
+    ctdped: cantidad,
+    cto: cto,
+    uncom: unComp,
+  );
+
+  factory SugeridoArticuloProveedorModel.fromJson(Map<String, dynamic> json) {
+    return SugeridoArticuloProveedorModel(
+      art: _txt(json['art']),
+      des: _txt(json['des']),
+      upc: _txtNullable(json['upc']),
+      cto: _toDouble(json['cto']),
+      unComp: _txt(json['unComp']),
+    );
+  }
+}
+
 class SugeridoProveedorModel {
   const SugeridoProveedorModel({
     required this.id,

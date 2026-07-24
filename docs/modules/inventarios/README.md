@@ -8,6 +8,12 @@
 - La grilla de resultados usa scroll interno horizontal/vertical para navegar todas las columnas del ejercicio sin perder el panel de acciones.
 - Los resultados del calculo se solicitan al backend paginados de 100 en 100; los botones de pagina cambian la consulta y evitan cargar todos los articulos de golpe.
 
+## Ordenes de compra (2026-07-16)
+- Nueva pantalla `lib/features/modulos/sugeridos/presentation/pages/ordenes_compra_page.dart` para el modulo `DAT_ORD_COMP`.
+- Ruta registrada: `/modulos/ordenes-compra`; Home resuelve `DAT_ORD_COMP`, `ORDENES_COMPRA` y `ORD_COMPRA` hacia esa pantalla.
+- Muestra todas las O.C. desde `/sugeridos`, con filtros por sucursal, estatus, fecha y busqueda; el AppBar incluye el boton de nueva O.C. que abre el flujo de sugeridos/calculo.
+- El AppBar del modulo `DAT_JAA_SUG` queda sin boton de nueva O.C.; la creacion desde sugeridos se mantiene en los controles de resultados seleccionados.
+
 ## Merma (2026-06-12)
 - La evidencia de articulo en `MermaAddItemDialog` se comprime a JPEG cuando es necesario y debe quedar en 500 KB o menos antes de enviarse como data URL.
 - Si una imagen sigue siendo demasiado pesada despues de comprimirla, la UI muestra un mensaje y evita enviar un payload que provoque `request entity too large`.

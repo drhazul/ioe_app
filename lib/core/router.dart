@@ -99,6 +99,7 @@ import '../features/modulos/merma/presentation/pages/merma_reportes_page.dart';
 import '../features/modulos/transferencias/presentation/pages/transferencia_detail_page.dart';
 import '../features/modulos/transferencias/presentation/pages/transferencias_page.dart';
 import '../features/modulos/transferencias/presentation/pages/transferencias_reportes_page.dart';
+import '../features/modulos/sugeridos/presentation/pages/ordenes_compra_page.dart';
 import '../features/modulos/sugeridos/presentation/pages/sugeridos_page.dart';
 
 import 'auth/auth_controller.dart';
@@ -633,7 +634,14 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: 'modulos/sugeridos',
-            builder: (c, s) => const SugeridosPage(),
+            builder: (c, s) => SugeridosPage(
+              initialSuc: (s.uri.queryParameters['suc'] ?? '').trim(),
+              initialProv: int.tryParse(s.uri.queryParameters['prov'] ?? ''),
+            ),
+          ),
+          GoRoute(
+            path: 'modulos/ordenes-compra',
+            builder: (c, s) => const OrdenesCompraPage(),
           ),
           GoRoute(
             path: 'punto-venta',

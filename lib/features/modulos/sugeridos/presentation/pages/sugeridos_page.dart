@@ -1,15 +1,15 @@
-import 'dart:convert';
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../reloj_checador/consultas/download_helper.dart';
 import '../../domain/sugeridos_models.dart';
 import '../../providers/sugeridos_provider.dart';
+import '../widgets/orden_compra_detalle_dialog.dart';
 
 class SugeridosPage extends ConsumerStatefulWidget {
-  const SugeridosPage({super.key});
+  const SugeridosPage({super.key, this.initialSuc = '', this.initialProv});
+
+  final String initialSuc;
+  final int? initialProv;
 
   @override
   ConsumerState<SugeridosPage> createState() => _SugeridosPageState();
@@ -33,6 +33,16 @@ class _SugeridosPageState extends ConsumerState<SugeridosPage> {
   bool _selectingAll = false;
   final Set<String> _selectedArts = {};
   final Map<String, SugeridoCalculoModel> _selectedItems = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _suc = widget.initialSuc.trim().toUpperCase();
+    final initialProv = widget.initialProv;
+    if (initialProv != null && initialProv > 0) {
+      _prov = initialProv;
+    }
+  }
 
   @override
   void dispose() {
@@ -67,11 +77,6 @@ class _SugeridosPageState extends ConsumerState<SugeridosPage> {
         title: const Text('Planeacion y sugeridos de compra'),
         actions: [
           IconButton(
-            tooltip: 'Nueva orden de compra',
-            onPressed: () => _createOrden(_selectedItems.values.toList()),
-            icon: const Icon(Icons.add_circle_outline),
-          ),
-          IconButton(
             tooltip: 'Refrescar',
             icon: const Icon(Icons.refresh),
             onPressed: () {
@@ -82,55 +87,70 @@ class _SugeridosPageState extends ConsumerState<SugeridosPage> {
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(12),
+      body: Column(
         children: [
-          _FiltersPanel(
-            marcaCtrl: _marcaCtrl,
-            tipoCtrl: _tipoCtrl,
-            lineaProductoCtrl: _lineaProductoCtrl,
-            categoriaCtrl: _categoriaCtrl,
-            suc: _suc,
-            prov: _prov,
-            sucsAsync: sucsAsync,
-            proveedoresAsync: proveedoresAsync,
-            onSucChanged: (value) => setState(() => _suc = value ?? ''),
-            onProvChanged: (value) => setState(() => _prov = value),
-            onApplyCalculo: _applyCalculo,
-            onClear: _clearFilters,
-          ),
-          const SizedBox(height: 12),
-          if (calculoAsync != null)
-            calculoAsync.when(
-              data: (result) => _CalculoSection(
-                items: result.items,
-                totalItems: result.total,
-                page: result.page,
-                limit: result.limit,
-                selectedArts: _selectedArts,
-                onToggle: (item, selected) {
-                  setState(() {
-                    if (selected) {
-                      _selectedArts.add(item.art);
-                      _selectedItems[item.art] = item;
-                    } else {
-                      _selectedArts.remove(item.art);
-                      _selectedItems.remove(item.art);
-                    }
-                  });
-                },
-                selectingAll: _selectingAll,
-                onSelectAll: () => _selectAllCalculo(calculoFilters),
-                onClear: () => setState(() {
-                  _selectedArts.clear();
-                  _selectedItems.clear();
-                }),
-                onCreate: () => _createOrden(_selectedItems.values.toList()),
-                onPageChanged: _changeCalculoPage,
-              ),
-              loading: () => const _LoadingBand(text: 'Calculando sugerido...'),
-              error: (e, _) => _ErrorBand(message: 'No se pudo calcular: $e'),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: _FiltersPanel(
+              marcaCtrl: _marcaCtrl,
+              tipoCtrl: _tipoCtrl,
+              lineaProductoCtrl: _lineaProductoCtrl,
+              categoriaCtrl: _categoriaCtrl,
+              suc: _suc,
+              prov: _prov,
+              sucsAsync: sucsAsync,
+              proveedoresAsync: proveedoresAsync,
+              onSucChanged: (value) => setState(() => _suc = value ?? ''),
+              onProvChanged: (value) => setState(() => _prov = value),
+              onApplyCalculo: _applyCalculo,
+              onClear: _clearFilters,
             ),
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: calculoAsync == null
+                ? const Center(
+                    child: Text('Seleccione filtros y presione Calcular.'),
+                  )
+                : ListView(
+                    padding: const EdgeInsets.all(12),
+                    children: [
+                      calculoAsync.when(
+                        data: (result) => _CalculoSection(
+                          items: result.items,
+                          totalItems: result.total,
+                          page: result.page,
+                          limit: result.limit,
+                          selectedArts: _selectedArts,
+                          onToggle: (item, selected) {
+                            setState(() {
+                              if (selected) {
+                                _selectedArts.add(item.art);
+                                _selectedItems[item.art] = item;
+                              } else {
+                                _selectedArts.remove(item.art);
+                                _selectedItems.remove(item.art);
+                              }
+                            });
+                          },
+                          selectingAll: _selectingAll,
+                          onSelectAll: () => _selectAllCalculo(calculoFilters),
+                          onClear: () => setState(() {
+                            _selectedArts.clear();
+                            _selectedItems.clear();
+                          }),
+                          onCreate: () =>
+                              _createOrden(_selectedItems.values.toList()),
+                          onPageChanged: _changeCalculoPage,
+                        ),
+                        loading: () =>
+                            const _LoadingBand(text: 'Calculando sugerido...'),
+                        error: (e, _) =>
+                            _ErrorBand(message: 'No se pudo calcular: $e'),
+                      ),
+                    ],
+                  ),
+          ),
         ],
       ),
     );
@@ -269,22 +289,12 @@ class _SugeridosPageState extends ConsumerState<SugeridosPage> {
         _selectedArts.clear();
         _selectedItems.clear();
       });
-      _openDetalle(created.nped);
-    } catch (e) {
-      _snack('No se pudo crear la O.C.: $e');
-    }
-  }
-
-  Future<void> _openDetalle(String nped) async {
-    try {
-      final doc = await ref.read(sugeridosApiProvider).fetchOne(nped);
-      if (!mounted) return;
-      await showDialog<void>(
+      await showDialog<SugeridoOrdenModel>(
         context: context,
-        builder: (context) => _DetalleDialog(doc: doc),
+        builder: (context) => OrdenCompraDetalleDialog(doc: created),
       );
     } catch (e) {
-      _snack('No se pudo abrir el detalle: $e');
+      _snack('No se pudo crear la O.C.: $e');
     }
   }
 
@@ -326,123 +336,123 @@ class _FiltersPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            SizedBox(
-              width: 160,
-              child: sucsAsync.when(
-                data: (items) {
-                  final sucs = _sucursalesPermitidas(items);
-                  return DropdownButtonFormField<String>(
-                    initialValue: suc.isEmpty || !sucs.contains(suc)
-                        ? null
-                        : suc,
-                    decoration: const InputDecoration(
-                      labelText: 'Sucursal',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                    items: sucs
-                        .map((s) => DropdownMenuItem(value: s, child: Text(s)))
-                        .toList(),
-                    onChanged: onSucChanged,
-                  );
-                },
-                loading: () => const LinearProgressIndicator(),
-                error: (e, _) => Text('Sucursales: $e'),
-              ),
-            ),
-            SizedBox(
-              width: 290,
-              child: proveedoresAsync.when(
-                data: (items) => DropdownButtonFormField<int>(
-                  initialValue: prov,
-                  isExpanded: true,
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 160,
+            child: sucsAsync.when(
+              data: (items) {
+                final sucs = _sucursalesPermitidas(items);
+                return DropdownButtonFormField<String>(
+                  initialValue: suc.isEmpty || !sucs.contains(suc) ? null : suc,
                   decoration: const InputDecoration(
-                    labelText: 'Proveedor',
+                    labelText: 'Sucursal',
                     border: OutlineInputBorder(),
                     isDense: true,
                   ),
-                  items: [
-                    const DropdownMenuItem<int>(
-                      value: null,
-                      child: Text('Todos'),
-                    ),
-                    ...items.map(
-                      (p) =>
-                          DropdownMenuItem(value: p.id, child: Text(p.label)),
-                    ),
-                  ],
-                  onChanged: onProvChanged,
-                ),
-                loading: () => const LinearProgressIndicator(),
-                error: (e, _) => Text('Proveedores: $e'),
-              ),
+                  items: sucs
+                      .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+                      .toList(),
+                  onChanged: onSucChanged,
+                );
+              },
+              loading: () => const LinearProgressIndicator(),
+              error: (e, _) => Text('Sucursales: $e'),
             ),
-            SizedBox(
-              width: 180,
-              child: TextField(
-                controller: lineaProductoCtrl,
-                keyboardType: TextInputType.number,
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 290,
+            child: proveedoresAsync.when(
+              data: (items) => DropdownButtonFormField<int>(
+                initialValue: prov,
+                isExpanded: true,
                 decoration: const InputDecoration(
-                  labelText: 'Linea de producto',
+                  labelText: 'Proveedor',
                   border: OutlineInputBorder(),
                   isDense: true,
                 ),
+                items: [
+                  const DropdownMenuItem<int>(
+                    value: null,
+                    child: Text('Todos'),
+                  ),
+                  ...items.map(
+                    (p) => DropdownMenuItem(value: p.id, child: Text(p.label)),
+                  ),
+                ],
+                onChanged: onProvChanged,
+              ),
+              loading: () => const LinearProgressIndicator(),
+              error: (e, _) => Text('Proveedores: $e'),
+            ),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 180,
+            child: TextField(
+              controller: lineaProductoCtrl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Linea de producto',
+                border: OutlineInputBorder(),
+                isDense: true,
               ),
             ),
-            SizedBox(
-              width: 160,
-              child: TextField(
-                controller: categoriaCtrl,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Categoria',
-                  border: OutlineInputBorder(),
-                  isDense: true,
-                ),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 160,
+            child: TextField(
+              controller: categoriaCtrl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Categoria',
+                border: OutlineInputBorder(),
+                isDense: true,
               ),
             ),
-            SizedBox(
-              width: 190,
-              child: TextField(
-                controller: marcaCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Marca',
-                  border: OutlineInputBorder(),
-                  isDense: true,
-                ),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 190,
+            child: TextField(
+              controller: marcaCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Marca',
+                border: OutlineInputBorder(),
+                isDense: true,
               ),
             ),
-            SizedBox(
-              width: 150,
-              child: TextField(
-                controller: tipoCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Tipo de producto',
-                  border: OutlineInputBorder(),
-                  isDense: true,
-                ),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 150,
+            child: TextField(
+              controller: tipoCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Tipo de producto',
+                border: OutlineInputBorder(),
+                isDense: true,
               ),
             ),
-            FilledButton.icon(
-              onPressed: onApplyCalculo,
-              icon: const Icon(Icons.calculate),
-              label: const Text('Calcular'),
-            ),
-            OutlinedButton.icon(
-              onPressed: onClear,
-              icon: const Icon(Icons.cleaning_services),
-              label: const Text('Limpiar'),
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(width: 8),
+          FilledButton.icon(
+            onPressed: onApplyCalculo,
+            icon: const Icon(Icons.calculate),
+            label: const Text('Calcular'),
+          ),
+          const SizedBox(width: 8),
+          OutlinedButton.icon(
+            onPressed: onClear,
+            icon: const Icon(Icons.cleaning_services),
+            label: const Text('Limpiar'),
+          ),
+        ],
       ),
     );
   }
@@ -918,107 +928,6 @@ class _ResultCell extends StatelessWidget {
   }
 }
 
-class _DetalleDialog extends StatelessWidget {
-  const _DetalleDialog({required this.doc});
-
-  final SugeridoOrdenModel doc;
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text('O.C. ${doc.nped}'),
-      content: SizedBox(
-        width: 900,
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Wrap(
-                spacing: 16,
-                runSpacing: 8,
-                children: [
-                  Text('Sucursal: ${doc.suc}'),
-                  Text('Proveedor: ${doc.alias ?? doc.nprov}'),
-                  Text('Estatus: ${doc.estatus}'),
-                  Text('Importe: ${_money(doc.impp)}'),
-                ],
-              ),
-              const SizedBox(height: 12),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: DataTable(
-                  columns: const [
-                    DataColumn(label: Text('Pos')),
-                    DataColumn(label: Text('Articulo')),
-                    DataColumn(label: Text('Descripcion')),
-                    DataColumn(label: Text('Cantidad'), numeric: true),
-                    DataColumn(label: Text('Costo'), numeric: true),
-                    DataColumn(label: Text('Total'), numeric: true),
-                  ],
-                  rows: [
-                    for (final item in doc.detalle.where((d) => d.bloq != -1))
-                      DataRow(
-                        cells: [
-                          DataCell(Text('${item.pos}')),
-                          DataCell(Text(item.art)),
-                          DataCell(
-                            SizedBox(width: 280, child: Text(item.des ?? '')),
-                          ),
-                          DataCell(Text(_num(item.ctdped))),
-                          DataCell(Text(_money(item.cto))),
-                          DataCell(Text(_money(item.ctot))),
-                        ],
-                      ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-      actions: [
-        OutlinedButton.icon(
-          onPressed: doc.detalle.isEmpty ? null : () => _exportCsv(context),
-          icon: const Icon(Icons.table_view),
-          label: const Text('Excel CSV'),
-        ),
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cerrar'),
-        ),
-      ],
-    );
-  }
-
-  Future<void> _exportCsv(BuildContext context) async {
-    final rows = <List<String>>[
-      ['NPED', 'POS', 'ART', 'DES', 'CTDPED', 'UNCOM', 'CTO', 'TOTAL'],
-      for (final item in doc.detalle.where((d) => d.bloq != -1))
-        [
-          doc.nped,
-          '${item.pos}',
-          item.art,
-          item.des ?? '',
-          _num(item.ctdped),
-          item.uncom,
-          _num(item.cto),
-          _num(item.ctot),
-        ],
-    ];
-    final csv = rows.map((row) => row.map(_csvCell).join(',')).join('\r\n');
-    await saveBytesFile(
-      Uint8List.fromList(utf8.encode(csv)),
-      'OC_${doc.nped}.csv',
-      'text/csv;charset=utf-8',
-    );
-    if (context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Archivo CSV generado.')));
-    }
-  }
-}
-
 class _LoadingBand extends StatelessWidget {
   const _LoadingBand({required this.text});
 
@@ -1055,11 +964,6 @@ class _ErrorBand extends StatelessWidget {
       child: Text(message, style: TextStyle(color: Colors.red.shade700)),
     ),
   );
-}
-
-String _csvCell(String value) {
-  final escaped = value.replaceAll('"', '""');
-  return '"$escaped"';
 }
 
 String _num(double value) {

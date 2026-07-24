@@ -11,6 +11,7 @@ class SugeridosFilters {
     this.search,
     this.suc,
     this.estatus,
+    this.prov,
     this.fecha,
   });
 
@@ -19,6 +20,7 @@ class SugeridosFilters {
   final String? search;
   final String? suc;
   final String? estatus;
+  final int? prov;
   final String? fecha;
 
   @override
@@ -29,11 +31,13 @@ class SugeridosFilters {
         other.search == search &&
         other.suc == suc &&
         other.estatus == estatus &&
+        other.prov == prov &&
         other.fecha == fecha;
   }
 
   @override
-  int get hashCode => Object.hash(page, limit, search, suc, estatus, fecha);
+  int get hashCode =>
+      Object.hash(page, limit, search, suc, estatus, prov, fecha);
 }
 
 class SugeridosCalculoFilters {
@@ -104,6 +108,7 @@ final sugeridosProvider = FutureProvider.autoDispose
             search: _toText(filters.search),
             suc: _toText(filters.suc),
             estatus: _toText(filters.estatus),
+            prov: filters.prov,
             from: _toText(filters.fecha),
             to: _toText(filters.fecha),
           );
