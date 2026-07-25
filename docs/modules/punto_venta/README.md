@@ -279,6 +279,7 @@ Enlaces relacionados:
 - Ajuste UI adicional: se oculto en pantalla el label/valor `IVA integrado sucursal` del resumen.
 - Ajuste funcional: cada entrada/reentrada a la pagina de pago vuelve a ejecutar inicializacion y preview para recalcular importes segun `tipotran`, `rqfac` y parametros de IVA backend.
 - Ajuste funcional: si el folio ya esta `PAGADO/MB51PROCES`, la pagina de pago rehidrata formas persistidas con `GET /pv/cotizaciones/:idfol/cierre/print-preview` para mostrar `Pagos/Faltante/Cambio` correctos.
+- Cotizaciones (2026-07-22): la respuesta de impresión conserva `IMPP` como efectivo recibido y expone `IMPD` como importe aplicado por forma (`IMPP-IMPC`); voucher usa `IMPD`.
 - Persistencia funcional: el switch `RQFAC` guarda inmediatamente en `PV_CTR_FOL_ASVR.REQF` (via `PATCH /pvctrfolasvr/:idfol`) para conservar seleccion al salir/entrar.
 - Foliado visible: tras `POST /pv/cotizaciones/:idfol/cierre`, la pantalla adopta el `IDFOL` actual devuelto por backend (`SUC-YYYYMMDD-CA|VF-####`) para AppBar, impresión y salida a `MB51PROCES`; la ruta sigue siendo compatible por `IDFOLINICIAL`.
 - Apertura de pago desde detalle: el query `rqfac` se arma desde `GET /pv/cotizaciones/:idfol/cierre/context` para evitar valores stale del folio cargado previamente.

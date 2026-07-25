@@ -83,6 +83,7 @@
 - Punto de venta / Cotizaciones ORD vs precio manual (2026-05-23): al crear/quitar ORD desde detalle de cotización, el renglón debe conservar `PVTA` manual; backend ya no recalcula promoción en esa operación.
 
 ## Documentación por módulos
+- Faltantes y Sobrantes: `docs/modules/faltantes_sobrantes/AGENTS.md` (README: `docs/modules/faltantes_sobrantes/README.md`)
 - Base de módulos: `docs/modules/base_modulos/AGENTS.md` (README: `docs/modules/base_modulos/README.md`)
 - Core y seguridad: `docs/modules/core_seguridad/AGENTS.md` (README: `docs/modules/core_seguridad/README.md`)
 - Punto de venta: `docs/modules/punto_venta/AGENTS.md` (README: `docs/modules/punto_venta/README.md`)

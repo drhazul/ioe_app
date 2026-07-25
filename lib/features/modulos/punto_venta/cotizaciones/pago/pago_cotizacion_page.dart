@@ -1170,7 +1170,7 @@ class _PagoCotizacionPageState extends ConsumerState<PagoCotizacionPage> {
     final form = forma.form.trim().isEmpty
         ? '-'
         : forma.form.trim().toUpperCase();
-    final impd = _money(forma.impp);
+    final impd = _money(forma.impd);
     final autRef = (forma.aut ?? '').trim().isEmpty ? '-' : forma.aut!.trim();
     final clienteNom = (clienteNombre ?? '').trim().isEmpty
         ? '-'

@@ -368,13 +368,15 @@ class PagoCierrePrintForma {
     required this.idf,
     required this.form,
     required this.impp,
+    double? impd,
     required this.aut,
     required this.fcn,
-  });
+  }) : impd = impd ?? impp;
 
   final String idf;
   final String form;
   final double impp;
+  final double impd;
   final String? aut;
   final DateTime? fcn;
 
@@ -383,6 +385,7 @@ class PagoCierrePrintForma {
       idf: (json['idf']?.toString() ?? '').trim(),
       form: (json['form']?.toString() ?? '').trim().toUpperCase(),
       impp: _asDouble(json['impp']) ?? 0,
+      impd: _asDouble(json['impd']) ?? (_asDouble(json['impp']) ?? 0),
       aut: _asText(json['aut']),
       fcn: _asDate(json['fcn']),
     );

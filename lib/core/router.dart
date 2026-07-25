@@ -101,6 +101,7 @@ import '../features/modulos/transferencias/presentation/pages/transferencias_pag
 import '../features/modulos/transferencias/presentation/pages/transferencias_reportes_page.dart';
 import '../features/modulos/sugeridos/presentation/pages/ordenes_compra_page.dart';
 import '../features/modulos/sugeridos/presentation/pages/sugeridos_page.dart';
+import '../features/modulos/faltantes_sobrantes/fys_report_page.dart';
 
 import 'auth/auth_controller.dart';
 
@@ -192,6 +193,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
+      GoRoute(
+        path: '/faltantes-sobrantes/reporte-faltantes',
+        builder: (c, s) => const FysReportPage(),
+      ),
       GoRoute(path: '/login', builder: (c, s) => const LoginPage()),
       GoRoute(
         path: '/auth/change-password',

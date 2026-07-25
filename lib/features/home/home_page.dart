@@ -437,6 +437,9 @@ class _ModuleRow extends StatelessWidget {
     if (moduloCode == 'DAT_JAA_ALM') {
       return '/inventarios';
     }
+    if (moduloCode == 'FAL_Y_SOB' || moduloCode == 'FALTANTES_Y_SOBRANTES') {
+      return '/faltantes-sobrantes/reporte-faltantes';
+    }
     if (moduloCode == 'DAT_JAA_CAT') {
       return '/catalogo';
     }
