@@ -105,6 +105,7 @@ Enlaces relacionados:
 - `POST /ps/folios/:idFol/procesar`
 - `POST /ps/folios/:idFol/formas-pago`
 - `DELETE /ps/folios/:idFol/formas-pago/:idF`
+- Incidente PS (2026-07-24): frontend conserva cada cheque con su importe individual; el folio `DF01-20260723-VF-0022` se corrigió en backend/BD porque `IMPD` duplicaba el total por comprobante.
 - Nota de origen (2026-03-31): cuando la relación consultada procede de `CA` y el pago final se realiza con alguna forma diferente de `EFECTIVO`, el backend genera el folio visible final como `VF`, de modo que el ticket refleja la forma de pago utilizada; los folios que ya son `VF` mantienen su origen habitual.
 - Corrección de liquidación (2026-03-30): el backend suma todos los registros de `DAT_CTRL_CTAS` que comparten el mismo concepto antes de validar el `PVTA`, lo que permite pagar diferencias de taller aunque el adeudo esté dividido en varias filas del mismo concepto.
 - `GET /ps/folios/:idFol/formas-pago/summary`

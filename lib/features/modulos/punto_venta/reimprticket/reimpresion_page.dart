@@ -1,7 +1,8 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:ioe_app/core/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ioe_app/core/api_error.dart';
@@ -73,9 +74,7 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
   @override
   Widget build(BuildContext context) {
     if (!_contextReady) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     final usersAsync = _isAdminUser
@@ -95,8 +94,8 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
       _syncAdminSelection(sucursalOptions: sucursalOptions, users: users);
     }
     final opvOptions = _buildOpvOptions(users, _sucCtrl.text);
-    final adminCatalogLoading = _isAdminUser &&
-        (usersAsync.isLoading || sucursalesAsync.isLoading);
+    final adminCatalogLoading =
+        _isAdminUser && (usersAsync.isLoading || sucursalesAsync.isLoading);
     final adminCatalogError =
         usersAsync.asError?.error ?? sucursalesAsync.asError?.error;
 
@@ -118,7 +117,7 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFFF6F2EB), Color(0xFFEFE7DB)],
+            colors: [AppColors.canvas, AppColors.canvasAlt],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -206,10 +205,7 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
                 onOpvChanged: _onAdminOpvChanged,
               ),
               const SizedBox(height: 12),
-              _ErrorBlock(
-                message: _errorMessage(e),
-                onRetry: _refreshList,
-              ),
+              _ErrorBlock(message: _errorMessage(e), onRetry: _refreshList),
             ],
           ),
           loading: () => ListView(
@@ -278,14 +274,15 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
           .toString()
           .trim()
           .toUpperCase();
-      final roleCode = (payload['roleCode'] ??
-              payload['ROLECODE'] ??
-              payload['rolCodigo'] ??
-              payload['ROLCODIGO'] ??
-              '')
-          .toString()
-          .trim()
-          .toUpperCase();
+      final roleCode =
+          (payload['roleCode'] ??
+                  payload['ROLECODE'] ??
+                  payload['rolCodigo'] ??
+                  payload['ROLCODIGO'] ??
+                  '')
+              .toString()
+              .trim()
+              .toUpperCase();
       isAdminUser = roleId == 1 || username == 'ADMIN' || roleCode == 'ADMIN';
     }
 
@@ -386,11 +383,16 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
       final label = desc.isEmpty ? suc : '$suc - $desc';
       options.add(_FilterSelectOption(value: suc, label: label));
     }
-    options.sort((a, b) => a.label.toLowerCase().compareTo(b.label.toLowerCase()));
+    options.sort(
+      (a, b) => a.label.toLowerCase().compareTo(b.label.toLowerCase()),
+    );
     return options;
   }
 
-  List<_FilterSelectOption> _buildOpvOptions(List<UserModel> users, String suc) {
+  List<_FilterSelectOption> _buildOpvOptions(
+    List<UserModel> users,
+    String suc,
+  ) {
     final sucNorm = suc.trim().toUpperCase();
     if (sucNorm.isEmpty) return const [];
     final byOpv = <String, _FilterSelectOption>{};
@@ -413,13 +415,16 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
     }
 
     final options = byOpv.values.toList(growable: false);
-    options.sort((a, b) => a.label.toLowerCase().compareTo(b.label.toLowerCase()));
+    options.sort(
+      (a, b) => a.label.toLowerCase().compareTo(b.label.toLowerCase()),
+    );
     return options;
   }
 
   bool _isOpvOrSupervisor(UserModel user) {
-    final role =
-        '${user.rolCodigo ?? ''} ${user.rolNombre ?? ''}'.trim().toUpperCase();
+    final role = '${user.rolCodigo ?? ''} ${user.rolNombre ?? ''}'
+        .trim()
+        .toUpperCase();
     if (role.isEmpty) return false;
     return role.contains('OPV') ||
         role.contains('SUPERVISOR') ||
@@ -474,9 +479,7 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
       ref.read(reimpresionAuthSessionProvider.notifier).state = session;
       ref.invalidate(reimpresionListProvider);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Autorizacion de supervisor correcta.'),
-        ),
+        const SnackBar(content: Text('Autorizacion de supervisor correcta.')),
       );
     } catch (error) {
       if (!mounted) return;
@@ -598,9 +601,7 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
     final fcnmText = _fcnmCtrl.text.trim();
     if (fcnmText.isNotEmpty && _parseSqlDate(fcnmText) == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('FCNM invalido. Use formato YYYY-MM-DD.'),
-        ),
+        const SnackBar(content: Text('FCNM invalido. Use formato YYYY-MM-DD.')),
       );
       return;
     }
@@ -654,8 +655,7 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
   }
 
   Future<void> _pickFcnm() async {
-    final current = _parseSqlDate(_fcnmCtrl.text.trim()) ??
-        DateTime.now();
+    final current = _parseSqlDate(_fcnmCtrl.text.trim()) ?? DateTime.now();
     final picked = await showDatePicker(
       context: context,
       initialDate: current,
@@ -686,9 +686,9 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
       if (_isAuthorizationError(error)) {
         ref.read(reimpresionAuthSessionProvider.notifier).state = null;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_errorMessage(error))),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(_errorMessage(error))));
     }
   }
 
@@ -728,7 +728,9 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
     try {
       final parts = token.split('.');
       if (parts.length != 3) return {};
-      final payload = utf8.decode(base64Url.decode(base64Url.normalize(parts[1])));
+      final payload = utf8.decode(
+        base64Url.decode(base64Url.normalize(parts[1])),
+      );
       return Map<String, dynamic>.from(json.decode(payload) as Map);
     } catch (_) {
       return {};
@@ -791,7 +793,9 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
     }
 
     if (lastError != null) throw lastError;
-    throw StateError('No se pudo resolver mÃ³dulo de impresiÃ³n para ${row.idfol}.');
+    throw StateError(
+      'No se pudo resolver mÃ³dulo de impresiÃ³n para ${row.idfol}.',
+    );
   }
 
   bool _canTryNextModule(Object error) {
@@ -816,7 +820,9 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
 
   _ReimpresionTicketModule _resolveTicketModule(PvCtrFolAsvrModel row) {
     final aut = (row.aut ?? '').trim().toUpperCase();
-    if (aut == 'DCA' || aut == 'DVF') return _ReimpresionTicketModule.devolucion;
+    if (aut == 'DCA' || aut == 'DVF') {
+      return _ReimpresionTicketModule.devolucion;
+    }
     if (aut == 'CA' || aut == 'VF' || aut == 'CP') {
       return _ReimpresionTicketModule.cotizacion;
     }
@@ -843,9 +849,9 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
     String idfol, {
     required double widthMm,
   }) async {
-    final preview = await ref.read(reimpresionApiProvider).fetchCotizacionPrintPreview(
-          idfol,
-        );
+    final preview = await ref
+        .read(reimpresionApiProvider)
+        .fetchCotizacionPrintPreview(idfol);
     final nonCashFormas = preview.formas
         .where((f) => f.form.trim().toUpperCase() != 'EFECTIVO')
         .toList(growable: false);
@@ -872,9 +878,9 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
     String idfol, {
     required double widthMm,
   }) async {
-    final preview = await ref.read(reimpresionApiProvider).fetchDevolucionPrintPreview(
-          idfol,
-        );
+    final preview = await ref
+        .read(reimpresionApiProvider)
+        .fetchDevolucionPrintPreview(idfol);
     final nonCashFormas = preview.formas
         .where((f) => f.form.trim().toUpperCase() != 'EFECTIVO')
         .toList(growable: false);
@@ -1001,7 +1007,11 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
     final widthPt = _mmToPt(widthMm);
     final pageHeightMm = _estimateCotizacionTicketHeightMmExact(data, widthMm);
     final leftMarginPt = _mmToPt(2);
-    final pageFormat = PdfPageFormat(widthPt, _mmToPt(pageHeightMm), marginAll: 0);
+    final pageFormat = PdfPageFormat(
+      widthPt,
+      _mmToPt(pageHeightMm),
+      marginAll: 0,
+    );
     final baseFontSize = widthMm <= 58 ? 9.0 : 10.0;
     final smallFontSize = widthMm <= 58 ? 8.0 : 9.0;
     final line = '-' * (widthMm <= 58 ? 30 : 38);
@@ -1027,34 +1037,51 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
             style: pw.TextStyle(fontSize: baseFontSize),
           ),
           if ((header.direccion ?? '').isNotEmpty)
-            pw.Text(header.direccion!, style: pw.TextStyle(fontSize: smallFontSize)),
+            pw.Text(
+              header.direccion!,
+              style: pw.TextStyle(fontSize: smallFontSize),
+            ),
           if ((header.contacto ?? '').isNotEmpty)
-            pw.Text('Contacto: ${header.contacto}', style: pw.TextStyle(fontSize: smallFontSize)),
+            pw.Text(
+              'Contacto: ${header.contacto}',
+              style: pw.TextStyle(fontSize: smallFontSize),
+            ),
           if ((header.rfc ?? '').isNotEmpty)
-            pw.Text('RFC: ${header.rfc}', style: pw.TextStyle(fontSize: smallFontSize)),
+            pw.Text(
+              'RFC: ${header.rfc}',
+              style: pw.TextStyle(fontSize: smallFontSize),
+            ),
           pw.SizedBox(height: 4),
           pw.Text(line, style: pw.TextStyle(fontSize: smallFontSize)),
           pw.Text(
             'DETALLE',
-            style: pw.TextStyle(fontSize: baseFontSize, fontWeight: pw.FontWeight.bold),
+            style: pw.TextStyle(
+              fontSize: baseFontSize,
+              fontWeight: pw.FontWeight.bold,
+            ),
           ),
           if (data.items.isEmpty)
-            pw.Text('Sin articulos registrados', style: pw.TextStyle(fontSize: smallFontSize))
-          else
-            ...[
-              for (var i = 0; i < data.items.length; i++)
-                _buildCotizacionTicketDetalleItemExact(
-                  data.items[i],
-                  index: i,
-                  baseFontSize: baseFontSize,
-                  smallFontSize: smallFontSize,
-                ),
-            ],
+            pw.Text(
+              'Sin articulos registrados',
+              style: pw.TextStyle(fontSize: smallFontSize),
+            )
+          else ...[
+            for (var i = 0; i < data.items.length; i++)
+              _buildCotizacionTicketDetalleItemExact(
+                data.items[i],
+                index: i,
+                baseFontSize: baseFontSize,
+                smallFontSize: smallFontSize,
+              ),
+          ],
           pw.SizedBox(height: 4),
           pw.Text(line, style: pw.TextStyle(fontSize: smallFontSize)),
           pw.Text(
             'TOTALES',
-            style: pw.TextStyle(fontSize: baseFontSize, fontWeight: pw.FontWeight.bold),
+            style: pw.TextStyle(
+              fontSize: baseFontSize,
+              fontWeight: pw.FontWeight.bold,
+            ),
           ),
           _ticketRowExact('Total base', _money(totals.totalBase), baseFontSize),
           if (!isCotizacionAbierta) ...[
@@ -1069,10 +1096,16 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
             pw.SizedBox(height: 4),
             pw.Text(
               'FORMAS',
-              style: pw.TextStyle(fontSize: baseFontSize, fontWeight: pw.FontWeight.bold),
+              style: pw.TextStyle(
+                fontSize: baseFontSize,
+                fontWeight: pw.FontWeight.bold,
+              ),
             ),
             if (data.formas.isEmpty)
-              pw.Text('Sin formas de pago', style: pw.TextStyle(fontSize: smallFontSize))
+              pw.Text(
+                'Sin formas de pago',
+                style: pw.TextStyle(fontSize: smallFontSize),
+              )
             else
               ...data.formas.map((f) {
                 final ref = (f.aut ?? '').trim();
@@ -1081,7 +1114,10 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
                   children: [
                     _ticketRowExact(f.form, _money(f.impp), baseFontSize),
                     if (ref.isNotEmpty)
-                      pw.Text('REF: $ref', style: pw.TextStyle(fontSize: smallFontSize)),
+                      pw.Text(
+                        'REF: $ref',
+                        style: pw.TextStyle(fontSize: smallFontSize),
+                      ),
                   ],
                 );
               }),
@@ -1090,11 +1126,23 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
           pw.Text(line, style: pw.TextStyle(fontSize: smallFontSize)),
           pw.Text(
             'TRANSACCION',
-            style: pw.TextStyle(fontSize: baseFontSize, fontWeight: pw.FontWeight.bold),
+            style: pw.TextStyle(
+              fontSize: baseFontSize,
+              fontWeight: pw.FontWeight.bold,
+            ),
           ),
-          pw.Text('OPV: ${opvLabel.isEmpty ? '-' : opvLabel}', style: pw.TextStyle(fontSize: baseFontSize)),
-          pw.Text('IDFOLIO: ${footer.idfol}', style: pw.TextStyle(fontSize: baseFontSize)),
-          pw.Text('FCNM: ${_fmtDateTime(footer.fcnm)}', style: pw.TextStyle(fontSize: baseFontSize)),
+          pw.Text(
+            'OPV: ${opvLabel.isEmpty ? '-' : opvLabel}',
+            style: pw.TextStyle(fontSize: baseFontSize),
+          ),
+          pw.Text(
+            'IDFOLIO: ${footer.idfol}',
+            style: pw.TextStyle(fontSize: baseFontSize),
+          ),
+          pw.Text(
+            'FCNM: ${_fmtDateTime(footer.fcnm)}',
+            style: pw.TextStyle(fontSize: baseFontSize),
+          ),
           pw.Text(
             'CLIENTE: ${footer.clienteNombre ?? '-'} (${footer.clienteId?.toString() ?? '-'})',
             style: pw.TextStyle(fontSize: baseFontSize),
@@ -1103,10 +1151,16 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
           pw.Text(line, style: pw.TextStyle(fontSize: smallFontSize)),
           pw.Text(
             'RESUMEN DE ORDS',
-            style: pw.TextStyle(fontSize: baseFontSize, fontWeight: pw.FontWeight.bold),
+            style: pw.TextStyle(
+              fontSize: baseFontSize,
+              fontWeight: pw.FontWeight.bold,
+            ),
           ),
           if (data.ords.isEmpty)
-            pw.Text('Sin ORDs ligadas', style: pw.TextStyle(fontSize: smallFontSize))
+            pw.Text(
+              'Sin ORDs ligadas',
+              style: pw.TextStyle(fontSize: smallFontSize),
+            )
           else
             ...data.ords.map((ord) {
               final ordUpc = _resolveCotizacionOrdUpcExact(ord, data.items);
@@ -1114,7 +1168,10 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
               return pw.Container(
                 width: double.infinity,
                 margin: const pw.EdgeInsets.only(bottom: 2),
-                padding: const pw.EdgeInsets.symmetric(vertical: 2, horizontal: 2),
+                padding: const pw.EdgeInsets.symmetric(
+                  vertical: 2,
+                  horizontal: 2,
+                ),
                 decoration: pw.BoxDecoration(
                   color: PdfColors.grey100,
                   border: pw.Border.all(color: PdfColors.grey500, width: 0.5),
@@ -1122,7 +1179,10 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
-                    pw.Text('ORD: ${ord.iord}', style: pw.TextStyle(fontSize: baseFontSize)),
+                    pw.Text(
+                      'ORD: ${ord.iord}',
+                      style: pw.TextStyle(fontSize: baseFontSize),
+                    ),
                     pw.Text(
                       'DES: ${ordDesc.isEmpty ? '-' : ordDesc}',
                       style: pw.TextStyle(fontSize: smallFontSize),
@@ -1138,7 +1198,10 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
           if (nonCashFormas.isNotEmpty)
             pw.Text(
               'GRACIAS POR SU CONFIANZA',
-              style: pw.TextStyle(fontSize: smallFontSize, fontWeight: pw.FontWeight.bold),
+              style: pw.TextStyle(
+                fontSize: smallFontSize,
+                fontWeight: pw.FontWeight.bold,
+              ),
             ),
         ],
       ),
@@ -1162,7 +1225,11 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
       widthMm: widthMm,
     );
     final leftMarginPt = _mmToPt(2);
-    final pageFormat = PdfPageFormat(widthPt, _mmToPt(pageHeightMm), marginAll: 0);
+    final pageFormat = PdfPageFormat(
+      widthPt,
+      _mmToPt(pageHeightMm),
+      marginAll: 0,
+    );
     final baseFontSize = widthMm <= 58 ? 9.0 : 10.0;
     final smallFontSize = widthMm <= 58 ? 8.0 : 9.0;
 
@@ -1213,8 +1280,14 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
           pw.Text(name, style: pw.TextStyle(fontSize: baseFontSize)),
-          pw.Text('UPC: ${upc.isEmpty ? '-' : upc}', style: pw.TextStyle(fontSize: smallFontSize)),
-          pw.Text('$qty x $unit = $imp', style: pw.TextStyle(fontSize: smallFontSize)),
+          pw.Text(
+            'UPC: ${upc.isEmpty ? '-' : upc}',
+            style: pw.TextStyle(fontSize: smallFontSize),
+          ),
+          pw.Text(
+            '$qty x $unit = $imp',
+            style: pw.TextStyle(fontSize: smallFontSize),
+          ),
         ],
       ),
     );
@@ -1231,11 +1304,17 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
     required double baseFontSize,
     required double smallFontSize,
   }) {
-    final form = forma.form.trim().isEmpty ? '-' : forma.form.trim().toUpperCase();
+    final form = forma.form.trim().isEmpty
+        ? '-'
+        : forma.form.trim().toUpperCase();
     final impd = _money(forma.impp);
     final autRef = (forma.aut ?? '').trim().isEmpty ? '-' : forma.aut!.trim();
-    final clienteNom = (clienteNombre ?? '').trim().isEmpty ? '-' : clienteNombre!.trim();
-    final clienteCodigo = (clienteId ?? '').trim().isEmpty ? '-' : clienteId!.trim();
+    final clienteNom = (clienteNombre ?? '').trim().isEmpty
+        ? '-'
+        : clienteNombre!.trim();
+    final clienteCodigo = (clienteId ?? '').trim().isEmpty
+        ? '-'
+        : clienteId!.trim();
     final traValue = (tra ?? '').trim().isEmpty ? '-' : tra!.trim();
 
     pw.Widget lineText(String text, {bool bold = false}) {
@@ -1257,15 +1336,30 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
           _buildVoucherCutLineExact(smallFontSize: smallFontSize),
-          pw.Text('VOUCHER', style: pw.TextStyle(fontSize: baseFontSize, fontWeight: pw.FontWeight.bold)),
+          pw.Text(
+            'VOUCHER',
+            style: pw.TextStyle(
+              fontSize: baseFontSize,
+              fontWeight: pw.FontWeight.bold,
+            ),
+          ),
           pw.SizedBox(height: 2),
           pw.Text(
             'SOPORTE RECEPCION\nPAGO',
             textAlign: pw.TextAlign.center,
-            style: pw.TextStyle(fontSize: baseFontSize, fontWeight: pw.FontWeight.bold),
+            style: pw.TextStyle(
+              fontSize: baseFontSize,
+              fontWeight: pw.FontWeight.bold,
+            ),
           ),
           pw.SizedBox(height: 2),
-          pw.Text('Detalle', style: pw.TextStyle(fontSize: smallFontSize, fontWeight: pw.FontWeight.bold)),
+          pw.Text(
+            'Detalle',
+            style: pw.TextStyle(
+              fontSize: smallFontSize,
+              fontWeight: pw.FontWeight.bold,
+            ),
+          ),
           lineText('FORM   $form'),
           lineText('IMPD   $impd'),
           lineText('AUT o REF   $autRef'),
@@ -1290,7 +1384,8 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
     final is58 = widthMm <= 58;
     final charsPerLine = is58 ? 28 : 34;
     final lineMm = is58 ? 3.3 : 3.9;
-    final isCotizacionAbierta = data.totals.tipotran.trim().toUpperCase() == 'CA';
+    final isCotizacionAbierta =
+        data.totals.tipotran.trim().toUpperCase() == 'CA';
     final footer = data.footer;
     double mm = 0;
 
@@ -1301,13 +1396,25 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
       lineMm,
     );
     if ((data.header.direccion ?? '').trim().isNotEmpty) {
-      mm += _measureTextHeightMmExact(data.header.direccion!, charsPerLine, lineMm);
+      mm += _measureTextHeightMmExact(
+        data.header.direccion!,
+        charsPerLine,
+        lineMm,
+      );
     }
     if ((data.header.contacto ?? '').trim().isNotEmpty) {
-      mm += _measureTextHeightMmExact('Contacto: ${data.header.contacto}', charsPerLine, lineMm);
+      mm += _measureTextHeightMmExact(
+        'Contacto: ${data.header.contacto}',
+        charsPerLine,
+        lineMm,
+      );
     }
     if ((data.header.rfc ?? '').trim().isNotEmpty) {
-      mm += _measureTextHeightMmExact('RFC: ${data.header.rfc}', charsPerLine, lineMm);
+      mm += _measureTextHeightMmExact(
+        'RFC: ${data.header.rfc}',
+        charsPerLine,
+        lineMm,
+      );
     }
 
     mm += 8;
@@ -1318,7 +1425,11 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
         final name = (item.des ?? item.art ?? '-').trim();
         final upc = (item.upc ?? '').trim();
         mm += _measureTextHeightMmExact(name, charsPerLine, lineMm);
-        mm += _measureTextHeightMmExact('UPC: ${upc.isEmpty ? '-' : upc}', charsPerLine, lineMm);
+        mm += _measureTextHeightMmExact(
+          'UPC: ${upc.isEmpty ? '-' : upc}',
+          charsPerLine,
+          lineMm,
+        );
         mm += lineMm;
         mm += 1.4;
       }
@@ -1348,9 +1459,21 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
       if ((footer.opvNombre ?? '').trim().isNotEmpty) footer.opvNombre!.trim(),
     ].join(' - ');
     mm += 7;
-    mm += _measureTextHeightMmExact('OPV: ${opvLabel.isEmpty ? '-' : opvLabel}', charsPerLine, lineMm);
-    mm += _measureTextHeightMmExact('IDFOLIO: ${footer.idfol}', charsPerLine, lineMm);
-    mm += _measureTextHeightMmExact('FCNM: ${_fmtDateTime(footer.fcnm)}', charsPerLine, lineMm);
+    mm += _measureTextHeightMmExact(
+      'OPV: ${opvLabel.isEmpty ? '-' : opvLabel}',
+      charsPerLine,
+      lineMm,
+    );
+    mm += _measureTextHeightMmExact(
+      'IDFOLIO: ${footer.idfol}',
+      charsPerLine,
+      lineMm,
+    );
+    mm += _measureTextHeightMmExact(
+      'FCNM: ${_fmtDateTime(footer.fcnm)}',
+      charsPerLine,
+      lineMm,
+    );
     mm += _measureTextHeightMmExact(
       'CLIENTE: ${footer.clienteNombre ?? '-'} (${footer.clienteId?.toString() ?? '-'})',
       charsPerLine,
@@ -1365,8 +1488,16 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
         final ordUpc = _resolveCotizacionOrdUpcExact(ord, data.items);
         final ordDesc = (ord.desc ?? '').trim();
         mm += lineMm;
-        mm += _measureTextHeightMmExact('DES: ${ordDesc.isEmpty ? '-' : ordDesc}', charsPerLine, lineMm);
-        mm += _measureTextHeightMmExact('UPC: ${ordUpc.isEmpty ? '-' : ordUpc}', charsPerLine, lineMm);
+        mm += _measureTextHeightMmExact(
+          'DES: ${ordDesc.isEmpty ? '-' : ordDesc}',
+          charsPerLine,
+          lineMm,
+        );
+        mm += _measureTextHeightMmExact(
+          'UPC: ${ordUpc.isEmpty ? '-' : ordUpc}',
+          charsPerLine,
+          lineMm,
+        );
         mm += 2.5;
       }
     }
@@ -1440,34 +1571,51 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
             style: pw.TextStyle(fontSize: baseFontSize),
           ),
           if ((header.direccion ?? '').isNotEmpty)
-            pw.Text(header.direccion!, style: pw.TextStyle(fontSize: smallFontSize)),
+            pw.Text(
+              header.direccion!,
+              style: pw.TextStyle(fontSize: smallFontSize),
+            ),
           if ((header.contacto ?? '').isNotEmpty)
-            pw.Text('Contacto: ${header.contacto}', style: pw.TextStyle(fontSize: smallFontSize)),
+            pw.Text(
+              'Contacto: ${header.contacto}',
+              style: pw.TextStyle(fontSize: smallFontSize),
+            ),
           if ((header.rfc ?? '').isNotEmpty)
-            pw.Text('RFC: ${header.rfc}', style: pw.TextStyle(fontSize: smallFontSize)),
+            pw.Text(
+              'RFC: ${header.rfc}',
+              style: pw.TextStyle(fontSize: smallFontSize),
+            ),
           pw.SizedBox(height: 4),
           pw.Text(line, style: pw.TextStyle(fontSize: smallFontSize)),
           pw.Text(
             'DETALLE',
-            style: pw.TextStyle(fontSize: baseFontSize, fontWeight: pw.FontWeight.bold),
+            style: pw.TextStyle(
+              fontSize: baseFontSize,
+              fontWeight: pw.FontWeight.bold,
+            ),
           ),
           if (data.items.isEmpty)
-            pw.Text('Sin articulos registrados', style: pw.TextStyle(fontSize: smallFontSize))
-          else
-            ...[
-              for (var i = 0; i < data.items.length; i++)
-                _buildDevolucionTicketDetalleItemExact(
-                  data.items[i],
-                  index: i,
-                  baseFontSize: baseFontSize,
-                  smallFontSize: smallFontSize,
-                ),
-            ],
+            pw.Text(
+              'Sin articulos registrados',
+              style: pw.TextStyle(fontSize: smallFontSize),
+            )
+          else ...[
+            for (var i = 0; i < data.items.length; i++)
+              _buildDevolucionTicketDetalleItemExact(
+                data.items[i],
+                index: i,
+                baseFontSize: baseFontSize,
+                smallFontSize: smallFontSize,
+              ),
+          ],
           pw.SizedBox(height: 4),
           pw.Text(line, style: pw.TextStyle(fontSize: smallFontSize)),
           pw.Text(
             'TOTALES',
-            style: pw.TextStyle(fontSize: baseFontSize, fontWeight: pw.FontWeight.bold),
+            style: pw.TextStyle(
+              fontSize: baseFontSize,
+              fontWeight: pw.FontWeight.bold,
+            ),
           ),
           _ticketRowExact('Total base', _money(totals.totalBase), baseFontSize),
           if (!isCotizacionAbierta) ...[
@@ -1482,10 +1630,16 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
             pw.SizedBox(height: 4),
             pw.Text(
               'FORMAS',
-              style: pw.TextStyle(fontSize: baseFontSize, fontWeight: pw.FontWeight.bold),
+              style: pw.TextStyle(
+                fontSize: baseFontSize,
+                fontWeight: pw.FontWeight.bold,
+              ),
             ),
             if (data.formas.isEmpty)
-              pw.Text('Sin formas de pago', style: pw.TextStyle(fontSize: smallFontSize))
+              pw.Text(
+                'Sin formas de pago',
+                style: pw.TextStyle(fontSize: smallFontSize),
+              )
             else
               ...data.formas.map((f) {
                 final ref = (f.aut ?? '').trim();
@@ -1494,9 +1648,15 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
                   children: [
                     _ticketRowExact(f.form, _money(f.impp), baseFontSize),
                     if (ref.isNotEmpty)
-                      pw.Text('REF: $ref', style: pw.TextStyle(fontSize: smallFontSize)),
+                      pw.Text(
+                        'REF: $ref',
+                        style: pw.TextStyle(fontSize: smallFontSize),
+                      ),
                     if (f.fcn != null)
-                      pw.Text('FCN: ${_fmtDateTime(f.fcn)}', style: pw.TextStyle(fontSize: smallFontSize)),
+                      pw.Text(
+                        'FCN: ${_fmtDateTime(f.fcn)}',
+                        style: pw.TextStyle(fontSize: smallFontSize),
+                      ),
                   ],
                 );
               }),
@@ -1505,14 +1665,35 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
           pw.Text(line, style: pw.TextStyle(fontSize: smallFontSize)),
           pw.Text(
             'TRANSACCION',
-            style: pw.TextStyle(fontSize: baseFontSize, fontWeight: pw.FontWeight.bold),
+            style: pw.TextStyle(
+              fontSize: baseFontSize,
+              fontWeight: pw.FontWeight.bold,
+            ),
           ),
-          pw.Text('OPV: ${opvLabel.isEmpty ? '-' : opvLabel}', style: pw.TextStyle(fontSize: baseFontSize)),
-          pw.Text('IDFOL DEV: ${footer.idfolDev}', style: pw.TextStyle(fontSize: baseFontSize)),
-          pw.Text('IDFOL ORIG: ${footer.idfolOrig}', style: pw.TextStyle(fontSize: baseFontSize)),
-          pw.Text('FCNM: ${_fmtDateTime(fcnTrans)}', style: pw.TextStyle(fontSize: baseFontSize)),
-          pw.Text('ESTADO: ${footer.esta ?? '-'}', style: pw.TextStyle(fontSize: baseFontSize)),
-          pw.Text('AUT: ${footer.aut ?? '-'}', style: pw.TextStyle(fontSize: baseFontSize)),
+          pw.Text(
+            'OPV: ${opvLabel.isEmpty ? '-' : opvLabel}',
+            style: pw.TextStyle(fontSize: baseFontSize),
+          ),
+          pw.Text(
+            'IDFOL DEV: ${footer.idfolDev}',
+            style: pw.TextStyle(fontSize: baseFontSize),
+          ),
+          pw.Text(
+            'IDFOL ORIG: ${footer.idfolOrig}',
+            style: pw.TextStyle(fontSize: baseFontSize),
+          ),
+          pw.Text(
+            'FCNM: ${_fmtDateTime(fcnTrans)}',
+            style: pw.TextStyle(fontSize: baseFontSize),
+          ),
+          pw.Text(
+            'ESTADO: ${footer.esta ?? '-'}',
+            style: pw.TextStyle(fontSize: baseFontSize),
+          ),
+          pw.Text(
+            'AUT: ${footer.aut ?? '-'}',
+            style: pw.TextStyle(fontSize: baseFontSize),
+          ),
           pw.Text(
             'CLIENTE: ${footer.clienteNombre ?? '-'} (${footer.clienteId?.toStringAsFixed(0) ?? '-'})',
             style: pw.TextStyle(fontSize: baseFontSize),
@@ -1521,16 +1702,25 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
           pw.Text(line, style: pw.TextStyle(fontSize: smallFontSize)),
           pw.Text(
             'RESUMEN DE ORDS',
-            style: pw.TextStyle(fontSize: baseFontSize, fontWeight: pw.FontWeight.bold),
+            style: pw.TextStyle(
+              fontSize: baseFontSize,
+              fontWeight: pw.FontWeight.bold,
+            ),
           ),
           if (ords.isEmpty)
-            pw.Text('Sin ORDs ligadas', style: pw.TextStyle(fontSize: smallFontSize))
+            pw.Text(
+              'Sin ORDs ligadas',
+              style: pw.TextStyle(fontSize: smallFontSize),
+            )
           else
             ...ords.map((ord) {
               return pw.Container(
                 width: double.infinity,
                 margin: const pw.EdgeInsets.only(bottom: 2),
-                padding: const pw.EdgeInsets.symmetric(vertical: 2, horizontal: 2),
+                padding: const pw.EdgeInsets.symmetric(
+                  vertical: 2,
+                  horizontal: 2,
+                ),
                 decoration: pw.BoxDecoration(
                   color: PdfColors.grey100,
                   border: pw.Border.all(color: PdfColors.grey500, width: 0.5),
@@ -1538,7 +1728,10 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
-                    pw.Text('ORD: ${ord.ord}', style: pw.TextStyle(fontSize: baseFontSize)),
+                    pw.Text(
+                      'ORD: ${ord.ord}',
+                      style: pw.TextStyle(fontSize: baseFontSize),
+                    ),
                     pw.Text(
                       'DES: ${ord.description.isEmpty ? '-' : ord.description}',
                       style: pw.TextStyle(fontSize: smallFontSize),
@@ -1554,7 +1747,10 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
           if (nonCashFormas.isNotEmpty)
             pw.Text(
               'GRACIAS POR SU CONFIANZA',
-              style: pw.TextStyle(fontSize: smallFontSize, fontWeight: pw.FontWeight.bold),
+              style: pw.TextStyle(
+                fontSize: smallFontSize,
+                fontWeight: pw.FontWeight.bold,
+              ),
             ),
         ],
       ),
@@ -1577,7 +1773,12 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
     final widthPt = _mmToPt(widthMm);
     final pageFormat = PdfPageFormat(
       widthPt,
-      _mmToPt(_estimateVoucherHeightMmExact(voucherCount: nonCashFormas.length, widthMm: widthMm)),
+      _mmToPt(
+        _estimateVoucherHeightMmExact(
+          voucherCount: nonCashFormas.length,
+          widthMm: widthMm,
+        ),
+      ),
       marginAll: 0,
     );
     final leftMarginPt = _mmToPt(2);
@@ -1641,7 +1842,9 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
     return result;
   }
 
-  DateTime? _resolveDevolucionTicketDateExact(List<DevolucionPrintForma> formas) {
+  DateTime? _resolveDevolucionTicketDateExact(
+    List<DevolucionPrintForma> formas,
+  ) {
     DateTime? latest;
     for (final forma in formas) {
       final current = forma.fcn;
@@ -1663,11 +1866,17 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
     required double baseFontSize,
     required double smallFontSize,
   }) {
-    final form = forma.form.trim().isEmpty ? '-' : forma.form.trim().toUpperCase();
+    final form = forma.form.trim().isEmpty
+        ? '-'
+        : forma.form.trim().toUpperCase();
     final impd = _money(totalOperacion);
     final autRef = (forma.aut ?? '').trim().isEmpty ? '-' : forma.aut!.trim();
-    final clienteNom = (clienteNombre ?? '').trim().isEmpty ? '-' : clienteNombre!.trim();
-    final clienteCodigo = (clienteId ?? '').trim().isEmpty ? '-' : clienteId!.trim();
+    final clienteNom = (clienteNombre ?? '').trim().isEmpty
+        ? '-'
+        : clienteNombre!.trim();
+    final clienteCodigo = (clienteId ?? '').trim().isEmpty
+        ? '-'
+        : clienteId!.trim();
     final traValue = (tra ?? '').trim().isEmpty ? '-' : tra!.trim();
 
     pw.Widget lineText(String text, {bool bold = false}) {
@@ -1689,15 +1898,30 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
           _buildVoucherCutLineExact(smallFontSize: smallFontSize),
-          pw.Text('VOUCHER', style: pw.TextStyle(fontSize: baseFontSize, fontWeight: pw.FontWeight.bold)),
+          pw.Text(
+            'VOUCHER',
+            style: pw.TextStyle(
+              fontSize: baseFontSize,
+              fontWeight: pw.FontWeight.bold,
+            ),
+          ),
           pw.SizedBox(height: 2),
           pw.Text(
             'SOPORTE RECEPCION\nPAGO',
             textAlign: pw.TextAlign.center,
-            style: pw.TextStyle(fontSize: baseFontSize, fontWeight: pw.FontWeight.bold),
+            style: pw.TextStyle(
+              fontSize: baseFontSize,
+              fontWeight: pw.FontWeight.bold,
+            ),
           ),
           pw.SizedBox(height: 2),
-          pw.Text('Detalle', style: pw.TextStyle(fontSize: smallFontSize, fontWeight: pw.FontWeight.bold)),
+          pw.Text(
+            'Detalle',
+            style: pw.TextStyle(
+              fontSize: smallFontSize,
+              fontWeight: pw.FontWeight.bold,
+            ),
+          ),
           lineText('FORM   $form'),
           lineText('IMPD   $impd'),
           lineText('AUT o REF   $autRef'),
@@ -1737,8 +1961,14 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
           pw.Text(name, style: pw.TextStyle(fontSize: baseFontSize)),
-          pw.Text('UPC: ${upc.isEmpty ? '-' : upc}', style: pw.TextStyle(fontSize: smallFontSize)),
-          pw.Text('$qty x $unit = $imp', style: pw.TextStyle(fontSize: smallFontSize)),
+          pw.Text(
+            'UPC: ${upc.isEmpty ? '-' : upc}',
+            style: pw.TextStyle(fontSize: smallFontSize),
+          ),
+          pw.Text(
+            '$qty x $unit = $imp',
+            style: pw.TextStyle(fontSize: smallFontSize),
+          ),
         ],
       ),
     );
@@ -1751,19 +1981,36 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
     final is58 = widthMm <= 58;
     final charsPerLine = is58 ? 28 : 34;
     final lineMm = is58 ? 3.3 : 3.9;
-    final isCotizacionAbierta = data.totals.tipotran.trim().toUpperCase() == 'CA';
+    final isCotizacionAbierta =
+        data.totals.tipotran.trim().toUpperCase() == 'CA';
     final ords = _collectDevolucionOrdsFromItemsExact(data.items);
     double mm = 0;
     mm += 6;
-    mm += _measureTextHeightMmExact('SUC: ${data.header.suc}  ${data.header.desc ?? ''}'.trim(), charsPerLine, lineMm);
+    mm += _measureTextHeightMmExact(
+      'SUC: ${data.header.suc}  ${data.header.desc ?? ''}'.trim(),
+      charsPerLine,
+      lineMm,
+    );
     if ((data.header.direccion ?? '').trim().isNotEmpty) {
-      mm += _measureTextHeightMmExact(data.header.direccion!, charsPerLine, lineMm);
+      mm += _measureTextHeightMmExact(
+        data.header.direccion!,
+        charsPerLine,
+        lineMm,
+      );
     }
     if ((data.header.contacto ?? '').trim().isNotEmpty) {
-      mm += _measureTextHeightMmExact('Contacto: ${data.header.contacto}', charsPerLine, lineMm);
+      mm += _measureTextHeightMmExact(
+        'Contacto: ${data.header.contacto}',
+        charsPerLine,
+        lineMm,
+      );
     }
     if ((data.header.rfc ?? '').trim().isNotEmpty) {
-      mm += _measureTextHeightMmExact('RFC: ${data.header.rfc}', charsPerLine, lineMm);
+      mm += _measureTextHeightMmExact(
+        'RFC: ${data.header.rfc}',
+        charsPerLine,
+        lineMm,
+      );
     }
     mm += 8;
     if (data.items.isEmpty) {
@@ -1773,7 +2020,11 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
         final name = (item.des ?? item.art ?? '-').trim();
         final upc = (item.upc ?? '').trim();
         mm += _measureTextHeightMmExact(name, charsPerLine, lineMm);
-        mm += _measureTextHeightMmExact('UPC: ${upc.isEmpty ? '-' : upc}', charsPerLine, lineMm);
+        mm += _measureTextHeightMmExact(
+          'UPC: ${upc.isEmpty ? '-' : upc}',
+          charsPerLine,
+          lineMm,
+        );
         mm += lineMm + 1.4;
       }
     }
@@ -1801,12 +2052,36 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
       if ((footer.opvNombre ?? '').trim().isNotEmpty) footer.opvNombre!.trim(),
     ].join(' - ');
     mm += 7;
-    mm += _measureTextHeightMmExact('OPV: ${opvLabel.isEmpty ? '-' : opvLabel}', charsPerLine, lineMm);
-    mm += _measureTextHeightMmExact('IDFOL DEV: ${footer.idfolDev}', charsPerLine, lineMm);
-    mm += _measureTextHeightMmExact('IDFOL ORIG: ${footer.idfolOrig}', charsPerLine, lineMm);
-    mm += _measureTextHeightMmExact('FCNM: ${_fmtDateTime(_resolveDevolucionTicketDateExact(data.formas))}', charsPerLine, lineMm);
-    mm += _measureTextHeightMmExact('ESTADO: ${footer.esta ?? '-'}', charsPerLine, lineMm);
-    mm += _measureTextHeightMmExact('AUT: ${footer.aut ?? '-'}', charsPerLine, lineMm);
+    mm += _measureTextHeightMmExact(
+      'OPV: ${opvLabel.isEmpty ? '-' : opvLabel}',
+      charsPerLine,
+      lineMm,
+    );
+    mm += _measureTextHeightMmExact(
+      'IDFOL DEV: ${footer.idfolDev}',
+      charsPerLine,
+      lineMm,
+    );
+    mm += _measureTextHeightMmExact(
+      'IDFOL ORIG: ${footer.idfolOrig}',
+      charsPerLine,
+      lineMm,
+    );
+    mm += _measureTextHeightMmExact(
+      'FCNM: ${_fmtDateTime(_resolveDevolucionTicketDateExact(data.formas))}',
+      charsPerLine,
+      lineMm,
+    );
+    mm += _measureTextHeightMmExact(
+      'ESTADO: ${footer.esta ?? '-'}',
+      charsPerLine,
+      lineMm,
+    );
+    mm += _measureTextHeightMmExact(
+      'AUT: ${footer.aut ?? '-'}',
+      charsPerLine,
+      lineMm,
+    );
     mm += _measureTextHeightMmExact(
       'CLIENTE: ${footer.clienteNombre ?? '-'} (${footer.clienteId?.toStringAsFixed(0) ?? '-'})',
       charsPerLine,
@@ -1817,9 +2092,21 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
       mm += lineMm;
     } else {
       for (final ord in ords) {
-        mm += _measureTextHeightMmExact('ORD: ${ord.ord}', charsPerLine, lineMm);
-        mm += _measureTextHeightMmExact('DES: ${ord.description.isEmpty ? '-' : ord.description}', charsPerLine, lineMm);
-        mm += _measureTextHeightMmExact('UPC: ${ord.upc.isEmpty ? '-' : ord.upc}', charsPerLine, lineMm);
+        mm += _measureTextHeightMmExact(
+          'ORD: ${ord.ord}',
+          charsPerLine,
+          lineMm,
+        );
+        mm += _measureTextHeightMmExact(
+          'DES: ${ord.description.isEmpty ? '-' : ord.description}',
+          charsPerLine,
+          lineMm,
+        );
+        mm += _measureTextHeightMmExact(
+          'UPC: ${ord.upc.isEmpty ? '-' : ord.upc}',
+          charsPerLine,
+          lineMm,
+        );
         mm += 2.5;
       }
     }
@@ -1849,7 +2136,11 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
         .where((f) => f.form.trim().toUpperCase() != 'EFECTIVO')
         .toList(growable: false);
     final widthPt = _mmToPt(widthMm);
-    final pageHeightMm = _estimatePsTicketHeightMmExact(summary, ticket, widthMm);
+    final pageHeightMm = _estimatePsTicketHeightMmExact(
+      summary,
+      ticket,
+      widthMm,
+    );
     final line = '-' * (widthMm <= 58 ? 30 : 38);
     final baseFont = widthMm <= 58 ? 9.0 : 10.0;
     final smallFont = widthMm <= 58 ? 8.0 : 9.0;
@@ -1866,25 +2157,42 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
           pw.Text(line, style: pw.TextStyle(fontSize: smallFont)),
           pw.Text('SUC: $sucLabel', style: pw.TextStyle(fontSize: baseFont)),
           pw.SizedBox(height: 2),
-          pw.Text('MODULO: PAGO DE SERVICIOS', style: pw.TextStyle(fontSize: smallFont)),
+          pw.Text(
+            'MODULO: PAGO DE SERVICIOS',
+            style: pw.TextStyle(fontSize: smallFont),
+          ),
           pw.SizedBox(height: 4),
           pw.Text(line, style: pw.TextStyle(fontSize: smallFont)),
-          pw.Text('DETALLE', style: pw.TextStyle(fontSize: baseFont, fontWeight: pw.FontWeight.bold)),
+          pw.Text(
+            'DETALLE',
+            style: pw.TextStyle(
+              fontSize: baseFont,
+              fontWeight: pw.FontWeight.bold,
+            ),
+          ),
           if (ticket.isEmpty)
-            pw.Text('Sin articulos registrados', style: pw.TextStyle(fontSize: smallFont))
-          else
-            ...[
-              for (var i = 0; i < ticket.length; i++)
-                _buildPsTicketDetalleItemExact(
-                  ticket[i],
-                  index: i,
-                  baseFontSize: baseFont,
-                  smallFontSize: smallFont,
-                ),
-            ],
+            pw.Text(
+              'Sin articulos registrados',
+              style: pw.TextStyle(fontSize: smallFont),
+            )
+          else ...[
+            for (var i = 0; i < ticket.length; i++)
+              _buildPsTicketDetalleItemExact(
+                ticket[i],
+                index: i,
+                baseFontSize: baseFont,
+                smallFontSize: smallFont,
+              ),
+          ],
           pw.SizedBox(height: 4),
           pw.Text(line, style: pw.TextStyle(fontSize: smallFont)),
-          pw.Text('TOTALES', style: pw.TextStyle(fontSize: baseFont, fontWeight: pw.FontWeight.bold)),
+          pw.Text(
+            'TOTALES',
+            style: pw.TextStyle(
+              fontSize: baseFont,
+              fontWeight: pw.FontWeight.bold,
+            ),
+          ),
           _ticketRowExact('Total base', _money(summary.total), baseFont),
           _ticketRowExact('Subtotal', _money(summary.total), baseFont),
           _ticketRowExact('IVA', _money(0), baseFont),
@@ -1893,9 +2201,18 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
           _ticketRowExact('Faltante', _money(summary.restante), baseFont),
           _ticketRowExact('Cambio', _money(summary.cambio), baseFont),
           pw.SizedBox(height: 4),
-          pw.Text('FORMAS', style: pw.TextStyle(fontSize: baseFont, fontWeight: pw.FontWeight.bold)),
+          pw.Text(
+            'FORMAS',
+            style: pw.TextStyle(
+              fontSize: baseFont,
+              fontWeight: pw.FontWeight.bold,
+            ),
+          ),
           if (summary.formas.isEmpty)
-            pw.Text('Sin formas de pago', style: pw.TextStyle(fontSize: smallFont))
+            pw.Text(
+              'Sin formas de pago',
+              style: pw.TextStyle(fontSize: smallFont),
+            )
           else
             ...summary.formas.map((f) {
               final ref = (f.aut ?? '').trim();
@@ -1906,31 +2223,67 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
                   children: [
                     _ticketRowExact(f.form, _money(f.impp), baseFont),
                     if (ref.isNotEmpty)
-                      pw.Text('REF: $ref', style: pw.TextStyle(fontSize: smallFont)),
+                      pw.Text(
+                        'REF: $ref',
+                        style: pw.TextStyle(fontSize: smallFont),
+                      ),
                     if (f.fcn != null)
-                      pw.Text('FCN: ${_fmtDateTime(f.fcn)}', style: pw.TextStyle(fontSize: smallFont)),
+                      pw.Text(
+                        'FCN: ${_fmtDateTime(f.fcn)}',
+                        style: pw.TextStyle(fontSize: smallFont),
+                      ),
                   ],
                 ),
               );
             }),
           pw.SizedBox(height: 4),
           pw.Text(line, style: pw.TextStyle(fontSize: smallFont)),
-          pw.Text('TRANSACCION', style: pw.TextStyle(fontSize: baseFont, fontWeight: pw.FontWeight.bold)),
-          pw.Text('OPV: ${opvLabel.isEmpty ? '-' : opvLabel}', style: pw.TextStyle(fontSize: baseFont)),
-          pw.Text('IDFOLIO: ${summary.idfol}', style: pw.TextStyle(fontSize: baseFont)),
-          pw.Text('FCNM: ${_fmtDateTime(transDate)}', style: pw.TextStyle(fontSize: baseFont)),
-          pw.Text('CLIENTE: $clienteNombreLabel ($clienteIdLabel)', style: pw.TextStyle(fontSize: baseFont)),
+          pw.Text(
+            'TRANSACCION',
+            style: pw.TextStyle(
+              fontSize: baseFont,
+              fontWeight: pw.FontWeight.bold,
+            ),
+          ),
+          pw.Text(
+            'OPV: ${opvLabel.isEmpty ? '-' : opvLabel}',
+            style: pw.TextStyle(fontSize: baseFont),
+          ),
+          pw.Text(
+            'IDFOLIO: ${summary.idfol}',
+            style: pw.TextStyle(fontSize: baseFont),
+          ),
+          pw.Text(
+            'FCNM: ${_fmtDateTime(transDate)}',
+            style: pw.TextStyle(fontSize: baseFont),
+          ),
+          pw.Text(
+            'CLIENTE: $clienteNombreLabel ($clienteIdLabel)',
+            style: pw.TextStyle(fontSize: baseFont),
+          ),
           pw.SizedBox(height: 4),
           pw.Text(line, style: pw.TextStyle(fontSize: smallFont)),
-          pw.Text('RESUMEN DE ORDS', style: pw.TextStyle(fontSize: baseFont, fontWeight: pw.FontWeight.bold)),
+          pw.Text(
+            'RESUMEN DE ORDS',
+            style: pw.TextStyle(
+              fontSize: baseFont,
+              fontWeight: pw.FontWeight.bold,
+            ),
+          ),
           if (ords.isEmpty)
-            pw.Text('Sin ORDs ligadas', style: pw.TextStyle(fontSize: smallFont))
+            pw.Text(
+              'Sin ORDs ligadas',
+              style: pw.TextStyle(fontSize: smallFont),
+            )
           else
             ...ords.map((ord) {
               return pw.Container(
                 width: double.infinity,
                 margin: const pw.EdgeInsets.only(bottom: 2),
-                padding: const pw.EdgeInsets.symmetric(vertical: 2, horizontal: 2),
+                padding: const pw.EdgeInsets.symmetric(
+                  vertical: 2,
+                  horizontal: 2,
+                ),
                 decoration: pw.BoxDecoration(
                   color: PdfColors.grey100,
                   border: pw.Border.all(color: PdfColors.grey500, width: 0.5),
@@ -1938,7 +2291,10 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
-                    pw.Text('ORD: ${ord.ord}', style: pw.TextStyle(fontSize: baseFont)),
+                    pw.Text(
+                      'ORD: ${ord.ord}',
+                      style: pw.TextStyle(fontSize: baseFont),
+                    ),
                     pw.Text(
                       'DES: ${ord.description.isEmpty ? '-' : ord.description}',
                       style: pw.TextStyle(fontSize: smallFont),
@@ -1954,7 +2310,10 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
           if (nonCashFormas.isNotEmpty)
             pw.Text(
               'GRACIAS POR SU CONFIANZA',
-              style: pw.TextStyle(fontSize: smallFont, fontWeight: pw.FontWeight.bold),
+              style: pw.TextStyle(
+                fontSize: smallFont,
+                fontWeight: pw.FontWeight.bold,
+              ),
             ),
         ],
       ),
@@ -1977,7 +2336,12 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
     final widthPt = _mmToPt(widthMm);
     final pageFormat = PdfPageFormat(
       widthPt,
-      _mmToPt(_estimateVoucherHeightMmExact(voucherCount: nonCashFormas.length, widthMm: widthMm)),
+      _mmToPt(
+        _estimateVoucherHeightMmExact(
+          voucherCount: nonCashFormas.length,
+          widthMm: widthMm,
+        ),
+      ),
       marginAll: 0,
     );
     final leftMarginPt = _mmToPt(2);
@@ -2009,7 +2373,9 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
     return doc;
   }
 
-  List<_PsTicketOrdSummary> _collectPsOrdsFromTicketExact(List<PsTicketLine> ticket) {
+  List<_PsTicketOrdSummary> _collectPsOrdsFromTicketExact(
+    List<PsTicketLine> ticket,
+  ) {
     final byOrd = <String, List<PsTicketLine>>{};
     for (final line in ticket) {
       final ord = (line.ord ?? '').trim();
@@ -2057,7 +2423,8 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
     final name = (item.des ?? item.art ?? '-').trim();
     final qtyValue = item.ctd ?? 1;
     final qty = qtyValue.toStringAsFixed(2);
-    final unitValue = item.pvta ?? (qtyValue != 0 ? (item.total ?? 0) / qtyValue : 0);
+    final unitValue =
+        item.pvta ?? (qtyValue != 0 ? (item.total ?? 0) / qtyValue : 0);
     final unit = _money(unitValue);
     final impValue = item.total ?? item.pvtat ?? (qtyValue * unitValue);
     final imp = _money(impValue);
@@ -2073,8 +2440,14 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
           pw.Text(name, style: pw.TextStyle(fontSize: baseFontSize)),
-          pw.Text('UPC: ${upc.isEmpty ? '-' : upc}', style: pw.TextStyle(fontSize: smallFontSize)),
-          pw.Text('$qty x $unit = $imp', style: pw.TextStyle(fontSize: smallFontSize)),
+          pw.Text(
+            'UPC: ${upc.isEmpty ? '-' : upc}',
+            style: pw.TextStyle(fontSize: smallFontSize),
+          ),
+          pw.Text(
+            '$qty x $unit = $imp',
+            style: pw.TextStyle(fontSize: smallFontSize),
+          ),
         ],
       ),
     );
@@ -2091,11 +2464,17 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
     required double baseFontSize,
     required double smallFontSize,
   }) {
-    final form = forma.form.trim().isEmpty ? '-' : forma.form.trim().toUpperCase();
+    final form = forma.form.trim().isEmpty
+        ? '-'
+        : forma.form.trim().toUpperCase();
     final impd = _money(forma.impp);
     final autRef = (forma.aut ?? '').trim().isEmpty ? '-' : forma.aut!.trim();
-    final clienteNom = (clienteNombre ?? '').trim().isEmpty ? '-' : clienteNombre!.trim();
-    final clienteCodigo = (clienteId ?? '').trim().isEmpty ? '-' : clienteId!.trim();
+    final clienteNom = (clienteNombre ?? '').trim().isEmpty
+        ? '-'
+        : clienteNombre!.trim();
+    final clienteCodigo = (clienteId ?? '').trim().isEmpty
+        ? '-'
+        : clienteId!.trim();
     final traValue = (tra ?? '').trim().isEmpty ? '-' : tra!.trim();
 
     pw.Widget lineText(String text, {bool bold = false}) {
@@ -2117,15 +2496,30 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
           _buildVoucherCutLineExact(smallFontSize: smallFontSize),
-          pw.Text('VOUCHER', style: pw.TextStyle(fontSize: baseFontSize, fontWeight: pw.FontWeight.bold)),
+          pw.Text(
+            'VOUCHER',
+            style: pw.TextStyle(
+              fontSize: baseFontSize,
+              fontWeight: pw.FontWeight.bold,
+            ),
+          ),
           pw.SizedBox(height: 2),
           pw.Text(
             'SOPORTE RECEPCION\nPAGO',
             textAlign: pw.TextAlign.center,
-            style: pw.TextStyle(fontSize: baseFontSize, fontWeight: pw.FontWeight.bold),
+            style: pw.TextStyle(
+              fontSize: baseFontSize,
+              fontWeight: pw.FontWeight.bold,
+            ),
           ),
           pw.SizedBox(height: 2),
-          pw.Text('Detalle', style: pw.TextStyle(fontSize: smallFontSize, fontWeight: pw.FontWeight.bold)),
+          pw.Text(
+            'Detalle',
+            style: pw.TextStyle(
+              fontSize: smallFontSize,
+              fontWeight: pw.FontWeight.bold,
+            ),
+          ),
           lineText('FORM   $form'),
           lineText('IMPD   $impd'),
           lineText('AUT o REF   $autRef'),
@@ -2153,8 +2547,16 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
     final ords = _collectPsOrdsFromTicketExact(ticket);
     double mm = 0;
     mm += 6;
-    mm += _measureTextHeightMmExact('SUC: ${summary.suc}', charsPerLine, lineMm);
-    mm += _measureTextHeightMmExact('MODULO: PAGO DE SERVICIOS', charsPerLine, lineMm);
+    mm += _measureTextHeightMmExact(
+      'SUC: ${summary.suc}',
+      charsPerLine,
+      lineMm,
+    );
+    mm += _measureTextHeightMmExact(
+      'MODULO: PAGO DE SERVICIOS',
+      charsPerLine,
+      lineMm,
+    );
     mm += 8;
     if (ticket.isEmpty) {
       mm += lineMm;
@@ -2163,7 +2565,11 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
         final name = (item.des ?? item.art ?? '-').trim();
         final upc = (item.upc ?? '').trim();
         mm += _measureTextHeightMmExact(name, charsPerLine, lineMm);
-        mm += _measureTextHeightMmExact('UPC: ${upc.isEmpty ? '-' : upc}', charsPerLine, lineMm);
+        mm += _measureTextHeightMmExact(
+          'UPC: ${upc.isEmpty ? '-' : upc}',
+          charsPerLine,
+          lineMm,
+        );
         mm += lineMm;
         mm += 1.4;
       }
@@ -2185,7 +2591,11 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
     }
     mm += 7;
     mm += _measureTextHeightMmExact('OPV: -', charsPerLine, lineMm);
-    mm += _measureTextHeightMmExact('IDFOLIO: ${summary.idfol}', charsPerLine, lineMm);
+    mm += _measureTextHeightMmExact(
+      'IDFOLIO: ${summary.idfol}',
+      charsPerLine,
+      lineMm,
+    );
     mm += _measureTextHeightMmExact('FCNM: -', charsPerLine, lineMm);
     mm += _measureTextHeightMmExact('CLIENTE: - (-)', charsPerLine, lineMm);
     mm += 7;
@@ -2193,9 +2603,21 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
       mm += lineMm;
     } else {
       for (final ord in ords) {
-        mm += _measureTextHeightMmExact('ORD: ${ord.ord}', charsPerLine, lineMm);
-        mm += _measureTextHeightMmExact('DES: ${ord.description.isEmpty ? '-' : ord.description}', charsPerLine, lineMm);
-        mm += _measureTextHeightMmExact('UPC: ${ord.upc.isEmpty ? '-' : ord.upc}', charsPerLine, lineMm);
+        mm += _measureTextHeightMmExact(
+          'ORD: ${ord.ord}',
+          charsPerLine,
+          lineMm,
+        );
+        mm += _measureTextHeightMmExact(
+          'DES: ${ord.description.isEmpty ? '-' : ord.description}',
+          charsPerLine,
+          lineMm,
+        );
+        mm += _measureTextHeightMmExact(
+          'UPC: ${ord.upc.isEmpty ? '-' : ord.upc}',
+          charsPerLine,
+          lineMm,
+        );
         mm += 2.5;
       }
     }
@@ -2211,12 +2633,18 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
       child: pw.Row(
         children: [
           pw.Expanded(
-            child: pw.Text('----------------', style: pw.TextStyle(fontSize: smallFontSize)),
+            child: pw.Text(
+              '----------------',
+              style: pw.TextStyle(fontSize: smallFontSize),
+            ),
           ),
           pw.SizedBox(width: 4),
           pw.Text(
             'âœ‚',
-            style: pw.TextStyle(fontSize: smallFontSize + 1, fontWeight: pw.FontWeight.bold),
+            style: pw.TextStyle(
+              fontSize: smallFontSize + 1,
+              fontWeight: pw.FontWeight.bold,
+            ),
           ),
           pw.SizedBox(width: 4),
           pw.Expanded(
@@ -2235,7 +2663,9 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
     return pw.Row(
       mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
       children: [
-        pw.Expanded(child: pw.Text(label, style: pw.TextStyle(fontSize: fontSize))),
+        pw.Expanded(
+          child: pw.Text(label, style: pw.TextStyle(fontSize: fontSize)),
+        ),
         pw.Text(value, style: pw.TextStyle(fontSize: fontSize)),
       ],
     );
@@ -2254,7 +2684,11 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
     return mm.clamp(minMm, maxMm).toDouble();
   }
 
-  double _measureTextHeightMmExact(String text, int charsPerLine, double lineMm) {
+  double _measureTextHeightMmExact(
+    String text,
+    int charsPerLine,
+    double lineMm,
+  ) {
     final value = text.trim();
     if (value.isEmpty) return 0;
     final normalized = value.replaceAll('\r', '');
@@ -2290,7 +2724,10 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
     if (error is StateError) {
       return error.message.toString();
     }
-    return apiErrorMessage(error, fallback: 'No se pudo consultar reimpresiones.');
+    return apiErrorMessage(
+      error,
+      fallback: 'No se pudo consultar reimpresiones.',
+    );
   }
 
   bool _isAuthorizationError(Object error) {
@@ -2324,10 +2761,7 @@ class _PsTicketOrdSummary {
 }
 
 class _FilterSelectOption {
-  const _FilterSelectOption({
-    required this.value,
-    required this.label,
-  });
+  const _FilterSelectOption({required this.value, required this.label});
 
   final String value;
   final String label;
@@ -2577,13 +3011,22 @@ class _ReimpresionTable extends StatelessWidget {
               columnSpacing: 20,
               columns: const [
                 DataColumn(
-                  label: Text('SUC', style: TextStyle(fontWeight: FontWeight.w600)),
+                  label: Text(
+                    'SUC',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
                 ),
                 DataColumn(
-                  label: Text('OPV', style: TextStyle(fontWeight: FontWeight.w600)),
+                  label: Text(
+                    'OPV',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
                 ),
                 DataColumn(
-                  label: Text('IDFOL', style: TextStyle(fontWeight: FontWeight.w600)),
+                  label: Text(
+                    'IDFOL',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
                 ),
                 DataColumn(
                   label: Text(
@@ -2598,13 +3041,22 @@ class _ReimpresionTable extends StatelessWidget {
                   ),
                 ),
                 DataColumn(
-                  label: Text('FCNM', style: TextStyle(fontWeight: FontWeight.w600)),
+                  label: Text(
+                    'FCNM',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
                 ),
                 DataColumn(
-                  label: Text('TRA', style: TextStyle(fontWeight: FontWeight.w600)),
+                  label: Text(
+                    'TRA',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
                 ),
                 DataColumn(
-                  label: Text('CLIEN', style: TextStyle(fontWeight: FontWeight.w600)),
+                  label: Text(
+                    'CLIEN',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
                 ),
                 DataColumn(
                   label: Text(
@@ -2613,10 +3065,16 @@ class _ReimpresionTable extends StatelessWidget {
                   ),
                 ),
                 DataColumn(
-                  label: Text('Estado', style: TextStyle(fontWeight: FontWeight.w600)),
+                  label: Text(
+                    'Estado',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
                 ),
                 DataColumn(
-                  label: Text('Importe', style: TextStyle(fontWeight: FontWeight.w600)),
+                  label: Text(
+                    'Importe',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
                 ),
               ],
               rows: folios.map((c) {
@@ -2634,9 +3092,13 @@ class _ReimpresionTable extends StatelessWidget {
                     DataCell(_cellText(_formatDate(c.fcnm))),
                     DataCell(_cellText(c.tra ?? '-')),
                     DataCell(_cellText(c.clien?.toString() ?? '-')),
-                    DataCell(_cellText(razonSocial.isEmpty ? '-' : razonSocial)),
+                    DataCell(
+                      _cellText(razonSocial.isEmpty ? '-' : razonSocial),
+                    ),
                     DataCell(_cellText(c.esta ?? '-')),
-                    DataCell(_cellText(_formatMoney(c.impt), align: TextAlign.right)),
+                    DataCell(
+                      _cellText(_formatMoney(c.impt), align: TextAlign.right),
+                    ),
                   ],
                 );
               }).toList(),
@@ -2768,10 +3230,7 @@ class _PaginationBar extends StatelessWidget {
 }
 
 class _ErrorBlock extends StatelessWidget {
-  const _ErrorBlock({
-    required this.message,
-    required this.onRetry,
-  });
+  const _ErrorBlock({required this.message, required this.onRetry});
 
   final String message;
   final VoidCallback onRetry;
@@ -2798,4 +3257,3 @@ class _ErrorBlock extends StatelessWidget {
     );
   }
 }
-

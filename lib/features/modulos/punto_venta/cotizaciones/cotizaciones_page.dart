@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:ioe_app/core/app_theme.dart';
 import 'package:ioe_app/core/dio_provider.dart';
 import 'package:ioe_app/core/terminal_name.dart';
 import 'package:ioe_app/features/masterdata/sucursales/sucursales_providers.dart';
@@ -49,9 +50,7 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
   @override
   Widget build(BuildContext context) {
     if (!_contextReady) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     final cotizacionesAsync = ref.watch(cotizacionesListProvider);
@@ -77,7 +76,7 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFFF6F2EB), Color(0xFFEFE7DB)],
+            colors: [AppColors.canvas, AppColors.canvasAlt],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -99,7 +98,8 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
                   hasUserOpv: hasUserOpv,
                   hasUserSuc: hasUserSuc,
                   selectedOpv: _opvCtrl.text.trim(),
-                  onOpvChanged: (value) => setState(() => _opvCtrl.text = value?.trim() ?? ''),
+                  onOpvChanged: (value) =>
+                      setState(() => _opvCtrl.text = value?.trim() ?? ''),
                   onSucChanged: (value) => setState(() {
                     _sucCtrl.text = value?.trim() ?? '';
                     if (isAdmin) _opvCtrl.clear();
@@ -122,15 +122,14 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
                       final uri = Uri(
                         path:
                             '/punto-venta/cotizaciones/${Uri.encodeComponent(c.idfol)}/pago',
-                        queryParameters: {
-                          'tipotran': tipotran,
-                          'rqfac': rqfac,
-                        },
+                        queryParameters: {'tipotran': tipotran, 'rqfac': rqfac},
                       );
                       context.go(uri.toString());
                       return;
                     }
-                    context.go('/punto-venta/cotizaciones/${Uri.encodeComponent(c.idfol)}/detalle');
+                    context.go(
+                      '/punto-venta/cotizaciones/${Uri.encodeComponent(c.idfol)}/detalle',
+                    );
                   },
                   onDelete: (c) => _confirmDelete(context, ref, c),
                 ),
@@ -187,7 +186,11 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
     return estado == 'PAGADO' || estado == 'TRANSMITIR';
   }
 
-  Future<void> _confirmDelete(BuildContext context, WidgetRef ref, PvCtrFolAsvrModel model) async {
+  Future<void> _confirmDelete(
+    BuildContext context,
+    WidgetRef ref,
+    PvCtrFolAsvrModel model,
+  ) async {
     if (!_isEstadoPendiente(model.esta)) return;
     final confirm = await showDialog<bool>(
       context: context,
@@ -197,17 +200,23 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
           '¿Deseas cambiar a ANULADO la cotización ${model.idfol}?',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancelar')),
-          FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Anular')),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Anular'),
+          ),
         ],
       ),
     );
     if (confirm != true) return;
     try {
       await ref.read(cotizacionesApiProvider).updateCotizacion(
-            model.idfol,
-            const {'ESTA': 'ANULADO'},
-          );
+        model.idfol,
+        const {'ESTA': 'ANULADO'},
+      );
       ref.invalidate(cotizacionesListProvider);
       ref.invalidate(cotizacionProvider(model.idfol));
     } catch (e) {
@@ -225,8 +234,14 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
         title: const Text('Nueva cotización'),
         content: const Text('¿Seguro que deseas generar una nueva cotización?'),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancelar')),
-          FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Generar')),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Generar'),
+          ),
         ],
       ),
     );
@@ -240,7 +255,9 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
     if (suc.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Debe seleccionar una sucursal para crear la cotización.'),
+          content: Text(
+            'Debe seleccionar una sucursal para crear la cotización.',
+          ),
         ),
       );
       return;
@@ -264,22 +281,23 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
 
     final terminal = _resolveTerminalName(opv: opv, suc: suc);
     try {
-      final created = await ref.read(cotizacionesApiProvider).createCotizacionAuto(
-            ter: terminal,
-            suc: suc,
-            opv: opv,
-          );
-      await ref.read(cotizacionesApiProvider).updateCotizacion(
-            created.idfol,
-            {'CLIEN': cliente.idc.toInt()},
-          );
+      final created = await ref
+          .read(cotizacionesApiProvider)
+          .createCotizacionAuto(ter: terminal, suc: suc, opv: opv);
+      await ref.read(cotizacionesApiProvider).updateCotizacion(created.idfol, {
+        'CLIEN': cliente.idc.toInt(),
+      });
       ref.invalidate(cotizacionesListProvider);
       if (!context.mounted) return;
-      context.go('/punto-venta/cotizaciones/${Uri.encodeComponent(created.idfol)}/detalle');
+      context.go(
+        '/punto-venta/cotizaciones/${Uri.encodeComponent(created.idfol)}/detalle',
+      );
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No se pudo crear la cotización o asignar cliente: $e')),
+        SnackBar(
+          content: Text('No se pudo crear la cotización o asignar cliente: $e'),
+        ),
       );
     }
   }
@@ -305,18 +323,17 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
   }) async {
     final sucNormalized = suc.trim().toUpperCase();
     try {
-      final clientes = await ref.read(clientesApiProvider).fetchClientes(
-            suc: sucNormalized,
+      final clientes = await ref
+          .read(clientesApiProvider)
+          .fetchClientes(suc: sucNormalized);
+      final bySuc =
+          clientes.where((c) {
+            return (c.suc ?? '').trim().toUpperCase() == sucNormalized;
+          }).toList()..sort(
+            (a, b) => a.razonSocialReceptor.trim().toLowerCase().compareTo(
+              b.razonSocialReceptor.trim().toLowerCase(),
+            ),
           );
-      final bySuc = clientes.where((c) {
-        return (c.suc ?? '').trim().toUpperCase() == sucNormalized;
-      }).toList()
-        ..sort(
-          (a, b) => a.razonSocialReceptor
-              .trim()
-              .toLowerCase()
-              .compareTo(b.razonSocialReceptor.trim().toLowerCase()),
-        );
 
       if (bySuc.isEmpty) {
         if (!context.mounted) return null;
@@ -333,10 +350,8 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
       if (!context.mounted) return null;
       return showDialog<FactClientShpModel>(
         context: context,
-        builder: (_) => _ClientePickerDialog(
-          clientes: bySuc,
-          suc: sucNormalized,
-        ),
+        builder: (_) =>
+            _ClientePickerDialog(clientes: bySuc, suc: sucNormalized),
       );
     } catch (e) {
       if (!context.mounted) return null;
@@ -376,10 +391,7 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
         .toString()
         .trim();
     final isAdmin = roleId == 1 || username.toUpperCase() == 'ADMIN';
-    final query = CotizacionesPanelQuery(
-      suc: suc,
-      opv: isAdmin ? '' : opv,
-    );
+    final query = CotizacionesPanelQuery(suc: suc, opv: isAdmin ? '' : opv);
 
     ref.read(cotizacionesPanelQueryProvider.notifier).state = query;
     setState(() {
@@ -402,7 +414,9 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
     try {
       final parts = token.split('.');
       if (parts.length != 3) return {};
-      final payload = utf8.decode(base64Url.decode(base64Url.normalize(parts[1])));
+      final payload = utf8.decode(
+        base64Url.decode(base64Url.normalize(parts[1])),
+      );
       return Map<String, dynamic>.from(json.decode(payload) as Map);
     } catch (_) {
       return {};
@@ -478,8 +492,17 @@ class _TopFilters extends ConsumerWidget {
                 onOpvChanged: onOpvChanged,
               )
             else
-              _SmallField(label: 'OPV', controller: opvCtrl, enabled: !hasUserOpv),
-            if (!isAdmin) _SmallField(label: 'Sucursal', controller: sucCtrl, enabled: !hasUserSuc),
+              _SmallField(
+                label: 'OPV',
+                controller: opvCtrl,
+                enabled: !hasUserOpv,
+              ),
+            if (!isAdmin)
+              _SmallField(
+                label: 'Sucursal',
+                controller: sucCtrl,
+                enabled: !hasUserSuc,
+              ),
             if (isAdmin)
               SizedBox(
                 width: 200,
@@ -488,11 +511,17 @@ class _TopFilters extends ConsumerWidget {
                     final items = <DropdownMenuItem<String>>[];
                     for (var i = 0; i < sucursales.length; i++) {
                       final s = sucursales[i];
-                      final label = (s.desc?.trim().isNotEmpty == true) ? '${s.suc} - ${s.desc}' : s.suc;
-                      items.add(DropdownMenuItem(value: s.suc, child: Text(label)));
+                      final label = (s.desc?.trim().isNotEmpty == true)
+                          ? '${s.suc} - ${s.desc}'
+                          : s.suc;
+                      items.add(
+                        DropdownMenuItem(value: s.suc, child: Text(label)),
+                      );
                     }
                     final selected = sucCtrl.text.trim();
-                    final value = items.any((i) => i.value == selected) ? selected : null;
+                    final value = items.any((i) => i.value == selected)
+                        ? selected
+                        : null;
                     return DropdownButtonFormField<String>(
                       initialValue: value,
                       isExpanded: true,
@@ -505,8 +534,16 @@ class _TopFilters extends ConsumerWidget {
                       ),
                     );
                   },
-                  loading: () => _SmallField(label: 'Sucursal', controller: sucCtrl, enabled: false),
-                  error: (e, _) => _SmallField(label: 'Sucursal', controller: sucCtrl, enabled: false),
+                  loading: () => _SmallField(
+                    label: 'Sucursal',
+                    controller: sucCtrl,
+                    enabled: false,
+                  ),
+                  error: (e, _) => _SmallField(
+                    label: 'Sucursal',
+                    controller: sucCtrl,
+                    enabled: false,
+                  ),
                 ),
               ),
             SizedBox(
@@ -539,7 +576,11 @@ class _TopFilters extends ConsumerWidget {
 }
 
 class _SmallField extends StatelessWidget {
-  const _SmallField({required this.label, required this.controller, this.enabled = true});
+  const _SmallField({
+    required this.label,
+    required this.controller,
+    this.enabled = true,
+  });
 
   final String label;
   final TextEditingController controller;
@@ -552,7 +593,11 @@ class _SmallField extends StatelessWidget {
       child: TextField(
         controller: controller,
         enabled: enabled,
-        decoration: InputDecoration(labelText: label, isDense: true, border: const OutlineInputBorder()),
+        decoration: InputDecoration(
+          labelText: label,
+          isDense: true,
+          border: const OutlineInputBorder(),
+        ),
       ),
     );
   }
@@ -588,18 +633,78 @@ class _CotizacionesTable extends StatelessWidget {
               horizontalMargin: 12,
               columnSpacing: 20,
               columns: const [
-                DataColumn(label: Text('SUC', style: TextStyle(fontWeight: FontWeight.w600))),
-                DataColumn(label: Text('OPV', style: TextStyle(fontWeight: FontWeight.w600))),
-                DataColumn(label: Text('OPVM', style: TextStyle(fontWeight: FontWeight.w600))),
-                DataColumn(label: Text('IDFOL', style: TextStyle(fontWeight: FontWeight.w600))),
-                DataColumn(label: Text('IDFOLINICIAL', style: TextStyle(fontWeight: FontWeight.w600))),
-                DataColumn(label: Text('ORIGEN_AUT', style: TextStyle(fontWeight: FontWeight.w600))),
-                DataColumn(label: Text('FCN', style: TextStyle(fontWeight: FontWeight.w600))),
-                DataColumn(label: Text('TRA', style: TextStyle(fontWeight: FontWeight.w600))),
-                DataColumn(label: Text('CLIEN', style: TextStyle(fontWeight: FontWeight.w600))),
-                DataColumn(label: Text('Razón social receptor', style: TextStyle(fontWeight: FontWeight.w600))),
-                DataColumn(label: Text('Estado', style: TextStyle(fontWeight: FontWeight.w600))),
-                DataColumn(label: Text('Importe', style: TextStyle(fontWeight: FontWeight.w600))),
+                DataColumn(
+                  label: Text(
+                    'SUC',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                DataColumn(
+                  label: Text(
+                    'OPV',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                DataColumn(
+                  label: Text(
+                    'OPVM',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                DataColumn(
+                  label: Text(
+                    'IDFOL',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                DataColumn(
+                  label: Text(
+                    'IDFOLINICIAL',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                DataColumn(
+                  label: Text(
+                    'ORIGEN_AUT',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                DataColumn(
+                  label: Text(
+                    'FCN',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                DataColumn(
+                  label: Text(
+                    'TRA',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                DataColumn(
+                  label: Text(
+                    'CLIEN',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                DataColumn(
+                  label: Text(
+                    'Razón social receptor',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                DataColumn(
+                  label: Text(
+                    'Estado',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                DataColumn(
+                  label: Text(
+                    'Importe',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
                 DataColumn(label: SizedBox(width: 36)),
               ],
               rows: cotizaciones.map((c) {
@@ -618,15 +723,21 @@ class _CotizacionesTable extends StatelessWidget {
                     DataCell(_cellText(_formatDate(c.fcn))),
                     DataCell(_cellText(c.tra ?? '-')),
                     DataCell(_cellText(c.clien?.toString() ?? '-')),
-                    DataCell(_cellText(razonSocial.isEmpty ? '-' : razonSocial)),
+                    DataCell(
+                      _cellText(razonSocial.isEmpty ? '-' : razonSocial),
+                    ),
                     DataCell(_cellText(c.esta ?? '-')),
-                    DataCell(_cellText(_formatMoney(c.impt), align: TextAlign.right)),
+                    DataCell(
+                      _cellText(_formatMoney(c.impt), align: TextAlign.right),
+                    ),
                     DataCell(
                       IconButton(
                         tooltip: _isEstadoPendiente(c.esta)
                             ? 'Anular'
                             : 'Disponible solo en PENDIENTE',
-                        onPressed: _isEstadoPendiente(c.esta) ? () => onDelete(c) : null,
+                        onPressed: _isEstadoPendiente(c.esta)
+                            ? () => onDelete(c)
+                            : null,
                         icon: const Icon(Icons.delete_outline, size: 18),
                       ),
                     ),
@@ -668,10 +779,7 @@ class _CotizacionesTable extends StatelessWidget {
 }
 
 class _ClientePickerDialog extends StatefulWidget {
-  const _ClientePickerDialog({
-    required this.clientes,
-    required this.suc,
-  });
+  const _ClientePickerDialog({required this.clientes, required this.suc});
 
   final List<FactClientShpModel> clientes;
   final String suc;
@@ -735,9 +843,7 @@ class _ClientePickerDialogState extends State<_ClientePickerDialog> {
                             dense: true,
                             selected: selected,
                             onTap: () => setState(() => _selected = c),
-                            leading: Radio<double>(
-                              value: c.idc,
-                            ),
+                            leading: Radio<double>(value: c.idc),
                             title: Text(
                               '${c.idc.toInt()} - ${c.razonSocialReceptor}',
                               overflow: TextOverflow.ellipsis,
@@ -780,4 +886,3 @@ class _ClientePickerDialogState extends State<_ClientePickerDialog> {
     }).toList();
   }
 }
-

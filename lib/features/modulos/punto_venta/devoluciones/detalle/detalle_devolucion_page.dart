@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ioe_app/core/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ioe_app/core/api_error.dart';
@@ -7,10 +8,7 @@ import '../devoluciones_models.dart';
 import '../devoluciones_providers.dart';
 
 class DetalleDevolucionPage extends ConsumerStatefulWidget {
-  const DetalleDevolucionPage({
-    super.key,
-    required this.idfolDev,
-  });
+  const DetalleDevolucionPage({super.key, required this.idfolDev});
 
   final String idfolDev;
 
@@ -40,7 +38,7 @@ class _DetalleDevolucionPageState extends ConsumerState<DetalleDevolucionPage> {
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFFF6F2EB), Color(0xFFEFE7DB)],
+            colors: [AppColors.canvas, AppColors.canvasAlt],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -58,10 +56,13 @@ class _DetalleDevolucionPageState extends ConsumerState<DetalleDevolucionPage> {
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (!mounted) return;
                 ref
-                    .read(
-                      devolucionSelectedLineIdsProvider(widget.idfolDev).notifier,
-                    )
-                    .state = normalizedSelectedIds;
+                        .read(
+                          devolucionSelectedLineIdsProvider(
+                            widget.idfolDev,
+                          ).notifier,
+                        )
+                        .state =
+                    normalizedSelectedIds;
               });
             }
             final selectedCount = detail.lines
@@ -83,15 +84,14 @@ class _DetalleDevolucionPageState extends ConsumerState<DetalleDevolucionPage> {
             return RefreshIndicator(
               onRefresh: () async {
                 ref.invalidate(devolucionDetalleProvider(widget.idfolDev));
-                await ref.read(devolucionDetalleProvider(widget.idfolDev).future);
+                await ref.read(
+                  devolucionDetalleProvider(widget.idfolDev).future,
+                );
               },
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
-                  _HeaderCard(
-                    header: detail.header,
-                    summary: detail.summary,
-                  ),
+                  _HeaderCard(header: detail.header, summary: detail.summary),
                   const SizedBox(height: 12),
                   Wrap(
                     spacing: 10,
@@ -108,9 +108,9 @@ class _DetalleDevolucionPageState extends ConsumerState<DetalleDevolucionPage> {
                         onPressed: _loadingAction || selectedCount == 0
                             ? null
                             : () => _devolverSeleccionados(
-                                  detail,
-                                  normalizedSelectedIds,
-                                ),
+                                detail,
+                                normalizedSelectedIds,
+                              ),
                         icon: const Icon(Icons.checklist_rtl_outlined),
                         label: selectedCount > 0
                             ? Text('Devolver seleccionados ($selectedCount)')
@@ -120,14 +120,15 @@ class _DetalleDevolucionPageState extends ConsumerState<DetalleDevolucionPage> {
                         onPressed:
                             !_loadingAction && detail.summary.linesSelected > 0
                             ? () => context.go(
-                                  '/punto-venta/devoluciones/${Uri.encodeComponent(widget.idfolDev)}/detalle',
-                                )
+                                '/punto-venta/devoluciones/${Uri.encodeComponent(widget.idfolDev)}/detalle',
+                              )
                             : null,
                         icon: const Icon(Icons.payments_outlined),
                         label: const Text('Ir Detalle devolución'),
                       ),
                       OutlinedButton.icon(
-                        onPressed: () => context.go('/punto-venta/devoluciones'),
+                        onPressed: () =>
+                            context.go('/punto-venta/devoluciones'),
                         icon: const Icon(Icons.arrow_back),
                         label: const Text('Regresar'),
                       ),
@@ -179,12 +180,15 @@ class _DetalleDevolucionPageState extends ConsumerState<DetalleDevolucionPage> {
     try {
       await ref.read(devolucionesApiProvider).devolverTodo(widget.idfolDev);
       ref
-          .read(devolucionSelectedLineIdsProvider(widget.idfolDev).notifier)
-          .state = <String>{};
+              .read(devolucionSelectedLineIdsProvider(widget.idfolDev).notifier)
+              .state =
+          <String>{};
       ref.invalidate(devolucionDetalleProvider(widget.idfolDev));
     } catch (e) {
       if (!mounted) return;
-      _showError(apiErrorMessage(e, fallback: 'No se pudo aplicar Devolver TODO'));
+      _showError(
+        apiErrorMessage(e, fallback: 'No se pudo aplicar Devolver TODO'),
+      );
     } finally {
       if (mounted) {
         setState(() => _loadingAction = false);
@@ -238,13 +242,17 @@ class _DetalleDevolucionPageState extends ConsumerState<DetalleDevolucionPage> {
         );
       }
       ref
-          .read(devolucionSelectedLineIdsProvider(widget.idfolDev).notifier)
-          .state = <String>{};
+              .read(devolucionSelectedLineIdsProvider(widget.idfolDev).notifier)
+              .state =
+          <String>{};
       ref.invalidate(devolucionDetalleProvider(widget.idfolDev));
     } catch (e) {
       if (!mounted) return;
       _showError(
-        apiErrorMessage(e, fallback: 'No se pudo aplicar Devolver seleccionados'),
+        apiErrorMessage(
+          e,
+          fallback: 'No se pudo aplicar Devolver seleccionados',
+        ),
       );
     } finally {
       if (mounted) {
@@ -317,7 +325,9 @@ class _DetalleDevolucionPageState extends ConsumerState<DetalleDevolucionPage> {
             });
             var closed = false;
             try {
-              await ref.read(devolucionesApiProvider).updateCtdd(
+              await ref
+                  .read(devolucionesApiProvider)
+                  .updateCtdd(
                     idfolDev: widget.idfolDev,
                     lineId: line.id,
                     ctdd: clear ? null : double.parse(ctrl.text.trim()),
@@ -361,7 +371,9 @@ class _DetalleDevolucionPageState extends ConsumerState<DetalleDevolucionPage> {
                   TextField(
                     controller: ctrl,
                     enabled: !submitting,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
                     decoration: const InputDecoration(
                       labelText: 'CTDD',
                       border: OutlineInputBorder(),
@@ -427,10 +439,7 @@ class _DetalleDevolucionPageState extends ConsumerState<DetalleDevolucionPage> {
 }
 
 class _HeaderCard extends StatelessWidget {
-  const _HeaderCard({
-    required this.header,
-    required this.summary,
-  });
+  const _HeaderCard({required this.header, required this.summary});
 
   final DevolucionDetalleHeader header;
   final DevolucionDetalleSummary summary;
@@ -580,22 +589,25 @@ class _LinesTable extends StatelessWidget {
               separatorBuilder: (_, _) => const Divider(height: 1),
               itemBuilder: (_, index) {
                 final line = lines[index];
-                final isSelectable =
-                    selectionEnabled && isLineSelectable(line);
+                final isSelectable = selectionEnabled && isLineSelectable(line);
                 final isSelected = selectedIds.contains(line.id);
                 return Container(
                   color: line.ordBloqueante
                       ? Colors.red.withValues(alpha: 0.06)
                       : null,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 7,
+                  ),
                   child: Row(
                     children: [
                       SizedBox(
                         width: 56,
                         child: Checkbox(
                           value: isSelected,
-                          onChanged:
-                              isSelectable ? (_) => onToggleSelected(line) : null,
+                          onChanged: isSelectable
+                              ? (_) => onToggleSelected(line)
+                              : null,
                         ),
                       ),
                       SizedBox(
@@ -605,9 +617,18 @@ class _LinesTable extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      SizedBox(width: 85, child: Text(line.ctd.toStringAsFixed(3))),
-                      SizedBox(width: 85, child: Text('\$${line.pvta.toStringAsFixed(2)}')),
-                      SizedBox(width: 95, child: Text('\$${line.pvtat.toStringAsFixed(2)}')),
+                      SizedBox(
+                        width: 85,
+                        child: Text(line.ctd.toStringAsFixed(3)),
+                      ),
+                      SizedBox(
+                        width: 85,
+                        child: Text('\$${line.pvta.toStringAsFixed(2)}'),
+                      ),
+                      SizedBox(
+                        width: 95,
+                        child: Text('\$${line.pvtat.toStringAsFixed(2)}'),
+                      ),
                       SizedBox(
                         width: 130,
                         child: Text(
@@ -616,8 +637,12 @@ class _LinesTable extends StatelessWidget {
                               : (line.ord ?? '-'),
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            color: line.ordBloqueante ? Colors.red.shade700 : null,
-                            fontWeight: line.ordBloqueante ? FontWeight.w700 : null,
+                            color: line.ordBloqueante
+                                ? Colors.red.shade700
+                                : null,
+                            fontWeight: line.ordBloqueante
+                                ? FontWeight.w700
+                                : null,
                           ),
                         ),
                       ),
@@ -631,7 +656,9 @@ class _LinesTable extends StatelessWidget {
                       SizedBox(
                         width: 100,
                         child: Text(
-                          line.ctdd == null ? '-' : line.ctdd!.toStringAsFixed(3),
+                          line.ctdd == null
+                              ? '-'
+                              : line.ctdd!.toStringAsFixed(3),
                           style: const TextStyle(fontWeight: FontWeight.w700),
                         ),
                       ),
@@ -654,7 +681,3 @@ class _LinesTable extends StatelessWidget {
     );
   }
 }
-
-
-
-

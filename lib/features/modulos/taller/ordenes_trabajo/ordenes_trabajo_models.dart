@@ -479,6 +479,10 @@ class OrdenTrabajoCambioMermaContext {
     required this.totalNuevo,
     required this.diferenciaEconomica,
     required this.generaAfectacionContable,
+    required this.originalPriceSource,
+    required this.originalPriceWarning,
+    required this.newPriceSource,
+    required this.priceDifferenceMessage,
     required this.original,
     required this.draft,
   });
@@ -503,6 +507,10 @@ class OrdenTrabajoCambioMermaContext {
   final double totalNuevo;
   final double diferenciaEconomica;
   final bool generaAfectacionContable;
+  final String originalPriceSource;
+  final String originalPriceWarning;
+  final String newPriceSource;
+  final String priceDifferenceMessage;
   final Map<String, dynamic> original;
   final Map<String, dynamic> draft;
 
@@ -530,6 +538,10 @@ class OrdenTrabajoCambioMermaContext {
       totalNuevo: _toDouble(json['totalNuevo']) ?? 0,
       diferenciaEconomica: _toDouble(json['diferenciaEconomica']) ?? 0,
       generaAfectacionContable: json['generaAfectacionContable'] == true,
+      originalPriceSource: _toText(json['originalPriceSource']) ?? '',
+      originalPriceWarning: _toText(json['originalPriceWarning']) ?? '',
+      newPriceSource: _toText(json['newPriceSource']) ?? '',
+      priceDifferenceMessage: _toText(json['priceDifferenceMessage']) ?? '',
       original: rawOriginal is Map
           ? Map<String, dynamic>.from(rawOriginal)
           : <String, dynamic>{},

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:dio/dio.dart';
+import 'package:ioe_app/core/app_theme.dart';
 
 import '../../../../../core/auth/auth_controller.dart';
 import '../../domain/merma_models.dart';
@@ -728,7 +729,7 @@ class _CabecerasPanel extends StatelessWidget {
             children: [
               const Row(
                 children: [
-                  Icon(Icons.list_alt, color: Colors.teal),
+                  Icon(Icons.list_alt, color: AppColors.navyLight),
                   SizedBox(width: 8),
                   Expanded(
                     child: Text(

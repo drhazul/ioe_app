@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, kReleaseMode;
 
 import 'core/auth/auth_controller.dart';
+import 'core/app_theme.dart';
 import 'core/router.dart';
 import 'core/env.dart';
 
@@ -14,7 +15,6 @@ Future<void> main() async {
   // evita warnings de AssetManifest.json cuando el manifest no está disponible.
   if (kReleaseMode) {
     await dotenv.load(fileName: 'assets/.env');
-
   }
 
   // Health check to validate backend connectivity early and provide
@@ -38,7 +38,7 @@ Future<void> _checkBackendHealth() async {
       'Backend health OK (${Env.apiBaseUrl}/health) -> status: ${res.statusCode}',
     );
   } on DioException catch (e) {
-    // Provide helpful hint messages for debugging common issues  
+    // Provide helpful hint messages for debugging common issues
     // ignore: avoid_print
     print('Backend health check FAILED for ${Env.apiBaseUrl}/health');
     // ignore: avoid_print
@@ -75,9 +75,14 @@ class MyApp extends ConsumerWidget {
     final router = ref.watch(routerProvider);
     final authController = ref.read(authControllerProvider.notifier);
     const appFontSize = 11.0;
-    final baseTheme = ThemeData(useMaterial3: true);
+    final baseTheme = ThemeData(
+      useMaterial3: true,
+      colorScheme: appColorScheme,
+      scaffoldBackgroundColor: AppColors.canvas,
+      fontFamily: 'Roboto',
+    );
     final textTheme = _fixedFontSizeTextTheme(baseTheme.textTheme, appFontSize);
-    const appBarColor = Color(0xFF148D8D);
+    const appBarColor = AppColors.navy;
     final appBarTitleStyle = textTheme.titleLarge?.copyWith(
       color: Colors.white,
     );
@@ -103,6 +108,47 @@ class MyApp extends ConsumerWidget {
       inputDecorationTheme: baseTheme.inputDecorationTheme.copyWith(
         labelStyle: textTheme.bodySmall,
         hintStyle: textTheme.bodySmall,
+        filled: true,
+        fillColor: Colors.white,
+        enabledBorder: const OutlineInputBorder(
+          borderSide: BorderSide(color: AppColors.border),
+        ),
+        focusedBorder: const OutlineInputBorder(
+          borderSide: BorderSide(color: AppColors.navy, width: 1.5),
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: AppColors.navy,
+          foregroundColor: Colors.white,
+        ),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.navy,
+          foregroundColor: Colors.white,
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppColors.navy,
+          side: const BorderSide(color: AppColors.steel),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(foregroundColor: AppColors.navy),
+      ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: AppColors.navy,
+        foregroundColor: Colors.white,
+      ),
+      dividerTheme: const DividerThemeData(color: AppColors.border),
+      progressIndicatorTheme: const ProgressIndicatorThemeData(
+        color: AppColors.navy,
+      ),
+      snackBarTheme: const SnackBarThemeData(
+        backgroundColor: AppColors.navy,
+        contentTextStyle: TextStyle(color: Colors.white),
       ),
       dataTableTheme: DataTableThemeData(
         dataTextStyle: textTheme.bodySmall,

@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:ioe_app/core/app_theme.dart';
 
 import '../../../../../core/auth/auth_controller.dart';
 import '../../../../../core/storage.dart';
@@ -595,7 +596,7 @@ class _TransferNotificationsDialog extends ConsumerWidget {
       case 'TRANSITO':
         return Colors.blue.shade700;
       default:
-        return Colors.teal.shade700;
+        return AppColors.navyLight;
     }
   }
 }

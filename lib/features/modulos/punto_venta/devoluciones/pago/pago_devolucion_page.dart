@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:ioe_app/core/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ioe_app/core/api_error.dart';
@@ -68,7 +69,7 @@ class _PagoDevolucionPageState extends ConsumerState<PagoDevolucionPage> {
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFFF6F2EB), Color(0xFFEFE7DB)],
+            colors: [AppColors.canvas, AppColors.canvasAlt],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),

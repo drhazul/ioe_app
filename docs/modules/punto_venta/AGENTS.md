@@ -156,6 +156,7 @@ Enlaces relacionados:
 - Ajuste funcional: al entrar/reingresar a la pagina de pago se vuelve a recalcular preview/totales (sin reutilizar inicializacion previa), respetando `tipotran`/`rqfac` y reglas de IVA del backend.
 - Ajuste funcional: si el folio ya esta `PAGADO/MB51PROCES`, la pagina de pago rehidrata formas persistidas con `GET /pv/cotizaciones/:idfol/cierre/print-preview` para mostrar `Pagos/Faltante/Cambio` correctos.
 - Importe aplicado por forma (2026-07-22): frontend conserva `IMPP` para `Pagos/Cambio` y consume `IMPD` separado para voucher/soporte; `IMPD` representa `IMPP-IMPC`.
+- Comprobantes PS (2026-07-24): la UI mantiene cada comprobante por separado; la duplicación reportada en entrega no se origina en frontend y se corrige en la SP de finalización + resincronización de Caja General.
 - Persistencia `RQFAC`: al activar/desactivar el switch en pago se actualiza `PV_CTR_FOL_ASVR.REQF` por `IDFOL` via `PATCH /pvctrfolasvr/:idfol`.
 - Foliado visible: al finalizar cierre la pantalla adopta el `IDFOL` actual devuelto por backend (`SUC-YYYYMMDD-CA|VF-####`) para AppBar, impresión y salida a `MB51PROCES`; la ruta sigue siendo compatible por `IDFOLINICIAL`.
 - Reingreso a pago: `DetalleCotPage` abre pago tomando `rqfac` desde `cierre/context` (backend) para evitar usar valores stale de la grilla local.

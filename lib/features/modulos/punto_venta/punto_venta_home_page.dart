@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:ioe_app/core/app_theme.dart';
 
 class PuntoVentaHomePage extends StatelessWidget {
   const PuntoVentaHomePage({super.key});
@@ -13,7 +14,7 @@ class PuntoVentaHomePage extends StatelessWidget {
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFFF6F2EB), Color(0xFFEFE7DB)],
+            colors: [AppColors.canvas, AppColors.canvasAlt],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -53,20 +54,20 @@ class PuntoVentaHomePage extends StatelessWidget {
             title: 'Panel cotizaciones',
             subtitle: 'Pendientes, aprobadas y vencidas',
             icon: Icons.dashboard,
-            tone: const Color(0xFFB25D18),
+            tone: AppColors.navyLight,
             route: '/punto-venta/cotizaciones',
           ),
           _PvOption(
             title: 'Visualizar catalogo',
             subtitle: 'Busca y compara productos',
             icon: Icons.menu_book,
-            tone: const Color(0xFFDAA15A),
+            tone: AppColors.steel,
           ),
           _PvOption(
             title: 'Nuevo cliente',
             subtitle: 'Registro rapido y datos fiscales',
             icon: Icons.person_add_alt_1,
-            tone: const Color(0xFF8E4D1B),
+            tone: AppColors.navyMid,
             route: '/punto-venta/clientes',
           ),
         ],
@@ -79,7 +80,7 @@ class PuntoVentaHomePage extends StatelessWidget {
             title: 'Panel devoluciones',
             subtitle: 'Historial y estatus',
             icon: Icons.rule_folder,
-            tone: const Color(0xFF4A7A6C),
+            tone: AppColors.steel,
             route: '/punto-venta/devoluciones',
           ),
         ],
@@ -92,14 +93,14 @@ class PuntoVentaHomePage extends StatelessWidget {
             title: 'Panel de servicios',
             subtitle: 'Consulta y administra servicios',
             icon: Icons.view_list,
-            tone: const Color(0xFF2B5F63),
+            tone: AppColors.navyLight,
             route: '/ps',
           ),
           _PvOption(
             title: 'Panel de apartados',
             subtitle: 'Estatus y liberaciones',
             icon: Icons.bookmarks,
-            tone: const Color(0xFF4A9AA0),
+            tone: AppColors.steel,
           ),
         ],
       ),

@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ioe_app/core/api_error.dart';
+import 'package:ioe_app/core/app_theme.dart';
 import 'package:ioe_app/core/dio_provider.dart';
 import 'package:ioe_app/features/modulos/catalogo/datart_models.dart';
 import 'package:ioe_app/features/modulos/catalogo/datart_providers.dart';
@@ -207,7 +208,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
             onPressed: _reload,
             style: IconButton.styleFrom(
               backgroundColor: Colors.white,
-              foregroundColor: Colors.teal.shade900,
+              foregroundColor: AppColors.navy,
             ),
             icon: const Icon(Icons.refresh),
           ),
@@ -216,7 +217,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFFF7F3EC), Color(0xFFEFE6DA)],
+            colors: [AppColors.canvas, AppColors.canvasAlt],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -551,7 +552,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
   ButtonStyle _appBarActionButtonStyle() {
     return TextButton.styleFrom(
       backgroundColor: Colors.white,
-      foregroundColor: Colors.teal.shade900,
+      foregroundColor: AppColors.navy,
       disabledBackgroundColor: Colors.white24,
       disabledForegroundColor: Colors.white70,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -3634,7 +3635,9 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
           ),
           row('Laboratorio', _textOf(draft['LABOR'])),
           row('PVTAT base', _money(_toNum(original['PVTAT_BASE']) ?? 0)),
+          row('Origen precio original', contextData.originalPriceSource),
           row('PVTA nuevo', _money(_toNum(draft['PVTA']) ?? 0)),
+          row('Origen precio nuevo', contextData.newPriceSource),
           row('Subtotal original', _money(contextData.subtotalOriginal)),
           row('IVA original', _money(contextData.ivaOriginal)),
           row('Total original', _money(contextData.totalOriginal)),
@@ -3660,6 +3663,16 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
             'Diferencia económica autorizada',
             _money(contextData.diferenciaEconomica),
           ),
+          if (contextData.priceDifferenceMessage.trim().isNotEmpty)
+            row(
+              'Motivo de diferencia',
+              contextData.priceDifferenceMessage.trim(),
+            ),
+          if (contextData.originalPriceWarning.trim().isNotEmpty)
+            row(
+              'Advertencia de precio',
+              contextData.originalPriceWarning.trim(),
+            ),
           row('REEORD original', _textOf(original['REEORD'])),
           row('Autorizó', _textOf(original['USR_AUT_CYM'])),
           row('Fecha autorización', _fmtDate(_toDate(original['FCN_AUT_CYM']))),
@@ -5687,7 +5700,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     }
     double? selectedPvtaNuevo =
         _toNum(draft['PVTA'])?.toDouble() ??
-        _toNum(original['PVTAT_BASE'])?.toDouble();
+        _toNum(original['PVTA_UNITARIO_BASE'])?.toDouble();
     bool processingArticulo = false;
     bool submitting = false;
     bool dirty = false;
@@ -5709,7 +5722,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
           : updatedCtdOptions.first;
       selectedPvtaNuevo =
           _toNum(updated.draft['PVTA'])?.toDouble() ??
-          _toNum(updated.original['PVTAT_BASE'])?.toDouble();
+          _toNum(updated.original['PVTA_UNITARIO_BASE'])?.toDouble();
       artNuevoCtrl.text = _textOf(updated.draft['ART']);
       upcNuevoCtrl.text = _textOf(updated.draft['UPC']);
       desNuevoCtrl.text = _textOf(updated.draft['DES']);
@@ -5829,7 +5842,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
           final pvtaCaptura =
               _toNum(draft['PVTA']) ??
               selectedPvtaNuevo ??
-              _toNum(original['PVTAT_BASE']) ??
+              _toNum(original['PVTA_UNITARIO_BASE']) ??
               0;
 
           Widget roField(String label, String value, {int maxLines = 1}) {
@@ -5863,7 +5876,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                             'Nueva ORD (captura)',
                             style: TextStyle(
                               fontWeight: FontWeight.w700,
-                              color: Colors.teal.shade900,
+                              color: AppColors.navy,
                             ),
                           ),
                           const SizedBox(height: 6),
@@ -5873,7 +5886,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                               style: TextStyle(
                                 color: cmContext.blockedByAuthorization
                                     ? Colors.orange.shade800
-                                    : Colors.teal.shade700,
+                                    : AppColors.navyLight,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -5902,7 +5915,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                             Text(
                               'NVA_IORD reservada: $nvaIord',
                               style: TextStyle(
-                                color: Colors.teal.shade700,
+                                color: AppColors.navyLight,
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
@@ -6032,6 +6045,13 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                                   ),
                                 ),
                                 SizedBox(
+                                  width: 170,
+                                  child: roField(
+                                    'Origen precio',
+                                    cmContext.newPriceSource,
+                                  ),
+                                ),
+                                SizedBox(
                                   width: 140,
                                   child: roField(
                                     'TIPO',
@@ -6075,6 +6095,20 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                                         ),
                                 ),
                               ],
+                            ),
+                          if (hasStagingRecord &&
+                              cmContext.priceDifferenceMessage
+                                  .trim()
+                                  .isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Text(
+                                cmContext.priceDifferenceMessage.trim(),
+                                style: TextStyle(
+                                  color: Colors.orange.shade900,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
                             ),
                           if (hasStagingRecord) const SizedBox(height: 10),
                           if (hasStagingRecord)
@@ -6299,9 +6333,27 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                                     _money(cmContext.totalOriginal),
                                   ),
                                 ),
+                                SizedBox(
+                                  width: 160,
+                                  child: roField(
+                                    'Origen precio',
+                                    cmContext.originalPriceSource,
+                                  ),
+                                ),
                               ],
                             ),
                           ),
+                          if (cmContext.originalPriceWarning.trim().isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Text(
+                                cmContext.originalPriceWarning.trim(),
+                                style: TextStyle(
+                                  color: Colors.orange.shade900,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
                           roField(
                             'Comentarios',
                             _textOf(
@@ -6544,13 +6596,6 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                               );
                               return;
                             }
-                            if (artNuevo.toUpperCase() ==
-                                artOriginal.toUpperCase()) {
-                              _showError(
-                                'El artículo nuevo debe ser distinto al artículo original.',
-                              );
-                              return;
-                            }
                           }
                           final confirm = await _confirmCambioEstatus(
                             title: 'Solicitar autorización',
@@ -6566,7 +6611,9 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                           final pvtaNuevoValue =
                               selectedPvtaNuevo ??
                               _toNum(draft['PVTA'])?.toDouble() ??
-                              _toNum(original['PVTAT_BASE'])?.toDouble();
+                              _toNum(
+                                original['PVTA_UNITARIO_BASE'],
+                              )?.toDouble();
                           setDialogState(() => submitting = true);
                           try {
                             final updated = await api

@@ -100,3 +100,4 @@
 - Cambio material / Merma (2026-04-22): la nueva ORD derivada debe quedar sin colaborador asignado y la UI/PDF deben mostrar la diferencia contable real basada en `CTD_C_M`/importe sellado, no la diferencia por `CTD` completa.
 - Cambio material / Merma (2026-07-09): la captura muestra `Cantidad` para la nueva ORD desde `draft.CTD` y debe coincidir con `CTD_C_M`; si `CTD_C_M=0.5`, la nueva ORD no debe mostrarse ni guardarse como 1 pieza.
 - Cambio material / Merma (2026-07-09): `Autorizar` debe mostrar mensaje específico de asentamiento si API responde error genérico; backend corrige colisión de `DAT_CTR_DOC.DOC` en diferencia contable.
+- Cambio material / Merma (2026-07-24): se permite seleccionar misma ART. Siempre se evalúa diferencia entre base histórica afectada y catálogo actual; UI/PDF muestran origen del precio, advertencia de fallback y mensaje de precio modificado en PV cuando corresponda. `PVTA_UNITARIO_BASE` nunca debe sustituirse por `PVTAT_BASE`.

@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:ioe_app/core/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ioe_app/core/api_error.dart';
@@ -48,9 +49,7 @@ class _PsPanelPageState extends ConsumerState<PsPanelPage> {
   @override
   Widget build(BuildContext context) {
     if (!_contextReady) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     final isAdmin = _isAdmin;
@@ -79,7 +78,7 @@ class _PsPanelPageState extends ConsumerState<PsPanelPage> {
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFFF6F2EB), Color(0xFFEFE7DB)],
+            colors: [AppColors.canvas, AppColors.canvasAlt],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -99,7 +98,8 @@ class _PsPanelPageState extends ConsumerState<PsPanelPage> {
                   sucCtrl: _sucCtrl,
                   opvCtrl: _opvCtrl,
                   selectedOpv: _opvCtrl.text.trim(),
-                  onOpvChanged: (value) => setState(() => _opvCtrl.text = value?.trim() ?? ''),
+                  onOpvChanged: (value) =>
+                      setState(() => _opvCtrl.text = value?.trim() ?? ''),
                   onSearch: _applyFilters,
                   onClear: _clearFilters,
                   onSucChanged: (value) => setState(() {
@@ -115,11 +115,9 @@ class _PsPanelPageState extends ConsumerState<PsPanelPage> {
                     setState(() => _selected = item);
                     final estado = (item.esta ?? '').trim().toUpperCase();
                     final idfol = Uri.encodeComponent(item.idfol);
-                    if (
-                      estado == 'PAGADO' ||
-                      estado == 'CERRADO_PS' ||
-                      estado == 'TRANSMITIR'
-                    ) {
+                    if (estado == 'PAGADO' ||
+                        estado == 'CERRADO_PS' ||
+                        estado == 'TRANSMITIR') {
                       context.go('/ps/$idfol/pago');
                       return;
                     }
@@ -177,10 +175,18 @@ class _PsPanelPageState extends ConsumerState<PsPanelPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Nuevo Pago de Servicios'),
-        content: const Text('¿Deseas crear un nuevo folio de Pago de Servicios?'),
+        content: const Text(
+          '¿Deseas crear un nuevo folio de Pago de Servicios?',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancelar')),
-          FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Crear')),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Crear'),
+          ),
         ],
       ),
     );
@@ -194,7 +200,9 @@ class _PsPanelPageState extends ConsumerState<PsPanelPage> {
 
     if (suc.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Debe capturar sucursal para crear el folio.')),
+        const SnackBar(
+          content: Text('Debe capturar sucursal para crear el folio.'),
+        ),
       );
       return;
     }
@@ -206,17 +214,17 @@ class _PsPanelPageState extends ConsumerState<PsPanelPage> {
     }
 
     try {
-      final created = await ref.read(psApiProvider).createFolio(
-            suc: suc,
-            ter: ter.isEmpty ? null : ter,
-            opv: opv,
-          );
+      final created = await ref
+          .read(psApiProvider)
+          .createFolio(suc: suc, ter: ter.isEmpty ? null : ter, opv: opv);
       final idfol = (created['IDFOL']?.toString() ?? '').trim();
       ref.invalidate(psFoliosProvider);
       if (!mounted) return;
       if (idfol.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No se recibió IDFOL al crear el folio.')),
+          const SnackBar(
+            content: Text('No se recibió IDFOL al crear el folio.'),
+          ),
         );
         return;
       }
@@ -224,7 +232,11 @@ class _PsPanelPageState extends ConsumerState<PsPanelPage> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(apiErrorMessage(e, fallback: 'No se pudo crear folio PS'))),
+        SnackBar(
+          content: Text(
+            apiErrorMessage(e, fallback: 'No se pudo crear folio PS'),
+          ),
+        ),
       );
     }
   }
@@ -251,10 +263,9 @@ class _PsPanelPageState extends ConsumerState<PsPanelPage> {
     if (confirm != true) return;
 
     try {
-      await ref.read(psApiProvider).updateEstado(
-            idFol: item.idfol,
-            esta: 'ANULADO',
-          );
+      await ref
+          .read(psApiProvider)
+          .updateEstado(idFol: item.idfol, esta: 'ANULADO');
       if (!mounted) return;
       setState(() => _selected = null);
       ref.invalidate(psFoliosProvider);
@@ -287,14 +298,12 @@ class _PsPanelPageState extends ConsumerState<PsPanelPage> {
         .toString()
         .trim();
     final suc = (payload['suc'] ?? payload['SUC'] ?? '').toString().trim();
-    final opv = (payload['opv'] ?? payload['OPV'] ?? payload['username'] ?? '').toString().trim();
+    final opv = (payload['opv'] ?? payload['OPV'] ?? payload['username'] ?? '')
+        .toString()
+        .trim();
     final isAdmin = roleId == 1 || username.toUpperCase() == 'ADMIN';
 
-    final query = PsPanelQuery(
-      suc: suc,
-      opv: isAdmin ? '' : opv,
-      search: '',
-    );
+    final query = PsPanelQuery(suc: suc, opv: isAdmin ? '' : opv, search: '');
 
     ref.read(psPanelQueryProvider.notifier).state = query;
     setState(() {
@@ -316,7 +325,9 @@ class _PsPanelPageState extends ConsumerState<PsPanelPage> {
     try {
       final parts = token.split('.');
       if (parts.length != 3) return {};
-      final payload = utf8.decode(base64Url.decode(base64Url.normalize(parts[1])));
+      final payload = utf8.decode(
+        base64Url.decode(base64Url.normalize(parts[1])),
+      );
       return Map<String, dynamic>.from(json.decode(payload) as Map);
     } catch (_) {
       return {};
@@ -387,14 +398,16 @@ class _PsTopFilters extends ConsumerWidget {
                 child: sucAsync!.when(
                   data: (sucursales) {
                     final items = sucursales
-                        .map((s) => DropdownMenuItem<String>(
-                              value: s.suc,
-                              child: Text(
-                                (s.desc?.trim().isNotEmpty == true)
-                                    ? '${s.suc} - ${s.desc}'
-                                    : s.suc,
-                              ),
-                            ))
+                        .map(
+                          (s) => DropdownMenuItem<String>(
+                            value: s.suc,
+                            child: Text(
+                              (s.desc?.trim().isNotEmpty == true)
+                                  ? '${s.suc} - ${s.desc}'
+                                  : s.suc,
+                            ),
+                          ),
+                        )
                         .toList();
                     final selected = sucCtrl.text.trim();
                     final value = items.any((item) => item.value == selected)
@@ -425,7 +438,11 @@ class _PsTopFilters extends ConsumerWidget {
                 ),
               )
             else
-              _SmallField(label: 'Sucursal', controller: sucCtrl, enabled: false),
+              _SmallField(
+                label: 'Sucursal',
+                controller: sucCtrl,
+                enabled: false,
+              ),
             if (isAdmin)
               AdminOpvSelector(
                 suc: sucCtrl.text,
@@ -487,15 +504,69 @@ class _PsPanelTable extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             child: const Row(
               children: [
-                SizedBox(width: 220, child: Text('IDFOL', style: TextStyle(fontWeight: FontWeight.w600))),
-                SizedBox(width: 220, child: Text('IDFOLINICIAL', style: TextStyle(fontWeight: FontWeight.w600))),
-                SizedBox(width: 90, child: Text('SUC', style: TextStyle(fontWeight: FontWeight.w600))),
-                SizedBox(width: 140, child: Text('OPV', style: TextStyle(fontWeight: FontWeight.w600))),
-                SizedBox(width: 130, child: Text('ESTA', style: TextStyle(fontWeight: FontWeight.w600))),
-                SizedBox(width: 120, child: Text('AUT', style: TextStyle(fontWeight: FontWeight.w600))),
-                SizedBox(width: 120, child: Text('ORIGEN_AUT', style: TextStyle(fontWeight: FontWeight.w600))),
-                SizedBox(width: 120, child: Text('IMPT', style: TextStyle(fontWeight: FontWeight.w600))),
-                SizedBox(width: 260, child: Text('Cliente', style: TextStyle(fontWeight: FontWeight.w600))),
+                SizedBox(
+                  width: 220,
+                  child: Text(
+                    'IDFOL',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                SizedBox(
+                  width: 220,
+                  child: Text(
+                    'IDFOLINICIAL',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                SizedBox(
+                  width: 90,
+                  child: Text(
+                    'SUC',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                SizedBox(
+                  width: 140,
+                  child: Text(
+                    'OPV',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                SizedBox(
+                  width: 130,
+                  child: Text(
+                    'ESTA',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                SizedBox(
+                  width: 120,
+                  child: Text(
+                    'AUT',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                SizedBox(
+                  width: 120,
+                  child: Text(
+                    'ORIGEN_AUT',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                SizedBox(
+                  width: 120,
+                  child: Text(
+                    'IMPT',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                SizedBox(
+                  width: 260,
+                  child: Text(
+                    'Cliente',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
                 SizedBox(width: 44, child: Text('')),
               ],
             ),
@@ -514,16 +585,46 @@ class _PsPanelTable extends StatelessWidget {
                   onTap: () => onSelect(item),
                   child: Container(
                     color: selectedRow ? Colors.blue.shade50 : null,
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 7,
+                    ),
                     child: Row(
                       children: [
-                        SizedBox(width: 220, child: Text(item.idfol, overflow: TextOverflow.ellipsis)),
-                        SizedBox(width: 220, child: Text(item.idfolinicial ?? '-', overflow: TextOverflow.ellipsis)),
+                        SizedBox(
+                          width: 220,
+                          child: Text(
+                            item.idfol,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        SizedBox(
+                          width: 220,
+                          child: Text(
+                            item.idfolinicial ?? '-',
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                         SizedBox(width: 90, child: Text(item.suc ?? '-')),
-                        SizedBox(width: 140, child: Text(item.opv ?? '-', overflow: TextOverflow.ellipsis)),
-                        SizedBox(width: 130, child: Text(item.esta ?? '-', overflow: TextOverflow.ellipsis)),
+                        SizedBox(
+                          width: 140,
+                          child: Text(
+                            item.opv ?? '-',
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        SizedBox(
+                          width: 130,
+                          child: Text(
+                            item.esta ?? '-',
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                         SizedBox(width: 120, child: Text(item.aut ?? '-')),
-                        SizedBox(width: 120, child: Text((item.origenAut ?? '-').toUpperCase())),
+                        SizedBox(
+                          width: 120,
+                          child: Text((item.origenAut ?? '-').toUpperCase()),
+                        ),
                         SizedBox(width: 120, child: Text(_money(item.impt))),
                         SizedBox(
                           width: 260,
@@ -591,4 +692,3 @@ class _SmallField extends StatelessWidget {
     );
   }
 }
-

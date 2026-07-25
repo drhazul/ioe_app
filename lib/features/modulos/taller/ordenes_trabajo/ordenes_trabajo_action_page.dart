@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:ioe_app/core/app_theme.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -75,7 +76,7 @@ class _OrdenesTrabajoActionPageState
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFFF7F3EC), Color(0xFFEFE6DA)],
+            colors: [AppColors.canvas, AppColors.canvasAlt],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),

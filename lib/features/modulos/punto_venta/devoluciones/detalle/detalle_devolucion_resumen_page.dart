@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ioe_app/core/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -6,16 +7,15 @@ import '../devoluciones_models.dart';
 import '../devoluciones_providers.dart';
 
 class DetalleDevolucionResumenPage extends ConsumerWidget {
-  const DetalleDevolucionResumenPage({
-    super.key,
-    required this.idfolDev,
-  });
+  const DetalleDevolucionResumenPage({super.key, required this.idfolDev});
 
   final String idfolDev;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final detalleAsync = ref.watch(devolucionDetallePreparadoProvider(idfolDev));
+    final detalleAsync = ref.watch(
+      devolucionDetallePreparadoProvider(idfolDev),
+    );
     final appBarCanIrPago = detalleAsync.maybeWhen(
       data: (detalle) => detalle.items.isNotEmpty,
       orElse: () => false,
@@ -29,14 +29,15 @@ class DetalleDevolucionResumenPage extends ConsumerWidget {
             tooltip: 'Ir a pago',
             onPressed: appBarCanIrPago
                 ? () => context.go(
-                      '/punto-venta/devoluciones/${Uri.encodeComponent(idfolDev)}/pago',
-                    )
+                    '/punto-venta/devoluciones/${Uri.encodeComponent(idfolDev)}/pago',
+                  )
                 : null,
             icon: const Icon(Icons.point_of_sale),
           ),
           IconButton(
             tooltip: 'Refrescar',
-            onPressed: () => ref.invalidate(devolucionDetallePreparadoProvider(idfolDev)),
+            onPressed: () =>
+                ref.invalidate(devolucionDetallePreparadoProvider(idfolDev)),
             icon: const Icon(Icons.refresh),
           ),
         ],
@@ -44,7 +45,7 @@ class DetalleDevolucionResumenPage extends ConsumerWidget {
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFFF6F2EB), Color(0xFFEFE7DB)],
+            colors: [AppColors.canvas, AppColors.canvasAlt],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -53,7 +54,9 @@ class DetalleDevolucionResumenPage extends ConsumerWidget {
           data: (detalle) => RefreshIndicator(
             onRefresh: () async {
               ref.invalidate(devolucionDetallePreparadoProvider(idfolDev));
-              await ref.read(devolucionDetallePreparadoProvider(idfolDev).future);
+              await ref.read(
+                devolucionDetallePreparadoProvider(idfolDev).future,
+              );
             },
             child: ListView(
               padding: const EdgeInsets.all(16),
@@ -76,10 +79,7 @@ class DetalleDevolucionResumenPage extends ConsumerWidget {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    '$error',
-                    textAlign: TextAlign.center,
-                  ),
+                  Text('$error', textAlign: TextAlign.center),
                   const SizedBox(height: 14),
                   Wrap(
                     spacing: 10,
@@ -87,8 +87,9 @@ class DetalleDevolucionResumenPage extends ConsumerWidget {
                     alignment: WrapAlignment.center,
                     children: [
                       FilledButton(
-                        onPressed: () =>
-                            ref.invalidate(devolucionDetallePreparadoProvider(idfolDev)),
+                        onPressed: () => ref.invalidate(
+                          devolucionDetallePreparadoProvider(idfolDev),
+                        ),
                         child: const Text('Reintentar'),
                       ),
                       OutlinedButton(
@@ -151,10 +152,7 @@ class _HeaderCard extends StatelessWidget {
             style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 2),
-          SelectableText(
-            value,
-            maxLines: 1,
-          ),
+          SelectableText(value, maxLines: 1),
         ],
       ),
     );
@@ -214,10 +212,7 @@ class _LinesTable extends StatelessWidget {
                           width: 110,
                           child: Text('\$${line.pvtat.toStringAsFixed(2)}'),
                         ),
-                        _TableCell(
-                          width: 150,
-                          child: Text(line.ord ?? '-'),
-                        ),
+                        _TableCell(width: 150, child: Text(line.ord ?? '-')),
                       ],
                     );
                   },

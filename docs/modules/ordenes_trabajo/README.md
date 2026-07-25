@@ -115,7 +115,7 @@ Enlaces relacionados:
 - `Cambio material/Merma` (2026-04-09): cálculo económico homologado a pago de cotizaciones usando configuración IVA de sucursal (`DAT_SUC.IVA_INTEGRADO`) y fiscalidad del folio origen (`REQF/RQFAC`, `AUT/ORIGEN_AUT`); no se infiere `tipotran` por el texto de `IDFOL`.
 - `Cambio material/Merma` (2026-04-19): la captura temporal sigue permitiendo recaptura en `selCtrlOrd=15` antes de volver a solicitar autorización.
 - `Cambio material/Merma` (2026-04-19): se agrega botón `Crear Nueva ORD` para crear staging de preparación; sin staging no se muestran campos/botones de captura y autorización.
-- `Cambio material/Merma` (2026-04-19): el costo de la nueva ORD en captura usa el mismo `PVTA` de la ORD original para evitar diferencias de precio.
+- `Cambio material/Merma` (actualizado 2026-07-24): la nueva ORD usa `DAT_ART.PVTA`; la original conserva base histórica propia. La misma ART está permitida y puede generar diferencia si PV tuvo precio manual distinto al catálogo.
 - `Cambio material/Merma` (2026-06-17): `Subtotal` e `IVA` de la ORD original se calculan desde `PVTAT base`; la etiqueta visible se mantiene igual en vista y PDF.
 - `Cambio material` (2026-04-21): mantiene `Buscar Articulo para cambiar` reutilizando el panel de artículos de cotizaciones; al elegir artículo actualiza staging y recalcula diferencia/subtotal/iva/total.
 - `Merma` (2026-04-21): ya no usa checkbox `Crear nueva ORD derivada`; el proceso siempre genera nueva ORD en la autorización final.
@@ -129,3 +129,4 @@ Enlaces relacionados:
 - Cambio material / Merma (2026-04-22): la nueva ORD derivada debe quedar sin colaborador asignado y la UI/PDF deben mostrar la diferencia contable real basada en `CTD_C_M`/importe sellado, no la diferencia por `CTD` completa.
 - Cambio material / Merma (2026-07-09): la tarjeta `Nueva ORD (captura)` muestra `Cantidad` desde `draft.CTD`, que backend calcula con `CTD_C_M`; la ORD derivada ya no debe aparecer como 1 pieza cuando la fraccion autorizada es 0.5.
 - Cambio material / Merma (2026-07-09): el botón `Autorizar` muestra un mensaje de asentamiento cuando la API responde error genérico; la causa corregida en backend fue colisión de `DAT_CTR_DOC.DOC` al generar diferencia contable.
+- Cambio material / Merma (2026-07-24): para ORD de 1 con afectación 0.5 se prorratea `PVTAT * (0.5 / 1)`; para ORD de 0.5 afectada completa se conserva su `PVTAT`. Totales aplican IVA integrado/desglosado según `DAT_SUC.IVA_INTEGRADO`, `REQF/RQFAC` y `AUT/ORIGEN_AUT`.

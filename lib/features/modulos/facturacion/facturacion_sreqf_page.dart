@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:ioe_app/core/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ioe_app/core/dio_provider.dart';
 import 'package:ioe_app/features/masterdata/sucursales/sucursales_providers.dart';
@@ -24,10 +25,7 @@ class FacturacionSreqfPageData {
   final bool hasPrevPage;
   final bool hasNextPage;
 
-  factory FacturacionSreqfPageData.empty({
-    int page = 1,
-    int pageSize = 20,
-  }) {
+  factory FacturacionSreqfPageData.empty({int page = 1, int pageSize = 20}) {
     return FacturacionSreqfPageData(
       data: const [],
       total: 0,
@@ -53,8 +51,7 @@ class FacturacionSreqfQuery {
   final String search;
   final int page;
 
-  bool get hasCriteria =>
-      fcnm.trim().isNotEmpty || search.trim().isNotEmpty;
+  bool get hasCriteria => fcnm.trim().isNotEmpty || search.trim().isNotEmpty;
 
   FacturacionSreqfQuery copyWith({
     String? suc,
@@ -123,9 +120,8 @@ class FacturacionSreqfApi {
 
     final parsed = rows
         .map(
-          (row) => PvCtrFolAsvrModel.fromJson(
-            Map<String, dynamic>.from(row as Map),
-          ),
+          (row) =>
+              PvCtrFolAsvrModel.fromJson(Map<String, dynamic>.from(row as Map)),
         )
         .toList();
 
@@ -150,7 +146,8 @@ class FacturacionSreqfApi {
         (total == 0 || pageSize <= 0 ? 0 : (total / pageSize).ceil());
     final hasPrevPage =
         _asBool(raw['hasPrevPage']) ?? (responsePage > 1 && totalPages > 0);
-    final hasNextPage = _asBool(raw['hasNextPage']) ??
+    final hasNextPage =
+        _asBool(raw['hasNextPage']) ??
         (totalPages > 0 && responsePage < totalPages);
 
     return FacturacionSreqfPageData(
@@ -176,7 +173,9 @@ class FacturacionSreqfApi {
 
     final raw = res.data;
     if (raw is Map) {
-      final message = (raw['message'] ?? raw['mensaje'] ?? '').toString().trim();
+      final message = (raw['message'] ?? raw['mensaje'] ?? '')
+          .toString()
+          .trim();
       if (message.isNotEmpty) return message;
     }
     return 'REQF marcado correctamente';
@@ -202,25 +201,24 @@ final facturacionSreqfApiProvider = Provider<FacturacionSreqfApi>(
   (ref) => FacturacionSreqfApi(ref.read(dioProvider)),
 );
 
-final facturacionSreqfPanelQueryProvider =
-    StateProvider<FacturacionSreqfQuery>(
+final facturacionSreqfPanelQueryProvider = StateProvider<FacturacionSreqfQuery>(
   (ref) => const FacturacionSreqfQuery(),
 );
 
 final facturacionSreqfListProvider =
     FutureProvider.autoDispose<FacturacionSreqfPageData>((ref) async {
-  final api = ref.read(facturacionSreqfApiProvider);
-  final query = ref.watch(facturacionSreqfPanelQueryProvider);
-  if (!query.hasCriteria) {
-    return FacturacionSreqfPageData.empty(page: query.page);
-  }
-  return api.fetchFoliosReqf(
-    suc: query.suc,
-    fcnm: query.fcnm,
-    search: query.search,
-    page: query.page,
-  );
-});
+      final api = ref.read(facturacionSreqfApiProvider);
+      final query = ref.watch(facturacionSreqfPanelQueryProvider);
+      if (!query.hasCriteria) {
+        return FacturacionSreqfPageData.empty(page: query.page);
+      }
+      return api.fetchFoliosReqf(
+        suc: query.suc,
+        fcnm: query.fcnm,
+        search: query.search,
+        page: query.page,
+      );
+    });
 
 class FacturacionSREQFPage extends ConsumerStatefulWidget {
   const FacturacionSREQFPage({super.key});
@@ -257,9 +255,7 @@ class _FacturacionSREQFPageState extends ConsumerState<FacturacionSREQFPage> {
   @override
   Widget build(BuildContext context) {
     if (!_contextReady) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     final foliosAsync = ref.watch(facturacionSreqfListProvider);
@@ -281,7 +277,7 @@ class _FacturacionSREQFPageState extends ConsumerState<FacturacionSREQFPage> {
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFFF6F2EB), Color(0xFFEFE7DB)],
+            colors: [AppColors.canvas, AppColors.canvasAlt],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -399,7 +395,8 @@ class _FacturacionSREQFPageState extends ConsumerState<FacturacionSREQFPage> {
       return;
     }
 
-    final confirmed = await showDialog<bool>(
+    final confirmed =
+        await showDialog<bool>(
           context: context,
           builder: (dialogContext) => AlertDialog(
             title: const Text('Confirmar accion'),
@@ -616,10 +613,7 @@ class _TopFilters extends ConsumerWidget {
                         ? '${s.suc} - ${s.desc}'
                         : s.suc;
                     items.add(
-                      DropdownMenuItem(
-                        value: s.suc,
-                        child: Text(label),
-                      ),
+                      DropdownMenuItem(value: s.suc, child: Text(label)),
                     );
                   }
 
@@ -763,10 +757,7 @@ class _PaginationBar extends StatelessWidget {
               onPressed: enabled ? onPrev : null,
               icon: const Icon(Icons.chevron_left),
             ),
-            Text(
-              pageText,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
+            Text(pageText, style: Theme.of(context).textTheme.bodyMedium),
             IconButton(
               tooltip: 'Siguiente',
               onPressed: enabled ? onNext : null,
@@ -836,13 +827,22 @@ class _FoliosReqfTable extends StatelessWidget {
               columnSpacing: 20,
               columns: const [
                 DataColumn(
-                  label: Text('SUC', style: TextStyle(fontWeight: FontWeight.w600)),
+                  label: Text(
+                    'SUC',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
                 ),
                 DataColumn(
-                  label: Text('OPV', style: TextStyle(fontWeight: FontWeight.w600)),
+                  label: Text(
+                    'OPV',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
                 ),
                 DataColumn(
-                  label: Text('IDFOL', style: TextStyle(fontWeight: FontWeight.w600)),
+                  label: Text(
+                    'IDFOL',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
                 ),
                 DataColumn(
                   label: Text(
@@ -851,13 +851,22 @@ class _FoliosReqfTable extends StatelessWidget {
                   ),
                 ),
                 DataColumn(
-                  label: Text('FCN', style: TextStyle(fontWeight: FontWeight.w600)),
+                  label: Text(
+                    'FCN',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
                 ),
                 DataColumn(
-                  label: Text('TRA', style: TextStyle(fontWeight: FontWeight.w600)),
+                  label: Text(
+                    'TRA',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
                 ),
                 DataColumn(
-                  label: Text('CLIEN', style: TextStyle(fontWeight: FontWeight.w600)),
+                  label: Text(
+                    'CLIEN',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
                 ),
                 DataColumn(
                   label: Text(
@@ -866,13 +875,22 @@ class _FoliosReqfTable extends StatelessWidget {
                   ),
                 ),
                 DataColumn(
-                  label: Text('REQF', style: TextStyle(fontWeight: FontWeight.w600)),
+                  label: Text(
+                    'REQF',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
                 ),
                 DataColumn(
-                  label: Text('Estado', style: TextStyle(fontWeight: FontWeight.w600)),
+                  label: Text(
+                    'Estado',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
                 ),
                 DataColumn(
-                  label: Text('Importe', style: TextStyle(fontWeight: FontWeight.w600)),
+                  label: Text(
+                    'Importe',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
                 ),
               ],
               rows: folios.map((folio) {
@@ -889,11 +907,16 @@ class _FoliosReqfTable extends StatelessWidget {
                     DataCell(_cellText(_formatDate(folio.fcn))),
                     DataCell(_cellText(folio.tra ?? '-')),
                     DataCell(_cellText(folio.clien?.toString() ?? '-')),
-                    DataCell(_cellText(razonSocial.isEmpty ? '-' : razonSocial)),
+                    DataCell(
+                      _cellText(razonSocial.isEmpty ? '-' : razonSocial),
+                    ),
                     DataCell(_cellText(_formatReqf(folio.reqf))),
                     DataCell(_cellText(folio.esta ?? '-')),
                     DataCell(
-                      _cellText(_formatMoney(folio.impt), align: TextAlign.right),
+                      _cellText(
+                        _formatMoney(folio.impt),
+                        align: TextAlign.right,
+                      ),
                     ),
                   ],
                 );

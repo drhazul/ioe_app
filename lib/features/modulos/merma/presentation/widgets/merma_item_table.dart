@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:ioe_app/core/app_theme.dart';
 
 import '../../domain/merma_models.dart';
 
@@ -95,7 +96,9 @@ class MermaItemTable extends StatelessWidget {
                         children: [
                           IconButton(
                             icon: const Icon(Icons.edit, size: 18),
-                            onPressed: onEdit == null ? null : () => onEdit!(item),
+                            onPressed: onEdit == null
+                                ? null
+                                : () => onEdit!(item),
                           ),
                           IconButton(
                             icon: const Icon(Icons.delete, size: 18),
@@ -155,11 +158,12 @@ class _EvidenceCell extends StatelessWidget {
             ((mimeType ?? '').toLowerCase().startsWith('image/') ||
                 isImageExtension));
     final bgColor = hasEvidence
-        ? Colors.teal.withValues(alpha: 0.12)
+        ? AppColors.navyLight.withValues(alpha: 0.12)
         : Colors.grey.withValues(alpha: 0.12);
-    final fgColor = hasEvidence ? Colors.teal.shade800 : Colors.grey.shade700;
+    final fgColor = hasEvidence ? AppColors.navyMid : Colors.grey.shade700;
     final dataBytes = isDataImage ? _decodeDataUrlImage(url) : null;
-    final canPreview = isImage && ((isDataImage && dataBytes != null) || url.isNotEmpty);
+    final canPreview =
+        isImage && ((isDataImage && dataBytes != null) || url.isNotEmpty);
 
     if (canPreview) {
       return GestureDetector(
@@ -170,7 +174,7 @@ class _EvidenceCell extends StatelessWidget {
             width: 52,
             height: 52,
             decoration: BoxDecoration(
-              border: Border.all(color: Colors.teal.shade200),
+              border: Border.all(color: AppColors.steel),
               borderRadius: BorderRadius.circular(8),
             ),
             child: dataBytes != null
@@ -215,7 +219,7 @@ class _EvidenceCell extends StatelessWidget {
         color: bgColor,
         borderRadius: BorderRadius.circular(999),
         border: Border.all(
-          color: hasEvidence ? Colors.teal.shade200 : Colors.grey.shade300,
+          color: hasEvidence ? AppColors.steel : Colors.grey.shade300,
         ),
       ),
       child: Row(
@@ -250,11 +254,7 @@ class _EvidenceCell extends StatelessWidget {
     }
   }
 
-  void _openPreview(
-    BuildContext context,
-    String url, {
-    Uint8List? imageBytes,
-  }) {
+  void _openPreview(BuildContext context, String url, {Uint8List? imageBytes}) {
     showDialog<void>(
       context: context,
       builder: (ctx) => Dialog(

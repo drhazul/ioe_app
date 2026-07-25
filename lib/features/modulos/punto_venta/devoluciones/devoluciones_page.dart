@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:ioe_app/core/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ioe_app/core/api_error.dart';
@@ -48,9 +49,7 @@ class _DevolucionesPageState extends ConsumerState<DevolucionesPage> {
   @override
   Widget build(BuildContext context) {
     if (!_contextReady) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     final panelAsync = ref.watch(devolucionesPanelProvider(_query));
@@ -76,7 +75,7 @@ class _DevolucionesPageState extends ConsumerState<DevolucionesPage> {
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFFF6F2EB), Color(0xFFEFE7DB)],
+            colors: [AppColors.canvas, AppColors.canvasAlt],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -98,7 +97,8 @@ class _DevolucionesPageState extends ConsumerState<DevolucionesPage> {
                   sucCtrl: _sucCtrl,
                   opvCtrl: _opvCtrl,
                   selectedOpv: _opvCtrl.text.trim(),
-                  onOpvChanged: (value) => setState(() => _opvCtrl.text = value?.trim() ?? ''),
+                  onOpvChanged: (value) =>
+                      setState(() => _opvCtrl.text = value?.trim() ?? ''),
                   onSearch: _applyFilters,
                   onClear: _clearFilters,
                   onSucChanged: (value) => setState(() {
@@ -165,7 +165,9 @@ class _DevolucionesPageState extends ConsumerState<DevolucionesPage> {
 
     if (!mounted || createdIdfolDev == null) return;
     ref.invalidate(devolucionesPanelProvider(_query));
-    context.go('/punto-venta/devoluciones/${Uri.encodeComponent(createdIdfolDev)}');
+    context.go(
+      '/punto-venta/devoluciones/${Uri.encodeComponent(createdIdfolDev)}',
+    );
   }
 
   Future<void> _loadUserContext() async {
@@ -200,10 +202,7 @@ class _DevolucionesPageState extends ConsumerState<DevolucionesPage> {
       } else if (opv.isNotEmpty) {
         _opvCtrl.text = opv;
       }
-      _query = DevolucionesPanelQuery(
-        suc: suc,
-        opv: isAdmin ? '' : opv,
-      );
+      _query = DevolucionesPanelQuery(suc: suc, opv: isAdmin ? '' : opv);
       _contextReady = true;
     });
   }
@@ -212,7 +211,9 @@ class _DevolucionesPageState extends ConsumerState<DevolucionesPage> {
     try {
       final parts = token.split('.');
       if (parts.length != 3) return {};
-      final payload = utf8.decode(base64Url.decode(base64Url.normalize(parts[1])));
+      final payload = utf8.decode(
+        base64Url.decode(base64Url.normalize(parts[1])),
+      );
       return Map<String, dynamic>.from(json.decode(payload) as Map);
     } catch (_) {
       return {};
@@ -253,9 +254,7 @@ class _DevolucionesPageState extends ConsumerState<DevolucionesPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Anular devolución'),
-        content: Text(
-          '¿Deseas cambiar a ANULADO la devolución ${item.idfol}?',
-        ),
+        content: Text('¿Deseas cambiar a ANULADO la devolución ${item.idfol}?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
@@ -270,10 +269,9 @@ class _DevolucionesPageState extends ConsumerState<DevolucionesPage> {
     );
     if (confirm != true) return;
     try {
-      await ref.read(devolucionesApiProvider).updateEstado(
-            idfol: item.idfol,
-            esta: 'ANULADO',
-          );
+      await ref
+          .read(devolucionesApiProvider)
+          .updateEstado(idfol: item.idfol, esta: 'ANULADO');
       if (!mounted) return;
       setState(() => _selected = null);
       ref.invalidate(devolucionesPanelProvider(_query));
@@ -298,9 +296,12 @@ class _DevolucionesPageState extends ConsumerState<DevolucionesPage> {
     }
 
     try {
-      final detalle = await ref.read(devolucionesApiProvider).fetchDetalle(item.idfol);
+      final detalle = await ref
+          .read(devolucionesApiProvider)
+          .fetchDetalle(item.idfol);
       if (!mounted) return;
-      final hasSelectedLines = detalle.summary.linesSelected > 0 ||
+      final hasSelectedLines =
+          detalle.summary.linesSelected > 0 ||
           detalle.lines.any((line) => (line.ctdd ?? 0) > 0);
       if (hasSelectedLines) {
         context.go('/punto-venta/devoluciones/$idfolDev/detalle');
@@ -336,7 +337,8 @@ class _CreateDevolucionDialog extends ConsumerStatefulWidget {
       _CreateDevolucionDialogState();
 }
 
-class _CreateDevolucionDialogState extends ConsumerState<_CreateDevolucionDialog> {
+class _CreateDevolucionDialogState
+    extends ConsumerState<_CreateDevolucionDialog> {
   final _idfolCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
   bool _loading = false;
@@ -380,10 +382,7 @@ class _CreateDevolucionDialogState extends ConsumerState<_CreateDevolucionDialog
             ),
             if (_errorText != null) ...[
               const SizedBox(height: 10),
-              Text(
-                _errorText!,
-                style: TextStyle(color: Colors.red.shade700),
-              ),
+              Text(_errorText!, style: TextStyle(color: Colors.red.shade700)),
             ],
           ],
         ),
@@ -423,10 +422,9 @@ class _CreateDevolucionDialogState extends ConsumerState<_CreateDevolucionDialog
     });
 
     try {
-      final detail = await ref.read(devolucionesApiProvider).createDevolucion(
-            idfolOrig: idfolOrig,
-            authPassword: authPassword,
-          );
+      final detail = await ref
+          .read(devolucionesApiProvider)
+          .createDevolucion(idfolOrig: idfolOrig, authPassword: authPassword);
       ref.invalidate(devolucionesPanelProvider(widget.query));
       if (!mounted) return;
       Navigator.of(context).pop(detail.header.idfolDev);
@@ -629,15 +627,69 @@ class _PanelTable extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             child: const Row(
               children: [
-                SizedBox(width: 220, child: Text('Folio', style: TextStyle(fontWeight: FontWeight.w600))),
-                SizedBox(width: 200, child: Text('Folio inicial', style: TextStyle(fontWeight: FontWeight.w600))),
-                SizedBox(width: 200, child: Text('Folio origen', style: TextStyle(fontWeight: FontWeight.w600))),
-                SizedBox(width: 80, child: Text('SUC', style: TextStyle(fontWeight: FontWeight.w600))),
-                SizedBox(width: 120, child: Text('AUT', style: TextStyle(fontWeight: FontWeight.w600))),
-                SizedBox(width: 120, child: Text('ORIGEN_AUT', style: TextStyle(fontWeight: FontWeight.w600))),
-                SizedBox(width: 140, child: Text('Estado', style: TextStyle(fontWeight: FontWeight.w600))),
-                SizedBox(width: 120, child: Text('Importe', style: TextStyle(fontWeight: FontWeight.w600))),
-                SizedBox(width: 220, child: Text('Cliente', style: TextStyle(fontWeight: FontWeight.w600))),
+                SizedBox(
+                  width: 220,
+                  child: Text(
+                    'Folio',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                SizedBox(
+                  width: 200,
+                  child: Text(
+                    'Folio inicial',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                SizedBox(
+                  width: 200,
+                  child: Text(
+                    'Folio origen',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                SizedBox(
+                  width: 80,
+                  child: Text(
+                    'SUC',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                SizedBox(
+                  width: 120,
+                  child: Text(
+                    'AUT',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                SizedBox(
+                  width: 120,
+                  child: Text(
+                    'ORIGEN_AUT',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                SizedBox(
+                  width: 140,
+                  child: Text(
+                    'Estado',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                SizedBox(
+                  width: 120,
+                  child: Text(
+                    'Importe',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                SizedBox(
+                  width: 220,
+                  child: Text(
+                    'Cliente',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
                 SizedBox(width: 44, child: Text('')),
               ],
             ),
@@ -656,16 +708,46 @@ class _PanelTable extends StatelessWidget {
                   onTap: () => onSelect(item),
                   child: Container(
                     color: selectedRow ? Colors.blue.shade50 : null,
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 7,
+                    ),
                     child: Row(
                       children: [
-                        SizedBox(width: 220, child: Text(item.idfol, overflow: TextOverflow.ellipsis)),
-                        SizedBox(width: 200, child: Text(item.idfolinicial ?? '-', overflow: TextOverflow.ellipsis)),
-                        SizedBox(width: 200, child: Text(item.idfolorig ?? '-', overflow: TextOverflow.ellipsis)),
+                        SizedBox(
+                          width: 220,
+                          child: Text(
+                            item.idfol,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        SizedBox(
+                          width: 200,
+                          child: Text(
+                            item.idfolinicial ?? '-',
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        SizedBox(
+                          width: 200,
+                          child: Text(
+                            item.idfolorig ?? '-',
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                         SizedBox(width: 80, child: Text(item.suc ?? '-')),
                         SizedBox(width: 120, child: Text(item.aut ?? '-')),
-                        SizedBox(width: 120, child: Text((item.origenAut ?? '-').toUpperCase())),
-                        SizedBox(width: 140, child: Text(item.esta ?? '-', overflow: TextOverflow.ellipsis)),
+                        SizedBox(
+                          width: 120,
+                          child: Text((item.origenAut ?? '-').toUpperCase()),
+                        ),
+                        SizedBox(
+                          width: 140,
+                          child: Text(
+                            item.esta ?? '-',
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                         SizedBox(width: 120, child: Text(_money(item.impt))),
                         SizedBox(
                           width: 220,
@@ -706,4 +788,3 @@ class _PanelTable extends StatelessWidget {
     return estado == 'PENDIENTE';
   }
 }
-

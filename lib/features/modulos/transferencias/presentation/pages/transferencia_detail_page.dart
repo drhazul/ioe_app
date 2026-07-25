@@ -2759,7 +2759,7 @@ Future<void> _printPdf(TransferenciaDocModel item) async {
                   style: pw.TextStyle(
                     fontSize: 18,
                     fontWeight: pw.FontWeight.bold,
-                    color: PdfColors.teal800,
+                    color: PdfColors.blueGrey800,
                   ),
                 ),
                 pw.SizedBox(height: 3),
@@ -2826,7 +2826,9 @@ Future<void> _printPdf(TransferenciaDocModel item) async {
         pw.SizedBox(height: 16),
         pw.TableHelper.fromTextArray(
           border: pw.TableBorder.all(color: PdfColors.grey500, width: 0.5),
-          headerDecoration: const pw.BoxDecoration(color: PdfColors.teal800),
+          headerDecoration: const pw.BoxDecoration(
+            color: PdfColors.blueGrey800,
+          ),
           headers: const [
             'Articulo',
             'Descripcion',
