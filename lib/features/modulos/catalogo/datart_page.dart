@@ -15,6 +15,7 @@ import 'package:ioe_app/features/masterdata/sucursales/sucursales_models.dart';
 import 'package:ioe_app/features/masterdata/sucursales/sucursales_providers.dart';
 import 'datart_models.dart';
 import 'datart_providers.dart';
+import 'ean13.dart';
 import '../punto_venta/cotizaciones/detalle_cot/jrq_models.dart';
 import '../punto_venta/cotizaciones/detalle_cot/jrq_providers.dart';
 
@@ -1943,7 +1944,7 @@ class _DatArtPageState extends ConsumerState<DatArtPage> {
   }
 
   pw.Widget _barcodeLabelCell(String upc) {
-    final ean13 = _buildEan13FromUpc(upc);
+    final ean13 = buildEan13FromUpc(upc)?.ean13;
     return pw.Container(
       padding: const pw.EdgeInsets.all(3),
       child: ean13 == null
@@ -2053,25 +2054,6 @@ class _DatArtPageState extends ConsumerState<DatArtPage> {
       RegExp(r'(\.\d*?)0+$'),
       r'$1',
     );
-  }
-
-  String? _buildEan13FromUpc(String upc) {
-    final digits = upc.replaceAll(RegExp(r'[^0-9]'), '');
-    if (digits.isEmpty) return null;
-    final base12 = digits.length >= 12
-        ? digits.substring(digits.length - 12)
-        : digits.padLeft(12, '0');
-    final checkDigit = _ean13CheckDigit(base12);
-    return '$base12$checkDigit';
-  }
-
-  int _ean13CheckDigit(String base12) {
-    var sum = 0;
-    for (var i = 0; i < base12.length; i += 1) {
-      final digit = int.tryParse(base12[i]) ?? 0;
-      sum += i.isEven ? digit : digit * 3;
-    }
-    return (10 - (sum % 10)) % 10;
   }
 
   Widget _buildSelectionToolbar() {

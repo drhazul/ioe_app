@@ -52,7 +52,7 @@ Enlaces relacionados:
 - Impresion etiquetas DAT_ART (frontend):
 - pantalla `lib/features/modulos/catalogo/datart_page.dart` con seleccion local por renglón y seleccion de filtrados para impresión masiva.
 - imprime una etiqueta por artículo en PDF (`76mm x 56mm`) con vista previa de impresión/selección de impresora.
-- el `EAN13` se construye tomando solo los 12 dígitos derechos de `UPC` (si excede) y calculando dígito verificador.
+- el `EAN13` (corregido 2026-07-29) se construye sanitizando `UPC`, tomando siempre sus primeros 12 dígitos (o completando con ceros a la izquierda si tiene menos) y calculando el dígito verificador de forma independiente; un dígito 13 recibido sólo se valida y nunca se reutiliza.
 - campos de etiqueta: sucursal, artículo, fecha de impresión, descripción, ubicación física (`UMUE`, `UTRA`, `UNIV`) y código de barras.
 - MB51/MB52:
 - `/dat-mb51/search`, `/dat-mb52/resumen`, `/dat-almacen`, `/dat-cmov`.

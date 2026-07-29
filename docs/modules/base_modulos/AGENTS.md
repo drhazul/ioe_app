@@ -45,7 +45,7 @@ Enlaces relacionados:
 - Impresion etiquetas DAT_ART (2026-03):
 - UI en `lib/features/modulos/catalogo/datart_page.dart` con seleccion local por renglón (casilla), seleccion masiva de artículos filtrados en grilla y boton de impresión por artículo/seleccionados.
 - La etiqueta se renderiza en PDF para vista previa/seleccion de impresora con tamaño fijo `76mm x 56mm`, una pagina por artículo seleccionado.
-- Código de barras `EAN13`: se sanitiza `UPC` a digitos, se toman los 12 digitos derechos cuando excede longitud y se calcula digito verificador para formar EAN13 valido.
+- Código de barras `EAN13` (corregido 2026-07-29): se sanitiza `UPC` a dígitos, se toman siempre los primeros 12 (o se completa a la izquierda si hay menos) y se calcula el dígito verificador de forma independiente. Si `UPC` trae dígito 13, su validez se evalúa sin reutilizarlo para generar la etiqueta.
 - Campos impresos en etiqueta: encabezado de distribuidora/sucursal, `ART`, fecha-hora de impresión, `DES`, bloque de ubicación física (`UMUE`, `UTRA`, `UNIV`) y código de barras.
 - MB51/MB52:
 - `/dat-mb51/search`, `/dat-mb52/resumen`, `/dat-almacen`, `/dat-cmov`.
