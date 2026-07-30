@@ -172,11 +172,11 @@ class FacturacionApi {
   }
 
   Future<Map<String, dynamic>> actualizarClienteFiscal(
-    String idCliente,
+    String idFol,
     Map<String, dynamic> payload,
   ) async {
     final res = await dio.patch(
-      '/factclientshp/${Uri.encodeComponent(idCliente.trim())}',
+      '/facturacion/${_folioPath(idFol)}/cliente-fiscal',
       data: Map<String, dynamic>.from(payload),
     );
     return _asMap(res.data);

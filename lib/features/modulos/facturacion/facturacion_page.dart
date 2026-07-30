@@ -3668,7 +3668,7 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
                       : ncelCtrl.text.trim(),
                 };
                 try {
-                  await api.actualizarClienteFiscal(clienteId, payload);
+                  await api.actualizarClienteFiscal(idFol, payload);
                   if (!dialogContext.mounted) return;
                   Navigator.of(dialogContext).pop(true);
                 } catch (e) {

@@ -48,6 +48,7 @@ Enlaces relacionados:
 - `/facturacion-view` requiere módulo front `FACTURA_VIEW`.
 - Admin (rol/nivel administrativo configurado; incluye usuario `ADMIN`) mantiene bypass total en frontend y backend para consultar/editar/eliminar.
 - Facturación no depende de `USR_MOD_SUC` en flujo base (`/facturacion`, `/facturacion-view`, unificación); no se requiere alta de admin en `USR_MOD_SUC` para habilitar estos accesos.
+- El guardado fiscal desde validación usa `PATCH /facturacion/:idFol/cliente-fiscal` bajo gestión `FACTURA`; mantenimiento general continúa con alcance propio en `/factclientshp`.
 - Excepción: `REG_SINREQF` sí depende de `USR_MOD_SUC` para alcance de sucursales en usuarios no-admin.
 - En unificación de facturación (`/facturacion/unificaciones/*`), no se debe restringir gestión por `user.suc` del JWT cuando el usuario ya cuenta con permisos de gestión.
 

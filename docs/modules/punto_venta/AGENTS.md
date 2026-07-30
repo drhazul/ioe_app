@@ -10,6 +10,7 @@ Enlaces relacionados:
 ## Facturación: edición fiscal de cliente (2026-04-06)
 - En `FACTURA_MTTOCLIENTE` y en el diálogo de validación de facturación, los updates de cliente fiscal no deben enviar `SUC`.
 - La sucursal original del cliente se considera inmutable durante la edición fiscal.
+- Desde diálogo de validación, guardar por `PATCH /facturacion/:idFol/cliente-fiscal` (2026-07-30); `FACTURA_MTTOCLIENTE` conserva `PATCH /factclientshp/:id`.
 
 ## Punto de venta: gestión de promociones y descuentos (2026-05-09)
 - ruta frontend principal: `/promociones` (módulo Home `PV_PROMO_GES`).

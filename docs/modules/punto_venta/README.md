@@ -12,6 +12,7 @@ Enlaces relacionados:
 - Pantallas:
 - `lib/features/modulos/facturacion/factura_mtto_cliente_page.dart`
 - `lib/features/modulos/facturacion/facturacion_page.dart` (diálogo `Edición de datos fiscales del cliente`)
+- Desde validación (2026-07-30), `facturacion_page.dart` envía `PATCH /facturacion/:idFol/cliente-fiscal`; mantenimiento general conserva `PATCH /factclientshp/:id`.
 - Regla UI:
 - al guardar edición fiscal no se envía `SUC` en payload; la sucursal del cliente se conserva del registro original.
 
