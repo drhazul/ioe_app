@@ -1,6 +1,11 @@
+import 'dart:typed_data';
+
+import 'package:excel/excel.dart' as xls;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../reloj_checador/consultas/download_helper.dart';
+import '../../../punto_venta/cotizaciones/detalle_cot/jrq_models.dart';
 import '../../domain/sugeridos_models.dart';
 import '../../providers/sugeridos_provider.dart';
 import '../widgets/orden_compra_detalle_dialog.dart';
@@ -16,14 +21,11 @@ class SugeridosPage extends ConsumerStatefulWidget {
 }
 
 class _SugeridosPageState extends ConsumerState<SugeridosPage> {
-  final _marcaCtrl = TextEditingController();
-  final _tipoCtrl = TextEditingController();
-  final _lineaProductoCtrl = TextEditingController();
-  final _categoriaCtrl = TextEditingController();
-  String _marca = '';
-  String _tipo = '';
-  String _lineaProducto = '';
-  String _categoria = '';
+  List<double> _depa = const [];
+  List<double> _subd = const [];
+  List<double> _clas = const [];
+  List<double> _scla = const [];
+  List<double> _scla2 = const [];
   String _suc = '';
   int? _prov;
   int _calculoPage = 1;
@@ -45,27 +47,32 @@ class _SugeridosPageState extends ConsumerState<SugeridosPage> {
   }
 
   @override
-  void dispose() {
-    _marcaCtrl.dispose();
-    _tipoCtrl.dispose();
-    _lineaProductoCtrl.dispose();
-    _categoriaCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     final sucsAsync = ref.watch(sugeridosSucursalesProvider);
     final proveedoresAsync = ref.watch(sugeridosProveedoresProvider);
+    final depaAsync = ref.watch(sugeridosJrqDepaProvider);
+    final subdAsync = ref.watch(
+      sugeridosJrqSubdProvider(sugeridosNumberKey(_depa)),
+    );
+    final clasAsync = ref.watch(
+      sugeridosJrqClasProvider(sugeridosNumberKey(_subd)),
+    );
+    final sclaAsync = ref.watch(
+      sugeridosJrqSclaProvider(sugeridosNumberKey(_clas)),
+    );
+    final scla2Async = ref.watch(
+      sugeridosJrqScla2Provider(sugeridosNumberKey(_scla)),
+    );
     final calculoFilters = _suc.isEmpty
         ? null
         : SugeridosCalculoFilters(
             suc: _suc,
             prov: _prov,
-            marca: _marca,
-            tipo: _tipo,
-            lineaProducto: _lineaProducto,
-            categoria: _categoria,
+            depa: _depa,
+            subd: _subd,
+            clas: _clas,
+            scla: _scla,
+            scla2: _scla2,
             page: _calculoPage,
             limit: _calculoLimit,
           );
@@ -92,16 +99,53 @@ class _SugeridosPageState extends ConsumerState<SugeridosPage> {
           Padding(
             padding: const EdgeInsets.all(12),
             child: _FiltersPanel(
-              marcaCtrl: _marcaCtrl,
-              tipoCtrl: _tipoCtrl,
-              lineaProductoCtrl: _lineaProductoCtrl,
-              categoriaCtrl: _categoriaCtrl,
               suc: _suc,
               prov: _prov,
+              depa: _depa,
+              subd: _subd,
+              clas: _clas,
+              scla: _scla,
+              scla2: _scla2,
               sucsAsync: sucsAsync,
               proveedoresAsync: proveedoresAsync,
+              depaAsync: depaAsync,
+              subdAsync: subdAsync,
+              clasAsync: clasAsync,
+              sclaAsync: sclaAsync,
+              scla2Async: scla2Async,
               onSucChanged: (value) => setState(() => _suc = value ?? ''),
               onProvChanged: (value) => setState(() => _prov = value),
+              onDepaChanged: (value) {
+                setState(() {
+                  _depa = value;
+                  _subd = const [];
+                  _clas = const [];
+                  _scla = const [];
+                  _scla2 = const [];
+                });
+              },
+              onSubdChanged: (value) {
+                setState(() {
+                  _subd = value;
+                  _clas = const [];
+                  _scla = const [];
+                  _scla2 = const [];
+                });
+              },
+              onClasChanged: (value) {
+                setState(() {
+                  _clas = value;
+                  _scla = const [];
+                  _scla2 = const [];
+                });
+              },
+              onSclaChanged: (value) {
+                setState(() {
+                  _scla = value;
+                  _scla2 = const [];
+                });
+              },
+              onScla2Changed: (value) => setState(() => _scla2 = value),
               onApplyCalculo: _applyCalculo,
               onClear: _clearFilters,
             ),
@@ -135,6 +179,7 @@ class _SugeridosPageState extends ConsumerState<SugeridosPage> {
                           },
                           selectingAll: _selectingAll,
                           onSelectAll: () => _selectAllCalculo(calculoFilters),
+                          onExport: () => _exportCalculo(calculoFilters),
                           onClear: () => setState(() {
                             _selectedArts.clear();
                             _selectedItems.clear();
@@ -161,11 +206,11 @@ class _SugeridosPageState extends ConsumerState<SugeridosPage> {
       _snack('Selecciona una sucursal para calcular sugeridos.');
       return;
     }
+    if (_prov == null || _prov! <= 0) {
+      _snack('Selecciona un proveedor para calcular sugeridos.');
+      return;
+    }
     setState(() {
-      _marca = _marcaCtrl.text.trim();
-      _tipo = _tipoCtrl.text.trim();
-      _lineaProducto = _lineaProductoCtrl.text.trim();
-      _categoria = _categoriaCtrl.text.trim();
       _calculoPage = 1;
       _selectedArts.clear();
       _selectedItems.clear();
@@ -175,16 +220,13 @@ class _SugeridosPageState extends ConsumerState<SugeridosPage> {
 
   void _clearFilters() {
     setState(() {
-      _marcaCtrl.clear();
-      _tipoCtrl.clear();
-      _lineaProductoCtrl.clear();
-      _categoriaCtrl.clear();
-      _marca = '';
-      _tipo = '';
-      _lineaProducto = '';
-      _categoria = '';
       _suc = '';
       _prov = null;
+      _depa = const [];
+      _subd = const [];
+      _clas = const [];
+      _scla = const [];
+      _scla2 = const [];
       _calculoPage = 1;
       _calculoAplicado = false;
       _selectedArts.clear();
@@ -214,10 +256,11 @@ class _SugeridosPageState extends ConsumerState<SugeridosPage> {
             .calcular(
               suc: filters.suc,
               prov: filters.prov,
-              marca: filters.marca,
-              tipo: filters.tipo,
-              lineaProducto: filters.lineaProducto,
-              categoria: filters.categoria,
+              depa: filters.depa,
+              subd: filters.subd,
+              clas: filters.clas,
+              scla: filters.scla,
+              scla2: filters.scla2,
               dias: filters.dias,
               page: page,
               limit: _selectAllBatchLimit,
@@ -245,6 +288,99 @@ class _SugeridosPageState extends ConsumerState<SugeridosPage> {
       if (mounted) _snack('No se pudo seleccionar todo: $e');
     } finally {
       if (mounted) setState(() => _selectingAll = false);
+    }
+  }
+
+  Future<void> _exportCalculo(SugeridosCalculoFilters? filters) async {
+    if (filters == null) return;
+    try {
+      var page = 1;
+      var total = 0;
+      var loaded = 0;
+      final rows = <SugeridoCalculoModel>[];
+      do {
+        final result = await ref
+            .read(sugeridosApiProvider)
+            .calcular(
+              suc: filters.suc,
+              prov: filters.prov,
+              depa: filters.depa,
+              subd: filters.subd,
+              clas: filters.clas,
+              scla: filters.scla,
+              scla2: filters.scla2,
+              dias: filters.dias,
+              page: page,
+              limit: _selectAllBatchLimit,
+            );
+        total = result.total;
+        loaded += result.items.length;
+        rows.addAll(result.items);
+        page += 1;
+        if (result.items.isEmpty) break;
+      } while (loaded < total);
+      if (rows.isEmpty) {
+        _snack('No hay resultados para exportar.');
+        return;
+      }
+      final excel = xls.Excel.createExcel();
+      final sheet = excel['SUGERIDOS'];
+      sheet.appendRow(
+        _resultColumns
+            .skip(1)
+            .map((column) => _excelValue(column.label))
+            .toList(growable: false),
+      );
+      for (var i = 0; i < rows.length; i += 1) {
+        final item = rows[i];
+        final row = i + 2;
+        sheet.appendRow(
+          [
+            item.jerarquiaLarga,
+            item.art,
+            item.upc ?? '',
+            item.des,
+            item.base,
+            item.sph,
+            item.cyl,
+            item.adic,
+            item.stock,
+            item.stockMin,
+            item.estatus,
+            item.diaReabasto,
+            item.vta90,
+            _excelFormula('IFERROR(M$row/90,0)'),
+            _excelFormula('IFERROR(I$row/N$row,0)'),
+            _excelFormula('L$row-O$row'),
+            item.factComp,
+            item.suc,
+            item.tipo ?? '',
+            _excelFormula(
+              'IFERROR(IF(P$row<=0,0,ROUND((N$row*P$row)/Q$row,0)),0)',
+            ),
+            _excelFormula('IFERROR(ROUNDUP(J$row-I$row,0)/Q$row,0)'),
+            item.unComp,
+            _excelFormula('MAX(T$row,MAX(0,U$row))'),
+          ].map(_excelValue).toList(growable: false),
+        );
+      }
+      if (excel.tables.containsKey('Sheet1')) {
+        excel.delete('Sheet1');
+      }
+      excel.setDefaultSheet('SUGERIDOS');
+      final encoded = excel.encode();
+      if (encoded == null || encoded.isEmpty) {
+        _snack('No se pudo generar el archivo Excel.');
+        return;
+      }
+      await saveBytesFile(
+        Uint8List.fromList(encoded),
+        'Sugeridos_${filters.suc}_${DateTime.now().millisecondsSinceEpoch}.xlsx',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      if (mounted) _snack('Excel generado con ${rows.length} articulos.');
+    } catch (e) {
+      if (mounted) _snack('No se pudo exportar: $e');
     }
   }
 
@@ -307,30 +443,52 @@ class _SugeridosPageState extends ConsumerState<SugeridosPage> {
 
 class _FiltersPanel extends StatelessWidget {
   const _FiltersPanel({
-    required this.marcaCtrl,
-    required this.tipoCtrl,
-    required this.lineaProductoCtrl,
-    required this.categoriaCtrl,
     required this.suc,
     required this.prov,
+    required this.depa,
+    required this.subd,
+    required this.clas,
+    required this.scla,
+    required this.scla2,
     required this.sucsAsync,
     required this.proveedoresAsync,
+    required this.depaAsync,
+    required this.subdAsync,
+    required this.clasAsync,
+    required this.sclaAsync,
+    required this.scla2Async,
     required this.onSucChanged,
     required this.onProvChanged,
+    required this.onDepaChanged,
+    required this.onSubdChanged,
+    required this.onClasChanged,
+    required this.onSclaChanged,
+    required this.onScla2Changed,
     required this.onApplyCalculo,
     required this.onClear,
   });
 
-  final TextEditingController marcaCtrl;
-  final TextEditingController tipoCtrl;
-  final TextEditingController lineaProductoCtrl;
-  final TextEditingController categoriaCtrl;
   final String suc;
   final int? prov;
+  final List<double> depa;
+  final List<double> subd;
+  final List<double> clas;
+  final List<double> scla;
+  final List<double> scla2;
   final AsyncValue<List<String>> sucsAsync;
   final AsyncValue<List<SugeridoProveedorModel>> proveedoresAsync;
+  final AsyncValue<List<JrqDepaModel>> depaAsync;
+  final AsyncValue<List<JrqSubdModel>> subdAsync;
+  final AsyncValue<List<JrqClasModel>> clasAsync;
+  final AsyncValue<List<JrqSclaModel>> sclaAsync;
+  final AsyncValue<List<JrqScla2Model>> scla2Async;
   final ValueChanged<String?> onSucChanged;
   final ValueChanged<int?> onProvChanged;
+  final ValueChanged<List<double>> onDepaChanged;
+  final ValueChanged<List<double>> onSubdChanged;
+  final ValueChanged<List<double>> onClasChanged;
+  final ValueChanged<List<double>> onSclaChanged;
+  final ValueChanged<List<double>> onScla2Changed;
   final VoidCallback onApplyCalculo;
   final VoidCallback onClear;
 
@@ -367,78 +525,83 @@ class _FiltersPanel extends StatelessWidget {
           SizedBox(
             width: 290,
             child: proveedoresAsync.when(
-              data: (items) => DropdownButtonFormField<int>(
-                initialValue: prov,
-                isExpanded: true,
-                decoration: const InputDecoration(
-                  labelText: 'Proveedor',
-                  border: OutlineInputBorder(),
-                  isDense: true,
-                ),
-                items: [
-                  const DropdownMenuItem<int>(
-                    value: null,
-                    child: Text('Todos'),
+              data: (items) {
+                final ordered = [...items]
+                  ..sort((a, b) => a.id.compareTo(b.id));
+                return DropdownButtonFormField<int>(
+                  initialValue: prov,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Proveedor',
+                    border: OutlineInputBorder(),
+                    isDense: true,
                   ),
-                  ...items.map(
-                    (p) => DropdownMenuItem(value: p.id, child: Text(p.label)),
-                  ),
-                ],
-                onChanged: onProvChanged,
-              ),
+                  items: [
+                    const DropdownMenuItem<int>(
+                      value: null,
+                      child: Text('Todos'),
+                    ),
+                    ...ordered.map(
+                      (p) =>
+                          DropdownMenuItem(value: p.id, child: Text(p.label)),
+                    ),
+                  ],
+                  onChanged: onProvChanged,
+                );
+              },
               loading: () => const LinearProgressIndicator(),
               error: (e, _) => Text('Proveedores: $e'),
             ),
           ),
           const SizedBox(width: 8),
-          SizedBox(
-            width: 180,
-            child: TextField(
-              controller: lineaProductoCtrl,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Linea de producto',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-            ),
+          _JrqMultiFilter<JrqDepaModel>(
+            label: 'DEPA',
+            asyncItems: depaAsync,
+            selected: depa,
+            enabled: true,
+            itemValue: (item) => item.depa,
+            itemLabel: (item) => _formatJrqOption(item.depa, item.ddepa),
+            onChanged: onDepaChanged,
           ),
           const SizedBox(width: 8),
-          SizedBox(
-            width: 160,
-            child: TextField(
-              controller: categoriaCtrl,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Categoria',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-            ),
+          _JrqMultiFilter<JrqSubdModel>(
+            label: 'SUBD',
+            asyncItems: subdAsync,
+            selected: subd,
+            enabled: true,
+            itemValue: (item) => item.subd,
+            itemLabel: (item) => _formatJrqOption(item.subd, item.dsubd),
+            onChanged: onSubdChanged,
           ),
           const SizedBox(width: 8),
-          SizedBox(
-            width: 190,
-            child: TextField(
-              controller: marcaCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Marca',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-            ),
+          _JrqMultiFilter<JrqClasModel>(
+            label: 'CLAS',
+            asyncItems: clasAsync,
+            selected: clas,
+            enabled: true,
+            itemValue: (item) => item.clas,
+            itemLabel: (item) => _formatJrqOption(item.clas, item.dclas),
+            onChanged: onClasChanged,
           ),
           const SizedBox(width: 8),
-          SizedBox(
-            width: 150,
-            child: TextField(
-              controller: tipoCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Tipo de producto',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-            ),
+          _JrqMultiFilter<JrqSclaModel>(
+            label: 'SCLA',
+            asyncItems: sclaAsync,
+            selected: scla,
+            enabled: true,
+            itemValue: (item) => item.scla,
+            itemLabel: (item) => _formatJrqOption(item.scla, item.dscla),
+            onChanged: onSclaChanged,
+          ),
+          const SizedBox(width: 8),
+          _JrqMultiFilter<JrqScla2Model>(
+            label: 'SCLA2',
+            asyncItems: scla2Async,
+            selected: scla2,
+            enabled: true,
+            itemValue: (item) => item.scla2,
+            itemLabel: (item) => _formatJrqOption(item.scla2, item.dscla2),
+            onChanged: onScla2Changed,
           ),
           const SizedBox(width: 8),
           FilledButton.icon(
@@ -467,6 +630,151 @@ List<String> _sucursalesPermitidas(List<String> items) {
   return sucs;
 }
 
+class _JrqMultiFilter<T> extends StatelessWidget {
+  const _JrqMultiFilter({
+    required this.label,
+    required this.asyncItems,
+    required this.selected,
+    required this.enabled,
+    required this.itemValue,
+    required this.itemLabel,
+    required this.onChanged,
+  });
+
+  final String label;
+  final AsyncValue<List<T>> asyncItems;
+  final List<double> selected;
+  final bool enabled;
+  final double Function(T) itemValue;
+  final String Function(T) itemLabel;
+  final ValueChanged<List<double>> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 120,
+      child: asyncItems.when(
+        data: (items) => OutlinedButton(
+          onPressed: enabled && items.isNotEmpty
+              ? () => _openSelector(context, items)
+              : null,
+          style: OutlinedButton.styleFrom(
+            alignment: Alignment.centerLeft,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            minimumSize: const Size(120, 48),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          child: Text(
+            selected.isEmpty ? label : '$label (${selected.length})',
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        loading: () => const LinearProgressIndicator(),
+        error: (_, _) => OutlinedButton(
+          onPressed: null,
+          child: Text('$label Err', overflow: TextOverflow.ellipsis),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openSelector(BuildContext context, List<T> items) async {
+    final picked = await showDialog<List<double>>(
+      context: context,
+      builder: (context) => _JrqMultiSelectDialog<T>(
+        title: label,
+        items: items,
+        selected: selected.toSet(),
+        itemValue: itemValue,
+        itemLabel: itemLabel,
+      ),
+    );
+    if (picked == null) return;
+    onChanged(picked);
+  }
+}
+
+class _JrqMultiSelectDialog<T> extends StatefulWidget {
+  const _JrqMultiSelectDialog({
+    required this.title,
+    required this.items,
+    required this.selected,
+    required this.itemValue,
+    required this.itemLabel,
+  });
+
+  final String title;
+  final List<T> items;
+  final Set<double> selected;
+  final double Function(T) itemValue;
+  final String Function(T) itemLabel;
+
+  @override
+  State<_JrqMultiSelectDialog<T>> createState() =>
+      _JrqMultiSelectDialogState<T>();
+}
+
+class _JrqMultiSelectDialogState<T> extends State<_JrqMultiSelectDialog<T>> {
+  late final Set<double> _selected = {...widget.selected};
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.title),
+      content: SizedBox(
+        width: 420,
+        height: 460,
+        child: ListView.builder(
+          itemCount: widget.items.length,
+          itemBuilder: (context, index) {
+            final item = widget.items[index];
+            final value = widget.itemValue(item);
+            return CheckboxListTile(
+              dense: true,
+              value: _selected.contains(value),
+              title: Text(widget.itemLabel(item)),
+              onChanged: (checked) {
+                setState(() {
+                  if (checked == true) {
+                    _selected.add(value);
+                  } else {
+                    _selected.remove(value);
+                  }
+                });
+              },
+            );
+          },
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, <double>[]),
+          child: const Text('Limpiar'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: () {
+            final values = _selected.toList()..sort();
+            Navigator.pop(context, values);
+          },
+          child: const Text('Aplicar'),
+        ),
+      ],
+    );
+  }
+}
+
+String _formatJrqOption(double value, String? description) {
+  final code = value % 1 == 0 ? value.toInt().toString() : value.toString();
+  final desc = (description ?? '').trim();
+  return desc.isEmpty ? code : '$code - $desc';
+}
+
 class _CalculoSection extends StatefulWidget {
   const _CalculoSection({
     required this.items,
@@ -477,6 +785,7 @@ class _CalculoSection extends StatefulWidget {
     required this.selectingAll,
     required this.onToggle,
     required this.onSelectAll,
+    required this.onExport,
     required this.onClear,
     required this.onCreate,
     required this.onPageChanged,
@@ -490,6 +799,7 @@ class _CalculoSection extends StatefulWidget {
   final bool selectingAll;
   final void Function(SugeridoCalculoModel item, bool selected) onToggle;
   final VoidCallback onSelectAll;
+  final VoidCallback onExport;
   final VoidCallback onClear;
   final VoidCallback onCreate;
   final ValueChanged<int> onPageChanged;
@@ -603,6 +913,11 @@ class _CalculoSectionState extends State<_CalculoSection> {
                   onPressed: selectedArts.isEmpty ? null : widget.onCreate,
                   icon: const Icon(Icons.playlist_add_check),
                   label: Text('Crear O.C. (${selectedArts.length})'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: items.isEmpty ? null : widget.onExport,
+                  icon: const Icon(Icons.table_view),
+                  label: const Text('Descargar Excel'),
                 ),
               ],
             ),
@@ -874,7 +1189,7 @@ class _ResultRow extends StatelessWidget {
             _ResultCell(
               width: _resultColumns[20].width,
               numeric: true,
-              child: Text(_num(item.sug)),
+              child: Text('${item.sug.round()}'),
             ),
             _ResultCell(
               width: _resultColumns[21].width,
@@ -972,3 +1287,17 @@ String _num(double value) {
 }
 
 String _money(double value) => '\$${value.toStringAsFixed(2)}';
+
+xls.CellValue _excelValue(dynamic value) {
+  if (value == null) return xls.TextCellValue('');
+  if (value is xls.CellValue) return value;
+  if (value is int) return xls.IntCellValue(value);
+  if (value is double) return xls.DoubleCellValue(value);
+  if (value is num) return xls.DoubleCellValue(value.toDouble());
+  if (value is bool) return xls.BoolCellValue(value);
+  return xls.TextCellValue(value.toString());
+}
+
+xls.FormulaCellValue _excelFormula(String formula) {
+  return xls.FormulaCellValue(formula);
+}

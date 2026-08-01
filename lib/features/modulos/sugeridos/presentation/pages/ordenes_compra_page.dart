@@ -1,8 +1,3 @@
-import 'dart:convert';
-import 'dart:typed_data';
-
-import 'package:excel/excel.dart' as xls;
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -197,6 +192,31 @@ class _OrdenesCompraPageState extends ConsumerState<OrdenesCompraPage> {
   }
 
   Future<void> _runOrderAction(SugeridoOrdenModel order, String action) async {
+    final label = action == 'autorizar'
+        ? 'autorizar'
+        : action == 'enviar'
+        ? 'enviar a autorizacion'
+        : action == 'anular'
+        ? 'cancelar'
+        : action;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Confirmar $label'),
+        content: Text('Se va a $label la O.C. ${order.nped}.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Confirmar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
     try {
       await ref.read(sugeridosApiProvider).action(order.nped, action);
       if (!mounted) return;
@@ -209,119 +229,54 @@ class _OrdenesCompraPageState extends ConsumerState<OrdenesCompraPage> {
   }
 
   Future<void> _openNuevaOrden() async {
-    if (_prov == null || _prov! <= 0) {
-      _snack('Selecciona primero un proveedor.');
-      return;
+    final contextData = await _pickNuevaOrdenContext();
+    if (!mounted || contextData == null) return;
+    await _createDraftOrder(contextData, const []);
+  }
+
+  Future<_NuevaOrdenContext?> _pickNuevaOrdenContext() async {
+    final proveedores = await ref.read(sugeridosProveedoresProvider.future);
+    final sucs = await ref.read(sugeridosSucursalesProvider.future);
+    if (!mounted) return null;
+    if (proveedores.isEmpty) {
+      _snack('No hay proveedores disponibles.');
+      return null;
     }
-    if (_suc.trim().isEmpty) {
-      _snack('Selecciona una sucursal para la nueva O.C.');
-      return;
+    final normalizedSucs = _sucursalesOrdenesPermitidas(sucs);
+    if (normalizedSucs.isEmpty) {
+      _snack('No hay sucursales disponibles.');
+      return null;
     }
-    final action = await showDialog<_NuevaOrdenAction>(
+    final picked = await showDialog<_NuevaOrdenContext>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Nueva orden de compra'),
-        content: Text(
-          'Proveedor $_prov. Selecciona articulos del proveedor o importa un archivo.',
-        ),
-        actions: [
-          OutlinedButton.icon(
-            onPressed: () =>
-                Navigator.pop(context, _NuevaOrdenAction.seleccionar),
-            icon: const Icon(Icons.checklist),
-            label: const Text('Seleccionar articulos'),
-          ),
-          OutlinedButton.icon(
-            onPressed: () => Navigator.pop(context, _NuevaOrdenAction.importar),
-            icon: const Icon(Icons.upload_file),
-            label: const Text('Importar archivo'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
-        ],
+      builder: (context) => _NuevaOrdenProveedorDialog(
+        sucs: normalizedSucs,
+        proveedores: proveedores,
+        initialSuc: _suc,
+        initialProv: _prov,
       ),
     );
-    if (!mounted || action == null) return;
-    if (action == _NuevaOrdenAction.seleccionar) {
-      await _selectArticulosProveedor();
-    } else {
-      await _importOrdenFile();
-    }
+    if (picked == null || !mounted) return null;
+    setState(() {
+      _suc = picked.suc;
+      _prov = picked.prov;
+      _page = 1;
+    });
+    return picked;
   }
 
-  Future<void> _selectArticulosProveedor() async {
-    final articulos = await _loadArticulosProveedor();
-    if (!mounted || articulos.isEmpty) return;
-    final selected = await showDialog<List<SugeridoOrdenDraftItem>>(
-      context: context,
-      builder: (context) => _SeleccionArticulosDialog(articulos: articulos),
-    );
-    if (selected == null || selected.isEmpty || !mounted) return;
-    await _createDraftOrder(selected);
-  }
-
-  Future<void> _importOrdenFile() async {
-    final picked = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: const ['xlsx', 'xls', 'csv'],
-      withData: true,
-    );
-    final file = picked?.files.single;
-    final bytes = file?.bytes;
-    if (file == null || bytes == null || bytes.isEmpty) return;
-    try {
-      final imported = _parseImportRows(file.name, bytes);
-      if (imported.isEmpty) {
-        _snack('El archivo no contiene articulos para importar.');
-        return;
-      }
-      final articulos = await _loadArticulosProveedor();
-      if (!mounted || articulos.isEmpty) return;
-      final byArt = {
-        for (final item in articulos) item.art.trim().toUpperCase(): item,
-      };
-      final draft = <SugeridoOrdenDraftItem>[];
-      final invalid = <String>[];
-      for (final row in imported) {
-        final info = byArt[row.art.trim().toUpperCase()];
-        if (info == null || info.cto <= 0) {
-          invalid.add(row.art);
-        } else {
-          draft.add(info.toDraft(row.cantidad));
-        }
-      }
-      if (invalid.isNotEmpty) {
-        _snack('Articulos fuera del proveedor: ${invalid.take(5).join(', ')}');
-        return;
-      }
-      await _createDraftOrder(draft);
-    } catch (e) {
-      _snack('No se pudo importar el archivo: $e');
-    }
-  }
-
-  Future<List<SugeridoArticuloProveedorModel>> _loadArticulosProveedor() async {
-    try {
-      final items = await ref
-          .read(sugeridosApiProvider)
-          .articulosProveedor(suc: _suc, prov: _prov!);
-      if (items.isEmpty && mounted) {
-        _snack('El proveedor no tiene articulos disponibles en $_suc.');
-      }
-      return items;
-    } catch (e) {
-      if (mounted) _snack('No se pudieron cargar articulos: $e');
-      return const [];
-    }
-  }
-
-  Future<void> _createDraftOrder(List<SugeridoOrdenDraftItem> items) async {
+  Future<void> _createDraftOrder(
+    _NuevaOrdenContext contextData,
+    List<SugeridoOrdenDraftItem> items,
+  ) async {
     try {
       final created = await ref
           .read(sugeridosApiProvider)
-          .createRaw(suc: _suc, nprov: _prov!, items: items);
+          .createRaw(
+            suc: contextData.suc,
+            nprov: contextData.prov,
+            items: items,
+          );
       if (!mounted) return;
       setState(() {
         _docCtrl.text = created.nped;
@@ -362,7 +317,111 @@ class _OrdenesCompraPageState extends ConsumerState<OrdenesCompraPage> {
   }
 }
 
-enum _NuevaOrdenAction { seleccionar, importar }
+class _NuevaOrdenContext {
+  const _NuevaOrdenContext({required this.suc, required this.prov});
+
+  final String suc;
+  final int prov;
+}
+
+class _NuevaOrdenProveedorDialog extends StatefulWidget {
+  const _NuevaOrdenProveedorDialog({
+    required this.sucs,
+    required this.proveedores,
+    required this.initialSuc,
+    required this.initialProv,
+  });
+
+  final List<String> sucs;
+  final List<SugeridoProveedorModel> proveedores;
+  final String initialSuc;
+  final int? initialProv;
+
+  @override
+  State<_NuevaOrdenProveedorDialog> createState() =>
+      _NuevaOrdenProveedorDialogState();
+}
+
+class _NuevaOrdenProveedorDialogState
+    extends State<_NuevaOrdenProveedorDialog> {
+  late String _suc;
+  int? _prov;
+
+  @override
+  void initState() {
+    super.initState();
+    final initialSuc = widget.initialSuc.trim().toUpperCase();
+    _suc = widget.sucs.contains(initialSuc) ? initialSuc : widget.sucs.first;
+    final initialProv = widget.initialProv;
+    _prov =
+        initialProv != null &&
+            widget.proveedores.any((provider) => provider.id == initialProv)
+        ? initialProv
+        : null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Seleccionar sucursal y proveedor'),
+      content: SizedBox(
+        width: 460,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            DropdownButtonFormField<String>(
+              initialValue: _suc,
+              isExpanded: true,
+              decoration: const InputDecoration(
+                labelText: 'Sucursal',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              items: [
+                for (final suc in widget.sucs)
+                  DropdownMenuItem(value: suc, child: Text(suc)),
+              ],
+              onChanged: (value) => setState(() => _suc = value ?? ''),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<int>(
+              initialValue: _prov,
+              isExpanded: true,
+              decoration: const InputDecoration(
+                labelText: 'Proveedor',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              items: [
+                for (final provider in widget.proveedores)
+                  DropdownMenuItem(
+                    value: provider.id,
+                    child: Text(provider.label),
+                  ),
+              ],
+              onChanged: (value) => setState(() => _prov = value),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: _suc.isEmpty || _prov == null
+              ? null
+              : () => Navigator.pop(
+                  context,
+                  _NuevaOrdenContext(suc: _suc, prov: _prov!),
+                ),
+          child: const Text('Continuar'),
+        ),
+      ],
+    );
+  }
+}
 
 class _OrdenesFilters extends StatelessWidget {
   const _OrdenesFilters({
@@ -420,21 +479,24 @@ class _OrdenesFilters extends StatelessWidget {
           SizedBox(
             width: 170,
             child: sucsAsync.when(
-              data: (items) => DropdownButtonFormField<String>(
-                initialValue: suc.isEmpty ? null : suc,
-                decoration: const InputDecoration(
-                  labelText: 'Sucursal',
-                  border: OutlineInputBorder(),
-                  isDense: true,
-                ),
-                items: [
-                  const DropdownMenuItem(value: '', child: Text('Todas')),
-                  ...items.map(
-                    (s) => DropdownMenuItem(value: s, child: Text(s)),
+              data: (items) {
+                final sucs = _sucursalesOrdenesPermitidas(items);
+                return DropdownButtonFormField<String>(
+                  initialValue: suc.isEmpty || !sucs.contains(suc) ? null : suc,
+                  decoration: const InputDecoration(
+                    labelText: 'Sucursal',
+                    border: OutlineInputBorder(),
+                    isDense: true,
                   ),
-                ],
-                onChanged: onSucChanged,
-              ),
+                  items: [
+                    const DropdownMenuItem(value: '', child: Text('Todas')),
+                    ...sucs.map(
+                      (s) => DropdownMenuItem(value: s, child: Text(s)),
+                    ),
+                  ],
+                  onChanged: onSucChanged,
+                );
+              },
               loading: () => const LinearProgressIndicator(),
               error: (e, _) => Text('Sucursales: $e'),
             ),
@@ -526,6 +588,15 @@ class _OrdenesFilters extends StatelessWidget {
   }
 }
 
+List<String> _sucursalesOrdenesPermitidas(List<String> items) {
+  const requeridas = {'DF01', 'DF04', 'DF05', 'DF06'};
+  final sucs = <String>{
+    ...items.map((s) => s.trim().toUpperCase()).where((s) => s.isNotEmpty),
+    ...requeridas,
+  }.where((s) => requeridas.contains(s)).toList()..sort();
+  return sucs;
+}
+
 class _OrdenesTable extends StatelessWidget {
   const _OrdenesTable({
     required this.result,
@@ -611,7 +682,7 @@ class _OrdenesTable extends StatelessWidget {
                     DataColumn(label: Text('Art'), numeric: true),
                     DataColumn(label: Text('Importe'), numeric: true),
                     DataColumn(
-                      label: SizedBox(width: 132, child: Text('Acciones')),
+                      label: SizedBox(width: 172, child: Text('Acciones')),
                     ),
                   ],
                   rows: [
@@ -663,7 +734,7 @@ class _OrdenActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 132,
+      width: 172,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -687,6 +758,15 @@ class _OrdenActions extends StatelessWidget {
             icon: const Icon(Icons.verified),
             onPressed: order.estatus == 'PENDIENTE'
                 ? () => onAction(order, 'autorizar')
+                : null,
+          ),
+          IconButton(
+            tooltip: 'Cancelar',
+            visualDensity: VisualDensity.compact,
+            icon: const Icon(Icons.cancel_outlined),
+            onPressed:
+                order.estatus == 'ABIERTO' || order.estatus == 'PENDIENTE'
+                ? () => onAction(order, 'anular')
                 : null,
           ),
         ],
@@ -757,10 +837,21 @@ class _ErrorBand extends StatelessWidget {
   );
 }
 
-class _SeleccionArticulosDialog extends StatefulWidget {
-  const _SeleccionArticulosDialog({required this.articulos});
+typedef _BuscarArticulosProveedor =
+    Future<List<SugeridoArticuloProveedorModel>> Function({
+      required String search,
+      required String searchBy,
+      String? depa,
+      String? subd,
+      String? clas,
+      String? scla,
+      String? scla2,
+    });
 
-  final List<SugeridoArticuloProveedorModel> articulos;
+class _SeleccionArticulosDialog extends StatefulWidget {
+  const _SeleccionArticulosDialog({required this.onSearch});
+
+  final _BuscarArticulosProveedor onSearch;
 
   @override
   State<_SeleccionArticulosDialog> createState() =>
@@ -769,116 +860,61 @@ class _SeleccionArticulosDialog extends StatefulWidget {
 
 class _SeleccionArticulosDialogState extends State<_SeleccionArticulosDialog> {
   final _searchCtrl = TextEditingController();
+  final _depaCtrl = TextEditingController();
+  final _subdCtrl = TextEditingController();
+  final _clasCtrl = TextEditingController();
+  final _sclaCtrl = TextEditingController();
+  final _scla2Ctrl = TextEditingController();
   final Map<String, double> _cantidades = {};
-  String _search = '';
+  final Map<String, SugeridoArticuloProveedorModel> _seleccionados = {};
+  List<SugeridoArticuloProveedorModel> _items = const [];
+  String _searchBy = 'ART';
+  bool _loading = false;
+  bool _searched = false;
 
   @override
   void dispose() {
     _searchCtrl.dispose();
+    _depaCtrl.dispose();
+    _subdCtrl.dispose();
+    _clasCtrl.dispose();
+    _sclaCtrl.dispose();
+    _scla2Ctrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final search = _search.trim().toUpperCase();
-    final filtered = widget.articulos
-        .where(
-          (item) =>
-              search.isEmpty ||
-              item.art.toUpperCase().contains(search) ||
-              item.des.toUpperCase().contains(search),
-        )
-        .take(250)
-        .toList();
     final selectedCount = _cantidades.values.where((v) => v > 0).length;
     return AlertDialog(
       title: const Text('Seleccionar articulos'),
+      insetPadding: const EdgeInsets.all(16),
       content: SizedBox(
-        width: 900,
-        height: 560,
+        width: MediaQuery.sizeOf(context).width - 64,
+        height: MediaQuery.sizeOf(context).height - 180,
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            TextField(
-              controller: _searchCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Buscar articulo',
-                border: OutlineInputBorder(),
-                isDense: true,
-                prefixIcon: Icon(Icons.search),
-              ),
-              onChanged: (value) => setState(() => _search = value),
-            ),
-            const SizedBox(height: 8),
+            _filters(context),
+            const SizedBox(height: 10),
+            if (_loading) const LinearProgressIndicator(minHeight: 2),
+            if (_loading) const SizedBox(height: 8),
             Expanded(
-              child: SingleChildScrollView(
-                child: DataTable(
-                  columns: const [
-                    DataColumn(label: Text('Sel')),
-                    DataColumn(label: Text('ART')),
-                    DataColumn(label: Text('Descripcion')),
-                    DataColumn(label: Text('Costo'), numeric: true),
-                    DataColumn(label: Text('Cantidad'), numeric: true),
-                  ],
-                  rows: [
-                    for (final item in filtered)
-                      DataRow(
-                        selected: (_cantidades[item.art] ?? 0) > 0,
-                        cells: [
-                          DataCell(
-                            Checkbox(
-                              value: (_cantidades[item.art] ?? 0) > 0,
-                              onChanged: item.cto <= 0
-                                  ? null
-                                  : (value) => setState(() {
-                                      if (value == true) {
-                                        _cantidades[item.art] = 1;
-                                      } else {
-                                        _cantidades.remove(item.art);
-                                      }
-                                    }),
-                            ),
-                          ),
-                          DataCell(Text(item.art)),
-                          DataCell(SizedBox(width: 320, child: Text(item.des))),
-                          DataCell(Text(_money(item.cto))),
-                          DataCell(
-                            SizedBox(
-                              width: 90,
-                              child: TextFormField(
-                                key: ValueKey(
-                                  '${item.art}-${_cantidades[item.art] ?? 0}',
-                                ),
-                                initialValue: ((_cantidades[item.art] ?? 0) > 0)
-                                    ? _num(_cantidades[item.art]!)
-                                    : '',
-                                enabled: item.cto > 0,
-                                keyboardType:
-                                    const TextInputType.numberWithOptions(
-                                      decimal: true,
-                                    ),
-                                textAlign: TextAlign.right,
-                                decoration: const InputDecoration(
-                                  isDense: true,
-                                  border: OutlineInputBorder(),
-                                ),
-                                onChanged: (value) {
-                                  final qty =
-                                      double.tryParse(value.trim()) ?? 0;
-                                  setState(() {
-                                    if (qty > 0) {
-                                      _cantidades[item.art] = qty;
-                                    } else {
-                                      _cantidades.remove(item.art);
-                                    }
-                                  });
-                                },
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                  ],
-                ),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final showSelectedPanel = constraints.maxWidth >= 980;
+                  if (!showSelectedPanel) {
+                    return _resultsPanel();
+                  }
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(child: _resultsPanel()),
+                      const SizedBox(width: 12),
+                      SizedBox(width: 360, child: _selectedPanel()),
+                    ],
+                  );
+                },
               ),
             ),
           ],
@@ -895,7 +931,7 @@ class _SeleccionArticulosDialogState extends State<_SeleccionArticulosDialog> {
               ? null
               : () => Navigator.pop(
                   context,
-                  widget.articulos
+                  _seleccionados.values
                       .where((item) => (_cantidades[item.art] ?? 0) > 0)
                       .map((item) => item.toDraft(_cantidades[item.art]!))
                       .toList(),
@@ -905,82 +941,275 @@ class _SeleccionArticulosDialogState extends State<_SeleccionArticulosDialog> {
       ],
     );
   }
-}
 
-class _ImportOrdenRow {
-  const _ImportOrdenRow({required this.art, required this.cantidad});
-
-  final String art;
-  final double cantidad;
-}
-
-List<_ImportOrdenRow> _parseImportRows(String name, Uint8List bytes) {
-  final rows = name.toLowerCase().endsWith('.csv')
-      ? _parseCsvRows(bytes)
-      : _parseExcelRows(bytes);
-  if (rows.isEmpty) return const [];
-  final header = rows.first.map((cell) => cell.trim().toUpperCase()).toList();
-  var artIndex = header.indexWhere(
-    (h) => h == 'ART' || h == 'ARTICULO' || h == 'ARTICULO_ID',
-  );
-  var qtyIndex = header.indexWhere(
-    (h) => h == 'CANTIDAD' || h == 'CANT' || h == 'CTDPED' || h == 'PEDIDO',
-  );
-  var start = 1;
-  if (artIndex < 0 || qtyIndex < 0) {
-    artIndex = 0;
-    qtyIndex = 1;
-    start = 0;
+  Widget _filters(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Filtros de busqueda',
+          style: Theme.of(context).textTheme.titleSmall,
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            SizedBox(
+              width: 150,
+              child: DropdownButtonFormField<String>(
+                initialValue: _searchBy,
+                decoration: const InputDecoration(
+                  labelText: 'Buscar por',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+                items: const [
+                  DropdownMenuItem(value: 'ART', child: Text('ART')),
+                  DropdownMenuItem(value: 'UPC', child: Text('UPC')),
+                  DropdownMenuItem(value: 'DES', child: Text('DES')),
+                  DropdownMenuItem(value: 'TODO', child: Text('Todos')),
+                ],
+                onChanged: (value) =>
+                    setState(() => _searchBy = value ?? 'ART'),
+              ),
+            ),
+            SizedBox(
+              width: 300,
+              child: TextField(
+                controller: _searchCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Buscar articulo',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                  prefixIcon: Icon(Icons.search),
+                ),
+                onSubmitted: (_) => _search(),
+              ),
+            ),
+            _filterField(_depaCtrl, 'DEPA'),
+            _filterField(_subdCtrl, 'SUBD'),
+            _filterField(_clasCtrl, 'CLAS'),
+            _filterField(_sclaCtrl, 'SCLA'),
+            _filterField(_scla2Ctrl, 'SCLA2'),
+            FilledButton.icon(
+              onPressed: _loading ? null : _search,
+              icon: const Icon(Icons.search),
+              label: const Text('Buscar'),
+            ),
+            OutlinedButton.icon(
+              onPressed: _loading ? null : _clearFilters,
+              icon: const Icon(Icons.cleaning_services),
+              label: const Text('Limpiar'),
+            ),
+          ],
+        ),
+      ],
+    );
   }
-  final parsed = <_ImportOrdenRow>[];
-  for (final row in rows.skip(start)) {
-    if (row.length <= artIndex || row.length <= qtyIndex) continue;
-    final art = row[artIndex].trim();
-    final cantidad = double.tryParse(row[qtyIndex].trim()) ?? 0;
-    if (art.isNotEmpty && cantidad > 0) {
-      parsed.add(_ImportOrdenRow(art: art, cantidad: cantidad));
+
+  Widget _filterField(TextEditingController controller, String label) {
+    return SizedBox(
+      width: 118,
+      child: TextField(
+        controller: controller,
+        decoration: InputDecoration(
+          labelText: label,
+          border: const OutlineInputBorder(),
+          isDense: true,
+        ),
+        onSubmitted: (_) => _search(),
+      ),
+    );
+  }
+
+  Widget _resultsPanel() {
+    if (!_searched) {
+      return const Center(
+        child: Text(
+          'Capture filtros y presione Buscar para agregar articulos.',
+        ),
+      );
+    }
+    if (!_loading && _items.isEmpty) {
+      return const Center(child: Text('Sin articulos para el filtro. '));
+    }
+    return Scrollbar(
+      child: SingleChildScrollView(
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: DataTable(
+            columns: const [
+              DataColumn(label: Text('Sel')),
+              DataColumn(label: Text('ART')),
+              DataColumn(label: Text('UPC')),
+              DataColumn(label: Text('Descripcion')),
+              DataColumn(label: Text('Costo'), numeric: true),
+              DataColumn(label: Text('Cantidad'), numeric: true),
+            ],
+            rows: [
+              for (final item in _items)
+                DataRow(
+                  selected: (_cantidades[item.art] ?? 0) > 0,
+                  cells: [
+                    DataCell(
+                      Checkbox(
+                        value: (_cantidades[item.art] ?? 0) > 0,
+                        onChanged: item.cto <= 0
+                            ? null
+                            : (value) =>
+                                  _setCantidad(item, value == true ? 1 : 0),
+                      ),
+                    ),
+                    DataCell(Text(item.art)),
+                    DataCell(Text(item.upc ?? '')),
+                    DataCell(SizedBox(width: 360, child: Text(item.des))),
+                    DataCell(Text(_money(item.cto))),
+                    DataCell(
+                      SizedBox(
+                        width: 90,
+                        child: TextFormField(
+                          key: ValueKey(
+                            '${item.art}-${_cantidades[item.art] ?? 0}',
+                          ),
+                          initialValue: ((_cantidades[item.art] ?? 0) > 0)
+                              ? _num(_cantidades[item.art]!)
+                              : '',
+                          enabled: item.cto > 0,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          textAlign: TextAlign.right,
+                          decoration: const InputDecoration(
+                            isDense: true,
+                            border: OutlineInputBorder(),
+                          ),
+                          onChanged: (value) {
+                            final qty =
+                                double.tryParse(value.replaceAll(',', '.')) ??
+                                0;
+                            _setCantidad(item, qty);
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _selectedPanel() {
+    final items = _seleccionados.values
+        .where((item) => (_cantidades[item.art] ?? 0) > 0)
+        .toList();
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.black12),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Text(
+              'Articulos agregados',
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: items.isEmpty
+                ? const Center(child: Text('Sin articulos seleccionados.'))
+                : ListView.separated(
+                    itemCount: items.length,
+                    separatorBuilder: (context, index) =>
+                        const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final item = items[index];
+                      return ListTile(
+                        dense: true,
+                        title: Text('${item.art} | ${item.des}'),
+                        subtitle: Text(
+                          'Cantidad ${_num(_cantidades[item.art] ?? 0)}',
+                        ),
+                        trailing: IconButton(
+                          tooltip: 'Quitar',
+                          icon: const Icon(Icons.close),
+                          onPressed: () => _setCantidad(item, 0),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _search() async {
+    if (_loading) return;
+    setState(() {
+      _loading = true;
+      _searched = true;
+    });
+    try {
+      final items = await widget.onSearch(
+        search: _searchCtrl.text,
+        searchBy: _searchBy,
+        depa: _depaCtrl.text,
+        subd: _subdCtrl.text,
+        clas: _clasCtrl.text,
+        scla: _sclaCtrl.text,
+        scla2: _scla2Ctrl.text,
+      );
+      if (!mounted) return;
+      setState(() {
+        _items = items;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _items = const [];
+        _loading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudieron cargar articulos: $e')),
+      );
     }
   }
-  return parsed;
-}
 
-List<List<String>> _parseExcelRows(Uint8List bytes) {
-  final book = xls.Excel.decodeBytes(bytes);
-  if (book.tables.isEmpty) return const [];
-  final sheet = book.tables.values.first;
-  return sheet.rows
-      .map((row) => row.map(_excelCellText).toList())
-      .where((row) => row.any((cell) => cell.isNotEmpty))
-      .toList();
-}
+  void _clearFilters() {
+    setState(() {
+      _searchCtrl.clear();
+      _depaCtrl.clear();
+      _subdCtrl.clear();
+      _clasCtrl.clear();
+      _sclaCtrl.clear();
+      _scla2Ctrl.clear();
+      _searchBy = 'ART';
+      _items = const [];
+      _searched = false;
+    });
+  }
 
-String _excelCellText(xls.Data? cell) {
-  final value = cell?.value;
-  if (value == null) return '';
-  if (value is xls.TextCellValue) return value.value.toString().trim();
-  if (value is xls.IntCellValue) return value.value.toString();
-  if (value is xls.DoubleCellValue) return value.value.toString();
-  if (value is xls.BoolCellValue) return value.value ? 'true' : 'false';
-  return value.toString().trim();
-}
-
-List<List<String>> _parseCsvRows(Uint8List bytes) {
-  final content = utf8.decode(bytes, allowMalformed: true);
-  final delimiter = content.contains(';')
-      ? ';'
-      : content.contains('\t')
-      ? '\t'
-      : ',';
-  return const LineSplitter()
-      .convert(content)
-      .map(
-        (line) => line
-            .split(delimiter)
-            .map((cell) => cell.trim().replaceAll(RegExp(r'^"|"$'), ''))
-            .toList(),
-      )
-      .where((row) => row.any((cell) => cell.isNotEmpty))
-      .toList();
+  void _setCantidad(SugeridoArticuloProveedorModel item, double qty) {
+    setState(() {
+      if (qty > 0) {
+        _cantidades[item.art] = qty;
+        _seleccionados[item.art] = item;
+      } else {
+        _cantidades.remove(item.art);
+        _seleccionados.remove(item.art);
+      }
+    });
+  }
 }
 
 String _date(DateTime? value) {
