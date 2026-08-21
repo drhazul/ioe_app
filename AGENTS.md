@@ -3,6 +3,17 @@
 > Abre otros README/AGENTS solo si la tarea lo exige; evita cargar contexto extra.
 
 ## Contexto del proyecto
+- Inventarios / Recepcion de mercancias (2026-08-11): feature `lib/features/modulos/recepciones` con rutas `/modulos/recepciones` y detalle por `NPED`; Home resuelve `DAT_REC`. La UI consume `/recepciones` y nunca contabiliza inventario directamente.
+- DAT_REC / Pedidos pendientes: no precargar resultados; exigir filtro y limitar el selector de sucursal a `DF01/DF04/DF05/DF06`.
+- DAT_REC / Filtros: proveedor debe ser dropdown ordenado; limpiar restablece criterios y resultados.
+- DAT_REC / Jerarquías y rechazo (2026-08-18): en el detalle reutilizar los catálogos JRQ de Mermas para `DEP/SDEP/CLS/SCLS/SCLS2`, complementar con `SPH/CYL/ADIC` y permitir cualquier criterio individual sin exigir completar la jerarquía; conservar vista por artículo y vista agrupada por ruta jerárquica. El rechazo total del Encargado exige motivo y queda visible como `RECHAZADO` solo para Jefe/Analista.
+- DAT_REC / Formulario final (2026-08-18): mostrar el tipo calculado en modo bloqueado; permitir folios adicionales, cualquier carácter en Guías de envío y capturar Paquetería antes de Observaciones.
+- DAT_REC / Revisión Jefe (2026-08-18): solo `IDROL=2` puede editar datos documentales y costo de una recepción `VALIDADO`; mostrar folios en bloques separados. El botón administrativo `Rechazar` devuelve a sucursal, cierra el detalle y la O.C. reaparece `PROCESADO` con borrador rehidratado.
+- Órdenes de compra / Filtro por Inventarios (2026-08-20): Jefe (`IDROL=2`) y Analista (`IDROL=9005`) no muestran `PARCIAL` en el selector de estatus; no retirar esa opción del catálogo global ni de otros perfiles.
+- Órdenes de compra / Rechazo de recepción (2026-08-21): una recepción `RECHAZADO` sincroniza la O.C. al mismo estatus. El Jefe puede filtrarla, cancelar la O.C. o abrirla para editar exclusivamente cantidades; agregar/eliminar artículos y editar costo/unidad permanecen bloqueados.
+- Órdenes de compra / Devolver rechazo (2026-08-21): el Jefe puede devolver una O.C. `RECHAZADO` a la sucursal indicando motivo; la O.C. vuelve a `PROCESADO`, el detalle se cierra y el Encargado recibe un borrador limpio para recapturar cantidades.
+- Órdenes de compra / Validadas (2026-08-21): el filtro del Jefe incluye `VALIDADO` y lista O.C. cuya recepción ya fue validada por sucursal y está pendiente de revisión o contabilización administrativa.
+- Órdenes de compra / Cancelar validada (2026-08-21): el Jefe puede cancelar una O.C. `VALIDADO`; la acción exige confirmación, deja la recepción técnica en `CANCELADO` y la O.C. visible como `ANULADO`, solo si no existen cantidades recibidas ni movimientos de inventario.
 - App Flutter feature-based (`lib/features`) con Riverpod, go_router y Dio.
 - Consume `ioe-api` (NestJS + MSSQL) para auth, maestros, inventarios, control de cuentas y punto de venta.
 - Entorno: `lib/core/env.dart` y `assets/.env` (solo release).

@@ -101,6 +101,8 @@ import '../features/modulos/transferencias/presentation/pages/transferencias_pag
 import '../features/modulos/transferencias/presentation/pages/transferencias_reportes_page.dart';
 import '../features/modulos/sugeridos/presentation/pages/ordenes_compra_page.dart';
 import '../features/modulos/sugeridos/presentation/pages/sugeridos_page.dart';
+import '../features/modulos/recepciones/presentation/pages/recepciones_page.dart';
+import '../features/modulos/recepciones/presentation/pages/recepcion_detail_page.dart';
 import '../features/modulos/faltantes_sobrantes/fys_report_page.dart';
 
 import 'auth/auth_controller.dart';
@@ -647,6 +649,15 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'modulos/ordenes-compra',
             builder: (c, s) => const OrdenesCompraPage(),
+          ),
+          GoRoute(
+            path: 'modulos/recepciones',
+            builder: (c, s) => const RecepcionesPage(),
+          ),
+          GoRoute(
+            path: 'modulos/recepciones/:nped',
+            builder: (c, s) =>
+                RecepcionDetailPage(nped: s.pathParameters['nped'] ?? ''),
           ),
           GoRoute(
             path: 'punto-venta',

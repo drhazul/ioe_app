@@ -235,8 +235,15 @@ class SugeridosApi {
     );
   }
 
-  Future<SugeridoOrdenModel> action(String nped, String action) async {
-    final res = await dio.post('/sugeridos/$nped/$action', data: const {});
+  Future<SugeridoOrdenModel> action(
+    String nped,
+    String action, {
+    String? obs,
+  }) async {
+    final res = await dio.post(
+      '/sugeridos/$nped/$action',
+      data: {if ((obs ?? '').trim().isNotEmpty) 'obs': obs!.trim()},
+    );
     return SugeridoOrdenModel.fromJson(
       Map<String, dynamic>.from(res.data as Map),
     );

@@ -5,6 +5,17 @@ Frontend Flutter del ecosistema IOE. Consume `ioe-api` para autenticación, maes
 > Consulta otros README/AGENTS solo si la tarea lo exige; evita cargar contexto extra innecesario.
 
 ## Planteamiento funcional
+- Inventarios / Recepcion de mercancias (2026-08-11): feature `lib/features/modulos/recepciones` para `DAT_REC`, con pendientes, captura fisica, autorizacion administrativa, historico, indicadores y carga masiva.
+- DAT_REC / Pedidos pendientes: inicia sin resultados y filtra por O.C., proveedor, fecha o sucursal (`DF01/DF04/DF05/DF06`).
+- DAT_REC / Proveedor: dropdown ordenado y acción para limpiar todos los filtros.
+- DAT_REC / Detalle por jerarquías (2026-08-18): la captura permite usar de forma independiente `DEP/SDEP/CLS/SCLS/SCLS2/SPH/CYL/ADIC` (con cascada opcional), una vista agrupada con cantidades e importe, y el Encargado puede enviar toda la mercancía como `RECHAZADO` a Inventarios indicando el motivo.
+- DAT_REC / Cierre documental (2026-08-18): el tipo de recepción calculado queda bloqueado; el formulario admite múltiples folios, guía alfanumérica con signos, Paquetería y Observaciones.
+- DAT_REC / Revisión del Jefe (2026-08-18): en recepción `VALIDADO`, el Jefe edita datos documentales y costo por artículo; `Rechazar` devuelve la O.C. a sucursal como `PROCESADO` conservando un borrador para nueva revisión.
+- Órdenes de compra / Filtro (2026-08-20): para Jefe y Analista de Inventarios se oculta únicamente el estatus `PARCIAL`; los demás perfiles conservan el catálogo completo.
+- Órdenes de compra / Rechazadas (2026-08-21): el Jefe de Inventarios puede consultar `RECHAZADO`, cancelar la orden o modificar únicamente la cantidad de sus renglones; el estado proviene del rechazo registrado en Recepción de mercancías.
+- Órdenes de compra / Devolución (2026-08-21): `Devolver a sucursal` solicita motivo, cambia la O.C. rechazada a `PROCESADO` y la deja disponible para una nueva revisión del Encargado.
+- Órdenes de compra / Validadas (2026-08-21): el catálogo del Jefe incorpora `VALIDADO` y permite consultar las O.C. pendientes de contabilización en Recepción de mercancías.
+- Órdenes de compra / Cancelación validada (2026-08-21): el botón `Cancelar` se habilita para el Jefe en `VALIDADO`; tras confirmar, la recepción queda `CANCELADO` y la O.C. se muestra como `ANULADO` si aún no generaron movimientos.
 - Centralizar operación administrativa (maestros y permisos) y operativa (inventarios, catálogos, cotizaciones y consultas).
 - Mantener UI desacoplada de persistencia usando contratos HTTP definidos por `ioe-api`.
 - Garantizar navegación protegida con sesión JWT y refresh.

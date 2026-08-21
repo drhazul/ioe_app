@@ -9,6 +9,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
+import '../../../../../core/auth/auth_controller.dart';
 import '../../../reloj_checador/consultas/download_helper.dart';
 import '../../domain/sugeridos_models.dart';
 import '../../providers/sugeridos_provider.dart';
@@ -44,7 +45,12 @@ class _OrdenCompraDetalleDialogState
 
   @override
   Widget build(BuildContext context) {
+    final roleId = ref.watch(
+      authControllerProvider.select((auth) => auth.roleId),
+    );
     final editable = _doc.estatus == 'ABIERTO';
+    final rejectedQuantityOnly = _doc.estatus == 'RECHAZADO';
+    final canReturnToBranch = rejectedQuantityOnly && roleId == 2;
     final processed = _doc.estatus == 'PROCESADO';
     final activeItems = _doc.detalle.where((d) => d.bloq != -1).toList();
     final totalPages = activeItems.isEmpty
@@ -81,6 +87,16 @@ class _OrdenCompraDetalleDialogState
           children: [
             _HeaderBand(doc: _doc, cantidad: cantidad),
             const SizedBox(height: 14),
+            if (canReturnToBranch)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: FilledButton.icon(
+                  onPressed: _saving ? null : _returnToBranch,
+                  icon: const Icon(Icons.keyboard_return),
+                  label: const Text('Devolver a sucursal'),
+                ),
+              ),
+            if (canReturnToBranch) const SizedBox(height: 14),
             if (editable)
               Wrap(
                 spacing: 8,
@@ -166,7 +182,7 @@ class _OrdenCompraDetalleDialogState
                                 label: Text('Total'),
                                 numeric: true,
                               ),
-                              if (editable)
+                              if (editable || rejectedQuantityOnly)
                                 const DataColumn(label: Text('Acciones')),
                             ],
                             rows: [
@@ -183,7 +199,7 @@ class _OrdenCompraDetalleDialogState
                                     DataCell(Text(_num(item.ctdped))),
                                     DataCell(Text(_money(item.cto))),
                                     DataCell(Text(_money(item.ctot))),
-                                    if (editable)
+                                    if (editable || rejectedQuantityOnly)
                                       DataCell(
                                         Row(
                                           mainAxisSize: MainAxisSize.min,
@@ -195,15 +211,16 @@ class _OrdenCompraDetalleDialogState
                                                   ? () => _editCantidad(item)
                                                   : null,
                                             ),
-                                            IconButton(
-                                              tooltip: 'Eliminar articulo',
-                                              icon: const Icon(
-                                                Icons.delete_outline,
+                                            if (editable)
+                                              IconButton(
+                                                tooltip: 'Eliminar articulo',
+                                                icon: const Icon(
+                                                  Icons.delete_outline,
+                                                ),
+                                                onPressed: !_saving
+                                                    ? () => _removeItem(item)
+                                                    : null,
                                               ),
-                                              onPressed: !_saving
-                                                  ? () => _removeItem(item)
-                                                  : null,
-                                            ),
                                           ],
                                         ),
                                       ),
@@ -317,6 +334,79 @@ class _OrdenCompraDetalleDialogState
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('No se pudo guardar: $e')));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _returnToBranch() async {
+    final motive = TextEditingController();
+    String? validation;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Devolver a sucursal'),
+          content: SizedBox(
+            width: 460,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'La O.C. ${_doc.nped} volverá a PROCESADO y quedará disponible para el Encargado de sucursal.',
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: motive,
+                  autofocus: true,
+                  maxLines: 3,
+                  decoration: InputDecoration(
+                    labelText: 'Motivo de devolución',
+                    errorText: validation,
+                    border: const OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (motive.text.trim().isEmpty) {
+                  setDialogState(
+                    () => validation = 'Capture el motivo de devolución.',
+                  );
+                  return;
+                }
+                Navigator.pop(context, true);
+              },
+              child: const Text('Confirmar'),
+            ),
+          ],
+        ),
+      ),
+    );
+    final reason = motive.text.trim();
+    motive.dispose();
+    if (confirmed != true || !mounted) return;
+    setState(() => _saving = true);
+    try {
+      final updated = await ref
+          .read(sugeridosApiProvider)
+          .action(_doc.nped, 'devolver-sucursal', obs: reason);
+      if (!mounted) return;
+      widget.onChanged?.call(updated);
+      Navigator.pop(context, updated);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('No se pudo devolver: $error')));
     } finally {
       if (mounted) setState(() => _saving = false);
     }

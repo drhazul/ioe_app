@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../../core/auth/auth_controller.dart';
 import '../../domain/sugeridos_models.dart';
 import '../../providers/sugeridos_provider.dart';
 import '../widgets/orden_compra_detalle_dialog.dart';
@@ -33,12 +34,20 @@ class _OrdenesCompraPageState extends ConsumerState<OrdenesCompraPage> {
 
   @override
   Widget build(BuildContext context) {
+    final roleId = ref.watch(
+      authControllerProvider.select((auth) => auth.roleId),
+    );
+    final isInventoryChief = roleId == 2;
+    final hidePartialStatus = roleId == 2 || roleId == 9005;
+    final selectedStatus = hidePartialStatus && _estatus == 'PARCIAL'
+        ? ''
+        : _estatus;
     final filters = SugeridosFilters(
       page: _page,
       limit: _limit,
       search: _doc,
       suc: _suc,
-      estatus: _estatus,
+      estatus: selectedStatus,
       prov: _prov,
       fecha: _fecha,
     );
@@ -75,7 +84,8 @@ class _OrdenesCompraPageState extends ConsumerState<OrdenesCompraPage> {
               docCtrl: _docCtrl,
               fechaCtrl: _fechaCtrl,
               suc: _suc,
-              estatus: _estatus,
+              estatus: selectedStatus,
+              hidePartialStatus: hidePartialStatus,
               prov: _prov,
               sucsAsync: sucsAsync,
               estatusAsync: estatusAsync,
@@ -109,6 +119,7 @@ class _OrdenesCompraPageState extends ConsumerState<OrdenesCompraPage> {
                       ordersAsync.when(
                         data: (result) => _OrdenesTable(
                           result: result,
+                          canCancelProcessed: isInventoryChief,
                           onPageChanged: _changePage,
                           onOpen: _openDetalle,
                           onAction: _runOrderAction,
@@ -429,6 +440,7 @@ class _OrdenesFilters extends StatelessWidget {
     required this.fechaCtrl,
     required this.suc,
     required this.estatus,
+    required this.hidePartialStatus,
     required this.prov,
     required this.sucsAsync,
     required this.estatusAsync,
@@ -445,6 +457,7 @@ class _OrdenesFilters extends StatelessWidget {
   final TextEditingController fechaCtrl;
   final String suc;
   final String estatus;
+  final bool hidePartialStatus;
   final int? prov;
   final AsyncValue<List<String>> sucsAsync;
   final AsyncValue<List<String>> estatusAsync;
@@ -535,21 +548,31 @@ class _OrdenesFilters extends StatelessWidget {
           SizedBox(
             width: 190,
             child: estatusAsync.when(
-              data: (items) => DropdownButtonFormField<String>(
-                initialValue: estatus.isEmpty ? null : estatus,
-                decoration: const InputDecoration(
-                  labelText: 'Estatus',
-                  border: OutlineInputBorder(),
-                  isDense: true,
-                ),
-                items: [
-                  const DropdownMenuItem(value: '', child: Text('Todos')),
-                  ...items.map(
-                    (s) => DropdownMenuItem(value: s, child: Text(s)),
+              data: (items) {
+                final visibleItems = hidePartialStatus
+                    ? items
+                          .where(
+                            (status) =>
+                                status.trim().toUpperCase() != 'PARCIAL',
+                          )
+                          .toList()
+                    : items;
+                return DropdownButtonFormField<String>(
+                  initialValue: estatus.isEmpty ? null : estatus,
+                  decoration: const InputDecoration(
+                    labelText: 'Estatus',
+                    border: OutlineInputBorder(),
+                    isDense: true,
                   ),
-                ],
-                onChanged: onEstatusChanged,
-              ),
+                  items: [
+                    const DropdownMenuItem(value: '', child: Text('Todos')),
+                    ...visibleItems.map(
+                      (s) => DropdownMenuItem(value: s, child: Text(s)),
+                    ),
+                  ],
+                  onChanged: onEstatusChanged,
+                );
+              },
               loading: () => const LinearProgressIndicator(),
               error: (e, _) => Text('Estatus: $e'),
             ),
@@ -600,12 +623,14 @@ List<String> _sucursalesOrdenesPermitidas(List<String> items) {
 class _OrdenesTable extends StatelessWidget {
   const _OrdenesTable({
     required this.result,
+    required this.canCancelProcessed,
     required this.onPageChanged,
     required this.onOpen,
     required this.onAction,
   });
 
   final SugeridosPagedResult<SugeridoOrdenModel> result;
+  final bool canCancelProcessed;
   final ValueChanged<int> onPageChanged;
   final ValueChanged<String> onOpen;
   final void Function(SugeridoOrdenModel order, String action) onAction;
@@ -704,6 +729,7 @@ class _OrdenesTable extends StatelessWidget {
                           DataCell(
                             _OrdenActions(
                               order: order,
+                              canCancelProcessed: canCancelProcessed,
                               onOpen: onOpen,
                               onAction: onAction,
                             ),
@@ -723,11 +749,13 @@ class _OrdenesTable extends StatelessWidget {
 class _OrdenActions extends StatelessWidget {
   const _OrdenActions({
     required this.order,
+    required this.canCancelProcessed,
     required this.onOpen,
     required this.onAction,
   });
 
   final SugeridoOrdenModel order;
+  final bool canCancelProcessed;
   final ValueChanged<String> onOpen;
   final void Function(SugeridoOrdenModel order, String action) onAction;
 
@@ -765,7 +793,14 @@ class _OrdenActions extends StatelessWidget {
             visualDensity: VisualDensity.compact,
             icon: const Icon(Icons.cancel_outlined),
             onPressed:
-                order.estatus == 'ABIERTO' || order.estatus == 'PENDIENTE'
+                order.estatus == 'ABIERTO' ||
+                    order.estatus == 'PENDIENTE' ||
+                    (canCancelProcessed &&
+                        const {
+                          'PROCESADO',
+                          'VALIDADO',
+                          'RECHAZADO',
+                        }.contains(order.estatus))
                 ? () => onAction(order, 'anular')
                 : null,
           ),

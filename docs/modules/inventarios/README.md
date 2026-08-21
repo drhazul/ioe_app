@@ -1,5 +1,27 @@
 # Inventarios App
 
+## Recepción de mercancías DAT_REC (2026-08-11)
+
+- Feature `lib/features/modulos/recepciones` y rutas `/modulos/recepciones` y `/modulos/recepciones/:nped`.
+- La pantalla incluye pedidos pendientes, captura total/parcial/con diferencias, documento, guía, calidad por renglón, histórico e indicadores.
+- `DAT_REC`, `RECEPCION_MERCANCIAS` y `RECEPCIONES` resuelven al módulo. Los campos financieros solo se muestran cuando la API los entrega.
+- La recepción física muestra explícitamente que no afecta existencias hasta la autorización administrativa.
+- Pedidos pendientes inicia sin resultados: exige filtrar por O.C., proveedor, fecha o sucursal y limita las sucursales operativas a `DF01`, `DF04`, `DF05` y `DF06`.
+- Proveedor se selecciona desde un dropdown ordenado por ID numérico, igual que en Órdenes de compra, y `Limpiar filtros` restablece todos los criterios y vuelve a ocultar los resultados.
+- Histórico inicia sin resultados y exige filtrar por Documento, proveedor, fecha o sucursal, sin filtro de estatus. El filtro de O.C. se presenta como `Documento` para Encargado de sucursal, Jefe de inventarios y Analista de inventarios. Indicadores conserva el filtro de sucursal y permite limpiarlo.
+- `ENCARGADO DE SUCURSAL` (`IDROL=13008`) solo ve Pedidos pendientes de su sucursal asignada cuyo estado de O.C. sea `PROCESADO`; no se muestran órdenes `PARCIAL`, el selector de sucursal ni las pestañas Histórico e Indicadores.
+- Al guardar la recepción, el Encargado sale automáticamente del detalle; el documento termina en `VALIDADO`, desaparece de su listado y queda disponible para Jefe o Analista de Inventarios.
+- En el detalle para Encargado de sucursal, el resumen es compacto y alineado a la izquierda, se oculta recepción masiva y la tabla adaptable omite Pos., Recibido acum., Cantidad aceptada y Estatus e inicia con checkbox por artículo. `Acciones` permite capturar únicamente Cantidad física; Cantidad aceptada se calcula internamente con el mismo valor y el estado técnico se envía como aprobado. `Seleccionar todo` activa o limpia la selección completa. Tras confirmar, la ventana documental muestra bloqueado el tipo de recepción calculado y captura Documento, uno o más folios, Guías de envío alfanuméricas con signos, Paquetería y Observaciones. La captura se autoguarda como borrador y pagina 100 filas.
+- En la captura para Jefe o Analista de Inventarios, el resumen también usa la presentación compacta y alineada del Encargado. Los datos documentales se muestran antes de la tabla y no se presentan los botones `Recepción masiva` ni `Completar recepción física`; la revisión de documentos `VALIDADO` conserva sus acciones administrativas.
+- Al abrir una O.C. con recepción activa, el detalle carga el documento guardado y muestra su estado real, tipo de recepción, tipo de documento, folio, guías y observaciones antes de una tabla adaptable sin columna `Pos.`. La tabla usa las cantidades y el estatus persistidos en `REC_CTO_HIST`.
+- Para `JEFE DE INVENTARIOS` (`IDROL=2`) y `ANALISTA DE INVENTARIOS` (`IDROL=9005`), la tabla del documento oculta Cantidad aceptada, Estatus y Productos no solicitados, muestra las cantidades de incidencias `FALTANTE` y `SOBRANTE`, y presenta su acción administrativa principal como `Contabilizar`.
+- Jefe y Analista conservan en Pedidos pendientes las O.C. `PROCESADO/PARCIAL/VALIDADO/RECHAZADO` conforme a la etapa administrativa. Usan el mismo diseño de captura del Encargado (selección, tabla y edición de cantidad física), pero su acción principal se llama `Contabilizar` y ejecuta creación, validación y contabilización. Para una O.C. `PARCIAL` con recepción previa contabilizada, tipo de recepción, documento, folio, guías y observaciones se reutilizan y muestran en modo lectura antes de la tabla; `Contabilizar` no vuelve a abrir la ventana documental. Cuando no existen datos previos, sí se solicita su captura.
+- `Contabilizar` solicita confirmación a Jefe y Analista; después de una respuesta exitosa cierra automáticamente el detalle y abre Histórico filtrado por la O.C. para mostrar la recepción `CONTABILIZADO`. Pedidos pendientes etiqueta por separado `Estado O.C.`, que puede permanecer `PARCIAL` si existen faltantes.
+- La captura permite filtrar los artículos por la jerarquía usada en Mermas (`DEP`, `SDEP`, `CLS`, `SCLS`, `SCLS2`, `SPH`, `CYL`, `ADIC`) usando uno o varios criterios sin tener que completar todos los niveles. La cascada solo ayuda a acotar catálogos. `Vista por jerarquías` agrupa la O.C. por la ruta descriptiva completa y muestra número de artículos, solicitado, pendiente, cantidad física y, para roles autorizados, importe; se puede regresar a `Vista por artículos` sin perder la captura. Las acciones se mantienen alineadas a la izquierda.
+- Para el Encargado, `Rechazar mercancía` exige confirmación y motivo, marca toda la recepción como rechazo, cierra el detalle al guardar y la retira de su cola. El documento `RECHAZADO` queda disponible en la cola administrativa de Jefe/Analista con acción de consulta.
+- En documentos `VALIDADO`, el Jefe de Inventarios visualiza cada folio en un bloque independiente y puede editar Documento, folios, Guía, Paquetería y Observaciones sin modificar el tipo de recepción. La tabla agrega `Acciones` para editar el costo unitario de cada artículo y refresca importe de recepción/O.C.
+- Para revisión administrativa, `Rechazar` exige motivo y devuelve la recepción al Encargado: el documento queda histórico como `DEVUELTO`, la O.C. regresa a `PROCESADO`, se reconstruye el borrador con cantidades y datos capturados y el detalle del Jefe se cierra.
+
 ## Planeacion y sugeridos de compra (2026-07-10)
 - Nueva feature `lib/features/modulos/sugeridos` para calcular sugeridos y crear O.C. sobre `DAT_JAA_SUG`.
 - Ruta registrada: `/modulos/sugeridos`; Home resuelve `DAT_JAA_SUG`, `SUGERIDOS_COMPRA` y `PLANEACION_COMPRAS` hacia esa pantalla.
@@ -12,6 +34,12 @@
 - Nueva pantalla `lib/features/modulos/sugeridos/presentation/pages/ordenes_compra_page.dart` para el modulo `DAT_ORD_COMP`.
 - Ruta registrada: `/modulos/ordenes-compra`; Home resuelve `DAT_ORD_COMP`, `ORDENES_COMPRA` y `ORD_COMPRA` hacia esa pantalla.
 - Muestra todas las O.C. desde `/sugeridos`, con filtros por sucursal, estatus, fecha y busqueda; el AppBar incluye el boton de nueva O.C. que abre el flujo de sugeridos/calculo.
+- Para `JEFE DE INVENTARIOS` (`IDROL=2`), la acción `Cancelar` permanece habilitada después de autorizar mientras la O.C. esté `PROCESADO` y todavía no tenga recepción ni cantidades recibidas.
+- Para Jefe de Inventarios (`IDROL=2`) y Analista de Inventarios (`IDROL=9005`), el selector de estatus de Órdenes de compra no muestra la opción `PARCIAL`; las demás opciones permanecen sin cambios.
+- Las recepciones rechazadas se reflejan como O.C. `RECHAZADO`. El Jefe puede filtrarlas, cancelar la orden o editar únicamente `Cantidad` desde el detalle; la UI no habilita alta, eliminación ni otros cambios de renglón.
+- El selector de estatus para el Jefe incluye `VALIDADO`; al seleccionarlo muestra O.C. con recepción validada y pendiente de contabilización, sin alterar la restricción `PROCESADO` del Encargado.
+- El Jefe puede cancelar una O.C. `VALIDADO` desde el listado. La acción solicita confirmación y solo concluye cuando el API determina que no hay recepción contabilizada ni movimientos; después la O.C. sigue visible y filtrable como `ANULADO`.
+- El Jefe puede usar `Devolver a sucursal` sobre una O.C. rechazada. Después de confirmar el motivo, el detalle se cierra y la orden reaparece como `PROCESADO` para el Encargado, quien debe recapturar las cantidades físicas.
 - El AppBar del modulo `DAT_JAA_SUG` queda sin boton de nueva O.C.; la creacion desde sugeridos se mantiene en los controles de resultados seleccionados.
 
 ## Merma (2026-06-12)
