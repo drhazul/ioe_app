@@ -266,6 +266,40 @@ class _RecepcionDetailPageState extends ConsumerState<RecepcionDetailPage> {
   Widget _header(RecepcionOrden order) {
     final receptionStatus =
         _document?.resumen.estatus ?? order.estatusRecepcion;
+    final reactiveProcessedCapture =
+        _document == null &&
+        order.estatus == 'PROCESADO' &&
+        (_isBranchManager || _isInventoryChief);
+    var capturePhysical = 0.0;
+    var capturePending = 0.0;
+    var captureAmount = 0.0;
+    if (reactiveProcessedCapture) {
+      for (final row in order.detalle.where((row) => row.pendiente > 0)) {
+        final physical = _number(_received[row.idped]?.text);
+        capturePhysical += physical;
+        capturePending += row.pendiente > physical
+            ? row.pendiente - physical
+            : 0;
+        captureAmount += physical * (row.costo ?? 0);
+      }
+    }
+    final activeReviewDocument =
+        _isInventoryReviewer &&
+        _document != null &&
+        const {
+          'RECEPCION_FISICA',
+          'VALIDADO',
+          'PENDIENTE_AUTORIZACION',
+        }.contains(_document!.resumen.estatus);
+    final physicalQuantity = activeReviewDocument
+        ? _document!.detalle.fold<double>(
+            0,
+            (total, row) => total + _jsonNumber(row['cantidadRecibida']),
+          )
+        : 0.0;
+    final projectedPending = order.pendiente > physicalQuantity
+        ? order.pendiente - physicalQuantity
+        : 0.0;
     return SizedBox(
       width: double.infinity,
       child: Card(
@@ -290,10 +324,27 @@ class _RecepcionDetailPageState extends ConsumerState<RecepcionDetailPage> {
                     : 'Estado recepción: $receptionStatus',
               ),
               Text('Solicitado: ${_qty(order.solicitado)}'),
-              Text('Recibido acumulado: ${_qty(order.recibido)}'),
-              Text('Pendiente: ${_qty(order.pendiente)}'),
-              if (order.importe != null)
+              if (reactiveProcessedCapture)
+                Text('Cantidad física: ${_qty(capturePhysical)}')
+              else
+                Text('Recibido acumulado: ${_qty(order.recibido)}'),
+              if (activeReviewDocument)
+                Text('Cantidad física: ${_qty(physicalQuantity)}'),
+              Text(
+                reactiveProcessedCapture
+                    ? 'Pendiente: ${_qty(capturePending)}'
+                    : activeReviewDocument
+                    ? 'Pendiente tras recepción: ${_qty(projectedPending)}'
+                    : 'Pendiente: ${_qty(order.pendiente)}',
+              ),
+              if (reactiveProcessedCapture && order.puedeVerFinanciero)
+                Text('Importe recepción: \$${captureAmount.toStringAsFixed(2)}')
+              else if (order.importe != null)
                 Text('Importe O.C.: \$${order.importe!.toStringAsFixed(2)}'),
+              if (activeReviewDocument && _document!.resumen.importe != null)
+                Text(
+                  'Importe recepción: \$${_document!.resumen.importe!.toStringAsFixed(2)}',
+                ),
             ],
           ),
         ),
@@ -326,6 +377,7 @@ class _RecepcionDetailPageState extends ConsumerState<RecepcionDetailPage> {
                     horizontalMargin: 8,
                     columnSpacing: 20,
                     columns: [
+                      const DataColumn(label: Text('Pos.')),
                       const DataColumn(label: Text('Artículo')),
                       const DataColumn(label: Text('UPC')),
                       const DataColumn(label: Text('Descripción')),
@@ -343,6 +395,7 @@ class _RecepcionDetailPageState extends ConsumerState<RecepcionDetailPage> {
                         .map(
                           (row) => DataRow(
                             cells: [
+                              DataCell(Text('${row.pos}')),
                               DataCell(Text(row.art)),
                               DataCell(Text(row.upc ?? '-')),
                               DataCell(
@@ -449,7 +502,9 @@ class _RecepcionDetailPageState extends ConsumerState<RecepcionDetailPage> {
                   onPressed: _loading ? null : () => _prepareCompletion(order),
                   icon: const Icon(Icons.check_circle_outline),
                   label: Text(
-                    _isInventoryReviewer
+                    _isInventoryChief
+                        ? 'Validar recepción'
+                        : _isInventoryReviewer
                         ? 'Contabilizar'
                         : 'Completar recepción física',
                   ),
@@ -540,6 +595,7 @@ class _RecepcionDetailPageState extends ConsumerState<RecepcionDetailPage> {
                                     : _clearRows(pending),
                               ),
                             ),
+                            const DataColumn(label: Text('Pos.')),
                             const DataColumn(label: Text('Artículo')),
                             const DataColumn(label: Text('UPC')),
                             const DataColumn(label: Text('Descripción')),
@@ -584,6 +640,7 @@ class _RecepcionDetailPageState extends ConsumerState<RecepcionDetailPage> {
                                         _toggleItem(row, value ?? false),
                                   ),
                                 ),
+                                DataCell(Text('${row.pos}')),
                                 DataCell(Text(row.art)),
                                 DataCell(Text(row.upc ?? '-')),
                                 DataCell(
@@ -1140,6 +1197,8 @@ class _RecepcionDetailPageState extends ConsumerState<RecepcionDetailPage> {
               label: Text(
                 editing
                     ? 'Guardar cambios'
+                    : _isInventoryChief
+                    ? 'Guardar y validar'
                     : _isInventoryReviewer
                     ? 'Contabilizar'
                     : 'Guardar recepción física',
@@ -1313,6 +1372,27 @@ class _RecepcionDetailPageState extends ConsumerState<RecepcionDetailPage> {
 
   Widget _documentView(RecepcionOrden order, RecepcionDocumento document) {
     final status = document.resumen.estatus;
+    final hierarchyReview = _isInventoryChief && status == 'VALIDADO';
+    final filteredDetails = hierarchyReview
+        ? document.detalle.where(_matchesDocumentHierarchyFilters).toList()
+        : document.detalle;
+    final hierarchyGroups = _documentHierarchyGroups(filteredDetails);
+    final rowCount = _hierarchyView
+        ? hierarchyGroups.length
+        : filteredDetails.length;
+    final calculatedPages = hierarchyReview
+        ? (rowCount / _articlesPerPage).ceil()
+        : 1;
+    final totalPages = calculatedPages < 1 ? 1 : calculatedPages;
+    if (_articlePage > totalPages) _articlePage = totalPages;
+    final start = (_articlePage - 1) * _articlesPerPage;
+    final visibleDetails = hierarchyReview
+        ? filteredDetails.skip(start).take(_articlesPerPage).toList()
+        : filteredDetails;
+    final visibleGroups = hierarchyGroups
+        .skip(start)
+        .take(_articlesPerPage)
+        .toList();
     final guides = document.guias
         .map((row) => '${row['GUIA'] ?? row['guia'] ?? ''}'.trim())
         .where((value) => value.isNotEmpty)
@@ -1393,6 +1473,31 @@ class _RecepcionDetailPageState extends ConsumerState<RecepcionDetailPage> {
           ),
         ),
         const SizedBox(height: 8),
+        if (hierarchyReview) ...[
+          _hierarchyFilters(),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(0, 0, 0, 10),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: OutlinedButton.icon(
+                onPressed: () => setState(() {
+                  _hierarchyView = !_hierarchyView;
+                  _articlePage = 1;
+                }),
+                icon: Icon(
+                  _hierarchyView
+                      ? Icons.table_rows_outlined
+                      : Icons.account_tree_outlined,
+                ),
+                label: Text(
+                  _hierarchyView
+                      ? 'Vista por artículos'
+                      : 'Vista por jerarquías',
+                ),
+              ),
+            ),
+          ),
+        ],
         Card(
           child: LayoutBuilder(
             builder: (context, constraints) => SingleChildScrollView(
@@ -1402,103 +1507,52 @@ class _RecepcionDetailPageState extends ConsumerState<RecepcionDetailPage> {
                 child: DataTable(
                   horizontalMargin: 16,
                   columnSpacing: 24,
-                  columns: [
-                    const DataColumn(label: Text('Artículo')),
-                    const DataColumn(label: Text('UPC')),
-                    const DataColumn(label: Text('Descripción')),
-                    const DataColumn(label: Text('Unidad')),
-                    const DataColumn(label: Text('Solicitado')),
-                    const DataColumn(label: Text('Cantidad física')),
-                    if (!_isInventoryReviewer)
-                      const DataColumn(label: Text('Cantidad aceptada')),
-                    if (!_isInventoryReviewer)
-                      const DataColumn(label: Text('Estatus')),
-                    if (_isInventoryReviewer) ...[
-                      const DataColumn(label: Text('Faltantes')),
-                      const DataColumn(label: Text('Sobrantes')),
-                    ],
-                    if (order.puedeVerFinanciero)
-                      const DataColumn(label: Text('Costo')),
-                    if (_isInventoryChief && status == 'VALIDADO')
-                      const DataColumn(label: Text('Acciones')),
-                  ],
-                  rows: document.detalle
-                      .map(
-                        (row) => DataRow(
-                          cells: [
-                            DataCell(Text('${row['art'] ?? ''}')),
-                            DataCell(Text('${row['upc'] ?? '-'}')),
-                            DataCell(
-                              SizedBox(
-                                width: 250,
-                                child: Text(
-                                  '${row['des'] ?? ''}',
-                                  overflow: TextOverflow.ellipsis,
-                                ),
+                  columns: hierarchyReview && _hierarchyView
+                      ? _documentHierarchyColumns(order)
+                      : _documentArticleColumns(order, status),
+                  rows: hierarchyReview && _hierarchyView
+                      ? visibleGroups
+                            .map((group) => _documentHierarchyRow(order, group))
+                            .toList()
+                      : visibleDetails
+                            .map(
+                              (row) => _documentArticleRow(
+                                order,
+                                document,
+                                status,
+                                row,
                               ),
-                            ),
-                            DataCell(Text('${row['unidad'] ?? '-'}')),
-                            DataCell(Text(_jsonQty(row['cantidadSolicitada']))),
-                            DataCell(Text(_jsonQty(row['cantidadRecibida']))),
-                            if (!_isInventoryReviewer)
-                              DataCell(Text(_jsonQty(row['cantidadAceptada']))),
-                            if (!_isInventoryReviewer)
-                              DataCell(
-                                Text(
-                                  _itemStatusLabel(
-                                    '${row['calidadEstado'] ?? ''}',
-                                  ),
-                                ),
-                              ),
-                            if (_isInventoryReviewer) ...[
-                              DataCell(
-                                Text(
-                                  _jsonQty(
-                                    _incidentQuantity(
-                                      document,
-                                      row,
-                                      'FALTANTE',
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              DataCell(
-                                Text(
-                                  _jsonQty(
-                                    _incidentQuantity(
-                                      document,
-                                      row,
-                                      'SOBRANTE',
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                            if (order.puedeVerFinanciero)
-                              DataCell(
-                                Text(
-                                  '\$${_jsonNumber(row['costo']).toStringAsFixed(2)}',
-                                ),
-                              ),
-                            if (_isInventoryChief && status == 'VALIDADO')
-                              DataCell(
-                                IconButton(
-                                  tooltip: 'Editar costo',
-                                  onPressed: _loading
-                                      ? null
-                                      : () => _editDocumentCost(document, row),
-                                  icon: const Icon(Icons.edit_outlined),
-                                ),
-                              ),
-                          ],
-                        ),
-                      )
-                      .toList(),
+                            )
+                            .toList(),
                 ),
               ),
             ),
           ),
         ),
+        if (hierarchyReview && totalPages > 1)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                IconButton(
+                  onPressed: _articlePage > 1
+                      ? () => setState(() => _articlePage--)
+                      : null,
+                  icon: const Icon(Icons.chevron_left),
+                ),
+                Text(
+                  'Página $_articlePage de $totalPages · $rowCount ${_hierarchyView ? 'jerarquías' : 'artículos'}',
+                ),
+                IconButton(
+                  onPressed: _articlePage < totalPages
+                      ? () => setState(() => _articlePage++)
+                      : null,
+                  icon: const Icon(Icons.chevron_right),
+                ),
+              ],
+            ),
+          ),
         const SizedBox(height: 12),
         Row(
           mainAxisAlignment: MainAxisAlignment.end,
@@ -1557,6 +1611,144 @@ class _RecepcionDetailPageState extends ConsumerState<RecepcionDetailPage> {
           ),
       ],
     );
+  }
+
+  List<DataColumn> _documentArticleColumns(
+    RecepcionOrden order,
+    String status,
+  ) => [
+    const DataColumn(label: Text('Pos.')),
+    const DataColumn(label: Text('Artículo')),
+    const DataColumn(label: Text('UPC')),
+    const DataColumn(label: Text('Descripción')),
+    const DataColumn(label: Text('Unidad')),
+    const DataColumn(label: Text('Solicitado')),
+    const DataColumn(label: Text('Cantidad física')),
+    if (!_isInventoryReviewer)
+      const DataColumn(label: Text('Cantidad aceptada')),
+    if (!_isInventoryReviewer) const DataColumn(label: Text('Estatus')),
+    if (_isInventoryReviewer) ...[
+      const DataColumn(label: Text('Faltantes')),
+      const DataColumn(label: Text('Sobrantes')),
+    ],
+    if (order.puedeVerFinanciero) const DataColumn(label: Text('Costo')),
+    if (_isInventoryChief && status == 'VALIDADO')
+      const DataColumn(label: Text('Acciones')),
+  ];
+
+  DataRow _documentArticleRow(
+    RecepcionOrden order,
+    RecepcionDocumento document,
+    String status,
+    Map<String, dynamic> row,
+  ) {
+    final hasReceiptRow = '${row['idrec'] ?? ''}'.trim().isNotEmpty;
+    return DataRow(
+      cells: [
+        DataCell(Text('${row['pos'] ?? ''}')),
+        DataCell(Text('${row['art'] ?? ''}')),
+        DataCell(Text('${row['upc'] ?? '-'}')),
+        DataCell(
+          SizedBox(
+            width: 250,
+            child: Text('${row['des'] ?? ''}', overflow: TextOverflow.ellipsis),
+          ),
+        ),
+        DataCell(Text('${row['unidad'] ?? '-'}')),
+        DataCell(Text(_jsonQty(row['cantidadSolicitada']))),
+        DataCell(Text(_jsonQty(row['cantidadRecibida']))),
+        if (!_isInventoryReviewer)
+          DataCell(Text(_jsonQty(row['cantidadAceptada']))),
+        if (!_isInventoryReviewer)
+          DataCell(Text(_itemStatusLabel('${row['calidadEstado'] ?? ''}'))),
+        if (_isInventoryReviewer) ...[
+          DataCell(
+            Text(_jsonQty(_incidentQuantity(document, row, 'FALTANTE'))),
+          ),
+          DataCell(
+            Text(_jsonQty(_incidentQuantity(document, row, 'SOBRANTE'))),
+          ),
+        ],
+        if (order.puedeVerFinanciero)
+          DataCell(Text('\$${_jsonNumber(row['costo']).toStringAsFixed(2)}')),
+        if (_isInventoryChief && status == 'VALIDADO')
+          DataCell(
+            IconButton(
+              tooltip: hasReceiptRow
+                  ? 'Editar costo'
+                  : 'Artículo faltante sin captura física',
+              onPressed: _loading || !hasReceiptRow
+                  ? null
+                  : () => _editDocumentCost(document, row),
+              icon: const Icon(Icons.edit_outlined),
+            ),
+          ),
+      ],
+    );
+  }
+
+  List<DataColumn> _documentHierarchyColumns(RecepcionOrden order) => [
+    const DataColumn(label: Text('Jerarquía')),
+    const DataColumn(label: Text('Artículos')),
+    const DataColumn(label: Text('Solicitado')),
+    const DataColumn(label: Text('Cantidad física')),
+    const DataColumn(label: Text('Faltantes')),
+    const DataColumn(label: Text('Sobrantes')),
+    if (order.puedeVerFinanciero) const DataColumn(label: Text('Importe')),
+  ];
+
+  DataRow _documentHierarchyRow(
+    RecepcionOrden order,
+    _DocumentHierarchySummary group,
+  ) => DataRow(
+    cells: [
+      DataCell(SizedBox(width: 360, child: Text(group.name))),
+      DataCell(Text('${group.articleCount}')),
+      DataCell(Text(_qty(group.requested))),
+      DataCell(Text(_qty(group.physical))),
+      DataCell(Text(_qty(group.shortage))),
+      DataCell(Text(_qty(group.surplus))),
+      if (order.puedeVerFinanciero)
+        DataCell(Text('\$${group.amount.toStringAsFixed(2)}')),
+    ],
+  );
+
+  bool _matchesDocumentHierarchyFilters(Map<String, dynamic> row) =>
+      _sameNumber(_jsonNullableNumber(row['depa']), _selectedDepa) &&
+      _sameNumber(_jsonNullableNumber(row['subd']), _selectedSubd) &&
+      _sameNumber(_jsonNullableNumber(row['clas']), _selectedClas) &&
+      _sameNumber(_jsonNullableNumber(row['scla']), _selectedScla) &&
+      _sameNumber(_jsonNullableNumber(row['scla2']), _selectedScla2) &&
+      _sameNumber(
+        _jsonNullableNumber(row['sph']),
+        _optionalNumber(_sphFilter.text),
+      ) &&
+      _sameNumber(
+        _jsonNullableNumber(row['cyl']),
+        _optionalNumber(_cylFilter.text),
+      ) &&
+      _sameNumber(
+        _jsonNullableNumber(row['adic']),
+        _optionalNumber(_adicFilter.text),
+      );
+
+  List<_DocumentHierarchySummary> _documentHierarchyGroups(
+    List<Map<String, dynamic>> rows,
+  ) {
+    final groups = <String, _DocumentHierarchySummary>{};
+    for (final row in rows) {
+      final name = '${row['jerarquiaNombre'] ?? ''}'.trim().isEmpty
+          ? 'SIN JERARQUIA'
+          : '${row['jerarquiaNombre']}'.trim();
+      groups.update(
+        name,
+        (group) => group.add(row),
+        ifAbsent: () => _DocumentHierarchySummary.fromRow(name, row),
+      );
+    }
+    final result = groups.values.toList();
+    result.sort((a, b) => a.name.compareTo(b.name));
+    return result;
   }
 
   Widget _documentFact(String label, String value, double width) {
@@ -1739,10 +1931,16 @@ class _RecepcionDetailPageState extends ConsumerState<RecepcionDetailPage> {
     }
 
     final isUnrequested = '${detail['idped'] ?? ''}'.trim().isEmpty;
+    final requested = _jsonNumber(detail['cantidadSolicitada']);
+    final received = _jsonNumber(detail['cantidadRecibida']);
     return switch (type) {
       'NO_SOLICITADO' when isUnrequested => _jsonNumber(
         detail['cantidadRecibida'],
       ),
+      'FALTANTE' when !isUnrequested && requested > received =>
+        requested - received,
+      'SOBRANTE' when !isUnrequested && received > requested =>
+        received - requested,
       _ => 0,
     };
   }
@@ -1984,12 +2182,16 @@ class _RecepcionDetailPageState extends ConsumerState<RecepcionDetailPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(
-          _isInventoryReviewer
+          _isInventoryChief
+              ? 'Validar recepción'
+              : _isInventoryReviewer
               ? 'Contabilizar recepción'
               : 'Completar recepción física',
         ),
         content: Text(
-          _isInventoryReviewer
+          _isInventoryChief
+              ? '¿Confirma que todos los artículos fueron revisados? Después capture los datos del documento para dejar la recepción VALIDADA y pendiente de contabilización.'
+              : _isInventoryReviewer
               ? '¿Confirma que todos los artículos fueron revisados? Después capture los datos del documento para contabilizar la recepción.'
               : '¿Confirma que todos los artículos fueron revisados? Después podrá capturar los datos del documento y la guía.',
         ),
@@ -2203,7 +2405,9 @@ class _RecepcionDetailPageState extends ConsumerState<RecepcionDetailPage> {
           'solicitar-autorizacion',
         );
         if (mounted) setState(() => _document = document);
-        document = await api.accion(document.resumen.docrec, 'autorizar');
+        if (!_isInventoryChief) {
+          document = await api.accion(document.resumen.docrec, 'autorizar');
+        }
       }
       if (mounted) {
         setState(() => _document = document);
@@ -2212,6 +2416,8 @@ class _RecepcionDetailPageState extends ConsumerState<RecepcionDetailPage> {
               ? document.resumen.estatus == 'RECHAZADO'
                     ? 'Recepción ${document.resumen.docrec} rechazada y enviada a Inventarios.'
                     : 'Recepción ${document.resumen.docrec} validada.'
+              : _isInventoryChief
+              ? 'Recepción ${document.resumen.docrec} validada y pendiente de contabilizar.'
               : _isInventoryReviewer
               ? 'Recepción ${document.resumen.docrec} contabilizada.'
               : 'Recepción física ${document.resumen.docrec} registrada.',
@@ -2422,6 +2628,57 @@ class _HierarchySummary {
       );
 }
 
+class _DocumentHierarchySummary {
+  const _DocumentHierarchySummary({
+    required this.name,
+    required this.articleCount,
+    required this.requested,
+    required this.physical,
+    required this.shortage,
+    required this.surplus,
+    required this.amount,
+  });
+
+  final String name;
+  final int articleCount;
+  final double requested;
+  final double physical;
+  final double shortage;
+  final double surplus;
+  final double amount;
+
+  factory _DocumentHierarchySummary.fromRow(
+    String name,
+    Map<String, dynamic> row,
+  ) {
+    final requested = _jsonNumber(row['cantidadSolicitada']);
+    final physical = _jsonNumber(row['cantidadRecibida']);
+    return _DocumentHierarchySummary(
+      name: name,
+      articleCount: 1,
+      requested: requested,
+      physical: physical,
+      shortage: requested > physical ? requested - physical : 0,
+      surplus: physical > requested ? physical - requested : 0,
+      amount: physical * _jsonNumber(row['costo']),
+    );
+  }
+
+  _DocumentHierarchySummary add(Map<String, dynamic> row) {
+    final requested = _jsonNumber(row['cantidadSolicitada']);
+    final physical = _jsonNumber(row['cantidadRecibida']);
+    return _DocumentHierarchySummary(
+      name: name,
+      articleCount: articleCount + 1,
+      requested: this.requested + requested,
+      physical: this.physical + physical,
+      shortage: shortage + (requested > physical ? requested - physical : 0),
+      surplus: surplus + (physical > requested ? physical - requested : 0),
+      amount: amount + physical * _jsonNumber(row['costo']),
+    );
+  }
+}
+
 Widget _status(String value) {
   final status = value.toUpperCase();
   final color = status.contains('CONTABIL')
@@ -2452,6 +2709,13 @@ double _number(String? value) =>
 double _jsonNumber(dynamic value) => value is num
     ? value.toDouble()
     : double.tryParse('${value ?? ''}'.replaceAll(',', '.')) ?? 0;
+double? _jsonNullableNumber(dynamic value) {
+  if (value == null) return null;
+  if (value is num) return value.toDouble();
+  final text = '$value'.trim().replaceAll(',', '.');
+  return text.isEmpty ? null : double.tryParse(text);
+}
+
 String _jsonQty(dynamic value) => _qty(_jsonNumber(value));
 String _receiptTypeLabel(String value) => switch (value.toUpperCase()) {
   'TOTAL' => 'Recepción Total',

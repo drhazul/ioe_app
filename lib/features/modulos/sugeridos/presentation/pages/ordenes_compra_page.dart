@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../../core/api_error.dart';
 import '../../../../../core/auth/auth_controller.dart';
 import '../../domain/sugeridos_models.dart';
 import '../../providers/sugeridos_provider.dart';
@@ -232,10 +233,19 @@ class _OrdenesCompraPageState extends ConsumerState<OrdenesCompraPage> {
       await ref.read(sugeridosApiProvider).action(order.nped, action);
       if (!mounted) return;
       _refreshOrders();
-      _snack('O.C. ${order.nped}: accion $action ejecutada.');
+      _snack(
+        action == 'anular'
+            ? 'O.C. ${order.nped} cancelada correctamente.'
+            : 'O.C. ${order.nped}: acción $action ejecutada.',
+      );
     } catch (e) {
       if (!mounted) return;
-      _snack('No se pudo ejecutar $action: $e');
+      _snack(
+        apiErrorMessage(
+          e,
+          fallback: 'No se pudo $label la O.C. ${order.nped}.',
+        ),
+      );
     }
   }
 
