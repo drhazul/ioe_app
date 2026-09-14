@@ -1,5 +1,25 @@
 # Inventarios App
 
+## Devoluciones a proveedor DEV_PROVD (2026-08-28)
+
+- Feature `lib/features/modulos/devoluciones_proveedor`; rutas `/modulos/devoluciones-proveedor` y detalle `/:doc`.
+- El módulo crea borradores, captura artículos/motivos/evidencias, reserva al solicitar y permite autorizar, rechazar o cancelar exclusivamente al Jefe de Inventarios.
+- Las autorizadas del mismo proveedor pueden seleccionarse y consolidarse con transportista, guía, cajas y RMA; la vista de envíos registra la salida física.
+- La UI informa que `DAT_ART.STOCK` se afecta únicamente al autorizar y consume `/devoluciones-proveedor` como fuente autoritativa.
+- En el listado, Proveedor sigue el selector de Órdenes de compra (`ID - nombre`, orden numérico) y Estatus muestra `BORRADOR`, `AUTORIZADA`, `NO ACEPTADA`, `EN TRANSITO`, `RECIBIDA`, `PENDIENTE` y `CANCELADA`.
+- Nueva devolución permite únicamente `DF01`, `DF04`, `DF05` y `DF06`; su proveedor replica el filtro principal. Crear exige exactamente una O.C. o recepción de mercancía, y Observaciones es opcional.
+- El detalle no editable es solo lectura: omite Autorizar/contabilizar, Rechazar y la columna Acciones. En BORRADOR conserva captura, edición y eliminación de artículos.
+- Después de crear, el detalle carga la O.C. o recepción seleccionada y muestra todos sus artículos en tabla con solicitada, recibida, pendiente y costo. Cada renglón abre la captura obligatoria de cantidad, motivo y fotografía, con lote/caducidad opcionales; no se muestra el buscador general.
+- El botón Importar Excel acepta archivos cuya primera fila contiene `ART`, `DESC` y `CTDA`; valida que artículo y descripción tengan valor y que la cantidad sea numérica mayor a cero.
+- La columna Acciones muestra iconos directos para editar y eliminar el artículo y ya no ofrece agregar evidencia por artículo. Las filas importadas toman el costo maestro desde el backend, actualizando importe total de la fila y del resumen superior.
+- Para una devolución por recepción, seleccionar un checkbox crea el detalle y deseleccionarlo lo retira; cantidad e importe superiores se refrescan, autorización se habilita con al menos un seleccionado y la evidencia se conserva una sola vez por documento.
+- El panel de captura seleccionado es compacto y omite Observaciones.
+- Los botones operativos del listado solicitan confirmación antes de ejecutar; Rechazar primero captura el motivo y luego presenta la confirmación final. El ojo únicamente abre el detalle.
+- El AppBar de DEV_PROVD abre Envíos consolidados; desde el panel se registra con confirmación la salida de envíos `CONSOLIDADO`.
+- El listado DEV_PROVD muestra únicamente el consecutivo visible del documento y conserva la clave completa internamente. La columna Seleccionar admite varias devoluciones, incluso entre páginas, y habilita el icono permanente de impresión del AppBar; se abre un solo PDF carta horizontal y cada documento empieza en una hoja nueva.
+- Al crear una devolución o abrir su detalle, el AppBar muestra `Devolución a Proveedor` seguido del folio consecutivo; el prefijo `DEV-sucursal-` permanece en la clave interna requerida por rutas y API.
+- El filtro Fecha consulta un día exacto mediante calendario y se restablece con Limpiar.
+
 ## Recepción de mercancías DAT_REC (2026-08-11)
 
 - Feature `lib/features/modulos/recepciones` y rutas `/modulos/recepciones` y `/modulos/recepciones/:nped`.
@@ -22,6 +42,7 @@
 - En documentos `VALIDADO`, el Jefe de Inventarios visualiza cada folio en un bloque independiente y puede editar Documento, folios, Guía, Paquetería y Observaciones sin modificar el tipo de recepción. La tabla incluye `Pos.` y agrega `Acciones` exclusivamente para editar el costo unitario; la cantidad física validada permanece en modo lectura. También permite filtrar por jerarquía y alternar entre vista por artículos/jerarquías con paginación de 100. El resumen superior de Jefe y Analista toma la cantidad física del documento activo y recalcula el pendiente proyectado.
 - En la revisión `VALIDADO`, la tabla combina la recepción con el detalle completo de la O.C.; los artículos no capturados permanecen visibles con cantidad física cero y faltante igual a lo solicitado. Al contabilizar, únicamente los renglones con cantidad física mayor que cero generan movimiento y, al concluir correctamente, el documento cambia a `CONTABILIZADO`.
 - En una O.C. `PROCESADO`, el resumen de captura para Encargado y Jefe reemplaza `Recibido acumulado` por `Cantidad física`; `Pendiente` e `Importe recepción` se recalculan localmente al editar cantidades, seleccionar todo o limpiar la selección.
+- La columna `Descripción` de las tablas del detalle utiliza altura adaptable y varias líneas en cualquier estatus, de modo que el texto completo se muestre sin puntos suspensivos.
 - Para revisión administrativa, `Rechazar` exige motivo y devuelve la recepción al Encargado: el documento queda histórico como `DEVUELTO`, la O.C. regresa a `PROCESADO`, se reconstruye el borrador con cantidades y datos capturados y el detalle del Jefe se cierra.
 
 ## Planeacion y sugeridos de compra (2026-07-10)
@@ -72,3 +93,7 @@
 - Para `JEFE DE INVENTARIOS` (`IDROL=2`) se muestra nueva solicitud, se oculta estatus y la consulta queda limitada a pendientes.
 - Para `AUXILIAR DE INVENTARIOS` (`IDROL=14008`) y `ENCARGADO DE SUCURSAL` (`IDROL=13008`) se ocultan los filtros de estatus y usuario.
 - Reportes `DAT_REP_TRAN` (solo jefe de inventarios): la pantalla no consulta hasta capturar filtro, agrega filtro de estatus sin opcion `INCIDENCIA`, no muestra notificaciones ni acciones operativas, abre detalle de solo lectura y resalta documentos con algun articulo en incidencia.
+- En DEV_PROVD, los artículos del documento se presentan en tabla horizontal con ART, UPC, descripción, motivo, cantidad, disponible, costo, importe, lote, caducidad, evidencia y acciones.
+- En DEV_PROVD, Editar artículo usa un panel compacto 520x330, precarga cantidad, motivo, lote y caducidad, y omite por completo la captura o reemplazo de fotografía por artículo.
+- En Nueva devolución DEV_PROVD no se muestra el campo O.C.; la recepción queda opcional para distinguir devoluciones por recepción de devoluciones manuales.
+- En el PDF DEV_PROVD, la tabla omite UPC y Motivo contiene solo la descripción, sin la clave `DEV-xx`.

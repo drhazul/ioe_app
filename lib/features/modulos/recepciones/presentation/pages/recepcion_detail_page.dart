@@ -376,6 +376,8 @@ class _RecepcionDetailPageState extends ConsumerState<RecepcionDetailPage> {
                   child: DataTable(
                     horizontalMargin: 8,
                     columnSpacing: 20,
+                    dataRowMinHeight: 48,
+                    dataRowMaxHeight: double.infinity,
                     columns: [
                       const DataColumn(label: Text('Pos.')),
                       const DataColumn(label: Text('Artículo')),
@@ -576,6 +578,8 @@ class _RecepcionDetailPageState extends ConsumerState<RecepcionDetailPage> {
                   child: DataTable(
                     horizontalMargin: 8,
                     columnSpacing: 16,
+                    dataRowMinHeight: 48,
+                    dataRowMaxHeight: double.infinity,
                     columns: _hierarchyView
                         ? [
                             const DataColumn(label: Text('Jerarquía')),
@@ -645,10 +649,12 @@ class _RecepcionDetailPageState extends ConsumerState<RecepcionDetailPage> {
                                 DataCell(Text(row.upc ?? '-')),
                                 DataCell(
                                   SizedBox(
-                                    width: 210,
-                                    child: Text(
-                                      row.descripcion,
-                                      overflow: TextOverflow.ellipsis,
+                                    width: 280,
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 8,
+                                      ),
+                                      child: Text(row.descripcion),
                                     ),
                                   ),
                                 ),
@@ -1507,6 +1513,8 @@ class _RecepcionDetailPageState extends ConsumerState<RecepcionDetailPage> {
                 child: DataTable(
                   horizontalMargin: 16,
                   columnSpacing: 24,
+                  dataRowMinHeight: 48,
+                  dataRowMaxHeight: double.infinity,
                   columns: hierarchyReview && _hierarchyView
                       ? _documentHierarchyColumns(order)
                       : _documentArticleColumns(order, status),
@@ -1650,8 +1658,11 @@ class _RecepcionDetailPageState extends ConsumerState<RecepcionDetailPage> {
         DataCell(Text('${row['upc'] ?? '-'}')),
         DataCell(
           SizedBox(
-            width: 250,
-            child: Text('${row['des'] ?? ''}', overflow: TextOverflow.ellipsis),
+            width: 280,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Text('${row['des'] ?? ''}'),
+            ),
           ),
         ),
         DataCell(Text('${row['unidad'] ?? '-'}')),

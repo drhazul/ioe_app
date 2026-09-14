@@ -544,6 +544,9 @@ class _ModuleRow extends StatelessWidget {
         moduloCode == 'RECEPCIONES') {
       return '/modulos/recepciones';
     }
+    if (moduloCode == 'DEV_PROVD' || moduloCode == 'DEVOLUCIONES_PROVEEDOR') {
+      return '/modulos/devoluciones-proveedor';
+    }
     if (moduloCode == 'DAT_REP_TRAN') {
       return '/modulos/transferencias-reportes';
     }
@@ -662,6 +665,9 @@ class _ModuleRow extends StatelessWidget {
     }
     if (name.contains('recepcion') && name.contains('mercanc')) {
       return '/modulos/recepciones';
+    }
+    if (name.contains('devolucion') && name.contains('proveedor')) {
+      return '/modulos/devoluciones-proveedor';
     }
     if (name.contains('orden') &&
         name.contains('estado') &&

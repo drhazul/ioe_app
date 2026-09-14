@@ -1,5 +1,21 @@
 # IOE App
 
+## DEV_PROVD / Devoluciones a proveedor (2026-08-28)
+
+- Feature `lib/features/modulos/devoluciones_proveedor` y ruta `/modulos/devoluciones-proveedor`.
+- Incluye alta, artículos, motivos/evidencias, autorización, consolidación y salida física contra `/devoluciones-proveedor`.
+- El filtro replica el proveedor de Órdenes de compra (`ID - nombre`, orden numérico) y presenta los estatus operativos solicitados; `NO ACEPTADA` es el alias visible de `RECHAZADA` y `RECIBIDA` es un estado operativo real posterior a `EN_TRANSITO`.
+- La creación limita Sucursal a `DF01/DF04/DF05/DF06`, replica el formato numérico de Proveedor del listado y habilita Crear al elegir sucursal, proveedor y tipo; Observaciones es opcional.
+- El detalle conserva acciones únicamente en BORRADOR para capturar artículos y enviar; los documentos enviados se visualizan sin Autorizar/contabilizar, Rechazar ni columna Acciones.
+- Nueva devolución no muestra captura de O.C.; permite indicar una recepción de mercancía o dejarla vacía para una devolución manual. Cuando existe recepción, el detalle carga sus artículos en tabla.
+- Importar Excel exige las columnas `ART`, `DESC` y `CTDA`; rechaza encabezados incompletos, descripciones vacías y cantidades inválidas o no positivas indicando la fila correspondiente.
+- Los artículos muestran Editar y Eliminar directamente en Acciones, sin una acción independiente para agregar evidencia por artículo. En importación, el costo se obtiene de `DAT_ART.CTOP` y la respuesta actualiza el importe del renglón y el total superior.
+- En devoluciones por recepción, marcar/desmarcar sincroniza inmediatamente los detalles del documento; Enviar a autorización se habilita al existir selección y solo incluye esos artículos. La evidencia es única para todo el documento.
+- La captura posterior del artículo usa un diálogo compacto y no muestra campo Observaciones.
+- El listado replica Órdenes de compra; el ojo solo visualiza y cada transición solicita confirmación antes de ejecutar, incluido Rechazar después de capturar su motivo.
+- El AppBar incluye Envíos consolidados para consultar los envíos y registrar, previa confirmación, la salida de los que estén `CONSOLIDADO`.
+- El listado permite filtrar documentos por una fecha exacta seleccionada desde calendario.
+
 Frontend Flutter del ecosistema IOE. Consume `ioe-api` para autenticación, maestros, inventarios, control de cuentas y punto de venta.
 
 > Consulta otros README/AGENTS solo si la tarea lo exige; evita cargar contexto extra innecesario.
@@ -138,3 +154,8 @@ Frontend Flutter del ecosistema IOE. Consume `ioe-api` para autenticación, maes
 ## Documentacion viva
 - Mantén este índice y los README/AGENTS de módulo actualizados cuando cambien flujos o contratos.
 - Cambio material / Merma (2026-04-22): la nueva ORD derivada debe quedar sin colaborador asignado y la UI/PDF deben mostrar la diferencia contable real basada en `CTD_C_M`/importe sellado, no la diferencia por `CTD` completa.
+- DEV_PROVD (2026-09-03): el detalle muestra sus artículos en una tabla horizontal con ART, UPC, descripción, motivo, cantidad, disponible, costo, importe, lote, caducidad, evidencia y acciones.
+- DEV_PROVD (actualizado 2026-09-12): en borrador, Editar artículo precarga cantidad, motivo, lote y caducidad en un diálogo compacto, sin botón para agregar o cambiar fotografía por artículo; la evidencia permanece a nivel documento.
+- DEV_PROVD (2026-09-14): el PDF omite la columna UPC y muestra en Motivo solo su descripción, sin la clave `DEV-xx`.
+- DEV_PROVD (2026-09-05): el listado muestra únicamente el consecutivo del documento, conserva el identificador completo para API/rutas y permite seleccionar varias filas para habilitar el icono permanente de impresión del AppBar; abre un solo PDF carta horizontal y cada documento comienza en una hoja nueva.
+- DEV_PROVD (2026-09-07): al crear o visualizar el detalle, el AppBar muestra `Devolución a Proveedor` seguido únicamente del folio posterior al último guion; la clave completa con prefijo de sucursal se conserva internamente para rutas y API.

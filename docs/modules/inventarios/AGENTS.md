@@ -25,6 +25,7 @@
 - La tabla administrativa de un documento `VALIDADO` debe mostrar todos los artículos activos de la O.C., incluso los que no tuvieron captura física; estos se presentan con cantidad física `0` y su cantidad solicitada como faltante, sin habilitar acciones que requieran `IDREC`.
 - Al contabilizar, solo los renglones con cantidad física mayor que cero generan movimiento; los renglones en cero permanecen visibles en el registro. Después de una contabilización exitosa, el documento queda `CONTABILIZADO`.
 - Durante la captura de una O.C. `PROCESADO`, el resumen superior de Encargado y Jefe no muestra `Recibido acumulado`: presenta cantidad física, pendiente e importe de recepción calculados desde los controladores actuales y debe reaccionar a editar, seleccionar o limpiar renglones.
+- En todas las tablas de resultados del detalle de recepción, sin importar el estatus, la columna `Descripción` debe envolver el texto en líneas adicionales, aumentar dinámicamente la altura del renglón y mostrar el contenido completo sin puntos suspensivos.
 - El `Rechazar` administrativo no usa el rechazo definitivo de mercancía: solicita motivo, llama la devolución a sucursal, cierra el detalle y permite que el Encargado retome la O.C. `PROCESADO` desde el borrador reconstruido.
 
 ## Planeacion y sugeridos de compra
@@ -78,5 +79,25 @@
 
 ## Reglas
 - Mantener capas `data`, `domain`, `providers`, `presentation`.
+- `DEV_PROVD` usa `lib/features/modulos/devoluciones_proveedor` y `/modulos/devoluciones-proveedor`; conservar Riverpod, Dio y go_router, sin arquitectura paralela.
+- Mostrar creación/captura solo en `BORRADOR`; solicitud en `BORRADOR`; autorización/rechazo en `PENDIENTE`; consolidación solo para documentos `AUTORIZADA`.
+- La devolución usa una sola evidencia de documento de hasta 500 KB. Las reglas críticas de disponibilidad, reserva y movimiento 102 permanecen en API/SP.
+- En filtros DEV_PROVD, Proveedor replica Órdenes de compra con `ID - nombre` y orden numérico. Estatus presenta `NO ACEPTADA` para `RECHAZADA`; `RECIBIDA` es un estado real posterior a `EN_TRANSITO`.
+- En Acciones del listado DEV_PROVD, el ojo solo visualiza. Antes de Autorizar, Rechazar, En tránsito, Recibida o Cancelar se requiere confirmación; Rechazar captura primero el motivo. Cancelar permanece habilitado salvo durante procesamiento.
+- El AppBar DEV_PROVD muestra Envíos consolidados; Registrar salida debe confirmar antes de llamar el endpoint y cerrar el panel al completarse.
+- En el diálogo Nueva devolución, Sucursal se limita a `DF01/DF04/DF05/DF06`, Proveedor conserva `ID - nombre` y orden numérico del filtro principal, no se captura O.C. y la recepción es opcional para permitir devoluciones manuales. Observaciones es opcional.
+- En detalle DEV_PROVD no editable, omitir Autorizar/contabilizar, Rechazar y la columna Acciones. Solo BORRADOR conserva captura, edición/eliminación y envío a autorización.
+- El alta de artículos DEV_PROVD parte de la O.C. o recepción seleccionada. En recepción, cada checkbox persiste o retira el detalle; cantidad y motivo pertenecen al renglón, mientras la fotografía es única para el documento. Enviar a autorización se habilita con al menos un detalle y conserva solo los seleccionados.
+- Tras elegir artículo, usar diálogo compacto sin Observaciones; conservar únicamente resumen del artículo, Cantidad, Motivo, Lote, Caducidad y fotografía.
+- El listado DEV_PROVD usa tabla y controles de paginación de Órdenes de compra; omite la columna Consolidar, muestra como Artículos el conteo de renglones y mantiene una acción explícita para abrir detalle.
+- En el listado DEV_PROVD, presentar solo el consecutivo posterior al último guion y conservar el documento completo para API/rutas. Permitir selección múltiple persistente entre páginas; el icono Imprimir permanece visible, deshabilitado sin selección, y abre `Printing.layoutPdf` con un solo PDF carta horizontal donde cada documento comienza en hoja nueva; no descargarlo directamente.
+- En el AppBar del detalle DEV_PROVD, también después de crear, presentar `Devolución a Proveedor` seguido únicamente del folio posterior al último guion; conservar siempre la clave completa para providers, rutas y API.
+- Después de crear DEV_PROVD, cargar el documento origen desde `/sugeridos/:nped` o `/recepciones/documentos/:docrec`, mostrar todos sus renglones en tabla y quitar el buscador general de artículos. Cada renglón puede abrir Capturar artículo con el artículo precargado.
+- La importación Excel de DEV_PROVD requiere encabezados `ART`, `DESC` y `CTDA`; validar los tres valores por fila y exigir `CTDA` numérica mayor a cero.
+- En la tabla DEV_PROVD sin documento origen, Acciones presenta Editar y Eliminar como iconos directos y elimina la opción independiente de evidencia por artículo. Al importar Excel sin costo, omitir `costo` para que el backend tome `DAT_ART.CTOP` y recalcule importes y resumen.
+- El listado DEV_PROVD incluye Fecha exacta con calendario y formato `YYYY-MM-DD`; se envía como rango `from/to` del mismo día y Limpiar debe restablecerla.
 - El PDF de envio se genera desde el documento cargado en UI y debe reflejar origen, destino, guia y cantidades.
+- El PDF de devolución a proveedor omite UPC en la tabla de artículos y muestra únicamente la descripción del motivo, sin su clave.
 - No exponer captura de articulos fuera de `BORRADOR`; cantidades liberadas solo en `PENDIENTE`; cantidades recibidas solo en `TRANSITO`.
+- El detalle DEV_PROVD presenta artículos en tabla horizontal con ART, UPC, Descripción, Motivo, Cantidad, Disponible, Costo, Importe, Lote, Caducidad, Evidencia y Acciones.
+- En borrador DEV_PROVD, Acciones muestra iconos directos Editar y Eliminar; el diálogo Editar mide 520x330, precarga cantidad, motivo, lote y caducidad, y no permite agregar ni reemplazar evidencia por artículo.

@@ -1,5 +1,21 @@
 # Instrucciones de agente para ioe_app
 
+- DEV_PROVD / Devoluciones a proveedor (2026-08-28): feature `lib/features/modulos/devoluciones_proveedor`; rutas `/modulos/devoluciones-proveedor` y `/:doc`; acceso desde `MOD_FRONT.DEV_PROVD`. Mantener reglas críticas de reserva, autorización y movimiento 102 exclusivamente en API/SP.
+- DEV_PROVD / Filtros (2026-09-03): proveedor usa `ID - nombre` y orden numérico. Estatus visibles: `BORRADOR`, `AUTORIZADA`, `NO ACEPTADA`, `EN TRANSITO`, `RECIBIDA`, `PENDIENTE`, `CANCELADA`; solo `NO ACEPTADA` conserva el valor interno `RECHAZADA`.
+- DEV_PROVD / Acciones listado (2026-09-03): el ojo solo abre el documento. Toda transición debe mostrar confirmación antes de llamar la API; Rechazar confirma después de capturar el motivo. Cancelar permanece habilitado mientras la fila no esté procesando. El AppBar muestra Envíos consolidados.
+- DEV_PROVD / Nueva devolución (actualizado 2026-09-14): limitar Sucursal a `DF01/DF04/DF05/DF06`; Proveedor usa `ID - nombre` ordenado numéricamente como el filtro principal; no mostrar captura de O.C. y permitir una recepción opcional (vacía para devolución manual). Observaciones es opcional.
+- DEV_PROVD / Detalle (2026-09-03): las acciones de autorización/rechazo viven en el listado. El detalle no editable es solo lectura, sin Autorizar/contabilizar, Rechazar ni columna Acciones; BORRADOR conserva captura, edición y eliminación.
+- DEV_PROVD / Alta de artículo (actualizado 2026-09-14): replicar panel de Transferencias con `SUC`, búsqueda por `ART/UPC/DES/Todos` y filtros jerárquicos; cantidad positiva y motivo pertenecen al renglón, mientras la fotografía JPG/PNG/WEBP de 500 bytes a 500 KB es única por documento.
+- DEV_PROVD / Selección de recepción (2026-09-14): marcar un artículo de la recepción crea su detalle con la cantidad disponible y motivo predeterminado; desmarcarlo elimina el detalle. El botón Enviar a autorización se habilita con al menos un detalle seleccionado y procesa exclusivamente esa selección.
+- DEV_PROVD / Captura de artículo (2026-09-03): el segundo panel es compacto, contiene solo artículo/disponible, cantidad, motivo, lote, caducidad y fotografía; no mostrar Observaciones.
+- DEV_PROVD / Listado (2026-09-03): mostrar documentos en tabla paginada siguiendo Órdenes de compra; no mostrar columna Consolidar, etiquetar como Artículos el conteo de renglones y conservar la acción para abrir detalle.
+- DEV_PROVD / Impresión (2026-09-05): en la tabla mostrar solo el consecutivo posterior al último guion, sin modificar el `doc` completo usado por API/rutas. La selección admite varias filas y se conserva entre páginas; el icono Imprimir permanece visible, deshabilitado sin selección, y abre `Printing.layoutPdf` con un solo PDF carta horizontal donde cada documento empieza en hoja nueva; no usar descarga directa.
+- DEV_PROVD / Folio detalle (2026-09-07): el AppBar del detalle, incluido el acceso inmediato después de crear, muestra `Devolución a Proveedor` seguido del segmento posterior al último guion. Nunca recortar el valor completo usado por providers, rutas o llamadas al API.
+- DEV_PROVD / Documento origen (2026-09-08): no mostrar el buscador general de artículos en el detalle. La tabla de origen se obtiene de `/sugeridos/:nped` o `/recepciones/documentos/:docrec`, muestra todos los renglones y abre Capturar artículo con el artículo precargado.
+- DEV_PROVD / Importación Excel (2026-09-12): el archivo debe incluir los encabezados `ART`, `DESC` y `CTDA`; cada fila exige artículo y descripción no vacíos, y cantidad numérica mayor a cero.
+- DEV_PROVD / Acciones e importes (2026-09-12): en la tabla sin documento origen, Acciones muestra botones directos Editar y Eliminar; no ofrecer alta/cambio de evidencia como acción independiente por artículo. La importación sin costo debe omitir `costo` para que el SP use `DAT_ART.CTOP` y la respuesta refresque importe por renglón y total del encabezado.
+- DEV_PROVD / Fecha (2026-09-03): el listado incluye filtro de fecha exacta `YYYY-MM-DD` mediante calendario; consultar envía la misma fecha como `from/to` y limpiar la restablece.
+
 > Abre otros README/AGENTS solo si la tarea lo exige; evita cargar contexto extra.
 
 ## Contexto del proyecto
@@ -133,3 +149,6 @@
 - Punto de venta / Cambio forma de pago REQF (2026-06-18): al cambiar forma de pago, si el folio tiene `REQF=1` y `AUT=VF`, backend re-sincroniza `FAC_SVR_SHAP/FACT_TICKET_SHP` vía `sp_fact_sync_folio_vf`; la UI muestra trazabilidad `facturacionSync` en el snack de confirmación.
 - Punto de venta / Cambio forma de pago (2026-06-26): el panel muestra filtros admin de `Sucursal` y `OPV` en cascada; backend acepta `suc/opv` en `GET /formas-pago/cambios/today` para admin y permite actualizar filas fuera del `OPVM` del usuario solo bajo contexto admin + supervisor `SUPERPV`.
 - Punto de venta / Caja General - Entrega OPV (2026-06-18): la vista de entrega deshabilita refresco mientras carga para evitar consultas simultáneas al sync de OPV.
+- DEV_PROVD / Tabla de artículos (2026-09-03): sustituir tarjetas por tabla horizontal con ART, UPC, Descripción, Motivo, Cantidad, Disponible, Costo, Importe, Lote, Caducidad, Evidencia y Acciones.
+- DEV_PROVD / Edición y evidencia (actualizado 2026-09-12): en borrador, Acciones muestra iconos directos Editar y Eliminar; Editar usa un panel compacto de 520x330, precarga cantidad, motivo, lote y caducidad, y no ofrece agregar/cambiar fotografía por artículo. La evidencia se gestiona únicamente a nivel documento.
+- DEV_PROVD / PDF (2026-09-14): la tabla de artículos impresa omite UPC y presenta únicamente la descripción del motivo, sin anteponer su clave `DEV-xx`.

@@ -103,6 +103,8 @@ import '../features/modulos/sugeridos/presentation/pages/ordenes_compra_page.dar
 import '../features/modulos/sugeridos/presentation/pages/sugeridos_page.dart';
 import '../features/modulos/recepciones/presentation/pages/recepciones_page.dart';
 import '../features/modulos/recepciones/presentation/pages/recepcion_detail_page.dart';
+import '../features/modulos/devoluciones_proveedor/presentation/pages/devoluciones_proveedor_page.dart';
+import '../features/modulos/devoluciones_proveedor/presentation/pages/devolucion_proveedor_detail_page.dart';
 import '../features/modulos/faltantes_sobrantes/fys_report_page.dart';
 
 import 'auth/auth_controller.dart';
@@ -658,6 +660,18 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'modulos/recepciones/:nped',
             builder: (c, s) =>
                 RecepcionDetailPage(nped: s.pathParameters['nped'] ?? ''),
+          ),
+          GoRoute(
+            path: 'modulos/devoluciones-proveedor',
+            builder: (c, s) => const DevolucionesProveedorPage(),
+            routes: [
+              GoRoute(
+                path: ':doc',
+                builder: (c, s) => DevolucionProveedorDetailPage(
+                  doc: s.pathParameters['doc'] ?? '',
+                ),
+              ),
+            ],
           ),
           GoRoute(
             path: 'punto-venta',
