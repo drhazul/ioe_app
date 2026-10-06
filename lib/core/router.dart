@@ -111,6 +111,7 @@ import 'auth/auth_controller.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final auth = ref.watch(authControllerProvider);
+  final authController = ref.watch(authControllerProvider.notifier);
   final homeModulesAsync = ref.watch(homeModulesProvider);
 
   List<GoRoute> accessRoutes() => [
@@ -175,9 +176,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         return '/auth/change-password';
       }
       if (!auth.mustChangePassword && changingPassword) {
-        return '/';
+        return authController.takePendingTransferResumeLocation() ?? '/';
       }
-      if (auth.isAuthenticated && loggingIn) return '/';
+      if (auth.isAuthenticated && loggingIn) {
+        return authController.takePendingTransferResumeLocation() ?? '/';
+      }
 
       if (_isFacturacionRoute(state.matchedLocation)) {
         final isAdmin =
