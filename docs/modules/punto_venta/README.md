@@ -260,6 +260,7 @@ Enlaces relacionados:
 - `CREDITO` y `DEUDOR` no se pueden combinar con otras formas de pago en el mismo cierre.
 - `Autorizacion / referencia` y el boton `Generar/Asignar referencia` solo aplican para `TARJETA`, `TARJETA CREDITO`, `CHEQUE`, `TRANSFERENCIA` y `DEPOSITO 3RO`.
 - La referencia no se captura manualmente: se crea/asigna en `REF_DETALLE` y se usa `IDREF` como `aut` de la forma.
+- El importe acepta formato canónico (`4537.92`) o agrupación válida con coma de miles y punto decimal (`4,537.92`); la app normaliza antes de seleccionar referencia y guardar, rechaza agrupación incorrecta y admite hasta dos decimales.
 - Si existen referencias en `CAPTURADO` o `PROCESADO` que no se usan en el payload final, backend rechaza el cierre hasta eliminarlas.
 - Mantenimiento maestro de formas:
 - ruta listado: `/masterdata/dat-form`

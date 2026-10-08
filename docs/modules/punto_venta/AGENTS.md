@@ -140,6 +140,7 @@ Enlaces relacionados:
 - `TARJETA CREDITO` usa `DAT_FORM.ASPEL=4`; en VF con factura se trata como forma no efectivo, requiere referencia y termina en `FormaPagoSAT='04'`.
 - El campo `Autorizacion / referencia` y el boton `Generar/Asignar referencia` solo se muestran para `TARJETA`, `TARJETA CREDITO`, `CHEQUE`, `TRANSFERENCIA` y `DEPOSITO 3RO`.
 - La referencia ya no se captura manualmente: se crea/asigna via `REF_DETALLE` y se regresa `IDREF` al formulario de pago.
+- El importe del modal de pago acepta formato canónico (`4537.92`) o agrupación válida (`4,537.92`); normaliza antes de abrir el selector y guardar, rechaza agrupación inválida y admite hasta dos decimales.
 - Si hay referencias del folio en `CAPTURADO` o `PROCESADO` que no se usan en el cierre, backend rechaza finalizar hasta eliminarlas.
 - En cierre `VF`, para formas `CREDITO`/`DEUDOR` backend inserta en `PV_CTR_FOL_FORM_SVR` (si existe; fallback `PV_CTR_FOL_FORM`) con `IMPP` positivo y `AUT=IDFOL`.
 - Para `CREDITO`, backend valida disponible con saldo neto de `DAT_CTRL_CTAS` (`SUM(IMPT)`) filtrando `CTA='101001002'` y `CLIENT=@IDC`; disponible = `FACT_CLIENT_SHP.L_CRED - MAX(-SUM(IMPT), 0)` (cargos negativos consumen crédito y abonos positivos lo liberan).

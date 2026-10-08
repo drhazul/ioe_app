@@ -2025,6 +2025,20 @@ typedef _SelectReferenciaCallback =
       String? currentIdref,
     });
 
+double? _parseImporteText(String raw) {
+  final value = raw.trim();
+  if (value.isEmpty) return null;
+
+  final plain = RegExp(r'^\d+(?:\.\d{1,2})?$').hasMatch(value);
+  final grouped = RegExp(r'^\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?$')
+      .hasMatch(value);
+  if (!plain && !grouped) return null;
+
+  final normalized = grouped ? value.replaceAll(',', '') : value;
+  final amount = double.tryParse(normalized);
+  return amount != null && amount.isFinite ? amount : null;
+}
+
 class _FormaDialog extends StatefulWidget {
   const _FormaDialog({
     required this.initial,
@@ -2084,13 +2098,13 @@ class _FormaDialogState extends State<_FormaDialog> {
   }
 
   double? _parseImporte() {
-    return double.tryParse(_importeCtrl.text.trim().replaceAll(',', '.'));
+    return _parseImporteText(_importeCtrl.text);
   }
 
   Future<void> _selectReferencia() async {
     final impt = _parseImporte();
     if (impt == null || impt <= 0) {
-      _setError('Importe invalido');
+      _setError('Importe inválido. Usa 4537.92 o 4,537.92.');
       return;
     }
 
@@ -2110,7 +2124,7 @@ class _FormaDialogState extends State<_FormaDialog> {
   void _save() {
     final value = _parseImporte();
     if (value == null || value <= 0) {
-      _setError('Importe invalido');
+      _setError('Importe inválido. Usa 4537.92 o 4,537.92.');
       return;
     }
     final isEfectivo = _form.trim().toUpperCase() == 'EFECTIVO';
