@@ -353,7 +353,7 @@ class _PsPagoPageState extends ConsumerState<PsPagoPage> {
         initialIdref: currentIdref,
       );
 
-      return Navigator.of(context).push<RefDetalleSelectionResult>(
+      return await Navigator.of(context).push<RefDetalleSelectionResult>(
         MaterialPageRoute(
           builder: (_) => RefDetallePage(args: args),
         ),

@@ -21,7 +21,7 @@ class DevolucionProveedorApi {
         'limit': limit,
         if (_text(document) != null) 'doc': _text(document),
         if (_text(suc) != null) 'suc': _text(suc),
-        if (provider != null) 'prov': provider,
+        'prov': ?provider,
         if (_text(status) != null) 'estatus': _text(status),
         if (_text(date) != null) 'from': _text(date),
         if (_text(date) != null) 'to': _text(date),

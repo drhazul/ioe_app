@@ -90,7 +90,7 @@ class DevolucionesApi {
     final res = await dio.post(
       '/pv/devoluciones/$idfolDev/pago/preview',
       data: {
-        if (rqfac != null) 'rqfac': rqfac,
+        'rqfac': ?rqfac,
       },
     );
     return DevolucionPagoPreviewResponse.fromJson(

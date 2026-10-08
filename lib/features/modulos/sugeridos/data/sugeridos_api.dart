@@ -196,7 +196,7 @@ class SugeridosApi {
       data: {
         'art': art.trim(),
         'ctdped': ctdped,
-        if (cto != null) 'cto': cto,
+        'cto': ?cto,
         if ((uncom ?? '').trim().isNotEmpty) 'uncom': uncom!.trim(),
       },
     );
@@ -215,8 +215,8 @@ class SugeridosApi {
     final res = await dio.patch(
       '/sugeridos/$nped/detalle/$idped',
       data: {
-        if (ctdped != null) 'ctdped': ctdped,
-        if (cto != null) 'cto': cto,
+        'ctdped': ?ctdped,
+        'cto': ?cto,
         if ((uncom ?? '').trim().isNotEmpty) 'uncom': uncom!.trim(),
       },
     );

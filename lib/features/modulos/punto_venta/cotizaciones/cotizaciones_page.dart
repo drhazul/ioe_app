@@ -348,7 +348,7 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
       }
 
       if (!context.mounted) return null;
-      return showDialog<FactClientShpModel>(
+      return await showDialog<FactClientShpModel>(
         context: context,
         builder: (_) =>
             _ClientePickerDialog(clientes: bySuc, suc: sucNormalized),

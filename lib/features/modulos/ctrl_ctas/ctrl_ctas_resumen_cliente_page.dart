@@ -888,7 +888,7 @@ class _CtrlCtasResumenClientePageState
                       title,
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
-                    if (headerActions != null) headerActions,
+                    ?headerActions,
                   ],
                 ),
                 if (subtitle != null && subtitle.trim().isNotEmpty) ...[

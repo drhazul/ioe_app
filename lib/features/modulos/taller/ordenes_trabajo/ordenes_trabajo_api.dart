@@ -53,9 +53,9 @@ class OrdenesTrabajoApi {
       '/ordenes-trabajo/${Uri.encodeComponent(iord)}/cambio-merma/preparar',
       data: {
         'tipo': tipo,
-        if (ctdCM != null) 'ctdCM': ctdCM,
+        'ctdCM': ?ctdCM,
         if (cleanMotivo.isNotEmpty) 'motivo': cleanMotivo,
-        if (motr != null) 'motr': motr,
+        'motr': ?motr,
       },
     );
     return OrdenTrabajoCambioMermaContext.fromJson(
@@ -83,13 +83,13 @@ class OrdenesTrabajoApi {
       data: {
         'tipo': tipo,
         'ctdCM': ctdCM,
-        if (pvtaNuevo != null) 'pvtaNuevo': pvtaNuevo,
+        'pvtaNuevo': ?pvtaNuevo,
         if (cleanArtNuevo.isNotEmpty) 'artNuevo': cleanArtNuevo,
         if (cleanMotivo.isNotEmpty) 'motivo': cleanMotivo,
-        if (motr != null) 'motr': motr,
-        if (labor != null) 'labor': labor,
+        'motr': ?motr,
+        'labor': ?labor,
         if (cleanDocDif.isNotEmpty) 'docDif': cleanDocDif,
-        if (crearNuevaOrd != null) 'crearNuevaOrd': crearNuevaOrd,
+        'crearNuevaOrd': ?crearNuevaOrd,
       },
     );
     return OrdenTrabajoCambioMermaContext.fromJson(
@@ -106,11 +106,7 @@ class OrdenesTrabajoApi {
     final cleanArtNuevo = artNuevo.trim();
     final res = await dio.post(
       '/ordenes-trabajo/${Uri.encodeComponent(iord)}/cambio-merma/actualizar-articulo',
-      data: {
-        'tipo': tipo,
-        'artNuevo': cleanArtNuevo,
-        if (pvtaNuevo != null) 'pvtaNuevo': pvtaNuevo,
-      },
+      data: {'tipo': tipo, 'artNuevo': cleanArtNuevo, 'pvtaNuevo': ?pvtaNuevo},
     );
     return OrdenTrabajoCambioMermaContext.fromJson(
       Map<String, dynamic>.from(res.data as Map),
@@ -150,7 +146,7 @@ class OrdenesTrabajoApi {
   }) async {
     final res = await dio.post(
       '/ordenes-trabajo/${Uri.encodeComponent(iord)}/cambio-merma/crear',
-      data: {'tipo': tipo, if (ctdCM != null) 'ctdCM': ctdCM},
+      data: {'tipo': tipo, 'ctdCM': ?ctdCM},
     );
     return _actionFrom(res);
   }
@@ -184,7 +180,7 @@ class OrdenesTrabajoApi {
     final res = await dio.post(
       '/ordenes-trabajo/${Uri.encodeComponent(iord)}/detalle/guardar',
       data: {
-        if (labor != null) 'labor': labor,
+        'labor': ?labor,
         if (cleanTipo.isNotEmpty) 'tipo': cleanTipo,
         if (cleanHrEnt.isNotEmpty) 'hrEnt': cleanHrEnt,
         if ((suc ?? '').trim().isNotEmpty) 'suc': suc!.trim().toUpperCase(),
@@ -217,10 +213,7 @@ class OrdenesTrabajoApi {
     final asignValue = (asign ?? '').trim();
     final res = await dio.post(
       '/ordenes-trabajo/${Uri.encodeComponent(iord)}/enviar',
-      data: {
-        if (asignValue.isNotEmpty) 'asign': asignValue,
-        if (labor != null) 'labor': labor,
-      },
+      data: {if (asignValue.isNotEmpty) 'asign': asignValue, 'labor': ?labor},
     );
     return _actionFrom(res);
   }
@@ -641,8 +634,8 @@ class OrdenesTrabajoApi {
       data: {
         'artNuevo': artNuevo.trim(),
         'motivo': motivo.trim(),
-        if (motr != null) 'motr': motr,
-        if (labor != null) 'labor': labor,
+        'motr': ?motr,
+        'labor': ?labor,
         if (docDifValue.isNotEmpty) 'docDif': docDifValue,
       },
     );
@@ -661,7 +654,7 @@ class OrdenesTrabajoApi {
       data: {
         'cantidadMerma': cantidadMerma,
         'motivo': motivo.trim(),
-        if (motr != null) 'motr': motr,
+        'motr': ?motr,
         'crearNuevaOrd': crearNuevaOrd,
       },
     );

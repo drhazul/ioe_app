@@ -168,7 +168,7 @@ class RelojChecadorAppApi {
       'idUsuario': idUsuario,
       'suc': suc.trim().toUpperCase(),
       'fotoBase64': fotoBase64.trim(),
-      if (idTimelog != null) 'idTimelog': idTimelog,
+      'idTimelog': ?idTimelog,
     };
     final signature = buildAttendanceSignature(
       deviceId: deviceId,
@@ -1032,7 +1032,7 @@ class RelojChecadorAppApi {
           'terminal_id': terminalId.trim(),
           'suc': suc.trim().toUpperCase(),
           if (punchTime != null) 'punch_time': _dateIso(punchTime),
-          if (bodyTemp != null) 'body_temp': bodyTemp,
+          'body_temp': ?bodyTemp,
           if ((gpsCoordinates ?? '').trim().isNotEmpty)
             'gps_coordinates': gpsCoordinates!.trim(),
           'is_offline': isOffline,
@@ -1164,7 +1164,7 @@ class RelojChecadorAppApi {
       queryParameters: {
         'fecha_inicio': _dateIso(fechaInicio),
         'fecha_fin': _dateIso(fechaFin),
-        if (sucursalId != null) 'sucursal_id': sucursalId,
+        'sucursal_id': ?sucursalId,
       },
     );
     if (res.data is! Map) {
@@ -1187,7 +1187,7 @@ class RelojChecadorAppApi {
   }) async {
     final res = await dio.get(
       '/incidencias/dashboard/$colaboradorId',
-      queryParameters: {if (anio != null) 'anio': anio},
+      queryParameters: {'anio': ?anio},
     );
     if (res.data is! Map) {
       throw _badResponse(res, 'Respuesta invalida dashboard vacaciones');
@@ -1205,7 +1205,7 @@ class RelojChecadorAppApi {
     final colaboradorId = await _resolveColaboradorIdFromToken(token);
     final res = await dio.get(
       '/incidencias/dashboard/$colaboradorId',
-      queryParameters: {if (anio != null) 'anio': anio},
+      queryParameters: {'anio': ?anio},
     );
     if (res.data is! Map) {
       throw _badResponse(res, 'Respuesta invalida dashboard ESS');

@@ -249,7 +249,7 @@ class _MermaAddItemDialogState extends ConsumerState<MermaAddItemDialog> {
               'areaM': (_areaM ?? '').trim(),
               'respM': _respCtrl.text.trim(),
               'obsM': _obsCtrl.text.trim(),
-              if (evidenceDataUrl != null) 'eviM': evidenceDataUrl,
+              'eviM': ?evidenceDataUrl,
             });
           },
           child: const Text('Guardar'),

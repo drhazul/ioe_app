@@ -7309,7 +7309,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       }
 
       var selectedId = colaboradores.first.idopv;
-      return showDialog<OrdenTrabajoColaboradorOption>(
+      return await showDialog<OrdenTrabajoColaboradorOption>(
         context: context,
         builder: (ctx) => StatefulBuilder(
           builder: (ctx, setStateDialog) => AlertDialog(

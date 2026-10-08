@@ -1628,7 +1628,7 @@ class _HeaderSection extends StatelessWidget {
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [if (trailing != null) trailing!],
+        children: [?trailing],
       ),
     );
   }

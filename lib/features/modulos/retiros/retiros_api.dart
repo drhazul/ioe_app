@@ -62,7 +62,7 @@ class RetirosApi {
       '/retiros/$encoded/detalles',
       data: {
         'forma': forma.trim().toUpperCase(),
-        if (impf != null) 'impf': impf,
+        'impf': ?impf,
       },
     );
   }
