@@ -71,6 +71,8 @@ import '../features/modulos/facturacion/facturacion_page.dart';
 import '../features/modulos/facturacion/facturacionview_page.dart';
 import '../features/modulos/facturacion/facturacion_sreqf_page.dart';
 import '../features/modulos/facturacion/factura_mtto_cliente_page.dart';
+import '../features/modulos/facturacion/csd/csd_page.dart';
+import '../features/modulos/facturacion/Pruebas_api/facturacion_quadrum_page.dart';
 import '../features/modulos/estado_cajon/app/estado_cajon_page.dart';
 import '../features/modulos/caja_general/app/caja_general_page.dart';
 import '../features/modulos/caja_general/app/entrega_opv_page.dart';
@@ -844,6 +846,14 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'facturacion/mtto-clientes',
             builder: (c, s) => const FacturaMttoClientePage(),
+          ),
+          GoRoute(
+            path: 'facturacion/csd',
+            builder: (c, s) => const CsdPage(),
+          ),
+          GoRoute(
+            path: 'facturacion/pruebas',
+            builder: (c, s) => const FacturacionQuadrumPage(),
           ),
           GoRoute(
             path: 'facturacion-view',

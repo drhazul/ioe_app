@@ -16,6 +16,7 @@ Frontend Flutter del ecosistema IOE. Consume `ioe-api` para autenticación, maes
 - Órdenes de compra / Devolución (2026-08-21): `Devolver a sucursal` solicita motivo, cambia la O.C. rechazada a `PROCESADO` y la deja disponible para una nueva revisión del Encargado.
 - Órdenes de compra / Validadas (2026-08-21): el catálogo del Jefe incorpora `VALIDADO` y permite consultar las O.C. pendientes de contabilización en Recepción de mercancías.
 - Órdenes de compra / Cancelación validada (2026-08-21): el botón `Cancelar` se habilita para el Jefe en `VALIDADO`; tras confirmar, la recepción queda `CANCELADO` y la O.C. se muestra como `ANULADO` si aún no generaron movimientos.
+- Facturación / Timbrado CFDI con Quadrum (2026-09-14 a 2026-10-07): dos pantallas nuevas, `/facturacion/csd` para los certificados y cuentas del PAC por razón social, y `/facturacion/pruebas` con timbrado, cancelación, notas de crédito, complementos de pago y descarga de XML y PDF. La pantalla de facturación de Facturify no se modificó. Detalle en la sección «Facturación CFDI con Quadrum».
 - Centralizar operación administrativa (maestros y permisos) y operativa (inventarios, catálogos, cotizaciones y consultas).
 - Mantener UI desacoplada de persistencia usando contratos HTTP definidos por `ioe-api`.
 - Garantizar navegación protegida con sesión JWT y refresh.
@@ -83,6 +84,43 @@ Frontend Flutter del ecosistema IOE. Consume `ioe-api` para autenticación, maes
 - Punto de venta / Cotizaciones precio manual vs promoción (2026-05-23): en detalle de cotización, cuando un renglón está en sincronización remota se muestra texto neutro (`Sincronizando ticket...` / `Sincronizando...`) para reflejar proceso general de guardado y no reasignación automática de promoción en UI.
 - Punto de venta / Cotizaciones ORD vs precio manual (2026-05-23): en detalle cotización, la asignación/liberación de `ORD` conserva el `PVTA` manual del renglón (sin regreso automático a precio catálogo).
 - Notas de documentación viva: este README solo debe cambiarse cuando se agreguen/modifiquen módulos, rutas o datos de arquitectura/base (no para ajustes locales de pantalla). Otros cambios funcionales van al README/AGENTS del módulo afectado.
+
+## Facturación CFDI con Quadrum
+
+Pantallas del camino de timbrado con Quadrum, **separado del de Facturify**. La facturación de siempre no se modificó: estas son pantallas aparte.
+
+### Certificados (CSD)
+`lib/features/modulos/facturacion/csd/`, ruta `/facturacion/csd`, módulo `FACTURA_CSD`.
+
+Da de alta el `.cer` y el `.key` de cada razón social. El RFC y el nombre se leen del propio certificado; se capturan el régimen fiscal, el C.P. de expedición, la contraseña de la llave y —opcionales— el **usuario y la contraseña de Quadrum** de esa razón social, porque cada RFC timbra con su propia cuenta del PAC.
+
+La tabla lista los certificados cargados con su vigencia (VIGENTE / POR VENCER / VENCIDO / REEMPLAZADO) y con qué cuenta timbra cada uno. Sirve también para renovar: subir el mismo certificado actualiza el renglón en vez de duplicarlo. Las contraseñas nunca se vuelven a mostrar.
+
+### Facturación pruebas (Sandbox)
+`lib/features/modulos/facturacion/Pruebas_api/`, ruta `/facturacion/pruebas`, módulo `FACTURA_PRUEBAS`.
+
+Copia de la pantalla de facturación con las acciones de Quadrum agregadas. La pantalla original (`/facturacion`) sigue intacta.
+
+Cada renglón tiene tres botones al inicio, junto a la casilla:
+
+| Botón | Se habilita cuando | Qué hace |
+|---|---|---|
+| ⚡ | el RFC emisor tiene CSD cargado y el folio no está timbrado | Timbra con Quadrum |
+| ⋮ | siempre | Abre el resto de acciones |
+| ⬇️ | el folio ya tiene UUID | Descarga XML y PDF |
+
+El botón ⋮ abre un diálogo con: simular (no gasta timbre ni escribe nada), timbrar, consultar en el PAC, preguntar si es cancelable, cancelar, bajar el acuse, **nota de crédito** y **complemento de pago**.
+
+- **Nota de crédito**: muestra los artículos de la factura con lo que queda por devolver —descontando notas anteriores— y se eligen cantidades con + y −. Los conceptos salen del XML timbrado, no se capturan.
+- **Complemento de pago**: solo para facturas a crédito (PPD). Muestra total, cobrado, saldo y qué parcialidad toca; se captura monto, fecha y forma de pago.
+
+Ambos tienen simulación antes de emitir, y listan lo ya emitido con sus descargas de XML y PDF.
+
+En esta pantalla el botón `REALIZAR FACTURA` del diálogo de validación está oculto: ahí se timbra con Facturify y tener los dos caminos abiertos invita a facturar dos veces la misma venta.
+
+### Cómo llegan las pantallas al menú
+Un mosaico necesita tres cosas, y si falta una no aparece o no navega: renglón en `MOD_FRONT`, estar ligado a un grupo que el rol pueda leer, y una rama en `_resolveRoute()` de `lib/features/home/home_page.dart` que mapee el código a la ruta. Los códigos son `FACTURA_PRUEBAS` y `FACTURA_CSD`.
+
 
 ## Arquitectura general
 - Enfoque feature-based en `lib/features`.

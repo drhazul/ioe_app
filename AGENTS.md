@@ -19,6 +19,7 @@
 - Entorno: `lib/core/env.dart` y `assets/.env` (solo release).
 - Alcance de cambios en este AGENTS: actualizar aquí solo cuando se modifique estructura global, rutas base o se creen/eliminan módulos. Cambios funcionales específicos se documentan en los AGENTS/README del módulo impactado.
 
+- Facturación / Timbrado CFDI con Quadrum (2026-09-14 a 2026-10-07): las pantallas de Quadrum viven en `lib/features/modulos/facturacion/csd/` y `lib/features/modulos/facturacion/Pruebas_api/`. `facturacion_page.dart` (Facturify) no se toca. Reglas de trabajo en la sección «Facturación CFDI con Quadrum».
 ## Pruebas automatizadas
 - `flutter analyze` y `flutter test` antes de entregar.
 - Si hay cambios coordinados con `ioe-api`, validar también el backend (`npm test`).
@@ -93,6 +94,42 @@
 - Punto de venta / Gestión de promociones (2026-05-26): la carga de clientes en configuración toma catálogo backend filtrado por `FACT_CLIENT_SHP.SUC` y `FACT_CLIENT_SHP.ESTATUS=0` usando `IDC` como `CLIENTE`; el popup de cliente muestra listado completo deduplicado por `CLIENTE`.
 - Punto de venta / Cotizaciones precio manual vs promoción (2026-05-23): en detalle de cotización el estado visual de sincronización se vuelve neutro (`Sincronizando...`) para no sugerir reaplicación de promoción durante cambio manual de `PVTA`.
 - Punto de venta / Cotizaciones ORD vs precio manual (2026-05-23): al crear/quitar ORD desde detalle de cotización, el renglón debe conservar `PVTA` manual; backend ya no recalcula promoción en esa operación.
+
+## Facturación CFDI con Quadrum
+
+Pantallas del camino de Quadrum. **Separadas de las de Facturify**, que no se modifican.
+
+### Regla que no se rompe
+- `lib/features/modulos/facturacion/facturacion_page.dart` es la pantalla de Facturify: **no se toca**. La copia con acciones de Quadrum es `Pruebas_api/facturacion_quadrum_page.dart`, y es la única que se modifica.
+- La copia tiene sus propios proveedores (`Pruebas_api/facturacion_quadrum_providers.dart`). Al invalidar el listado desde un diálogo, usar ese y no el de la pantalla original.
+
+### Dónde está cada cosa
+- `csd/`: alta y listado de certificados y cuentas del PAC (`/facturacion/csd`).
+- `Pruebas_api/facturacion_quadrum_page.dart`: la tabla, con la columna de acciones.
+- `Pruebas_api/quadrum_folio_acciones.dart`: el diálogo de ⋮.
+- `Pruebas_api/nota_credito_dialog.dart` y `complemento_pago_dialog.dart`: los dos flujos que cuelgan de una factura.
+- `Pruebas_api/cfdi_quadrum_api.dart`: cliente de `/cfdi/*`, incluidas las descargas en bytes.
+
+### Al habilitar o deshabilitar botones
+- Los candados se deciden con datos del renglón: `CFDI_UUID` para saber si está timbrado, `CFDI_STATUS` y `CFDI_CANCEL_STATUS` para saber si está cancelado o en trámite.
+- `_pickText` devuelve `'-'` cuando el dato falta, **no cadena vacía**. Comparar solo con `isNotEmpty` da falsos positivos y enciende botones que no deberían estarlo.
+- Un botón apagado debe decir por qué, en el tooltip o debajo. El usuario no tiene por qué adivinar si falta el CSD, si ya está timbrado o si está cancelado.
+- La pantalla no es el único guardián: toda regla que importe va también en la API, porque la pantalla puede estar desactualizada y los endpoints se pueden llamar por fuera.
+
+### Al ejecutar acciones
+- Lo que escribe en la base —timbrar, cancelar, consultar estatus— debe refrescar el listado al terminar (`cambiaElFolio: true` en `_correr`), o el renglón se queda con el estado viejo hasta cambiar de filtro.
+- Lo que solo lee —simular, consultar— no refresca, para no recargar 150 renglones de a gratis.
+- Timbrar, cancelar, emitir una nota o un complemento piden confirmación: gastan timbre y no se deshacen.
+
+### Descargas
+Reusan `reloj_checador/consultas/download_helper.dart`, que resuelve web y deja un stub en lo demás. Las respuestas vienen en bytes, así que el cuerpo de un error también: `cfdi_quadrum_api.dart` lo decodifica para poder mostrar el mensaje de la API en vez del texto crudo de Dio.
+
+### Orden del listado
+Los pendientes se ordenan por el último movimiento (`FCNF` si existe, si no `FCN`), igual que la consulta del servidor. Si se cambia uno hay que cambiar el otro: la pantalla reordena del lado del cliente y pisa el orden que llega.
+
+### Pruebas
+`flutter analyze` sobre `lib/features/modulos/facturacion` antes de entregar. Si el cambio toca la API, correr también `npx jest src/modules/cfdi` en `ioe-api`.
+
 
 ## Documentación por módulos
 - Faltantes y Sobrantes: `docs/modules/faltantes_sobrantes/AGENTS.md` (README: `docs/modules/faltantes_sobrantes/README.md`)

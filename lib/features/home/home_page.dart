@@ -559,6 +559,12 @@ class _ModuleRow extends StatelessWidget {
     if (moduloCode == 'FACTURA_MTTOCLIENTE') {
       return '/facturacion/mtto-clientes';
     }
+    if (moduloCode == 'FACTURA_PRUEBAS') {
+      return '/facturacion/pruebas';
+    }
+    if (moduloCode == 'FACTURA_CSD' || moduloCode == 'FACTURA_CERTIFICADOS') {
+      return '/facturacion/csd';
+    }
     if (moduloCode == 'FACTURA' ||
         moduloCode == 'FACTURACION' ||
         moduloCode == 'PV_FACTURACION' ||
