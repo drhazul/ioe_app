@@ -18,23 +18,32 @@ class LoginPage extends ConsumerStatefulWidget {
 class _LoginPageState extends ConsumerState<LoginPage> {
   final _userCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
+  final _passwordFocusNode = FocusNode();
   bool _loading = false;
   bool _obscurePass = true;
+  int _passwordEditorVersion = 0;
 
   @override
   void dispose() {
     _userCtrl.dispose();
     _passCtrl.dispose();
+    _passwordFocusNode.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
+    if (_loading) return;
+
+    // Close the web text-input connection before sending credentials.
+    FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _loading = true);
+    var failed = false;
     try {
       await ref
           .read(authControllerProvider.notifier)
           .login(username: _userCtrl.text.trim(), password: _passCtrl.text);
     } catch (e) {
+      failed = true;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -45,7 +54,20 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       }
     } finally {
       if (mounted) {
-        setState(() => _loading = false);
+        if (failed) {
+          _passCtrl.value = const TextEditingValue(
+            selection: TextSelection.collapsed(offset: 0),
+          );
+        }
+        setState(() {
+          _loading = false;
+          if (failed) _passwordEditorVersion++;
+        });
+        if (failed) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _passwordFocusNode.requestFocus();
+          });
+        }
       }
     }
   }
@@ -61,24 +83,23 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           return Stack(
             children: [
               const _BackgroundShapes(),
-              SafeArea(
-                child: Center(
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: isWide ? 48 : 20,
-                      vertical: isWide ? 32 : 24,
-                    ),
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxWidth: isWide ? 1080 : 480,
+              if (isWide)
+                SafeArea(child: _DesktopLayout(child: _buildFormCard()))
+              else
+                SafeArea(
+                  child: Center(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 24,
                       ),
-                      child: isWide
-                          ? _DesktopLayout(child: _buildFormCard())
-                          : _MobileLayout(child: _buildFormCard()),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 480),
+                        child: _MobileLayout(child: _buildFormCard()),
+                      ),
                     ),
                   ),
                 ),
-              ),
             ],
           );
         },
@@ -205,7 +226,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   Widget _buildPasswordField() {
     return TextField(
+      // A failed attempt must create a fresh EditableText/web input client.
+      key: ValueKey(_passwordEditorVersion),
       controller: _passCtrl,
+      focusNode: _passwordFocusNode,
       autofillHints: const [AutofillHints.password],
       obscureText: _obscurePass,
       autocorrect: false,
@@ -287,11 +311,36 @@ class _DesktopLayout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const Expanded(child: _WelcomePanel()),
-        const SizedBox(width: 56),
-        Expanded(child: child),
+        Expanded(
+          child: ColoredBox(
+            color: _background,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final minContentHeight = constraints.maxHeight > 64
+                    ? constraints.maxHeight - 64
+                    : 0.0;
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 32,
+                  ),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minHeight: minContentHeight),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 560),
+                        child: child,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -311,36 +360,12 @@ class _WelcomePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 430),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            width: double.infinity,
-            height: 330,
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: AppColors.navy,
-              borderRadius: BorderRadius.circular(28),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x22061226),
-                  blurRadius: 28,
-                  offset: Offset(0, 16),
-                ),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(20),
-              child: Image.asset(
-                'assets/ioe_logo.png',
-                fit: BoxFit.cover,
-                semanticLabel: 'Logotipo IOE',
-              ),
-            ),
-          ),
-        ],
+    return SizedBox.expand(
+      child: Image.asset(
+        'assets/images/ioe_login_hero.png',
+        fit: BoxFit.cover,
+        alignment: Alignment.center,
+        semanticLabel: 'Lente óptico IOE Image Optical Experts',
       ),
     );
   }

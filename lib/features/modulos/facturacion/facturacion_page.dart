@@ -403,7 +403,7 @@ class _FacturacionPageState extends ConsumerState<FacturacionPage> {
     final providerRef = ref;
     final facturacionTheme = _buildFacturacionTheme(context);
     final appBar = AppBar(
-      title: const Text('Facturación (Sandbox)'),
+      title: const Text('Facturación Facturify'),
       actions: [
         TextButton.icon(
           onPressed: () => context.push('/facturacion-view'),

@@ -18,7 +18,7 @@ import '../../../../../core/storage.dart';
 import '../../domain/transferencia_models.dart';
 import '../../providers/transferencia_provider.dart';
 
-class TransferenciaDetailPage extends ConsumerWidget {
+class TransferenciaDetailPage extends ConsumerStatefulWidget {
   const TransferenciaDetailPage({
     super.key,
     required this.doc,
@@ -29,26 +29,57 @@ class TransferenciaDetailPage extends ConsumerWidget {
   final bool reportMode;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final asyncDoc = reportMode
-        ? ref.watch(transferenciaReporteDetalleProvider(doc))
-        : ref.watch(transferenciaDetalleProvider(doc));
+  ConsumerState<TransferenciaDetailPage> createState() =>
+      _TransferenciaDetailPageState();
+}
+
+class _TransferenciaDetailPageState
+    extends ConsumerState<TransferenciaDetailPage> {
+  late final AuthController _authController;
+
+  String get _resumeLocation =>
+      '/modulos/transferencias/${Uri.encodeComponent(widget.doc)}';
+
+  @override
+  void initState() {
+    super.initState();
+    _authController = ref.read(authControllerProvider.notifier);
+    if (!widget.reportMode) {
+      _authController.registerTransferResumeLocation(_resumeLocation);
+    }
+  }
+
+  @override
+  void dispose() {
+    if (!widget.reportMode) {
+      _authController.clearTransferResumeLocation(_resumeLocation);
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final asyncDoc = widget.reportMode
+        ? ref.watch(transferenciaReporteDetalleProvider(widget.doc))
+        : ref.watch(transferenciaDetalleProvider(widget.doc));
     return Scaffold(
       appBar: AppBar(
-        title: Text('Transferencia $doc'),
+        title: Text('Transferencia ${widget.doc}'),
         actions: [
           IconButton(
             tooltip: 'Refrescar',
             icon: const Icon(Icons.refresh),
-            onPressed: () => reportMode
-                ? ref.invalidate(transferenciaReporteDetalleProvider(doc))
-                : ref.invalidate(transferenciaDetalleProvider(doc)),
+            onPressed: () => widget.reportMode
+                ? ref.invalidate(
+                    transferenciaReporteDetalleProvider(widget.doc),
+                  )
+                : ref.invalidate(transferenciaDetalleProvider(widget.doc)),
           ),
         ],
       ),
       body: asyncDoc.when(
         data: (item) =>
-            _TransferenciaDetailBody(item: item, reportMode: reportMode),
+            _TransferenciaDetailBody(item: item, reportMode: widget.reportMode),
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => Center(child: Text(_friendlyError(error))),
       ),
@@ -1508,6 +1539,18 @@ class _DetalleTable extends ConsumerWidget {
 
     if (isJefeInventarios) {
       final actions = <Widget>[
+        if (item.estatus == 'BORRADOR')
+          _actionButton(
+            tooltip: 'Cantidad solicitada',
+            icon: Icons.edit_outlined,
+            onPressed: () => _editNumber(context, ref, row, 'ctd', row.ctd),
+          ),
+        if (item.estatus == 'BORRADOR')
+          _actionButton(
+            tooltip: 'Eliminar',
+            icon: Icons.delete_outline,
+            onPressed: () => _delete(context, ref, row),
+          ),
         if (item.estatus == 'PENDIENTE')
           _actionButton(
             tooltip: 'Cantidad liberada',

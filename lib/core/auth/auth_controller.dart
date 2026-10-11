@@ -31,6 +31,8 @@ class AuthController extends StateNotifier<AuthState> {
   int _inFlightProtectedRequests = 0;
   DateTime? _lastUserActivityAtUtc;
   DateTime? _lastPersistedActivityAtUtc;
+  String? _activeTransferResumeLocation;
+  String? _pendingTransferResumeLocation;
 
   @override
   Stream<AuthState> get stream => _controller.stream;
@@ -202,8 +204,30 @@ class AuthController extends StateNotifier<AuthState> {
   }
 
   Future<void> logout() async {
+    _activeTransferResumeLocation = null;
+    _pendingTransferResumeLocation = null;
     await ref.read(storageProvider).clear();
     _setUnauthenticated();
+  }
+
+  void registerTransferResumeLocation(String location) {
+    final normalized = location.trim();
+    if (!RegExp(r'^/modulos/transferencias/[^/?#]+$').hasMatch(normalized)) {
+      return;
+    }
+    _activeTransferResumeLocation = normalized;
+  }
+
+  void clearTransferResumeLocation(String location) {
+    if (_activeTransferResumeLocation == location.trim()) {
+      _activeTransferResumeLocation = null;
+    }
+  }
+
+  String? takePendingTransferResumeLocation() {
+    final location = _pendingTransferResumeLocation;
+    _pendingTransferResumeLocation = null;
+    return location;
   }
 
   Future<String?> _refreshAccessToken() async {
@@ -401,7 +425,9 @@ class AuthController extends StateNotifier<AuthState> {
       return;
     }
 
-    await logout();
+    _pendingTransferResumeLocation = _activeTransferResumeLocation;
+    await ref.read(storageProvider).clear();
+    _setUnauthenticated();
   }
 
   bool _isIdleExpired(DateTime? lastActivityUtc) {
@@ -427,6 +453,7 @@ class AuthController extends StateNotifier<AuthState> {
     _inFlightProtectedRequests = 0;
     _lastUserActivityAtUtc = null;
     _lastPersistedActivityAtUtc = null;
+    _activeTransferResumeLocation = null;
   }
 
   Map<String, dynamic> _decodeJwt(String token) {

@@ -71,6 +71,9 @@ import '../features/modulos/facturacion/facturacion_page.dart';
 import '../features/modulos/facturacion/facturacionview_page.dart';
 import '../features/modulos/facturacion/facturacion_sreqf_page.dart';
 import '../features/modulos/facturacion/factura_mtto_cliente_page.dart';
+import '../features/modulos/facturacion/csd/csd_page.dart';
+import '../features/modulos/facturacion/Pruebas_api/facturacion_quadrum_page.dart';
+import '../features/modulos/facturacion/Pruebas_api/cfdi_correo_page.dart';
 import '../features/modulos/estado_cajon/app/estado_cajon_page.dart';
 import '../features/modulos/caja_general/app/caja_general_page.dart';
 import '../features/modulos/caja_general/app/entrega_opv_page.dart';
@@ -111,6 +114,7 @@ import 'auth/auth_controller.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final auth = ref.watch(authControllerProvider);
+  final authController = ref.watch(authControllerProvider.notifier);
   final homeModulesAsync = ref.watch(homeModulesProvider);
 
   List<GoRoute> accessRoutes() => [
@@ -175,9 +179,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         return '/auth/change-password';
       }
       if (!auth.mustChangePassword && changingPassword) {
-        return '/';
+        return authController.takePendingTransferResumeLocation() ?? '/';
       }
-      if (auth.isAuthenticated && loggingIn) return '/';
+      if (auth.isAuthenticated && loggingIn) {
+        return authController.takePendingTransferResumeLocation() ?? '/';
+      }
 
       if (_isFacturacionRoute(state.matchedLocation)) {
         final isAdmin =
@@ -860,6 +866,18 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (c, s) => const FacturaMttoClientePage(),
           ),
           GoRoute(
+            path: 'facturacion/csd',
+            builder: (c, s) => const CsdPage(),
+          ),
+          GoRoute(
+            path: 'facturacion/pruebas',
+            builder: (c, s) => const FacturacionQuadrumPage(),
+          ),
+          GoRoute(
+            path: 'facturacion/correo',
+            builder: (c, s) => const CfdiCorreoPage(),
+          ),
+          GoRoute(
             path: 'facturacion-view',
             builder: (c, s) => const FacturacionViewPage(),
           ),
@@ -945,6 +963,16 @@ const Set<String> _facturaViewModuleCodes = <String>{'FACTURA_VIEW'};
 
 const Set<String> _facturaReqfModuleCodes = <String>{'REG_SINREQF'};
 
+const Set<String> _facturaCsdModuleCodes = <String>{
+  'FACTURA_CSD',
+  'FACTURA_CERTIFICADOS',
+};
+
+const Set<String> _facturaPruebasModuleCodes = <String>{
+  'FACTURA_QUADRUM',
+  'FACTURA_PRUEBAS', // Compatibility while module catalogs are migrated.
+};
+
 bool _isFacturacionRoute(String location) {
   return location == '/facturacion' ||
       location.startsWith('/facturacion/') ||
@@ -965,6 +993,23 @@ bool _hasFacturacionRouteAccess(String location, List<HomeModule> modules) {
   if (location == '/facturacion-view' ||
       location.startsWith('/facturacion-view/')) {
     return codes.any(_facturaViewModuleCodes.contains) ||
+        codes.any(_facturaManageModuleCodes.contains);
+  }
+
+  if (location == '/facturacion/csd' ||
+      location.startsWith('/facturacion/csd/')) {
+    return codes.any(_facturaCsdModuleCodes.contains) ||
+        codes.any(_facturaManageModuleCodes.contains);
+  }
+
+  if (location == '/facturacion/correo' ||
+      location.startsWith('/facturacion/correo/')) {
+    return false;
+  }
+
+  if (location == '/facturacion/pruebas' ||
+      location.startsWith('/facturacion/pruebas/')) {
+    return codes.any(_facturaPruebasModuleCodes.contains) ||
         codes.any(_facturaManageModuleCodes.contains);
   }
 

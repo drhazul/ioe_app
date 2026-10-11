@@ -56,7 +56,7 @@ class _TransferenciasPageState extends ConsumerState<TransferenciasPage> {
     final hideEstatusFilter = isJefeInventarios || isLimitedEstatusRole;
     final hideSucursalFilter = isLimitedEstatusRole;
     final hideUsuarioFilter = isLimitedEstatusRole;
-    final effectiveEstatus = isJefeInventarios ? 'PENDIENTE' : _estatus;
+    final effectiveEstatus = isJefeInventarios ? '' : _estatus;
     final effectiveSuc = hideSucursalFilter ? '' : _suc;
     final effectiveUsuario = hideUsuarioFilter ? '' : _usuario;
     final notificationScope = _notificationSeenScope(auth);
