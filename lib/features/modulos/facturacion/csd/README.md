@@ -12,4 +12,4 @@ Durante guardado se bloquean acciones y cierre accidental; errores permanecen en
 
 ## Verificación local
 
-Análisis dirigido CSD sin incidencias. Pruebas de widget cubren contraseña no precargada/oculta, usuario nuevo sin contraseña, guardar nuevo par, conservar contraseña y cancelar sin escritura. Hot reload aplicado a sesión web conectada. Ruta PATCH registrada en API local. No se modificaron credenciales reales ni se realizó UAT persistiendo datos de producción; publicación productiva de esta edición está pendiente.
+Análisis dirigido CSD sin incidencias. Pruebas de widget cubren contraseña no precargada/oculta, usuario nuevo sin contraseña, guardar nuevo par, conservar contraseña y cancelar sin escritura. Hot reload aplicado a sesión web conectada, sin errores de runtime. Ruta PATCH desplegada en API 900b625 junto con App 9a72b96; consulta de documentación y petición sin JWT confirman ruta y protección. Hash de artefacto web servido coincide con build. No se modificaron credenciales reales por herramientas del agente para probar despliegue; UAT administrativa de guardado queda para una cuenta verificada.
