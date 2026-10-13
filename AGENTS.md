@@ -193,3 +193,10 @@ Los pendientes se ordenan por el último movimiento (`FCNF` si existe, si no `FC
 - DEV_PROVD / Tabla de artículos (2026-09-03): sustituir tarjetas por tabla horizontal con ART, UPC, Descripción, Motivo, Cantidad, Disponible, Costo, Importe, Lote, Caducidad, Evidencia y Acciones.
 - DEV_PROVD / Edición y evidencia (actualizado 2026-09-12): en borrador, Acciones muestra iconos directos Editar y Eliminar; Editar usa un panel compacto de 520x330, precarga cantidad, motivo, lote y caducidad, y no ofrece agregar/cambiar fotografía por artículo. La evidencia se gestiona únicamente a nivel documento.
 - DEV_PROVD / PDF (2026-09-14): la tabla de artículos impresa omite UPC y presenta únicamente la descripción del motivo, sin anteponer su clave `DEV-xx`.
+
+
+## Edición de cuenta Quadrum y UAT (2026-10-12)
+
+PATCH /cfdi/csd/:rfc/quadrum exige JWT y AdminOnlyGuard; modifica sólo usuario/contraseña PAC del CSD activo. Contraseña omitida se conserva sólo con mismo usuario. Cambiar cuenta no habilita un RFC ni valida timbrado. UI CSD muestra Editar Quadrum y no consulta contraseña actual. No recargar CER/KEY ni escribir secretos en auditoría.
+
+JIFJ4704238T5 queda en espera y bloqueado por decisión del titular. Caso DF01-20261012-VF-0040 autorizado una vez fue rechazado por PAC 702, sin UUID; no reenviar sin resolver proveedor y nueva autorización. Consulta admitida no acredita permiso de timbrado. Acta en ioe-api/docs/modules/cfdi/QUADRUM_PRODUCCION_UAT.md.

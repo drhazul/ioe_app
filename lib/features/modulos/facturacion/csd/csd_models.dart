@@ -28,7 +28,7 @@ class CsdModel {
   final DateTime? fechaAlta;
   final String? usuarioAlta;
 
-  /// Cuenta de Quadrum con la que timbra este RFC. Null = la del .env.
+  /// Cuenta de Quadrum con la que timbra este RFC. Null = cuenta propia no configurada.
   final String? quadrumUsuario;
 
   factory CsdModel.fromJson(Map<String, dynamic> json) {

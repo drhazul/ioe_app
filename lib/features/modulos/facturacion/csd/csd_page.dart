@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ioe_app/core/api_error.dart';
+import 'package:ioe_app/core/auth/auth_controller.dart';
 
 import 'csd_models.dart';
 import 'csd_providers.dart';
+import 'editar_cuenta_quadrum_dialog.dart';
 
 /// Regimenes mas usados del catalogo del SAT. El certificado no trae el
 /// regimen, por eso se captura al subirlo.
@@ -31,8 +33,7 @@ class _CsdPageState extends ConsumerState<CsdPage> {
   final _passwordCtrl = TextEditingController();
   final _cpCtrl = TextEditingController();
 
-  /// Cuenta del PAC de esta razon social. Opcional: sin ella se usa la
-  /// del .env, que es como trabajaba antes de manejar varios RFC.
+  /// Cuenta del PAC de esta razón social. Producción exige cuenta propia.
   final _pacUsuarioCtrl = TextEditingController();
   final _pacPasswordCtrl = TextEditingController();
   bool _verPacPassword = false;
@@ -128,9 +129,24 @@ class _CsdPageState extends ConsumerState<CsdPage> {
     );
   }
 
+  Future<void> _editarCuenta(CsdModel csd) async {
+    final actualizado = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => EditarCuentaQuadrumDialog(csd: csd),
+    );
+    if (!mounted || actualizado != true) return;
+    ref.invalidate(csdListProvider);
+    _aviso('Cuenta de Quadrum actualizada para ${csd.rfc}.');
+  }
+
   @override
   Widget build(BuildContext context) {
     final listaAsync = ref.watch(csdListProvider);
+    final auth = ref.watch(authControllerProvider);
+    final puedeEditar =
+        [0, 1].contains(auth.roleId) ||
+        (auth.username ?? '').trim().toUpperCase() == 'ADMIN';
 
     return Scaffold(
       appBar: AppBar(
@@ -152,7 +168,10 @@ class _CsdPageState extends ConsumerState<CsdPage> {
             const SizedBox(height: 12),
             Expanded(
               child: listaAsync.when(
-                data: (certificados) => _CsdList(certificados: certificados),
+                data: (certificados) => _CsdList(
+                  certificados: certificados,
+                  onEditar: puedeEditar ? _editarCuenta : null,
+                ),
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (e, _) => Center(
                   child: Text(
@@ -381,9 +400,10 @@ class _BotonArchivo extends StatelessWidget {
 }
 
 class _CsdList extends StatelessWidget {
-  const _CsdList({required this.certificados});
+  const _CsdList({required this.certificados, this.onEditar});
 
   final List<CsdModel> certificados;
+  final ValueChanged<CsdModel>? onEditar;
 
   @override
   Widget build(BuildContext context) {
@@ -464,6 +484,13 @@ class _CsdList extends StatelessWidget {
                     style: TextStyle(fontWeight: FontWeight.w600),
                   ),
                 ),
+                SizedBox(
+                  width: 170,
+                  child: Text(
+                    'ACCIONES',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
               ],
             ),
           ),
@@ -493,7 +520,7 @@ class _CsdList extends StatelessWidget {
                         child: Text(
                           csd.quadrumUsuario?.trim().isNotEmpty == true
                               ? csd.quadrumUsuario!
-                              : 'la del .env',
+                              : 'Sin cuenta propia',
                           style: TextStyle(
                             fontStyle: csd.quadrumUsuario == null
                                 ? FontStyle.italic
@@ -505,8 +532,28 @@ class _CsdList extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      SizedBox(width: 110, child: Text(_fecha(csd.validoHasta))),
+                      SizedBox(
+                        width: 110,
+                        child: Text(_fecha(csd.validoHasta)),
+                      ),
                       SizedBox(width: 130, child: _Estado(csd: csd)),
+                      SizedBox(
+                        width: 170,
+                        child: Tooltip(
+                          message: !csd.activo
+                              ? 'Sólo se edita certificado activo'
+                              : onEditar == null
+                              ? 'Sólo administradores'
+                              : 'Editar usuario y contraseña de Quadrum',
+                          child: TextButton.icon(
+                            onPressed: csd.activo && onEditar != null
+                                ? () => onEditar!(csd)
+                                : null,
+                            icon: const Icon(Icons.edit_outlined, size: 18),
+                            label: const Text('Editar Quadrum'),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 );

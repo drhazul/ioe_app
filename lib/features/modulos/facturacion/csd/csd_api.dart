@@ -11,6 +11,21 @@ class CsdApi {
 
   final Dio _dio;
 
+  Future<void> actualizarCuentaQuadrum({
+    required String rfc,
+    required String usuario,
+    String? password,
+  }) async {
+    await _dio.patch<dynamic>(
+      '/cfdi/csd/${Uri.encodeComponent(rfc)}/quadrum',
+      data: {
+        'quadrumUsuario': usuario.trim(),
+        if (password != null && password.isNotEmpty)
+          'quadrumPassword': password,
+      },
+    );
+  }
+
   /// Certificados cargados. Sin archivos ni contrasenas.
   Future<List<CsdModel>> listar() async {
     final res = await _dio.get<dynamic>('/cfdi/csd');
