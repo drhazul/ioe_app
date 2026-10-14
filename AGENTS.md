@@ -194,9 +194,16 @@ Los pendientes se ordenan por el último movimiento (`FCNF` si existe, si no `FC
 - DEV_PROVD / Edición y evidencia (actualizado 2026-09-12): en borrador, Acciones muestra iconos directos Editar y Eliminar; Editar usa un panel compacto de 520x330, precarga cantidad, motivo, lote y caducidad, y no ofrece agregar/cambiar fotografía por artículo. La evidencia se gestiona únicamente a nivel documento.
 - DEV_PROVD / PDF (2026-09-14): la tabla de artículos impresa omite UPC y presenta únicamente la descripción del motivo, sin anteponer su clave `DEV-xx`.
 
+## Edición de cuenta Quadrum por RFC (2026-10-12)
 
-## Edición de cuenta Quadrum y UAT (2026-10-12)
+Pantalla CSD incorpora acción Editar Quadrum sobre certificado activo. API `PATCH /cfdi/csd/:rfc/quadrum` exige JWT y AdminOnlyGuard, modifica sólo usuario/contraseña PAC, cifra contraseña y limpia caché del RFC. Contraseña omitida se conserva sólo con mismo usuario; cambiar usuario exige contraseña nueva. No recargar CER/KEY ni activar un RFC al editar cuenta. No registrar secretos en auditoría/respuestas. Desplegado en API 900b625 / App 9a72b96; UAT administrativa de guardado pendiente para cuenta verificada.
 
-PATCH /cfdi/csd/:rfc/quadrum exige JWT y AdminOnlyGuard; modifica sólo usuario/contraseña PAC del CSD activo. Contraseña omitida se conserva sólo con mismo usuario. Cambiar cuenta no habilita un RFC ni valida timbrado. UI CSD muestra Editar Quadrum y no consulta contraseña actual. No recargar CER/KEY ni escribir secretos en auditoría.
 
-Actualización 2026-10-13: titular autorizó habilitar JIFJ4704238T5 para FACTURA; cuenta admitida y DF05-20261013-VF-0008 timbrado. Tres RFC comerciales habilitados sólo para FACTURA, con un caso timbrado por emisor; NC/REP/cancelación y RFC de pruebas bloqueados. No reenviar documentos con UUID por errores de PDF/correo. Pendientes de representación, entrega, consulta SAT y aceptación funcional; seguir QUADRUM_PRODUCCION_SEGUIMIENTO.md y actas del módulo API. Rechazos históricos no describen estado vigente de JIFJ.
+## Activación JIFJ y UAT vigente (2026-10-13)
+
+Actualización 2026-10-13: titular autorizó habilitar JIFJ4704238T5 para FACTURA; cuenta admitida y DF05-20261013-VF-0008 timbrado. Tres RFC comerciales habilitados sólo para FACTURA, con un caso timbrado por emisor; NC/REP/cancelación y RFC de pruebas bloqueados. No reenviar documentos con UUID por errores de PDF/correo. Pendientes de representación, entrega, consulta SAT y aceptación funcional; seguir QUADRUM_PRODUCCION_SEGUIMIENTO.md y actas del módulo. Rechazos históricos no describen estado vigente de JIFJ.
+
+
+## Consulta SAT Quadrum (2026-10-13)
+
+Corrección exclusiva de API: obtiene_status_sat selecciona nombres de credenciales según WSDL de producción/desarrollo. Contrato HTTP Flutter y UI sin cambios. Código local validado; despliegue y consulta real pendientes. Seguimiento canónico en ioe-api/docs/modules/cfdi/QUADRUM_POST_TIMBRADO_CORRECCION_SEGUIMIENTO.md.

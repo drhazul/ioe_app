@@ -199,3 +199,12 @@ Un mosaico necesita tres cosas, y si falta una no aparece o no navega: renglón 
 - DEV_PROVD (2026-09-14): el PDF omite la columna UPC y muestra en Motivo solo su descripción, sin la clave `DEV-xx`.
 - DEV_PROVD (2026-09-05): el listado muestra únicamente el consecutivo del documento, conserva el identificador completo para API/rutas y permite seleccionar varias filas para habilitar el icono permanente de impresión del AppBar; abre un solo PDF carta horizontal y cada documento comienza en una hoja nueva.
 - DEV_PROVD (2026-09-07): al crear o visualizar el detalle, el AppBar muestra `Devolución a Proveedor` seguido únicamente del folio posterior al último guion; la clave completa con prefijo de sucursal se conserva internamente para rutas y API.
+
+### Edición de cuenta Quadrum
+
+Administración puede editar usuario/contraseña PAC por RFC desde Certificados (CSD), sin renovar certificado. Endpoint protegido `PATCH /cfdi/csd/:rfc/quadrum`; contraseña actual nunca se devuelve. Guardar cuenta no timbra ni habilita emisores bloqueados. Implementación local del 2026-10-12; ver documentación del módulo para validación y alcance de publicación.
+
+
+## Consulta SAT Quadrum (2026-10-13)
+
+Corrección exclusiva de API: obtiene_status_sat selecciona nombres de credenciales según WSDL de producción/desarrollo. Contrato HTTP Flutter y UI sin cambios. Código local validado; despliegue y consulta real pendientes. Seguimiento canónico en ioe-api/docs/modules/cfdi/QUADRUM_POST_TIMBRADO_CORRECCION_SEGUIMIENTO.md.

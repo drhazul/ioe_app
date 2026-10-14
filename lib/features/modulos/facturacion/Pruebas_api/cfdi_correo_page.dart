@@ -41,7 +41,9 @@ class _CfdiCorreoPageState extends ConsumerState<CfdiCorreoPage> {
   }) async {
     setState(() => _guardando = true);
     try {
-      await ref.read(cfdiCorreoApiProvider).guardarConfiguracion(
+      await ref
+          .read(cfdiCorreoApiProvider)
+          .guardarConfiguracion(
             automatico: automatico,
             nombreRemitente: nombre.trim(),
           );
@@ -65,7 +67,9 @@ class _CfdiCorreoPageState extends ConsumerState<CfdiCorreoPage> {
       );
       if (!mounted) return;
       if (resultado.abierta) {
-        _aviso('Autoriza la cuenta Google y luego vuelve aquí para actualizar.');
+        _aviso(
+          'Autoriza la cuenta Google y luego vuelve aquí para actualizar.',
+        );
       } else {
         await showDialog<void>(
           context: context,
@@ -133,12 +137,11 @@ class _CfdiCorreoPageState extends ConsumerState<CfdiCorreoPage> {
 
     setState(() => _probando = true);
     try {
-      final resultado =
-          await ref.read(cfdiCorreoApiProvider).probar(destinatario);
+      final resultado = await ref
+          .read(cfdiCorreoApiProvider)
+          .probar(destinatario);
       if (mounted) {
-        _aviso(
-          (resultado['mensaje'] ?? 'Gmail aceptó la prueba.').toString(),
-        );
+        _aviso((resultado['mensaje'] ?? 'Gmail aceptó la prueba.').toString());
       }
     } catch (error) {
       if (mounted) {
@@ -200,8 +203,8 @@ class _CfdiCorreoPageState extends ConsumerState<CfdiCorreoPage> {
         ),
         data: (config) {
           if (!_nombreCargado) {
-            _nombreCtrl.text =
-                (config['nombreRemitente'] ?? 'Facturación IOE').toString();
+            _nombreCtrl.text = (config['nombreRemitente'] ?? 'Facturación IOE')
+                .toString();
             _nombreCargado = true;
           }
           final conectado = config['conectado'] == true;
@@ -224,7 +227,9 @@ class _CfdiCorreoPageState extends ConsumerState<CfdiCorreoPage> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        conectado ? 'Conectada: ' + cuenta : 'Sin cuenta conectada',
+                        conectado
+                            ? 'Conectada: $cuenta'
+                            : 'Sin cuenta conectada',
                       ),
                       if (modoPruebas) ...[
                         const SizedBox(height: 8),
@@ -249,7 +254,9 @@ class _CfdiCorreoPageState extends ConsumerState<CfdiCorreoPage> {
                                   )
                                 : const Icon(Icons.link),
                             label: Text(
-                              conectado ? 'Volver a conectar' : 'Conectar Gmail',
+                              conectado
+                                  ? 'Volver a conectar'
+                                  : 'Conectar Gmail',
                             ),
                           ),
                           OutlinedButton.icon(
@@ -294,9 +301,9 @@ class _CfdiCorreoPageState extends ConsumerState<CfdiCorreoPage> {
                         onChanged: !conectado || _guardando
                             ? null
                             : (value) => _guardar(
-                                  automatico: value,
-                                  nombre: _nombreCtrl.text,
-                                ),
+                                automatico: value,
+                                nombre: _nombreCtrl.text,
+                              ),
                       ),
                       Align(
                         alignment: Alignment.centerRight,
@@ -304,9 +311,9 @@ class _CfdiCorreoPageState extends ConsumerState<CfdiCorreoPage> {
                           onPressed: _guardando
                               ? null
                               : () => _guardar(
-                                    automatico: automatico,
-                                    nombre: _nombreCtrl.text,
-                                  ),
+                                  automatico: automatico,
+                                  nombre: _nombreCtrl.text,
+                                ),
                           child: Text(
                             _guardando ? 'Guardando...' : 'Guardar nombre',
                           ),
@@ -358,23 +365,23 @@ class _CfdiCorreoPageState extends ConsumerState<CfdiCorreoPage> {
       'OMITIDO_SIN_DESTINATARIO',
     }.contains(estado);
     final destinatario = envio['destinatario']?.toString();
+    final destino = destinatario == null ? null : 'Destino: $destinatario';
     final mensaje = envio['mensaje']?.toString();
     return Card(
       child: ListTile(
-        title: Text((envio['idFol'] ?? 'CFDI').toString() + ' · ' + estado),
+        title: Text('${(envio['idFol'] ?? 'CFDI')} · $estado'),
         subtitle: Text(
           [
-            if (destinatario != null) 'Destino: ' + destinatario,
-            if (mensaje != null) mensaje,
-            'Intentos: ' + (envio['intentos'] ?? 0).toString(),
+            ?destino,
+            ?mensaje,
+            'Intentos: ${envio['intentos'] ?? 0}',
           ].join('\n'),
         ),
         isThreeLine: true,
         trailing: permiteReintento
             ? IconButton(
                 tooltip: 'Reintentar',
-                onPressed: () =>
-                    _reintentar((envio['id'] as num).toInt()),
+                onPressed: () => _reintentar((envio['id'] as num).toInt()),
                 icon: const Icon(Icons.refresh),
               )
             : null,

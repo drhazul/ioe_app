@@ -421,7 +421,7 @@ class _FacturacionPageState extends ConsumerState<FacturacionQuadrumPage> {
         (auth.username ?? '').trim().toUpperCase() == 'ADMIN';
     final facturacionTheme = _buildFacturacionTheme(context);
     final appBar = AppBar(
-      title: const Text('Facturación Facturify'),
+      title: const Text('Facturación QUADRUM'),
       actions: [
         if (isAdmin)
           TextButton.icon(

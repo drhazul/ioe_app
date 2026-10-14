@@ -10,3 +10,8 @@ Esta carpeta contiene pantallas y clientes Flutter del flujo Quadrum; `facturaci
 - La ruta se restringe en Flutter a administración. La API aplica además `JwtAuthGuard` y `AdminOnlyGuard`.
 - El refresh token nunca vive en Flutter; callback backend lo cifra y persiste. No guardar secretos OAuth en código, assets o `.env` de la App.
 - El panel necesita API activa, DDL aplicado, variables seguras y cuenta autorizada. Su existencia en código no implica servicio desplegado.
+
+
+## Consulta SAT Quadrum (2026-10-13)
+
+Corrección exclusiva de API: obtiene_status_sat selecciona nombres de credenciales según WSDL de producción/desarrollo. Contrato HTTP Flutter y UI sin cambios. Código local validado; despliegue y consulta real pendientes. Seguimiento canónico en ioe-api/docs/modules/cfdi/QUADRUM_POST_TIMBRADO_CORRECCION_SEGUIMIENTO.md.

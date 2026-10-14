@@ -110,7 +110,7 @@ class CfdiQuadrumApi {
   }) => _post('/cfdi/prueba/nota-credito', {
     'confirmar': true,
     'uuidRelacionado': uuidRelacionado,
-    if (cantidadDevuelta != null) 'cantidadDevuelta': cantidadDevuelta,
+    'cantidadDevuelta': ?cantidadDevuelta,
   });
 
   /// Recibo electronico de pago (complemento de pagos 2.0) de un abono.
@@ -121,18 +121,21 @@ class CfdiQuadrumApi {
     String? monto,
     int? parcialidad,
     String? saldoAnterior,
-  }) => _post('/cfdi/prueba/pago', {
-    'confirmar': true,
-    'uuidFactura': uuidFactura,
-    if (serieFactura != null && serieFactura.isNotEmpty)
-      'serieFactura': serieFactura,
-    if (folioFactura != null && folioFactura.isNotEmpty)
-      'folioFactura': folioFactura,
-    if (monto != null && monto.isNotEmpty) 'monto': monto,
-    if (parcialidad != null) 'parcialidad': parcialidad,
-    if (saldoAnterior != null && saldoAnterior.isNotEmpty)
-      'saldoAnterior': saldoAnterior,
-  });
+  }) {
+    final serie = serieFactura?.isNotEmpty == true ? serieFactura : null;
+    final folio = folioFactura?.isNotEmpty == true ? folioFactura : null;
+    final importe = monto?.isNotEmpty == true ? monto : null;
+    final saldo = saldoAnterior?.isNotEmpty == true ? saldoAnterior : null;
+    return _post('/cfdi/prueba/pago', {
+      'confirmar': true,
+      'uuidFactura': uuidFactura,
+      'serieFactura': ?serie,
+      'folioFactura': ?folio,
+      'monto': ?importe,
+      'parcialidad': ?parcialidad,
+      'saldoAnterior': ?saldo,
+    });
+  }
 
   /// Estado de un CFDI en el PAC.
   Future<Map<String, dynamic>> consultar(String uuid) =>

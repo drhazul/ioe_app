@@ -1,4 +1,4 @@
-import 'dart:html' as html;
+import 'package:web/web.dart' as web;
 import 'correo_oauth_result.dart';
 
 Future<ResultadoAperturaOAuth> abrirUrlOAuth(
@@ -6,7 +6,7 @@ Future<ResultadoAperturaOAuth> abrirUrlOAuth(
 ) async {
   // Open synchronously from the button gesture so browser popup protection
   // does not block the tab while the API creates the OAuth state.
-  final ventana = html.window.open('about:blank', '_blank');
+  final ventana = web.window.open('about:blank', '_blank');
   try {
     final url = await obtenerUrl();
     if (ventana != null) ventana.location.href = url;
