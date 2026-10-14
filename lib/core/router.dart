@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'auth/role_ids.dart';
 import '../features/login/login_page.dart';
 import '../features/login/force_change_password_page.dart';
 import '../features/home/home_page.dart';
@@ -189,7 +190,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         final isAdmin =
             (auth.roleId ?? 0) == 1 ||
             (auth.username ?? '').trim().toUpperCase() == 'ADMIN';
-        if (!isAdmin) {
+        final isCorreoRoute =
+            state.matchedLocation == '/facturacion/correo' ||
+            state.matchedLocation.startsWith('/facturacion/correo/');
+        final hasCorreoRole = auth.roleId == facturacionTiendasRoleId;
+        if (!isAdmin && !(isCorreoRoute && hasCorreoRole)) {
           if (homeModulesAsync.isLoading) return null;
           if (homeModulesAsync.hasError) return '/';
           final modules =

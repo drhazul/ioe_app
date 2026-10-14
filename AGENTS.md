@@ -119,7 +119,7 @@ Pantallas del camino de Quadrum. **Separadas de las de Facturify**, que no se mo
 ### Regla que no se rompe
 - `lib/features/modulos/facturacion/facturacion_page.dart` es la pantalla de Facturify: **no se toca**. La copia con acciones de Quadrum es `Pruebas_api/facturacion_quadrum_page.dart`, y es la única que se modifica.
 - La copia tiene sus propios proveedores (`Pruebas_api/facturacion_quadrum_providers.dart`). Al invalidar el listado desde un diálogo, usar ese y no el de la pantalla original.
-- En `lib/core/router.dart`, el guard autoriza CSD por `FACTURA_CSD`/`FACTURA_CERTIFICADOS`, Quadrum por `FACTURA_QUADRUM` (compatibilidad `FACTURA_PRUEBAS`) y correo solo a administración; conservar acceso de códigos generales de facturación.
+- En `lib/core/router.dart`, el guard autoriza CSD por `FACTURA_CSD`/`FACTURA_CERTIFICADOS`, Quadrum por `FACTURA_QUADRUM` (compatibilidad `FACTURA_PRUEBAS`) y Correo a administración más `IDROL=8002` (`facturacion - FACTURACION DE TIENDAS`); conservar acceso de códigos generales de facturación.
 
 ### Dónde está cada cosa
 - `csd/`: alta y listado de certificados y cuentas del PAC (`/facturacion/csd`).
@@ -127,7 +127,7 @@ Pantallas del camino de Quadrum. **Separadas de las de Facturify**, que no se mo
 - `Pruebas_api/quadrum_folio_acciones.dart`: el diálogo de ⋮.
 - `Pruebas_api/nota_credito_dialog.dart` y `complemento_pago_dialog.dart`: los dos flujos que cuelgan de una factura.
 - `Pruebas_api/cfdi_quadrum_api.dart`: cliente de `/cfdi/*`, incluidas las descargas en bytes.
-- `Pruebas_api/cfdi_correo_page.dart`: panel `/facturacion/correo`; el backend restringe configuración y reintentos con JWT + `AdminOnlyGuard`.
+- `Pruebas_api/cfdi_correo_page.dart`: panel `/facturacion/correo`; JWT + guard de API limitan configuración y reintentos a administración y `IDROL=8002` (`facturacion - FACTURACION DE TIENDAS`).
 - OAuth se abre desde gesto de usuario. El refresh token se persiste cifrado en backend; nunca agregar secretos o tokens a Flutter.
 
 ### Al habilitar o deshabilitar botones
@@ -207,3 +207,13 @@ Actualización 2026-10-13: titular autorizó habilitar JIFJ4704238T5 para FACTUR
 ## Consulta SAT Quadrum (2026-10-13)
 
 Corrección exclusiva de API: obtiene_status_sat selecciona nombres de credenciales según WSDL de producción/desarrollo. Contrato HTTP Flutter y UI sin cambios. Código local validado; despliegue y consulta real pendientes. Seguimiento canónico en ioe-api/docs/modules/cfdi/QUADRUM_POST_TIMBRADO_CORRECCION_SEGUIMIENTO.md.
+
+
+## Quadrum sin límite de sucursal (2026-10-14)
+
+Excepción autorizada por titular: operación documental de API Quadrum deja de limitar por sucursal; valida RFC emisor del documento y cuenta/CSD propios. JWT y permisos administrativos permanecen. Sin cambios de contrato HTTP ni Dart; selección de sucursal en listado es filtro comercial. Acta canónica en ioe-api/docs/modules/cfdi/QUADRUM_DF06_VF0007_20261014.md.
+
+
+## Despliegue conjunto con todos los cambios (2026-10-14)
+
+Instrucción del titular: cada pase productivo debe incluir backend y frontend juntos, con commits de todos los cambios de fuente/documentación pendientes en ambos repositorios. Integrar historias locales/remotas/servidor sin descartar modificaciones; preservar secretos/entornos y respaldos fuera de Git. Validar y registrar ambas versiones en imagen/postflight. No hacer un pase sólo de API como sustituto del despliegue conjunto.

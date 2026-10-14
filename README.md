@@ -216,3 +216,8 @@ Servicio de FACTURA QUADRUM - Correo. Login y Home ofrecen enlaces mediante
 En plataformas sin apertura web se muestra URL copiable. Los archivos forman
 parte del build Flutter Web y deben responder públicamente sin JWT/login.
 
+
+
+## Quadrum sin límite de sucursal (2026-10-14)
+
+Excepción autorizada por titular: operación documental de API Quadrum deja de limitar por sucursal; valida RFC emisor del documento y cuenta/CSD propios. JWT y permisos administrativos permanecen. Sin cambios de contrato HTTP ni Dart; selección de sucursal en listado es filtro comercial. Acta canónica en ioe-api/docs/modules/cfdi/QUADRUM_DF06_VF0007_20261014.md.

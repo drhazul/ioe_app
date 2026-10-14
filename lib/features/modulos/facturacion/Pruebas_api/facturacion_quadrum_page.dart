@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ioe_app/core/auth/auth_controller.dart';
+import 'package:ioe_app/core/auth/role_ids.dart';
 import 'package:ioe_app/features/masterdata/sucursales/sucursales_models.dart';
 import 'package:ioe_app/features/masterdata/sucursales/sucursales_providers.dart';
 import 'package:ioe_app/features/modulos/punto_venta/clientes/datcatreg_models.dart';
@@ -419,11 +420,12 @@ class _FacturacionPageState extends ConsumerState<FacturacionQuadrumPage> {
     final isAdmin =
         (auth.roleId ?? 0) == 1 ||
         (auth.username ?? '').trim().toUpperCase() == 'ADMIN';
+    final canAccessCorreo = isAdmin || auth.roleId == facturacionTiendasRoleId;
     final facturacionTheme = _buildFacturacionTheme(context);
     final appBar = AppBar(
       title: const Text('Facturación QUADRUM'),
       actions: [
-        if (isAdmin)
+        if (canAccessCorreo)
           TextButton.icon(
             onPressed: () => context.push('/facturacion/correo'),
             icon: const Icon(Icons.email_outlined, size: 18),
