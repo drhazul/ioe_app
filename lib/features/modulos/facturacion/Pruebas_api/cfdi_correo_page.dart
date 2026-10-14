@@ -5,6 +5,7 @@ import 'package:ioe_app/core/api_error.dart';
 
 import 'cfdi_correo_providers.dart';
 import 'correo_oauth_launcher.dart';
+import 'correo_envio_id.dart';
 
 class CfdiCorreoPage extends ConsumerStatefulWidget {
   const CfdiCorreoPage({super.key});
@@ -155,8 +156,9 @@ class _CfdiCorreoPageState extends ConsumerState<CfdiCorreoPage> {
     }
   }
 
-  Future<void> _reintentar(int id) async {
+  Future<void> _reintentar(Object? valorId) async {
     try {
+      final id = correoEnvioId(valorId);
       await ref.read(cfdiCorreoApiProvider).reintentar(id);
       ref.invalidate(cfdiCorreoEnviosProvider);
       _aviso('Envío agregado a la cola.');
@@ -381,7 +383,7 @@ class _CfdiCorreoPageState extends ConsumerState<CfdiCorreoPage> {
         trailing: permiteReintento
             ? IconButton(
                 tooltip: 'Reintentar',
-                onPressed: () => _reintentar((envio['id'] as num).toInt()),
+                onPressed: () => _reintentar(envio['id']),
                 icon: const Icon(Icons.refresh),
               )
             : null,

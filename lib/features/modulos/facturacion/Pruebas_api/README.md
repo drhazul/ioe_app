@@ -1,5 +1,9 @@
 # Pantallas Quadrum
 
+Reintento de correo valida ID entero o textual BIGINT dentro del handler;
+no convertir directamente con `as num` en el botón. API entrega entero seguro.
+Esta acción encola correo con XML/PDF existentes y conserva UUID del CFDI.
+
 Esta carpeta contiene pantallas y clientes Flutter del flujo Quadrum; `facturacion_page.dart` de Facturify permanece separado.
 
 ## Panel de correo
