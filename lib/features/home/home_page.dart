@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:ioe_app/core/open_new_window.dart';
 import 'home_providers.dart';
 import 'home_models.dart';
+import '../../core/widgets/legal_links.dart';
 
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
@@ -14,6 +15,7 @@ class HomePage extends ConsumerWidget {
     final auth = ref.watch(authControllerProvider);
 
     return Scaffold(
+      bottomNavigationBar: const LegalLinks(),
       appBar: AppBar(
         title: const Text('IOE - Home'),
         actions: [

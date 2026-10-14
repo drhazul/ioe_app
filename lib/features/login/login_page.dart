@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/widgets/legal_links.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/app_theme.dart';
 import '../../core/auth/auth_controller.dart';
@@ -185,6 +186,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               ),
             ),
             const SizedBox(height: 22),
+            const Center(child: LegalLinks()),
             const Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [

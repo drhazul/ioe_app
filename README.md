@@ -208,3 +208,11 @@ Administración puede editar usuario/contraseña PAC por RFC desde Certificados 
 ## Consulta SAT Quadrum (2026-10-13)
 
 Corrección exclusiva de API: obtiene_status_sat selecciona nombres de credenciales según WSDL de producción/desarrollo. Contrato HTTP Flutter y UI sin cambios. Código local validado; despliegue y consulta real pendientes. Seguimiento canónico en ioe-api/docs/modules/cfdi/QUADRUM_POST_TIMBRADO_CORRECCION_SEGUIMIENTO.md.
+# Documentos públicos OAuth
+
+`web/legal/` contiene presentación, Política de Privacidad y Condiciones del
+Servicio de FACTURA QUADRUM - Correo. Login y Home ofrecen enlaces mediante
+`LegalLinks`; los documentos se abren con ruta HTTP real, sin fragmento Flutter.
+En plataformas sin apertura web se muestra URL copiable. Los archivos forman
+parte del build Flutter Web y deben responder públicamente sin JWT/login.
+
