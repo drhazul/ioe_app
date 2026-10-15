@@ -221,3 +221,8 @@ parte del build Flutter Web y deben responder públicamente sin JWT/login.
 ## Quadrum sin límite de sucursal (2026-10-14)
 
 Excepción autorizada por titular: operación documental de API Quadrum deja de limitar por sucursal; valida RFC emisor del documento y cuenta/CSD propios. JWT y permisos administrativos permanecen. Sin cambios de contrato HTTP ni Dart; selección de sucursal en listado es filtro comercial. Acta canónica en ioe-api/docs/modules/cfdi/QUADRUM_DF06_VF0007_20261014.md.
+
+
+## Flutter Web en Coolify — 2026-10-15
+
+El release web se construye junto con `ioe-api` en la imagen conjunta de Coolify. El build productivo genera `API_BASE_URL_WEB=/api`; Nginx reenvía `/api/` a `erp-api:3001`. Front no se conecta directamente a SQL. API accede a IOELOCAL por red Docker privada; FEDERADA mantiene instancia y acceso independientes. No cambiar `.40:1433`, mounts de almacenamiento, ni puerto de app como parte de un cambio de base. El fallback móvil `192.168.10.234:3001` sigue separado de la configuración Web y no cambia con este rebuild. Fuente y compuertas: `ioe-api/deploy/coolify/README.md`.

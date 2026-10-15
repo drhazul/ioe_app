@@ -370,6 +370,7 @@ Enlaces relacionados:
 - en selección se oculta la columna `DIFD` y el botón principal cambia a `Ir Detalle devolución`.
 - detalle devolución ejecuta `POST /pv/devoluciones/:idfolDev/detalle/preparar` para insertar en `PV_TICKET_LOG` únicamente artículos con `CTDD>0`.
 - navegación a pago habilitada desde detalle devolución.
+- al fallar la carga/preparación del detalle, mostrar el mensaje legible de API con `apiErrorMessage` para que validaciones de negocio no queden ocultas tras `DioException`.
 - trazabilidad UI (2026-03): en `/punto-venta/devoluciones/:idfolDev/detalle`, `Ir a pago` se movió al `AppBar` con icono de caja (`Icons.point_of_sale`) y se retiró del bloque de acciones del body.
 - trazabilidad UI (2026-03): en la tarjeta de contexto de detalle devolución se ocultaron `AUT dev`, `AUT origen` y `Estado`.
 - pago usa preview backend para totales/IVA con `RQFAC` del folio origen (switch visible solo lectura).

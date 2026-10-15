@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:ioe_app/core/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:ioe_app/core/api_error.dart';
+import 'package:ioe_app/core/app_theme.dart';
 
 import '../devoluciones_models.dart';
 import '../devoluciones_providers.dart';
@@ -79,7 +80,13 @@ class DetalleDevolucionResumenPage extends ConsumerWidget {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 8),
-                  Text('$error', textAlign: TextAlign.center),
+                  SelectableText(
+                    apiErrorMessage(
+                      error,
+                      fallback: 'No se pudo obtener el detalle. Intenta de nuevo.',
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
                   const SizedBox(height: 14),
                   Wrap(
                     spacing: 10,

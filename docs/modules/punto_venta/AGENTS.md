@@ -202,6 +202,7 @@ Enlaces relacionados:
 - botón `Devolver TODO` aplica asignación masiva (`CTDD=DIFD`) respetando bloqueos ORD.
 - en selección se oculta columna `DIFD` y el botón principal navega a `Ir Detalle devolución`.
 - al abrir detalle devolución, frontend ejecuta `POST /pv/devoluciones/:idfolDev/detalle/preparar` para insertar en `PV_TICKET_LOG` solo líneas con `CTDD>0`.
+- si falla la preparación, presentar mensaje del API mediante `apiErrorMessage` y permitir copiarlo; no reemplazar la causa del servidor por texto genérico de `DioException`.
 - navegación a pago se habilita desde detalle devolución cuando existe ticket preparado.
 - trazabilidad UI adicional (2026-03): en `/punto-venta/devoluciones/:idfolDev/detalle`, la acción `Ir a pago` se movió al `AppBar` con icono de caja (`Icons.point_of_sale`) y se retiró del bloque de acciones del body.
 - trazabilidad UI adicional (2026-03): en el card de contexto de detalle devolución se ocultaron `AUT dev`, `AUT origen` y `Estado`.
