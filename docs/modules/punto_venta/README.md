@@ -2,7 +2,7 @@
 
 ## Fecha de proceso de folios y operaciones (2026-10-15)
 
-La UI recibe de API folios CP/CA/VF y timestamps de cierre/devolución calculados en hora local de México. Fechas de negocio editables conservan valor capturado y contrato Flutter no cambia. El arreglo de creación, cierre, MB51 y controles CFDI requiere publicar API junto con SQL; no modifica folios históricos.
+La UI recibe de API folios CP/CA/VF y timestamps de cierre/devolución calculados en hora local de México. Fechas de negocio editables conservan valor capturado y contrato Flutter no cambia. El SQL preventivo ya se aplicó en `.40` el 2026-10-16; el fix API está en `074ee21`. La publicación API/App conjunta, postflight de runtime y UAT siguen pendientes; no se modifican folios históricos.
 
 Navega solo a otros README/AGENTS cuando la tarea lo requiera para evitar cargar contexto innecesario.
 
