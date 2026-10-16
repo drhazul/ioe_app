@@ -1,5 +1,7 @@
 # Instrucciones de agente para ioe_app
 
+- Punto de venta / Fecha de proceso (2026-10-15): la UI consume fechas de folio y cierre generadas por API en hora local de México; fechas de negocio editables permanecen como fueron capturadas. Corrección afecta folios CP/CA/VF, devoluciones MB51 y sellos de facturación, sin cambio de contrato Flutter.
+
 - DEV_PROVD / Devoluciones a proveedor (2026-08-28): feature `lib/features/modulos/devoluciones_proveedor`; rutas `/modulos/devoluciones-proveedor` y `/:doc`; acceso desde `MOD_FRONT.DEV_PROVD`. Mantener reglas críticas de reserva, autorización y movimiento 102 exclusivamente en API/SP.
 - DEV_PROVD / Filtros (2026-09-03): proveedor usa `ID - nombre` y orden numérico. Estatus visibles: `BORRADOR`, `AUTORIZADA`, `NO ACEPTADA`, `EN TRANSITO`, `RECIBIDA`, `PENDIENTE`, `CANCELADA`; solo `NO ACEPTADA` conserva el valor interno `RECHAZADA`.
 - DEV_PROVD / Acciones listado (2026-09-03): el ojo solo abre el documento. Toda transición debe mostrar confirmación antes de llamar la API; Rechazar confirma después de capturar el motivo. Cancelar permanece habilitado mientras la fila no esté procesando. El AppBar muestra Envíos consolidados.

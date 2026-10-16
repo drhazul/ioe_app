@@ -1,5 +1,9 @@
 # IOE App
 
+## Fecha de proceso de punto de venta y facturación — 2026-10-15
+
+La UI consume la fecha local de México generada por API para folios CP/CA/VF, cierres, devoluciones/MB51 y controles CFDI. Las fechas explícitas de negocio conservan el valor capturado; no cambia el contrato Flutter.
+
 ## DEV_PROVD / Devoluciones a proveedor (2026-08-28)
 
 - Feature `lib/features/modulos/devoluciones_proveedor` y ruta `/modulos/devoluciones-proveedor`.

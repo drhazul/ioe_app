@@ -1,5 +1,10 @@
 # Punto de venta (AGENTS front)
 
+## Fecha de proceso de folios y operaciones (2026-10-15)
+- La UI muestra los folios CP/CA/VF y timestamps de cierre/devolución que genera la API usando hora local de México.
+- Las fechas de negocio editables se presentan sin normalización; no hay cambio del contrato Flutter.
+- El arreglo de creación, cierre, `DAT_MB51` y control de facturación requiere publicar juntos API y SQL; los registros previos no se corrigen por la UI.
+
 Navega a otros README/AGENTS solo cuando la tarea lo requiera.
 
 Enlaces relacionados:
