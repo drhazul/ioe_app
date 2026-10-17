@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:ioe_app/core/api_error.dart';
 import 'package:ioe_app/core/app_theme.dart';
 import 'package:ioe_app/core/dio_provider.dart';
+import 'package:ioe_app/core/excel_exporter.dart';
 import 'package:ioe_app/features/modulos/catalogo/datart_models.dart';
 import 'package:ioe_app/features/modulos/catalogo/datart_providers.dart';
 import 'package:ioe_app/features/modulos/punto_venta/cotizaciones/detalle_cot/jrq_api.dart';
@@ -26,16 +27,32 @@ class OrdenesTrabajoPage extends ConsumerStatefulWidget {
     super.key,
     this.panelMode = OrdenesTrabajoPanelMode.operativo,
     this.initialAction,
+    this.isReportesTaller = false,
   });
 
   final OrdenesTrabajoPanelMode panelMode;
   final OrdenesTrabajoInitialAction? initialAction;
+  final bool isReportesTaller;
 
   @override
   ConsumerState<OrdenesTrabajoPage> createState() => _OrdenesTrabajoPageState();
 }
 
 class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
+  StateProvider<OrdenesTrabajoFilter> get _filterProvider =>
+      widget.isReportesTaller
+      ? ordenesTrabajoReportFilterProvider
+      : ordenesTrabajoFilterProvider(widget.panelMode);
+
+  AutoDisposeFutureProvider<OrdenTrabajoPanelResponse> get _panelProvider =>
+      widget.isReportesTaller
+      ? ordenesTrabajoReportPanelProvider
+      : ordenesTrabajoPanelProvider(widget.panelMode);
+
+  bool get _requiresManualFilterBeforeResults =>
+      widget.isReportesTaller ||
+      widget.panelMode == OrdenesTrabajoPanelMode.estado;
+
   static const String _recibirRolHint =
       'Los encargados de maquila solo pueden recibir ORDs TALLADO y los encargados de bisel solo ORDs BISELADO. Admin y jefe de taller pueden recibir ambas. Analista/Analista ORD solo pueden recibir ORDs con laboratorio externo.';
 
@@ -49,7 +66,13 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     'ARTICULO': 120,
     'DESCRIPCION': 260,
     'CTD': 70,
+    'COSTO_ARTICULO': 120,
+    'COSTO_SERVICIO': 120,
+    'RESPONSABLE_MERMA': 240,
+    'MOTIVO': 220,
     'FLUJO': 160,
+    'TIEMPO_POR_FLUJO': 380,
+    'QUIEN_REALIZO': 200,
     'ASIGNADO': 190,
     'F_SOL': 95,
     'F_ENT': 95,
@@ -64,7 +87,13 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     'ARTICULO': 'Articulo',
     'DESCRIPCION': 'Descripcion',
     'CTD': 'CTD',
+    'COSTO_SERVICIO': 'Costo del servicio',
+    'COSTO_ARTICULO': 'Costo del artículo',
+    'RESPONSABLE_MERMA': 'Responsable de merma',
+    'MOTIVO': 'Motivo',
     'FLUJO': 'Flujo',
+    'TIEMPO_POR_FLUJO': 'Tiempo por flujo',
+    'QUIEN_REALIZO': 'Realizó movimiento',
     'ASIGNADO': 'Asignado',
     'F_SOL': 'F. sol',
     'F_ENT': 'F. ent',
@@ -81,6 +110,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
   String? _laboratorioId;
   String? _estseguValue;
   String? _asignValue;
+  bool _otrosValue = false;
 
   DateTime? _fecIni;
   DateTime? _fecFin;
@@ -91,6 +121,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
   bool _initialActionHandled = false;
   bool _loadingSucursalOptions = false;
   bool _loadingAsignadoOptions = false;
+  bool _exportingExcel = false;
   String? _lastAsignadosSuc;
   List<OrdenTrabajoSucursalOption> _sucursalOptions =
       const <OrdenTrabajoSucursalOption>[];
@@ -136,6 +167,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     _laboratorioId = filter.labor;
     _estseguValue = filter.estsegu;
     _asignValue = filter.asign;
+    _otrosValue = filter.otros;
     _fecIni = filter.fecIni;
     _fecFin = filter.fecFin;
   }
@@ -146,7 +178,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    final panelAsync = ref.watch(ordenesTrabajoPanelProvider(widget.panelMode));
+    final panelAsync = ref.watch(_panelProvider);
     final panelData = panelAsync.valueOrNull;
     final selectedItem = _findSelected(
       panelData?.items ?? const <OrdenTrabajoItem>[],
@@ -176,6 +208,22 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                 style: _appBarActionButtonStyle(),
                 icon: const Icon(Icons.info_outline),
                 label: const Text('Ver detalle'),
+              ),
+            ),
+          if (panelData != null && _canDownloadExcel(panelData))
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: TextButton.icon(
+                onPressed: _exportingExcel ? null : _exportExcel,
+                style: _appBarActionButtonStyle(),
+                icon: _exportingExcel
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.download_outlined),
+                label: const Text('Descargar Excel'),
               ),
             ),
           Padding(
@@ -247,6 +295,9 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
 
   Widget _buildFiltersCard(OrdenTrabajoPanelResponse panel) {
     final showAsign = _showAsignFilter(panel.roleCode);
+    final showOtrosFilter =
+        widget.isReportesTaller &&
+        panel.roleCode.trim().toUpperCase() == 'JEF_TALLER';
     final flowOptions = panel.flowStatusOptions
         .where((item) => item.value.isNotEmpty)
         .toList(growable: false);
@@ -410,6 +461,39 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                       onChanged: (value) =>
                           setState(() => _estseguValue = value),
                     ),
+                    if (showOtrosFilter)
+                      _dropdownField(
+                        label: 'Otros',
+                        value:
+                            _otrosValue &&
+                                panel.otrosOptions.any(
+                                  (item) => item.value == '455',
+                                )
+                            ? '455'
+                            : null,
+                        width: 170,
+                        items: [
+                          const DropdownMenuItem<String>(
+                            value: null,
+                            child: Text('Todos'),
+                          ),
+                          ...panel.otrosOptions.map(
+                            (item) => DropdownMenuItem<String>(
+                              value: item.value,
+                              child: Text(
+                                item.label.trim().isEmpty
+                                    ? 'Otros (${item.value})'
+                                    : item.label.trim(),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ),
+                        ],
+                        onChanged: (value) => setState(
+                          () => _otrosValue = value?.trim() == '455',
+                        ),
+                      ),
                     if (showAsign)
                       _dropdownField(
                         label: 'Asignado',
@@ -442,7 +526,10 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                           : () => setState(() => _fecFin = null),
                     ),
                     ElevatedButton.icon(
-                      onPressed: () => _applyFilters(showAsign: showAsign),
+                      onPressed: () => _applyFilters(
+                        showAsign: showAsign,
+                        showOtros: showOtrosFilter,
+                      ),
                       icon: Icon(
                         Icons.search,
                         size: (_filterFontSize + 3).clamp(15.0, 20.0),
@@ -537,6 +624,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
   }
 
   String _panelTitle() {
+    if (widget.isReportesTaller) return 'Reportes de Taller';
     switch (widget.panelMode) {
       case OrdenesTrabajoPanelMode.estado:
         return 'Consulta Estado de ORDs';
@@ -772,6 +860,12 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     return _isAdmin || panel.allowedActions.contains('VER_DETALLE');
   }
 
+  bool _canDownloadExcel(OrdenTrabajoPanelResponse panel) {
+    final roleCode = panel.roleCode.trim().toUpperCase();
+    return roleCode == 'JEF_TALLER' ||
+        (widget.isReportesTaller && roleCode == 'ANALISTA_ORD');
+  }
+
   bool _canOpenViewDetailFromAppBar(
     OrdenTrabajoItem? selected,
     OrdenTrabajoPanelResponse? panel,
@@ -866,6 +960,9 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
   }
 
   String _selectionStatusText(OrdenTrabajoItem? selected) {
+    if (widget.isReportesTaller) {
+      return 'Consulta y seguimiento de órdenes del taller';
+    }
     final selectedCount = _selectedIords.length;
     final relatedCount = ref.watch(ordenesTrabajoEnviarRelacionProvider).length;
     if (selectedCount > 0) {
@@ -881,9 +978,56 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
   }
 
   Widget _buildTable(OrdenTrabajoPanelResponse panel) {
-    final currentFilter = ref.watch(
-      ordenesTrabajoFilterProvider(widget.panelMode),
-    );
+    final currentFilter = ref.watch(_filterProvider);
+    final selectedFlow = currentFilter.estsegu?.trim();
+    final showFullFlowHistory =
+        !widget.isReportesTaller &&
+        widget.panelMode == OrdenesTrabajoPanelMode.estado &&
+        panel.showFlowHistoryDetails &&
+        selectedFlow != null &&
+        selectedFlow.isNotEmpty;
+    final visibleItems =
+        (widget.panelMode == OrdenesTrabajoPanelMode.estado ||
+                widget.isReportesTaller) &&
+            selectedFlow != null &&
+            selectedFlow.isNotEmpty &&
+            !showFullFlowHistory
+        ? panel.items
+              .where((row) {
+                if (selectedFlow.toUpperCase() == 'NULL') {
+                  return row.estsegu.trim().isEmpty;
+                }
+                final selectedCode = double.tryParse(selectedFlow);
+                final rowCode = double.tryParse(row.estsegu.trim());
+                return selectedCode != null &&
+                    rowCode != null &&
+                    (selectedCode - rowCode).abs() <= 0.0001;
+              })
+              .toList(growable: false)
+        : panel.items;
+    final showAnulacionMotivo =
+        widget.isReportesTaller &&
+        panel.roleCode.trim().toUpperCase() == 'ANALISTA_ORD' &&
+        _isAnuladaFlow(currentFilter.estsegu);
+    final showOtrosCosts =
+        widget.isReportesTaller &&
+        panel.roleCode.trim().toUpperCase() == 'JEF_TALLER' &&
+        currentFilter.otros;
+    final showOtrosMermaResponsible = showOtrosCosts;
+    final showFlow10ServiceCost =
+        widget.isReportesTaller &&
+        panel.roleCode.trim().toUpperCase() == 'JEF_TALLER' &&
+        !currentFilter.otros &&
+        double.tryParse(selectedFlow ?? '') == 10;
+    final showFlowMovementActor =
+        !widget.isReportesTaller &&
+        widget.panelMode == OrdenesTrabajoPanelMode.estado &&
+        panel.showFlowHistoryDetails;
+    final showFlowDuration =
+        showFlowMovementActor &&
+        selectedFlow != null &&
+        selectedFlow.isNotEmpty;
+    final compactJefeEstadoTable = showFlowMovementActor;
     final deferMessage = _deferredLoadMessage(currentFilter);
     if (deferMessage != null) {
       return Card(
@@ -893,7 +1037,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
         ),
       );
     }
-    if (panel.items.isEmpty) {
+    if (visibleItems.isEmpty) {
       return const Card(
         child: Padding(
           padding: EdgeInsets.all(20),
@@ -904,19 +1048,43 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
 
     final showAsign = _showAsignFilter(panel.roleCode);
     final allSelected =
-        panel.items.isNotEmpty &&
-        panel.items.every((row) => _selectedIords.contains(row.iord));
+        visibleItems.isNotEmpty &&
+        visibleItems.every((row) => _selectedIords.contains(row.iord));
     final someSelected =
         !allSelected &&
-        panel.items.any((row) => _selectedIords.contains(row.iord));
+        visibleItems.any((row) => _selectedIords.contains(row.iord));
     final headingFontSize = (_tableFontSize + 0.3).clamp(11.0, 20.0);
-    final autoWidths = _computeAutoColumnWidths(panel, showAsign: showAsign);
-    double widthFor(String key) => _resolvedColumnWidth(key, autoWidths);
-    final rowMaxLines = _estimateRowMaxLines(
+    final autoWidths = _computeAutoColumnWidths(
       panel,
       showAsign: showAsign,
-      widthFor: widthFor,
+      showFlowMovementActor: showFlowMovementActor,
+      showFlowDuration: showFlowDuration,
+      fitContent: compactJefeEstadoTable,
     );
+    double widthFor(String key) {
+      if (compactJefeEstadoTable) {
+        final contentWidth = autoWidths[key] ?? 90;
+        final configured = _columnWidths[key];
+        if (configured == null) return contentWidth;
+        final configuredWidth =
+            configured *
+            (_tableFontSize / _columnWidthsFontRef.clamp(8.0, 60.0));
+        return configuredWidth > contentWidth ? configuredWidth : contentWidth;
+      }
+      final resolved = _resolvedColumnWidth(key, autoWidths);
+      return resolved;
+    }
+
+    final rowMaxLines = compactJefeEstadoTable
+        ? 1
+        : _estimateRowMaxLines(
+            panel,
+            showAsign: showAsign,
+            showFlowMovementActor: showFlowMovementActor,
+            showFlowDuration: showFlowDuration,
+            showOtrosMermaResponsible: showOtrosMermaResponsible,
+            widthFor: widthFor,
+          );
     final dataRowHeight = _rowHeightForContent(rowMaxLines);
     final headingRowHeight = _scaledTableHeight(34 + (_tableFontSize * 0.8));
 
@@ -927,7 +1095,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
           child: Checkbox(
             tristate: true,
             value: allSelected ? true : (someSelected ? null : false),
-            onChanged: (_) => _toggleSelectAll(panel.items),
+            onChanged: (_) => _toggleSelectAll(visibleItems),
           ),
         ),
       ),
@@ -940,7 +1108,26 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       _tableDataColumn('ARTICULO', widthFor('ARTICULO')),
       _tableDataColumn('DESCRIPCION', widthFor('DESCRIPCION')),
       _tableDataColumn('CTD', widthFor('CTD'), textAlign: TextAlign.center),
+      if (showOtrosCosts)
+        _tableDataColumn(
+          'COSTO_ARTICULO',
+          widthFor('COSTO_ARTICULO'),
+          textAlign: TextAlign.center,
+        ),
+      if (showOtrosCosts || showFlow10ServiceCost)
+        _tableDataColumn(
+          'COSTO_SERVICIO',
+          widthFor('COSTO_SERVICIO'),
+          textAlign: TextAlign.center,
+        ),
+      if (showOtrosMermaResponsible)
+        _tableDataColumn('RESPONSABLE_MERMA', widthFor('RESPONSABLE_MERMA')),
+      if (showAnulacionMotivo) _tableDataColumn('MOTIVO', widthFor('MOTIVO')),
       _tableDataColumn('FLUJO', widthFor('FLUJO')),
+      if (showFlowDuration)
+        _tableDataColumn('TIEMPO_POR_FLUJO', widthFor('TIEMPO_POR_FLUJO')),
+      if (showFlowMovementActor)
+        _tableDataColumn('QUIEN_REALIZO', widthFor('QUIEN_REALIZO')),
       if (showAsign) _tableDataColumn('ASIGNADO', widthFor('ASIGNADO')),
       _tableDataColumn('F_SOL', widthFor('F_SOL')),
       _tableDataColumn('F_ENT', widthFor('F_ENT')),
@@ -956,7 +1143,11 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
               showCheckboxColumn: false,
               horizontalMargin: 2,
               checkboxHorizontalMargin: 2,
-              columnSpacing: 0,
+              columnSpacing: compactJefeEstadoTable
+                  ? 4
+                  : widget.isReportesTaller
+                  ? 8
+                  : 0,
               headingRowHeight: headingRowHeight,
               dataRowMinHeight: dataRowHeight,
               dataRowMaxHeight: dataRowHeight,
@@ -970,9 +1161,13 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                 color: Colors.black87,
               ),
               columns: columns,
-              rows: panel.items
+              rows: visibleItems
                   .map((row) {
                     final selected = _selectedIords.contains(row.iord);
+                    final flowDuration = showFullFlowHistory
+                        ? row.raw['TIEMPO_FLUJO']?.toString() ?? 'Sin historial'
+                        : row.raw['TIEMPO_POR_FLUJO']?.toString() ??
+                              'Sin historial';
                     final labDesc = _resolveLaboratorioDescripcion(
                       row.labor,
                       panel.laboratorios,
@@ -1031,6 +1226,39 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                           textAlign: TextAlign.center,
                         ),
                       ),
+                      if (showOtrosCosts)
+                        DataCell(
+                          _tableCellText(
+                            _money(_toNum(row.raw['COSTO_ARTICULO']) ?? 0),
+                            width: widthFor('COSTO_ARTICULO'),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      if (showOtrosCosts || showFlow10ServiceCost)
+                        DataCell(
+                          _tableCellText(
+                            _money(_toNum(row.raw['COSTO_SERVICIO']) ?? 0),
+                            width: widthFor('COSTO_SERVICIO'),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      if (showOtrosMermaResponsible)
+                        DataCell(
+                          _tableCellText(
+                            row.raw['RESPONSABLE_MERMA']?.toString() ??
+                                'Sin colaborador asignado',
+                            width: widthFor('RESPONSABLE_MERMA'),
+                            maxLines: rowMaxLines,
+                          ),
+                        ),
+                      if (showAnulacionMotivo)
+                        DataCell(
+                          _tableCellText(
+                            row.motivo,
+                            width: widthFor('MOTIVO'),
+                            maxLines: rowMaxLines,
+                          ),
+                        ),
                       DataCell(
                         _tableCellText(
                           _flowDescripcion(row.estsegu, row.estseguDesc),
@@ -1038,6 +1266,26 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                           maxLines: rowMaxLines,
                         ),
                       ),
+                      if (showFlowDuration)
+                        DataCell(
+                          Tooltip(
+                            message: flowDuration,
+                            child: _tableCellText(
+                              flowDuration,
+                              width: widthFor('TIEMPO_POR_FLUJO'),
+                              maxLines: rowMaxLines,
+                            ),
+                          ),
+                        ),
+                      if (showFlowMovementActor)
+                        DataCell(
+                          _tableCellText(
+                            row.raw['QUIEN_REALIZO']?.toString() ??
+                                'Sin registro',
+                            width: widthFor('QUIEN_REALIZO'),
+                            maxLines: rowMaxLines,
+                          ),
+                        ),
                       if (showAsign)
                         DataCell(
                           _tableCellText(
@@ -1177,7 +1425,11 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     return width.clamp(min, max).toDouble();
   }
 
-  List<String> _columnConfigKeys(bool showAsign) {
+  List<String> _columnConfigKeys(
+    bool showAsign, {
+    bool showFlowMovementActor = false,
+    bool showFlowDuration = false,
+  }) {
     final keys = <String>[
       'SUC',
       'TIPO',
@@ -1192,8 +1444,22 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       'F_SOL',
       'F_ENT',
     ];
+    if (widget.isReportesTaller) {
+      keys.insert(9, 'COSTO_ARTICULO');
+      keys.insert(10, 'COSTO_SERVICIO');
+      keys.add('RESPONSABLE_MERMA');
+    }
+    if (showFlowDuration) {
+      keys.insert(keys.indexOf('FLUJO') + 1, 'TIEMPO_POR_FLUJO');
+    }
+    if (showFlowMovementActor) {
+      final actorIndex = keys.indexOf('TIEMPO_POR_FLUJO') >= 0
+          ? keys.indexOf('TIEMPO_POR_FLUJO') + 1
+          : keys.indexOf('FLUJO') + 1;
+      keys.insert(actorIndex, 'QUIEN_REALIZO');
+    }
     if (showAsign) {
-      keys.insert(9, 'ASIGNADO');
+      keys.insert(widget.isReportesTaller ? 12 : 9, 'ASIGNADO');
     }
     return keys;
   }
@@ -1207,6 +1473,8 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       case 'OPV':
       case 'LABORATORIO':
         return compact + 28;
+      case 'TIEMPO_POR_FLUJO':
+        return compact + 100;
       default:
         return compact;
     }
@@ -1224,6 +1492,12 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
         return 260;
       case 'FLUJO':
         return 240;
+      case 'TIEMPO_POR_FLUJO':
+        return 480;
+      case 'QUIEN_REALIZO':
+        return 280;
+      case 'RESPONSABLE_MERMA':
+        return 320;
       default:
         return 220;
     }
@@ -1232,22 +1506,69 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
   Map<String, double> _computeAutoColumnWidths(
     OrdenTrabajoPanelResponse panel, {
     required bool showAsign,
+    bool showFlowMovementActor = false,
+    bool showFlowDuration = false,
+    bool fitContent = false,
   }) {
-    final keys = _columnConfigKeys(showAsign);
+    final keys = _columnConfigKeys(
+      showAsign,
+      showFlowMovementActor: showFlowMovementActor,
+      showFlowDuration: showFlowDuration,
+    );
     final widths = <String, double>{};
     final charPx = (_tableFontSize * 0.56) + 1.5;
+    final textDirection = Directionality.of(context);
 
     for (final key in keys) {
       var maxLen = (_columnTitles[key] ?? key).length;
+      var maxTextWidth = 0.0;
       for (final row in panel.items) {
         final text = _columnValueText(panel, row, key);
         final len = text.trim().isEmpty ? 1 : text.length;
         if (len > maxLen) maxLen = len;
+        if (fitContent) {
+          final painter = TextPainter(
+            text: TextSpan(
+              text: text,
+              style: TextStyle(fontSize: _tableFontSize),
+            ),
+            textDirection: textDirection,
+            maxLines: 1,
+          )..layout();
+          if (painter.width > maxTextWidth) maxTextWidth = painter.width;
+        }
       }
       final raw = (maxLen * charPx) + 12;
-      widths[key] = raw
-          .clamp(_columnMinWidth(key), _columnMaxWidth(key))
-          .toDouble();
+      if (fitContent) {
+        final title = key == 'FLUJO' && showFlowMovementActor
+            ? ((ref.read(_filterProvider).estsegu ?? '').trim().isNotEmpty
+                  ? 'Flujo recorrido'
+                  : 'Flujo actual')
+            : (_columnTitles[key] ?? key);
+        final titlePainter = TextPainter(
+          text: TextSpan(
+            text: title,
+            style: TextStyle(
+              fontSize: _tableFontSize + 0.3,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          textDirection: textDirection,
+          maxLines: 1,
+        )..layout();
+        final measured =
+            (maxTextWidth > titlePainter.width
+                ? maxTextWidth
+                : titlePainter.width) +
+            12;
+        widths[key] = measured > _columnMinWidth(key)
+            ? measured
+            : _columnMinWidth(key);
+      } else {
+        widths[key] = raw
+            .clamp(_columnMinWidth(key), _columnMaxWidth(key))
+            .toDouble();
+      }
     }
 
     return widths;
@@ -1277,8 +1598,19 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
         return row.descArt;
       case 'CTD':
         return _money(row.ctd);
+      case 'COSTO_ARTICULO':
+        return _money(_toNum(row.raw['COSTO_ARTICULO']) ?? 0);
+      case 'COSTO_SERVICIO':
+        return _money(_toNum(row.raw['COSTO_SERVICIO']) ?? 0);
+      case 'RESPONSABLE_MERMA':
+        return row.raw['RESPONSABLE_MERMA']?.toString() ??
+            'Sin colaborador asignado';
       case 'FLUJO':
         return _flowDescripcion(row.estsegu, row.estseguDesc);
+      case 'TIEMPO_POR_FLUJO':
+        return row.raw['TIEMPO_POR_FLUJO']?.toString() ?? 'Sin historial';
+      case 'QUIEN_REALIZO':
+        return row.raw['QUIEN_REALIZO']?.toString() ?? 'Sin registro';
       case 'ASIGNADO':
         return row.asign;
       case 'F_SOL':
@@ -1293,6 +1625,9 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
   int _estimateRowMaxLines(
     OrdenTrabajoPanelResponse panel, {
     required bool showAsign,
+    bool showFlowMovementActor = false,
+    bool showFlowDuration = false,
+    bool showOtrosMermaResponsible = false,
     required double Function(String key) widthFor,
   }) {
     if (panel.items.isEmpty) return 1;
@@ -1323,6 +1658,30 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
           widthFor('FLUJO'),
         ),
       ];
+      if (showFlowDuration) {
+        lines.add(
+          _estimateCellLines(
+            _columnValueText(panel, row, 'TIEMPO_POR_FLUJO'),
+            widthFor('TIEMPO_POR_FLUJO'),
+          ),
+        );
+      }
+      if (showFlowMovementActor) {
+        lines.add(
+          _estimateCellLines(
+            _columnValueText(panel, row, 'QUIEN_REALIZO'),
+            widthFor('QUIEN_REALIZO'),
+          ),
+        );
+      }
+      if (showOtrosMermaResponsible) {
+        lines.add(
+          _estimateCellLines(
+            _columnValueText(panel, row, 'RESPONSABLE_MERMA'),
+            widthFor('RESPONSABLE_MERMA'),
+          ),
+        );
+      }
       if (showAsign) {
         lines.add(
           _estimateCellLines(
@@ -1364,7 +1723,14 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     double width, {
     TextAlign textAlign = TextAlign.left,
   }) {
-    final label = _columnTitles[key] ?? key;
+    final label =
+        key == 'FLUJO' &&
+            widget.panelMode == OrdenesTrabajoPanelMode.estado &&
+            !widget.isReportesTaller
+        ? ((ref.read(_filterProvider).estsegu ?? '').trim().isNotEmpty
+              ? 'Flujo recorrido'
+              : 'Flujo actual')
+        : _columnTitles[key] ?? key;
     return DataColumn(
       label: SizedBox(
         width: width,
@@ -1399,10 +1765,28 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     OrdenTrabajoPanelResponse panel,
     bool showAsign,
   ) async {
-    final keys = _columnConfigKeys(showAsign);
+    final showFlowMovementActor =
+        !widget.isReportesTaller &&
+        widget.panelMode == OrdenesTrabajoPanelMode.estado &&
+        panel.roleCode.trim().toUpperCase() == 'JEF_TALLER';
+    final selectedFlow = ref.read(_filterProvider).estsegu?.trim();
+    final showFlowDuration =
+        showFlowMovementActor &&
+        selectedFlow != null &&
+        selectedFlow.isNotEmpty;
+    final keys = _columnConfigKeys(
+      showAsign,
+      showFlowMovementActor: showFlowMovementActor,
+      showFlowDuration: showFlowDuration,
+    );
     var draftFilterFont = _filterFontSize;
     var draftTableFont = _tableFontSize;
-    final autoWidths = _computeAutoColumnWidths(panel, showAsign: showAsign);
+    final autoWidths = _computeAutoColumnWidths(
+      panel,
+      showAsign: showAsign,
+      showFlowMovementActor: showFlowMovementActor,
+      showFlowDuration: showFlowDuration,
+    );
     final draftWidths = <String, double>{
       for (final key in keys) key: _resolvedColumnWidth(key, autoWidths),
     };
@@ -1735,20 +2119,18 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
 
   String? _deferredLoadMessage(OrdenesTrabajoFilter filter) {
     if (!_shouldDeferPanelResults(filter)) return null;
+    if (_requiresManualFilterBeforeResults) {
+      return 'Selecciona al menos un criterio y presiona “Aplicar filtros” para consultar las órdenes.';
+    }
     if (widget.panelMode == OrdenesTrabajoPanelMode.entregadas) {
       return 'El panel de entregadas no carga registros automáticamente. Aplica al menos un filtro para consultar.';
-    }
-    if (widget.panelMode == OrdenesTrabajoPanelMode.estado) {
-      return 'El panel de estado no carga registros automáticamente. Aplica al menos un filtro para consultar.';
     }
     return null;
   }
 
   bool _shouldDeferPanelResults(OrdenesTrabajoFilter filter) {
-    if (widget.panelMode != OrdenesTrabajoPanelMode.entregadas &&
-        widget.panelMode != OrdenesTrabajoPanelMode.estado) {
-      return false;
-    }
+    if (_requiresManualFilterBeforeResults) return filter.deferResults;
+    if (widget.panelMode != OrdenesTrabajoPanelMode.entregadas) return false;
     return !_hasManualPanelFilters(filter);
   }
 
@@ -1867,6 +2249,11 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     if (code.isEmpty) return desc;
     if (desc.isEmpty) return code;
     return '$code $desc';
+  }
+
+  bool _isAnuladaFlow(String? value) {
+    final normalized = (value ?? '').trim().toUpperCase();
+    return normalized == '4' || normalized.startsWith('4 ');
   }
 
   List<Map<String, String>> _toEditableDetailRows(
@@ -2131,26 +2518,47 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
   }
 
   Future<void> _reload() async {
-    ref.invalidate(ordenesTrabajoPanelProvider(widget.panelMode));
-    await ref.read(ordenesTrabajoPanelProvider(widget.panelMode).future);
+    ref.invalidate(_panelProvider);
+    await ref.read(_panelProvider.future);
     if (!mounted) return;
     setState(() {
       // Mantener selección solamente del resultado visible tras recarga.
       _syncSelection(
-        ref
-                .read(ordenesTrabajoPanelProvider(widget.panelMode))
-                .valueOrNull
-                ?.items ??
+        ref.read(_panelProvider).valueOrNull?.items ??
             const <OrdenTrabajoItem>[],
       );
     });
   }
 
-  void _applyFilters({required bool showAsign}) {
-    final current = ref.read(ordenesTrabajoFilterProvider(widget.panelMode));
-    ref
-        .read(ordenesTrabajoFilterProvider(widget.panelMode).notifier)
-        .state = current.copyWith(
+  Future<void> _exportExcel() async {
+    if (_exportingExcel) return;
+    setState(() => _exportingExcel = true);
+    try {
+      final filter = ref.read(_filterProvider);
+      final bytes = await ref
+          .read(ordenesTrabajoApiProvider)
+          .exportExcel(filter);
+      final date = _fmtDate(DateTime.now());
+      final saved = await getExcelExporter().save(
+        bytes,
+        'ordenes_trabajo_$date.xlsx',
+      );
+      if (!mounted) return;
+      _showError(
+        saved
+            ? 'Excel descargado con todos los resultados de los filtros.'
+            : 'Descarga cancelada.',
+      );
+    } catch (error) {
+      if (mounted) _showError('No se pudo descargar el Excel: $error');
+    } finally {
+      if (mounted) setState(() => _exportingExcel = false);
+    }
+  }
+
+  void _applyFilters({required bool showAsign, required bool showOtros}) {
+    final current = ref.read(_filterProvider);
+    final appliedFilter = current.copyWith(
       iord: _iordCtrl.text,
       idfol: _idfolCtrl.text,
       client: _clientCtrl.text,
@@ -2159,6 +2567,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       labor: _laboratorioId,
       estatus: null,
       estsegu: _estseguValue,
+      otros: showOtros && _otrosValue,
       fecIni: _fecIni,
       fecFin: _fecFin,
       asign: showAsign ? _asignValue : null,
@@ -2166,8 +2575,19 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       motr: null,
       suc: _selectedFilterSuc,
       search: null,
+      deferResults: false,
       page: 1,
     );
+    if (_requiresManualFilterBeforeResults &&
+        !_hasManualPanelFilters(appliedFilter)) {
+      ref.read(_filterProvider.notifier).state = appliedFilter.copyWith(
+        deferResults: true,
+      );
+      setState(() => _selectedIords.clear());
+      _showError('Selecciona al menos un criterio para consultar.');
+      return;
+    }
+    ref.read(_filterProvider.notifier).state = appliedFilter;
     setState(() => _selectedIords.clear());
   }
 
@@ -2181,13 +2601,18 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       _tipoValue = null;
       _laboratorioId = null;
       _estseguValue = null;
+      _otrosValue = false;
       _fecIni = null;
       _fecFin = null;
       _selectedIords.clear();
     });
 
-    ref.read(ordenesTrabajoFilterProvider(widget.panelMode).notifier).state =
-        OrdenesTrabajoFilter(suc: null, panelMode: widget.panelMode);
+    ref.read(_filterProvider.notifier).state = OrdenesTrabajoFilter(
+      suc: null,
+      panelMode: widget.panelMode,
+      reportMode: widget.isReportesTaller,
+      deferResults: _requiresManualFilterBeforeResults,
+    );
   }
 
   String? get _selectedFilterSuc {
@@ -2371,9 +2796,8 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
   }
 
   void _changePage(int page) {
-    final current = ref.read(ordenesTrabajoFilterProvider(widget.panelMode));
-    ref.read(ordenesTrabajoFilterProvider(widget.panelMode).notifier).state =
-        current.copyWith(page: page);
+    final current = ref.read(_filterProvider);
+    ref.read(_filterProvider.notifier).state = current.copyWith(page: page);
     setState(() => _selectedIords.clear());
   }
 
@@ -3151,12 +3575,81 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       _showError('Selecciona una o más ORDs para anular.');
       return;
     }
-    final confirm = await _confirmAnular(iords.length);
+    String? motivo;
+    final panel = ref.read(_panelProvider).valueOrNull;
+    if (!widget.isReportesTaller &&
+        _requiresAnulacionMotivo(panel?.roleCode ?? '')) {
+      motivo = await _captureAnulacionMotivo(iords.length);
+      if (motivo == null) return;
+    }
+    final confirm = await _confirmAnular(iords.length, motivo: motivo);
     if (confirm != true) return;
 
     await _executeAction(
-      () => ref.read(ordenesTrabajoApiProvider).anularLote(iords),
+      () =>
+          ref.read(ordenesTrabajoApiProvider).anularLote(iords, motivo: motivo),
     );
+  }
+
+  bool _requiresAnulacionMotivo(String roleCodeRaw) {
+    const roles = <String>{
+      'JEF_TALLER',
+      'AUX_JEF_TALLER',
+      'AUX_JEFE_TALLER',
+      'AUXILIAR_JEF_TALLER',
+      'AUXILIAR_JEFE_TALLER',
+    };
+    return roles.contains(roleCodeRaw.trim().toUpperCase());
+  }
+
+  Future<String?> _captureAnulacionMotivo(int total) async {
+    final controller = TextEditingController();
+    try {
+      return await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Motivo de anulación'),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            maxLength: 500,
+            maxLines: 4,
+            textInputAction: TextInputAction.newline,
+            decoration: InputDecoration(
+              labelText: 'Motivo',
+              hintText: 'Escribe el motivo de la anulación',
+              helperText: 'Se aplicará a $total ORD${total == 1 ? '' : 's'}.',
+              border: const OutlineInputBorder(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final value = controller.text.trim();
+                if (value.length < 3) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Captura un motivo de al menos 3 caracteres.',
+                      ),
+                    ),
+                  );
+                  return;
+                }
+                Navigator.of(ctx).pop(value);
+              },
+              child: const Text('Continuar'),
+            ),
+          ],
+        ),
+      );
+    } finally {
+      controller.dispose();
+    }
   }
 
   Future<void> _printEtiquetasSeleccion(OrdenTrabajoPanelResponse panel) async {
@@ -3797,9 +4290,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
   }
 
   Future<void> _doAsignarLaboratorio() async {
-    final panel = ref
-        .read(ordenesTrabajoPanelProvider(widget.panelMode))
-        .valueOrNull;
+    final panel = ref.read(_panelProvider).valueOrNull;
     if (panel == null) {
       _showError(
         'No hay datos del panel disponibles para asignar laboratorio.',
@@ -3874,9 +4365,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
 
   Future<void> _doAsignarSeleccionados(List<String> iords) async {
     if (iords.isEmpty) return;
-    final panel = ref
-        .read(ordenesTrabajoPanelProvider(widget.panelMode))
-        .valueOrNull;
+    final panel = ref.read(_panelProvider).valueOrNull;
     if (panel == null) {
       _showError('No hay datos del panel disponibles para asignar.');
       return;
@@ -3928,11 +4417,14 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     );
   }
 
-  Future<bool?> _confirmAnular(int total) {
+  Future<bool?> _confirmAnular(int total, {String? motivo}) {
     return _confirmCambioEstatus(
       title: 'Confirmar anulación de ORDs',
       targetStatus: '4 (ANULADA)',
       total: total,
+      extraMessage: (motivo ?? '').trim().isEmpty
+          ? null
+          : 'Motivo: ${motivo!.trim()}',
     );
   }
 
@@ -4233,9 +4725,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     String? colaboradorSuc;
     List<OrdenTrabajoColaboradorOption> colaboradores =
         const <OrdenTrabajoColaboradorOption>[];
-    final panel = ref
-        .read(ordenesTrabajoPanelProvider(widget.panelMode))
-        .valueOrNull;
+    final panel = ref.read(_panelProvider).valueOrNull;
     final laboratoriosPanel =
         panel?.laboratorios ?? const <OrdenTrabajoLaboratorioOption>[];
 
@@ -5610,12 +6100,49 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     Map<String, dynamic> original = cmContext.original;
     Map<String, dynamic> draft = cmContext.draft;
 
-    final panel = ref
-        .read(ordenesTrabajoPanelProvider(widget.panelMode))
-        .valueOrNull;
+    final panel = ref.read(_panelProvider).valueOrNull;
     final laboratoriosPanel =
         panel?.laboratorios ?? const <OrdenTrabajoLaboratorioOption>[];
     final sucOrd = _textOf(original['SUC'], fallback: _textOf(header['SUC']));
+    final laborIdForCollaborator = _parseLaboratorioId(
+      _textOf(original['LABOR'], fallback: _textOf(draft['LABOR'])),
+    );
+    final sucColaborador =
+        laboratoriosPanel
+            .where((item) => item.id == laborIdForCollaborator)
+            .map((item) => item.labSuc.trim())
+            .where((value) => value.isNotEmpty)
+            .firstOrNull ??
+        sucOrd;
+    final panelRoleForMerma = (panel?.roleCode ?? '').trim().toUpperCase();
+    final canChangeMermaCollaborator =
+        mode == _OrdCambioMermaMode.merma &&
+        <String>{
+          'JEF_TALLER',
+          'ANALISTA_ORD',
+          'ANALISTA',
+          'AUX_JEF_TALLER',
+          'AUX_JEFE_TALLER',
+          'AUXILIAR_JEF_TALLER',
+          'AUXILIAR_JEFE_TALLER',
+        }.contains(panelRoleForMerma);
+    List<OrdenTrabajoColaboradorOption> mermaColaboradores =
+        const <OrdenTrabajoColaboradorOption>[];
+    if (canChangeMermaCollaborator && sucColaborador.isNotEmpty) {
+      try {
+        mermaColaboradores = await api.fetchAsignarColaboradores(
+          sucColaborador,
+        );
+      } catch (_) {
+        mermaColaboradores = const <OrdenTrabajoColaboradorOption>[];
+      }
+    }
+    String? selectedMermaCollaborator =
+        mermaColaboradores.any(
+          (item) => item.idopv == _textOf(original['ASIGN']),
+        )
+        ? _textOf(original['ASIGN'])
+        : null;
     final tipoOrd = _textOf(draft['TIPO'], fallback: _textOf(header['TIPO']));
     final ctdOriginal = _toNum(original['CTD']) ?? _toNum(header['CTD']) ?? 0;
     final pvtaOriginal = _toNum(original['PVTAT_BASE']) ?? 0;
@@ -6203,6 +6730,44 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                             ),
                           ),
                           const SizedBox(height: 10),
+                          if (canChangeMermaCollaborator &&
+                              mermaColaboradores.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: SizedBox(
+                                width: 518,
+                                child: DropdownButtonFormField<String>(
+                                  initialValue: selectedMermaCollaborator,
+                                  isExpanded: true,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Cambio de colaborador',
+                                    border: OutlineInputBorder(),
+                                    isDense: true,
+                                  ),
+                                  hint: const Text('Seleccionar colaborador'),
+                                  items: mermaColaboradores
+                                      .map(
+                                        (item) => DropdownMenuItem<String>(
+                                          value: item.idopv,
+                                          child: Text(
+                                            item.depto.trim().isEmpty
+                                                ? item.label
+                                                : '${item.label} — ${item.depto}',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      )
+                                      .toList(growable: false),
+                                  onChanged: editableCapture
+                                      ? (value) => setDialogState(() {
+                                          selectedMermaCollaborator = value;
+                                          dirty = true;
+                                        })
+                                      : null,
+                                ),
+                              ),
+                            ),
                           Padding(
                             padding: const EdgeInsets.symmetric(vertical: 4),
                             child: Wrap(
@@ -6597,6 +7162,62 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                               return;
                             }
                           }
+                          if (mode == _OrdCambioMermaMode.merma) {
+                            final stockArt = artNuevo.isEmpty
+                                ? artOriginal
+                                : artNuevo;
+                            double? stock;
+                            try {
+                              final stockRows = await ref
+                                  .read(datArtApiProvider)
+                                  .fetchArticulos(
+                                    suc: sucOrd,
+                                    sucExact: true,
+                                    art: stockArt,
+                                    limit: 1,
+                                    view: 'lite',
+                                  );
+                              for (final item in stockRows) {
+                                if (item.art.trim().toUpperCase() ==
+                                    stockArt.trim().toUpperCase()) {
+                                  stock = item.stock;
+                                  break;
+                                }
+                              }
+                            } catch (_) {
+                              stock = null;
+                            }
+                            if (!ctx.mounted) return;
+                            final hasStock = stock != null && stock > 0;
+                            final stockConfirm = await showDialog<bool>(
+                              context: ctx,
+                              builder: (stockCtx) => AlertDialog(
+                                title: Text(
+                                  hasStock
+                                      ? 'Confirmar existencia'
+                                      : 'Verificar con Inventarios',
+                                ),
+                                content: Text(
+                                  hasStock
+                                      ? 'El artículo $stockArt tiene existencia en $sucOrd. ¿Deseas continuar con la solicitud?'
+                                      : 'No se encontró existencia disponible para el artículo $stockArt en $sucOrd. Verifica con Inventarios antes de continuar. ¿Deseas enviar la solicitud de todos modos?',
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.of(stockCtx).pop(false),
+                                    child: const Text('Cancelar'),
+                                  ),
+                                  FilledButton(
+                                    onPressed: () =>
+                                        Navigator.of(stockCtx).pop(true),
+                                    child: const Text('Continuar'),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (stockConfirm != true || !ctx.mounted) return;
+                          }
                           final confirm = await _confirmCambioEstatus(
                             title: 'Solicitar autorización',
                             targetStatus: 'selCtrlOrd=14',
@@ -6626,6 +7247,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                                   motivo: motivoTexto,
                                   motr: selectedMotr,
                                   labor: _parseLaboratorioId(selectedLabor),
+                                  asign: selectedMermaCollaborator,
                                   docDif: docDifCtrl.text.trim(),
                                   crearNuevaOrd: true,
                                 );
@@ -7442,9 +8064,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
   }
 
   Future<OrdenTrabajoIncidenciaOption?> _selectIncidenciaOptionDialog() async {
-    final panel = ref
-        .read(ordenesTrabajoPanelProvider(widget.panelMode))
-        .valueOrNull;
+    final panel = ref.read(_panelProvider).valueOrNull;
     final options =
         (panel?.incidenciaOptions ?? const <OrdenTrabajoIncidenciaOption>[])
             .where((item) => item.id > 0 && item.label.trim().isNotEmpty)
@@ -7572,6 +8192,14 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     final token = await storage.getAccessToken();
     if (token == null || token.isEmpty) {
       if (!mounted) return;
+      final currentFilter = ref.read(_filterProvider);
+      final initializedFilter = currentFilter.copyWith(
+        panelMode: widget.panelMode,
+        reportMode: widget.isReportesTaller,
+        deferResults: _requiresManualFilterBeforeResults,
+      );
+      ref.read(_filterProvider.notifier).state = initializedFilter;
+      _restoreFilterInputs(initializedFilter);
       setState(() => _contextReady = true);
       return;
     }
@@ -7586,6 +8214,16 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     final isAdmin = roleId == 1 || username == 'ADMIN';
 
     if (!mounted) return;
+    final currentFilter = ref.read(_filterProvider);
+    final initializedFilter = currentFilter.copyWith(
+      panelMode: widget.panelMode,
+      reportMode: widget.isReportesTaller,
+      deferResults: _requiresManualFilterBeforeResults,
+      page: currentFilter.page <= 0 ? 1 : currentFilter.page,
+      pageSize: currentFilter.pageSize <= 0 ? 25 : currentFilter.pageSize,
+    );
+    ref.read(_filterProvider.notifier).state = initializedFilter;
+    _restoreFilterInputs(initializedFilter);
     setState(() {
       _isAdmin = isAdmin;
       _userSuc = suc.toUpperCase();
@@ -7593,17 +8231,6 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       _contextReady = true;
     });
     unawaited(_loadSucursalOptions());
-
-    final currentFilter = ref.read(
-      ordenesTrabajoFilterProvider(widget.panelMode),
-    );
-    _restoreFilterInputs(
-      currentFilter.copyWith(
-        panelMode: widget.panelMode,
-        page: currentFilter.page <= 0 ? 1 : currentFilter.page,
-        pageSize: currentFilter.pageSize <= 0 ? 25 : currentFilter.pageSize,
-      ),
-    );
   }
 
   Map<String, dynamic> _decodeJwt(String token) {

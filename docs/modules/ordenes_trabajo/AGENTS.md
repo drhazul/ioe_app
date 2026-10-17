@@ -2,8 +2,10 @@
 - Ruta UI:
 - `/taller/ordenes-trabajo`.
 - `/taller/ordenes-trabajo/estado` (consulta solo lectura por estado de ORD).
+- `/taller/ordenes-trabajo/vencer` (`DAT_JAO_ORDENES_VENCER`): listado de órdenes con filtros de Consulta Estado y sin `Opciones de Trabajo`; resalta visualmente las órdenes con `FCNM` dentro del umbral próximo a vencer.
 - Archivos frontend:
 - `lib/features/modulos/taller/ordenes_trabajo/ordenes_trabajo_page.dart`
+- `lib/features/modulos/taller/ordenes_trabajo/ordenes_vencer_page.dart` (`DAT_JAO_ORDENES_VENCER`, pantalla independiente).
 - `lib/features/modulos/taller/ordenes_trabajo/ordenes_trabajo_api.dart`
 - `lib/features/modulos/taller/ordenes_trabajo/ordenes_trabajo_models.dart`
 - `lib/features/modulos/taller/ordenes_trabajo/ordenes_trabajo_providers.dart`
@@ -44,6 +46,7 @@
 - Home ORDs (2026-03-24): `router.dart` registra `/taller/ordenes-trabajo/enviar|asignar|regresar-tienda|recibir|entregar` como páginas standalone (`ordenes_trabajo_action_page.dart`) para operación directa sin mostrar el panel principal ni navegar hacia él.
 - Home ORDs (2026-03-24): las páginas standalone replican la estructura y validaciones de los popups del panel (`captura/escaneo`, validación de estado, relación de ORDs, confirmación y transición de `ESTSEGU`), mientras `ordenes_trabajo_page.dart` conserva intactos los botones y mensajes emergentes del panel.
 - Home ORDs (2026-03-24): la página directa de `Entregar` exige firma digital del cliente, agrupa ORDs relacionadas en un folio de entrega y confirma el lote con backend; ya no depende de una entrega por ORD.
+- `DAT_JAO_ORD_REGRESAR_TIENDA`: en la pantalla standalone de recibir en tienda, `RECHAZAR` solicita motivo obligatorio para las ORDs relacionadas, confirma el retorno a flujo `5` y mantiene el `TIPO` original (`TALLADO`/`BISELADO`); no agregar esta acción al panel operativo.
 - regla obligatoria de paridad (2026-04-07): cuando se modifique una validacion o transicion de flujo en las botoneras del panel, se debe aplicar la misma regla en los modulos equivalentes de Home (`enviar`, `asignar`, `regresar-tienda`, `recibir`, `entregar`) y validar mensajes/confirmaciones en ambos frentes en el mismo cambio.
 - matriz visible ORDs (2026-03-24): `JEF_TALLER/TALLER` conserva todo el flujo operativo e impresión; `ANALISTA_ORD/ANALISTA` solo muestra `Ver detalle`, `Autorizar`, `Enviar`, `Asignar laboratorio`, `Entregar` e `Imprimir etiqueta`; `ENC_MAQUILA/ENCARGADO_MAQUILA/ENC_BISEL/ENCARGADO_BISELADO` solo muestra `Ver detalle`, `Asignar`, `Trabajo terminado`, `Regresar incidencia`, `Regresar a tienda` y `Recibir`.
 - etiqueta ORD legado (2026-03-24): `Imprimir etiqueta` usa `lib/features/modulos/taller/etiqueta/ticket_ords_legacy_layout.dart` con formato fijo `76mm x 51mm`, una etiqueta por ORD seleccionada.
@@ -66,6 +69,17 @@
 - columna `OPV` del panel muestra `USUARIO.NOMBRE` y mantiene fallback al valor crudo solo si no existe catálogo relacionado.
 - el filtro aplicado persiste por `panelMode`; cambiar un dropdown a `Todas` limpia realmente ese criterio sin obligar a `Limpiar filtros`.
 - nuevo panel `estado`: sin acciones mutables, usa dropdown `ESTSEGU` con catálogo del backend y reemplaza funcionalmente a los módulos legacy de `anuladas`/`entregadas` en el home.
+- consulta estado / filtro de flujo (2026-10-13): al seleccionar un flujo específico, la grilla muestra solo la fila histórica de ese flujo para cada ORD; `Todos` mantiene el flujo actual. El backend aplica visibilidad por rol y laboratorio antes de paginar y calcular el total.
+- Consulta Estado de ORDs y Reportes de Taller: al entrar no mostrar resultados. Exigir al menos un criterio y la acción `Aplicar filtros`; Limpiar filtros vuelve al estado sin resultados.
+- Reportes de Taller (`DAT_JAO_REP`): conserva su vista operativa, columnas y filtros; consulta con historial de flujo. Para `JEF_TALLER` y flujos `7`/`10`, y `ANALISTA_ORD` en flujo `10`, Desde limita F. SOL y Hasta limita F. ENTR; la grilla y Excel deben coincidir en los filtros aplicados y el flujo seleccionado. El costo del servicio solo se muestra a `JEF_TALLER`.
+- Reportes de Taller (`DAT_JAO_REP`, `ANALISTA_ORD`): al seleccionar flujo `4`, la grilla agrega la columna `Motivo` con el motivo de anulación; esta columna se muestra solo a este rol en Reportes de Taller.
+- Reportes de Taller (`DAT_JAO_REP`, `ANALISTA_ORD`): el AppBar ofrece `Descargar Excel`; la exportación utiliza los filtros aplicados y, con flujo `4`, incluye la columna `Motivo`.
+- Consulta Estado de ORDs (`JEF_TALLER`): la grilla agrega `Realizó movimiento` junto a `Flujo` para identificar quién registró cada flujo histórico; la exportación Excel conserva esa columna. Si no hay dato auditado, presenta `Sin registro`.
+- Consulta Estado de ORDs (`JEF_TALLER`): la grilla incluye `Tiempo por flujo`, calculado desde `PV_CTR_ORDS_FLUJO_HIST.FCNR` hasta el siguiente movimiento; el flujo vigente cuenta hasta la hora del servidor. Si no hay historial, presenta `Sin historial`.
+- Consulta Estado de ORDs (`JEF_TALLER`): ocultar `Tiempo por flujo` cuando `Est. flujo` está en `Todos`; mostrarlo al seleccionar un flujo específico, incluida la opción `SIN FLUJO`.
+- Consulta Estado de ORDs (`JEF_TALLER`): mantener las celdas de la grilla en una línea y calcular el ancho de cada columna para mostrar completo el texto; permitir desplazamiento horizontal para recorrer la tabla.
+- DAT_JAO_ORDENES_VENCER: usa una pantalla independiente en `ordenes_vencer_page.dart`, carga resultados al entrar, conserva filtros/paginación/Detalle/configuración/refresco y filtro `Otros`, y no presenta `Opciones de Trabajo`. Para `ANALISTA_ORD`, `ENC_MAQUILA` y `ENC_BISEL` oculta `Tiempo de retraso` y `Descargar Excel`; los demás roles conservan ambas funciones. Para `ENC_MAQUILA`, el filtro `Asignado` carga colaboradores del departamento `TALLER` y excluye los que contienen `PRUEBA`; `Tipo` queda restringido a `TALLADO`. Para `ENC_BISEL`, `Asignado` carga colaboradores del departamento `BISELADO` y `Tipo` queda restringido a `BISELADO`. Filtra fechas por `FCNS`, flujo por estado actual y marca con `FCNM` (ámbar: próximos 30 minutos; rojo claro: vencida, excepto flujos 4 y 11). Los filtros mantienen estado independiente y el listado no expande el historial de flujos.
+- consulta estado / historial (2026-10-08): `Todos` carga las ORDs sin exigir otro criterio y muestra únicamente el flujo actual; el dropdown incorpora `SIN FLUJO`; al aplicar un flujo específico, la API devuelve ORDs que hayan pasado por él aunque su flujo vigente sea otro y la grilla muestra el mismo IORD en una fila por cada flujo recorrido.
 - el detalle permite editar `HR_ENT` con máscara `HH:MM` cuando el rol puede editar; en panel `estado` el modal es solo consulta.
 - la etiqueta legacy muestra `FCNS` junto a `FCNTE/HR_ENT`, cliente en tipografía reforzada y QR con mayor separación lateral.
 - en detalle de ORDs con `ESTSEGU=11`, el modal agrega `Imprimir evidencia` para generar PDF con cabecera, detalle, folio de entrega y firma de entrega capturada en el folio.

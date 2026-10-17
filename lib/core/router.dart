@@ -67,6 +67,8 @@ import '../features/modulos/reloj_checador/consultas/reloj_checador_consultas_pa
 import '../features/modulos/taller/ordenes_trabajo/ordenes_trabajo_action_page.dart';
 import '../features/modulos/taller/ordenes_trabajo/ordenes_trabajo_models.dart';
 import '../features/modulos/taller/ordenes_trabajo/ordenes_trabajo_page.dart';
+import '../features/modulos/taller/ordenes_trabajo/ordenes_vencer_page.dart';
+import '../features/modulos/taller/colaboradores_taller/colaboradores_taller_page.dart';
 import '../features/modulos/facturacion/facturacion_page.dart';
 import '../features/modulos/facturacion/facturacionview_page.dart';
 import '../features/modulos/facturacion/facturacion_sreqf_page.dart';
@@ -877,6 +879,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
+            path: 'taller/colaboradores',
+            builder: (c, s) => const ColaboradoresTallerPage(),
+          ),
+          GoRoute(
             path: 'taller/ordenes-trabajo/enviar',
             builder: (c, s) => const OrdenesTrabajoActionPage(
               action: OrdenesTrabajoInitialAction.enviar,
@@ -920,9 +926,20 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: 'taller/ordenes-trabajo/estado',
-            builder: (c, s) => const OrdenesTrabajoPage(
-              panelMode: OrdenesTrabajoPanelMode.estado,
-            ),
+            builder: (c, s) {
+              final isReportesTaller =
+                  s.uri.queryParameters['vista'] == 'reportes-taller';
+              return OrdenesTrabajoPage(
+                panelMode: isReportesTaller
+                    ? OrdenesTrabajoPanelMode.operativo
+                    : OrdenesTrabajoPanelMode.estado,
+                isReportesTaller: isReportesTaller,
+              );
+            },
+          ),
+          GoRoute(
+            path: 'taller/ordenes-trabajo/vencer',
+            builder: (c, s) => const OrdenesVencerPage(),
           ),
           GoRoute(
             path: 'taller/ordenes-trabajo/entregadas',

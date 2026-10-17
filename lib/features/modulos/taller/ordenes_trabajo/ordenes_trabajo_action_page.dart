@@ -171,6 +171,17 @@ class _OrdenesTrabajoActionPageState
                           child: const Text('Cerrar'),
                         ),
                         const SizedBox(width: 8),
+                        if (widget.action ==
+                            OrdenesTrabajoInitialAction.regresarTienda) ...[
+                          OutlinedButton.icon(
+                            onPressed: _processing
+                                ? null
+                                : _rechazarRegresarTienda,
+                            icon: const Icon(Icons.undo),
+                            label: const Text('RECHAZAR'),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
                         ElevatedButton.icon(
                           onPressed: _processing ? null : _submit,
                           icon: Icon(widget.action.submitIcon),
@@ -517,6 +528,121 @@ class _OrdenesTrabajoActionPageState
       if (mounted) {
         setState(() => _processing = false);
       }
+    }
+  }
+
+  Future<void> _rechazarRegresarTienda() async {
+    if (_processing ||
+        widget.action != OrdenesTrabajoInitialAction.regresarTienda) {
+      return;
+    }
+    if (_relaciones.isEmpty) {
+      _showError(widget.action.emptySubmitError);
+      return;
+    }
+
+    final motivo = await _capturarMotivoRechazo(_relaciones.length);
+    if (!mounted || motivo == null) return;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Confirmar rechazo'),
+        content: Text(
+          'Se regresarán ${_relaciones.length} ORD${_relaciones.length == 1 ? '' : 's'} al área de taller indicada por su tipo (TALLADO o BISELADO). Quedarán en estatus 5, pendientes de recibir nuevamente en taller.\n\nMotivo: $motivo\n\n¿Deseas continuar?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('RECHAZAR'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || confirm != true) return;
+
+    final iords = _relaciones
+        .map((item) => item.iord.trim())
+        .where((item) => item.isNotEmpty)
+        .toList(growable: false);
+    setState(() => _processing = true);
+    try {
+      final result = await ref
+          .read(ordenesTrabajoApiProvider)
+          .rechazarRegresarTiendaLote(iords, motivo: motivo);
+      if (!mounted) return;
+      _resetAfterSuccess();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _resolveSuccessMessage(
+              result.message,
+              fallback:
+                  '${iords.length} ORD${iords.length == 1 ? '' : 's'} regresada${iords.length == 1 ? '' : 's'} al taller correctamente.',
+            ),
+          ),
+        ),
+      );
+    } catch (e) {
+      _showError(
+        _errorMessage(e, 'No se pudieron regresar al taller las ORDs.'),
+      );
+    } finally {
+      if (mounted) setState(() => _processing = false);
+    }
+  }
+
+  Future<String?> _capturarMotivoRechazo(int total) async {
+    final controller = TextEditingController();
+    try {
+      return await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Motivo del rechazo'),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            minLines: 3,
+            maxLines: 5,
+            maxLength: 500,
+            textInputAction: TextInputAction.newline,
+            decoration: InputDecoration(
+              labelText: 'Escribe el motivo',
+              helperText:
+                  'El motivo se guardará para ${total == 1 ? 'esta ORD' : 'todas las ORDs relacionadas'}.',
+              border: const OutlineInputBorder(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final value = controller.text.trim();
+                if (value.length < 3) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Escribe un motivo de al menos 3 caracteres.',
+                      ),
+                    ),
+                  );
+                  return;
+                }
+                Navigator.of(ctx).pop(value);
+              },
+              child: const Text('Continuar'),
+            ),
+          ],
+        ),
+      );
+    } finally {
+      controller.dispose();
     }
   }
 

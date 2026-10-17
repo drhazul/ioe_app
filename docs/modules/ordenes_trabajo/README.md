@@ -83,6 +83,12 @@ Enlaces relacionados:
 - `Scan recibir` valida estado previo `ESTSEGU=5` y confirma transición por lote a `ESTSEGU=7`.
 - `Scan entregar` valida estado previo `ESTSEGU=10` y confirma transición por lote a `ESTSEGU=11`.
 - el flujo de recepción elimina selección de destino (`TALLER/ANALISTA`) y unifica operación desde `Scan recibir`.
+- Consulta estado (2026-10-13): `Todos` carga las ORDs sin otro criterio y muestra su flujo actual; `Est. flujo` incluye `SIN FLUJO` y, al seleccionar un flujo específico, consulta el historial completo y muestra únicamente ese flujo por ORD. El backend aplica la visibilidad por rol y laboratorio antes de paginar y calcular el total.
+- Reportes de Taller (`DAT_JAO_REP`) conserva sus columnas y filtros de reporte, consulta ORDs por historial de flujo con el mismo criterio de fechas que Consulta Estado, y mantiene la exportación Excel alineada con el flujo y filtros aplicados.
+- Reportes de Taller (`DAT_JAO_REP`, `ANALISTA_ORD`): al seleccionar flujo `4`, la grilla muestra la columna `Motivo` con el motivo de anulación. No se presenta en otros roles ni en otros módulos.
+- Reportes de Taller (`DAT_JAO_REP`, `ANALISTA_ORD`): el AppBar permite descargar Excel con todos los resultados que coinciden con los filtros aplicados; para flujo `4`, el archivo incluye `Motivo`.
+- Consulta Estado de ORDs (`JEF_TALLER`): la tabla y exportación Excel muestran quién realizó el movimiento correspondiente a cada fila de flujo.
+- Exportación (2026-10-08): el AppBar incluye `Descargar Excel`; descarga todos los resultados correspondientes a los filtros aplicados, no solo las filas de la página actual.
 - `Asignar` usa modal equivalente a `Enviar`: valida `ESTSEGU=7`, exige laboratorio asignado resoluble contra el catálogo del panel, permite seleccionar colaborador (`PV_OPV.IDOPV`, etiqueta `NOMB+APELM+APELP`, `NIVEL=41`) de la misma `DAT_LAB.SUC` del laboratorio y confirma cambio a `ESTSEGU=8`.
 - `Trabajo terminado` usa modal equivalente: valida `ESTSEGU=8` y confirma cambio a `ESTSEGU=9`.
 - `Regresar incidencia` usa modal equivalente: valida `ESTSEGU=8` con colaborador asignado, obliga seleccionar motivo desde `DAT_ORD_TMOV` y confirma cambio a `ESTSEGU=9` (pendiente recibir en analista), persistiendo `PV_CTR_ORDS.TIPOM`.
@@ -92,6 +98,7 @@ Enlaces relacionados:
 - la columna `OPV` ahora muestra `USUARIO.NOMBRE`; si no existe relación válida, se conserva el valor original como fallback.
 - los filtros quedan persistidos por panel y el `copyWith` del filtro ya permite limpiar criterios puntuales al volver un combo a `Todas`.
 - el módulo de consulta `/taller/ordenes-trabajo/estado` es solo lectura y filtra `ESTSEGU` con el catálogo server-side.
+- `DAT_JAO_ORDENES_VENCER` se muestra en una página independiente (`ordenes_vencer_page.dart`), carga resultados al entrar, mantiene filtros y paginación propios, permite detalle/configuración/refresco y no ofrece `Opciones de Trabajo`. Para `ANALISTA_ORD`, `ENC_MAQUILA` y `ENC_BISEL` oculta la columna `Tiempo de retraso` y el botón `Descargar Excel`; los demás roles conservan esas funciones. Para `ENC_MAQUILA`, el filtro `Asignado` carga colaboradores del departamento `TALLER` y excluye registros con `PRUEBA`; `Tipo` muestra únicamente `TALLADO`. Para `ENC_BISEL`, `Asignado` carga colaboradores del departamento `BISELADO` y `Tipo` muestra únicamente `BISELADO`. El rango de fechas usa `FCNS`; el servidor clasifica `FCNM` como por vencer (próximos 30 minutos) o retrasada, y esa clasificación determina filtro y color para evitar diferencias de reloj. El filtro `Otros` consulta ambas categorías en servidor antes de paginar y también aplica a Excel.
 - el detalle incorpora `HR_ENT` editable en formato `HH:MM` (sin time picker) y en modo `estado`/`anulados` queda solo lectura.
 - la etiqueta agrega `FCNS`, aumenta tipografía de cliente y deja más padding alrededor del QR.
 - en detalle de ORDs con `ESTSEGU=11`, aparece `Imprimir evidencia` para generar PDF con cabecera, detalle, folio de entrega y firma capturada en el folio.
@@ -130,3 +137,5 @@ Enlaces relacionados:
 - Cambio material / Merma (2026-07-09): la tarjeta `Nueva ORD (captura)` muestra `Cantidad` desde `draft.CTD`, que backend calcula con `CTD_C_M`; la ORD derivada ya no debe aparecer como 1 pieza cuando la fraccion autorizada es 0.5.
 - Cambio material / Merma (2026-07-09): el botón `Autorizar` muestra un mensaje de asentamiento cuando la API responde error genérico; la causa corregida en backend fue colisión de `DAT_CTR_DOC.DOC` al generar diferencia contable.
 - Cambio material / Merma (2026-07-24): para ORD de 1 con afectación 0.5 se prorratea `PVTAT * (0.5 / 1)`; para ORD de 0.5 afectada completa se conserva su `PVTAT`. Totales aplican IVA integrado/desglosado según `DAT_SUC.IVA_INTEGRADO`, `REQF/RQFAC` y `AUT/ORIGEN_AUT`.
+- Reportes de Taller (`DAT_JAO_REP`, `JEF_TALLER`): al seleccionar flujo `10`, la grilla muestra una sola fila por ORD que permaneció en ese flujo durante el periodo filtrado, aun cuando actualmente tenga otro flujo, e incluye la columna `Costo del servicio`.
+- Consulta Estado de ORDs (`JEF_TALLER`): la grilla muestra `Tiempo por flujo` con la duración de cada tramo histórico desde `FCNR`; el flujo vigente se calcula hasta la hora del servidor.

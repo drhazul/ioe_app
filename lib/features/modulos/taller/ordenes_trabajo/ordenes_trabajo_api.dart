@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'dart:typed_data';
 
 import 'ordenes_trabajo_models.dart';
 
@@ -17,6 +18,19 @@ class OrdenesTrabajoApi {
     return OrdenTrabajoPanelResponse.fromJson(
       Map<String, dynamic>.from(res.data as Map),
     );
+  }
+
+  Future<Uint8List> exportExcel(OrdenesTrabajoFilter filter) async {
+    final res = await dio.get<List<int>>(
+      '/ordenes-trabajo/export/excel',
+      queryParameters: filter.toQuery(),
+      options: Options(responseType: ResponseType.bytes),
+    );
+    final bytes = res.data;
+    if (bytes == null || bytes.isEmpty) {
+      throw const FormatException('La API no devolvió un archivo Excel');
+    }
+    return Uint8List.fromList(bytes);
   }
 
   Future<OrdenTrabajoDetalleResponse> fetchDetail(String iord) async {
@@ -72,12 +86,14 @@ class OrdenesTrabajoApi {
     String? motivo,
     int? motr,
     int? labor,
+    String? asign,
     String? docDif,
     bool? crearNuevaOrd,
   }) async {
     final cleanArtNuevo = (artNuevo ?? '').trim();
     final cleanMotivo = (motivo ?? '').trim();
     final cleanDocDif = (docDif ?? '').trim();
+    final cleanAsign = (asign ?? '').trim();
     final res = await dio.post(
       '/ordenes-trabajo/${Uri.encodeComponent(iord)}/cambio-merma/solicitar-autorizacion',
       data: {
@@ -88,6 +104,7 @@ class OrdenesTrabajoApi {
         if (cleanMotivo.isNotEmpty) 'motivo': cleanMotivo,
         if (motr != null) 'motr': motr,
         if (labor != null) 'labor': labor,
+        if (cleanAsign.isNotEmpty) 'asign': cleanAsign,
         if (cleanDocDif.isNotEmpty) 'docDif': cleanDocDif,
         if (crearNuevaOrd != null) 'crearNuevaOrd': crearNuevaOrd,
       },
@@ -447,7 +464,10 @@ class OrdenesTrabajoApi {
     return _actionFrom(res);
   }
 
-  Future<OrdenTrabajoActionResult> anularLote(List<String> iords) async {
+  Future<OrdenTrabajoActionResult> anularLote(
+    List<String> iords, {
+    String? motivo,
+  }) async {
     final normalized = iords
         .map((item) => item.trim().toUpperCase())
         .where((item) => item.isNotEmpty)
@@ -455,7 +475,10 @@ class OrdenesTrabajoApi {
         .toList(growable: false);
     final res = await dio.post(
       '/ordenes-trabajo/anular/lote',
-      data: {'iords': normalized},
+      data: {
+        'iords': normalized,
+        if ((motivo ?? '').trim().isNotEmpty) 'motivo': motivo!.trim(),
+      },
     );
     return _actionFrom(res);
   }
@@ -531,6 +554,22 @@ class OrdenesTrabajoApi {
     final res = await dio.post(
       '/ordenes-trabajo/regresar-tienda/lote',
       data: {'iords': normalized},
+    );
+    return _actionFrom(res);
+  }
+
+  Future<OrdenTrabajoActionResult> rechazarRegresarTiendaLote(
+    List<String> iords, {
+    required String motivo,
+  }) async {
+    final normalized = iords
+        .map((item) => item.trim().toUpperCase())
+        .where((item) => item.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
+    final res = await dio.post(
+      '/ordenes-trabajo/regresar-tienda/rechazar',
+      data: {'iords': normalized, 'motivo': motivo.trim()},
     );
     return _actionFrom(res);
   }
