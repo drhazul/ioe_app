@@ -13,6 +13,20 @@ final ordenesTrabajoFilterProvider =
       (ref, panelMode) => OrdenesTrabajoFilter(panelMode: panelMode),
     );
 
+final ordenesTrabajoReportFilterProvider = StateProvider<OrdenesTrabajoFilter>(
+  (ref) => const OrdenesTrabajoFilter(
+    panelMode: OrdenesTrabajoPanelMode.operativo,
+    reportMode: true,
+  ),
+);
+
+final ordenesTrabajoVencerFilterProvider = StateProvider<OrdenesTrabajoFilter>(
+  (ref) => const OrdenesTrabajoFilter(
+    panelMode: OrdenesTrabajoPanelMode.estado,
+    ordenesVencerMode: true,
+  ),
+);
+
 final ordenesTrabajoEnviarRelacionProvider =
     StateProvider<List<OrdenTrabajoEnviarRelacionItem>>(
       (ref) => const <OrdenTrabajoEnviarRelacionItem>[],
@@ -57,6 +71,22 @@ final ordenesTrabajoPanelProvider = FutureProvider.autoDispose
       final filter = ref.watch(ordenesTrabajoFilterProvider(panelMode));
       return api.fetchPanel(filter);
     });
+
+final ordenesTrabajoReportPanelProvider = FutureProvider.autoDispose<
+  OrdenTrabajoPanelResponse
+>((ref) async {
+  final api = ref.read(ordenesTrabajoApiProvider);
+  final filter = ref.watch(ordenesTrabajoReportFilterProvider);
+  return api.fetchPanel(filter);
+});
+
+final ordenesTrabajoVencerPanelProvider = FutureProvider.autoDispose<
+  OrdenTrabajoPanelResponse
+>((ref) async {
+  final api = ref.read(ordenesTrabajoApiProvider);
+  final filter = ref.watch(ordenesTrabajoVencerFilterProvider);
+  return api.fetchPanel(filter);
+});
 
 final ordenTrabajoDetalleProvider = FutureProvider.autoDispose
     .family<OrdenTrabajoDetalleResponse, String>((ref, iord) async {

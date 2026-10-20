@@ -80,7 +80,8 @@ class CtrlCtasDetallePage extends ConsumerWidget {
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Scrollbar(
-                        thumbVisibility: true,
+                        thumbVisibility: false,
+                        interactive: true,
                         child: SingleChildScrollView(
                           child: SingleChildScrollView(
                             scrollDirection: Axis.horizontal,

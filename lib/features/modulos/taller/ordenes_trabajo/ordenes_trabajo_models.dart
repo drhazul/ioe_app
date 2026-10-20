@@ -49,6 +49,11 @@ class OrdenesTrabajoFilter {
     this.suc,
     this.search,
     this.panelMode = OrdenesTrabajoPanelMode.operativo,
+    this.reportMode = false,
+    this.ordenesVencerMode = false,
+    this.vencimiento,
+    this.otros = false,
+    this.deferResults = false,
     this.page = 1,
     this.pageSize = 25,
   });
@@ -69,6 +74,11 @@ class OrdenesTrabajoFilter {
   final String? suc;
   final String? search;
   final OrdenesTrabajoPanelMode panelMode;
+  final bool reportMode;
+  final bool ordenesVencerMode;
+  final String? vencimiento;
+  final bool otros;
+  final bool deferResults;
   final int page;
   final int pageSize;
 
@@ -89,6 +99,11 @@ class OrdenesTrabajoFilter {
     Object? suc = _unset,
     Object? search = _unset,
     OrdenesTrabajoPanelMode? panelMode,
+    bool? reportMode,
+    bool? ordenesVencerMode,
+    Object? vencimiento = _unset,
+    bool? otros,
+    bool? deferResults,
     int? page,
     int? pageSize,
   }) {
@@ -109,6 +124,13 @@ class OrdenesTrabajoFilter {
       suc: identical(suc, _unset) ? this.suc : suc as String?,
       search: identical(search, _unset) ? this.search : search as String?,
       panelMode: panelMode ?? this.panelMode,
+      reportMode: reportMode ?? this.reportMode,
+      ordenesVencerMode: ordenesVencerMode ?? this.ordenesVencerMode,
+      vencimiento: identical(vencimiento, _unset)
+          ? this.vencimiento
+          : vencimiento as String?,
+      otros: otros ?? this.otros,
+      deferResults: deferResults ?? this.deferResults,
       page: page ?? this.page,
       pageSize: pageSize ?? this.pageSize,
     );
@@ -142,6 +164,7 @@ class OrdenesTrabajoFilter {
     final motrValue = _normalize(motr);
     final sucValue = _normalize(suc);
     final searchValue = _normalize(search);
+    final vencimientoValue = _normalize(vencimiento);
 
     return {
       'iord': ?iordValue,
@@ -160,6 +183,12 @@ class OrdenesTrabajoFilter {
       'suc': ?sucValue,
       'search': ?searchValue,
       'panelMode': panelMode.apiValue,
+      if (reportMode) 'reportMode': true,
+      if (ordenesVencerMode) 'ordenesVencerMode': true,
+      if (ordenesVencerMode && vencimientoValue != null)
+        'vencimiento': vencimientoValue,
+      if (otros) 'otros': true,
+      if (deferResults) 'deferResults': true,
       'page': page,
       'pageSize': pageSize,
     };
@@ -173,11 +202,13 @@ class OrdenTrabajoPanelResponse {
     required this.total,
     required this.roleCode,
     required this.panelMode,
+    this.showFlowHistoryDetails = false,
     required this.allowedSucs,
     required this.allowedActions,
     required this.flowStatusOptions,
     required this.incidenciaOptions,
     required this.laboratorios,
+    required this.otrosOptions,
     required this.items,
   });
 
@@ -186,11 +217,13 @@ class OrdenTrabajoPanelResponse {
   final int total;
   final String roleCode;
   final OrdenesTrabajoPanelMode panelMode;
+  final bool showFlowHistoryDetails;
   final List<String> allowedSucs;
   final Set<String> allowedActions;
   final List<OrdenTrabajoFlowStatusOption> flowStatusOptions;
   final List<OrdenTrabajoIncidenciaOption> incidenciaOptions;
   final List<OrdenTrabajoLaboratorioOption> laboratorios;
+  final List<OrdenTrabajoOtroMovimientoOption> otrosOptions;
   final List<OrdenTrabajoItem> items;
 
   factory OrdenTrabajoPanelResponse.fromJson(Map<String, dynamic> json) {
@@ -201,12 +234,14 @@ class OrdenTrabajoPanelResponse {
     final rawIncidenciaOptions =
         (json['incidenciaOptions'] as List?) ?? const [];
     final rawLaboratorios = (json['laboratorios'] as List?) ?? const [];
+    final rawOtros = (json['otrosOptions'] as List?) ?? const [];
     return OrdenTrabajoPanelResponse(
       page: _toInt(json['page']) ?? 1,
       pageSize: _toInt(json['pageSize']) ?? 25,
       total: _toInt(json['total']) ?? 0,
       roleCode: _toText(json['roleCode']) ?? '',
       panelMode: OrdenesTrabajoPanelMode.fromApi(_toText(json['panelMode'])),
+      showFlowHistoryDetails: json['showFlowHistoryDetails'] == true,
       allowedSucs: rawAllowedSucs
           .map((item) => item?.toString().trim().toUpperCase() ?? '')
           .where((item) => item.isNotEmpty)
@@ -239,6 +274,14 @@ class OrdenTrabajoPanelResponse {
             ),
           )
           .toList(growable: false),
+      otrosOptions: rawOtros
+          .whereType<Map>()
+          .map(
+            (item) => OrdenTrabajoOtroMovimientoOption.fromJson(
+              Map<String, dynamic>.from(item),
+            ),
+          )
+          .toList(growable: false),
       items: rawItems
           .whereType<Map>()
           .map(
@@ -246,6 +289,19 @@ class OrdenTrabajoPanelResponse {
                 OrdenTrabajoItem.fromJson(Map<String, dynamic>.from(item)),
           )
           .toList(growable: false),
+    );
+  }
+}
+
+class OrdenTrabajoOtroMovimientoOption {
+  OrdenTrabajoOtroMovimientoOption({required this.value, required this.label});
+  final String value;
+  final String label;
+
+  factory OrdenTrabajoOtroMovimientoOption.fromJson(Map<String, dynamic> json) {
+    return OrdenTrabajoOtroMovimientoOption(
+      value: _toText(json['value']) ?? '',
+      label: _toText(json['label']) ?? '',
     );
   }
 }
@@ -344,12 +400,16 @@ class OrdenTrabajoItem {
     required this.estatus,
     required this.estsegu,
     required this.estseguDesc,
+    required this.flujoHistorial,
+    required this.motivo,
     required this.asign,
     required this.labor,
     required this.tipom,
     required this.motr,
     required this.fcns,
     required this.fcnm,
+    this.vencimientoColor,
+    this.minutosRetraso,
     required this.raw,
   });
 
@@ -366,12 +426,16 @@ class OrdenTrabajoItem {
   final String estatus;
   final String estsegu;
   final String estseguDesc;
+  final String flujoHistorial;
+  final String motivo;
   final String asign;
   final String labor;
   final String tipom;
   final String motr;
   final DateTime? fcns;
   final DateTime? fcnm;
+  final String? vencimientoColor;
+  final int? minutosRetraso;
   final Map<String, dynamic> raw;
 
   factory OrdenTrabajoItem.fromJson(Map<String, dynamic> json) {
@@ -382,6 +446,12 @@ class OrdenTrabajoItem {
         _toText(json['OPV_NOMBRE']) ??
         _toText(json['OPV']) ??
         '';
+    final estsegu = _toText(json['ESTSEGU']) ?? '';
+    final estseguDesc = _toText(json['ESTSEGU_DESC']) ?? '';
+    final currentFlow = [
+      if (estsegu.trim().isNotEmpty) estsegu.trim() else 'SIN FLUJO',
+      if (estseguDesc.trim().isNotEmpty) estseguDesc.trim(),
+    ].join(' ');
     return OrdenTrabajoItem(
       iord: _toText(json['IORD']) ?? '',
       idfol: _toText(json['IDFOL']) ?? '',
@@ -394,14 +464,18 @@ class OrdenTrabajoItem {
       ncliente: _toText(json['NCLIENTE']) ?? '',
       ctd: _toDouble(json['CTD']) ?? 0,
       estatus: _toText(json['ESTATUS']) ?? '',
-      estsegu: _toText(json['ESTSEGU']) ?? '',
-      estseguDesc: _toText(json['ESTSEGU_DESC']) ?? '',
+      estsegu: estsegu,
+      estseguDesc: estseguDesc,
+      flujoHistorial: _toText(json['FLUJO_HISTORIAL']) ?? currentFlow,
+      motivo: _toText(json['MOTIVO']) ?? '',
       asign: asignLabel,
       labor: _toText(json['LABOR']) ?? '',
       tipom: _toText(json['TIPOM']) ?? '',
       motr: _toText(json['MOTR']) ?? '',
       fcns: _toDate(json['FCNS']),
       fcnm: _toDate(json['FCNM']),
+      vencimientoColor: _toText(json['VENCIMIENTO_COLOR'])?.toLowerCase(),
+      minutosRetraso: _toInt(json['VENCIDO_MINUTOS']),
       raw: json,
     );
   }
@@ -627,6 +701,7 @@ class OrdenTrabajoColaboradorOption {
     required this.apelp,
     required this.apelm,
     required this.suc,
+    this.depto = '',
   });
 
   final String idopv;
@@ -635,6 +710,7 @@ class OrdenTrabajoColaboradorOption {
   final String apelp;
   final String apelm;
   final String suc;
+  final String depto;
 
   factory OrdenTrabajoColaboradorOption.fromJson(Map<String, dynamic> json) {
     final nomb = _toText(json['nomb']) ?? '';
@@ -654,6 +730,7 @@ class OrdenTrabajoColaboradorOption {
       apelp: apelp,
       apelm: apelm,
       suc: _toText(json['suc']) ?? '',
+      depto: _toText(json['depto']) ?? '',
     );
   }
 }

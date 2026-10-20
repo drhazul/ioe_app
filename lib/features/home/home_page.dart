@@ -466,6 +466,15 @@ class _ModuleRow extends StatelessWidget {
         moduloCode == 'DAT_JAO_ANULADAS') {
       return '/taller/ordenes-trabajo/anulados';
     }
+    if (moduloCode == 'DAT_JAO_REP') {
+      return '/taller/ordenes-trabajo/estado?vista=reportes-taller';
+    }
+    if (moduloCode == 'DAT_JAO_ORDENES_VENCER') {
+      return '/taller/ordenes-trabajo/vencer';
+    }
+    if (moduloCode == 'DAT_JAO_COLABORADOR') {
+      return '/taller/colaboradores';
+    }
     if (moduloCode == 'DAT_JAO_ORD_ESTADO' ||
         moduloCode == 'DAT_JAO_ORD_ESTADOS' ||
         moduloCode == 'ORD_TRABAJO_ESTADO' ||
