@@ -92,8 +92,8 @@ class OrdenesTrabajoApi {
   }) async {
     final cleanArtNuevo = (artNuevo ?? '').trim();
     final cleanMotivo = (motivo ?? '').trim();
-    final cleanDocDif = (docDif ?? '').trim();
     final cleanAsign = (asign ?? '').trim();
+    final cleanDocDif = (docDif ?? '').trim();
     final res = await dio.post(
       '/ordenes-trabajo/${Uri.encodeComponent(iord)}/cambio-merma/solicitar-autorizacion',
       data: {
@@ -104,6 +104,7 @@ class OrdenesTrabajoApi {
         if (cleanMotivo.isNotEmpty) 'motivo': cleanMotivo,
         'motr': ?motr,
         'labor': ?labor,
+        if (cleanAsign.isNotEmpty) 'asign': cleanAsign,
         if (cleanDocDif.isNotEmpty) 'docDif': cleanDocDif,
         'crearNuevaOrd': ?crearNuevaOrd,
       },

@@ -1453,7 +1453,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       keys.insert(keys.indexOf('FLUJO') + 1, 'TIEMPO_POR_FLUJO');
     }
     if (showFlowMovementActor) {
-      final actorIndex = keys.indexOf('TIEMPO_POR_FLUJO') >= 0
+      final actorIndex = keys.contains('TIEMPO_POR_FLUJO')
           ? keys.indexOf('TIEMPO_POR_FLUJO') + 1
           : keys.indexOf('FLUJO') + 1;
       keys.insert(actorIndex, 'QUIEN_REALIZO');
@@ -6137,6 +6137,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
         mermaColaboradores = const <OrdenTrabajoColaboradorOption>[];
       }
     }
+    if (!mounted) return;
     String? selectedMermaCollaborator =
         mermaColaboradores.any(
           (item) => item.idopv == _textOf(original['ASIGN']),
