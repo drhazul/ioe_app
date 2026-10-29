@@ -24,3 +24,8 @@ Corrección exclusiva de API: obtiene_status_sat selecciona nombres de credencia
 ## Quadrum sin límite de sucursal (2026-10-14)
 
 Excepción autorizada por titular: operación documental de API Quadrum deja de limitar por sucursal; valida RFC emisor del documento y cuenta/CSD propios. JWT y permisos administrativos permanecen. Sin cambios de contrato HTTP ni Dart; selección de sucursal en listado es filtro comercial. Acta canónica en ioe-api/docs/modules/cfdi/QUADRUM_DF06_VF0007_20261014.md.
+
+
+## Cancelación Quadrum sin bloqueo de habilitación (2026-10-29)
+
+API incorpora localmente validación de cancelación independiente de listas RFC/flujo y bandera de emisión. Flutter conserva confirmación de operación y contrato HTTP; no se modifica Dart para resolver este bloqueo interno. Referencia canónica: ioe-api/docs/modules/cfdi/QUADRUM_CANCELACION_SEGUIMIENTO_20261029.md. Despliegue conjunto y UAT fiscal pendientes; no interpretar pruebas offline como cancelación efectiva. Notas de soporte descartadas por titular.
