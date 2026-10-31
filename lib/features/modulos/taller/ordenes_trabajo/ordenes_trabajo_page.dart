@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dio/dio.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ioe_app/core/api_error.dart';
 import 'package:ioe_app/core/app_theme.dart';
@@ -44,6 +45,92 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       ? ordenesTrabajoReportFilterProvider
       : ordenesTrabajoFilterProvider(widget.panelMode);
 
+  Widget _buildPanelLoadError(Object error) {
+    final dioError = error is DioException ? error : null;
+    final statusCode = dioError?.response?.statusCode;
+    final requestPath = dioError?.requestOptions.uri.path;
+    final detail = apiErrorMessage(
+      error,
+      fallback: 'No se pudo cargar la información del panel.',
+    );
+    final isMissingOrdFilter =
+        statusCode == 404 &&
+        detail.toUpperCase().contains(
+          'ORD NO ENCONTRADA O SIN ACCESO POR SUCURSAL',
+        );
+    final message = isMissingOrdFilter
+        ? 'La ORD indicada no está disponible para este usuario o sucursal.'
+        : statusCode == 404
+        ? 'La API no encontró el recurso solicitado.'
+        : detail;
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 720),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'No se pudo cargar el panel',
+                style: Theme.of(context).textTheme.titleMedium,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(message, textAlign: TextAlign.center),
+              if (statusCode != null || requestPath != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  [
+                    if (statusCode != null) 'HTTP $statusCode',
+                    if (requestPath != null) 'GET $requestPath',
+                  ].join(' · '),
+                  style: Theme.of(context).textTheme.bodySmall,
+                  textAlign: TextAlign.center,
+                ),
+              ],
+              if (statusCode == 404 && detail != message) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Respuesta: $detail',
+                  style: Theme.of(context).textTheme.bodySmall,
+                  textAlign: TextAlign.center,
+                ),
+              ],
+              const SizedBox(height: 16),
+              if (isMissingOrdFilter &&
+                  (ref.read(_filterProvider).iord ?? '').trim().isNotEmpty) ...[
+                FilledButton.icon(
+                  onPressed: _clearUnavailableIordFilter,
+                  icon: const Icon(Icons.filter_alt_off_outlined),
+                  label: const Text('Quitar filtro ORD y cargar órdenes'),
+                ),
+                const SizedBox(height: 8),
+              ],
+              FilledButton.icon(
+                onPressed: () => ref.invalidate(_panelProvider),
+                icon: const Icon(Icons.refresh),
+                label: const Text('Reintentar'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _clearUnavailableIordFilter() {
+    final currentFilter = ref.read(_filterProvider);
+    ref.read(_filterProvider.notifier).state = currentFilter.copyWith(
+      iord: null,
+      page: 1,
+    );
+    _iordCtrl.clear();
+    setState(() => _selectedIords.clear());
+    ref.invalidate(_panelProvider);
+  }
+
   AutoDisposeFutureProvider<OrdenTrabajoPanelResponse> get _panelProvider =>
       widget.isReportesTaller
       ? ordenesTrabajoReportPanelProvider
@@ -52,6 +139,12 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
   bool get _requiresManualFilterBeforeResults =>
       widget.isReportesTaller ||
       widget.panelMode == OrdenesTrabajoPanelMode.estado;
+
+  bool get _isControlCalidadReportUser {
+    if (!widget.isReportesTaller) return false;
+    final roleCode = ref.read(_panelProvider).valueOrNull?.roleCode ?? '';
+    return roleCode.trim().toUpperCase() == 'CONTROL_CALIDAD';
+  }
 
   static const String _recibirRolHint =
       'Los encargados de maquila solo pueden recibir ORDs TALLADO y los encargados de bisel solo ORDs BISELADO. Admin y jefe de taller pueden recibir ambas. Analista/Analista ORD solo pueden recibir ORDs con laboratorio externo.';
@@ -66,7 +159,9 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     'ARTICULO': 120,
     'DESCRIPCION': 260,
     'CTD': 70,
+    'PRECIO_COBRADO': 130,
     'COSTO_ARTICULO': 120,
+    'COSTO_MATERIAL': 140,
     'COSTO_SERVICIO': 120,
     'RESPONSABLE_MERMA': 240,
     'MOTIVO': 220,
@@ -87,8 +182,10 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     'ARTICULO': 'Articulo',
     'DESCRIPCION': 'Descripcion',
     'CTD': 'CTD',
+    'PRECIO_COBRADO': 'Precio cobrado',
     'COSTO_SERVICIO': 'Costo del servicio',
     'COSTO_ARTICULO': 'Costo del artículo',
+    'COSTO_MATERIAL': 'Costo del material',
     'RESPONSABLE_MERMA': 'Responsable de merma',
     'MOTIVO': 'Motivo',
     'FLUJO': 'Flujo',
@@ -177,6 +274,18 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     if (!_contextReady) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
+
+    ref.listen<OrdenesTrabajoFilter>(_filterProvider, (previous, next) {
+      final previousIord = (previous?.iord ?? '').trim();
+      final nextIord = (next.iord ?? '').trim();
+      if (previousIord.isEmpty ||
+          nextIord.isNotEmpty ||
+          _iordCtrl.text.trim().toUpperCase() != previousIord.toUpperCase()) {
+        return;
+      }
+      _iordCtrl.clear();
+      setState(() => _selectedIords.clear());
+    });
 
     final panelAsync = ref.watch(_panelProvider);
     final panelData = panelAsync.valueOrNull;
@@ -272,12 +381,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
         ),
         child: panelAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Text('No se pudo cargar el panel: $error'),
-            ),
-          ),
+          error: (error, _) => _buildPanelLoadError(error),
           data: (panel) => Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -863,7 +967,8 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
   bool _canDownloadExcel(OrdenTrabajoPanelResponse panel) {
     final roleCode = panel.roleCode.trim().toUpperCase();
     return roleCode == 'JEF_TALLER' ||
-        (widget.isReportesTaller && roleCode == 'ANALISTA_ORD');
+        (widget.isReportesTaller &&
+            (roleCode == 'ANALISTA_ORD' || roleCode == 'CONTROL_CALIDAD'));
   }
 
   bool _canOpenViewDetailFromAppBar(
@@ -1007,7 +1112,10 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
         : panel.items;
     final showAnulacionMotivo =
         widget.isReportesTaller &&
-        panel.roleCode.trim().toUpperCase() == 'ANALISTA_ORD' &&
+        <String>{
+          'ANALISTA_ORD',
+          'CONTROL_CALIDAD',
+        }.contains(panel.roleCode.trim().toUpperCase()) &&
         _isAnuladaFlow(currentFilter.estsegu);
     final showOtrosCosts =
         widget.isReportesTaller &&
@@ -1015,6 +1123,11 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
         currentFilter.otros;
     final showOtrosMermaResponsible = showOtrosCosts;
     final showFlow10ServiceCost =
+        widget.isReportesTaller &&
+        panel.roleCode.trim().toUpperCase() == 'JEF_TALLER' &&
+        !currentFilter.otros &&
+        double.tryParse(selectedFlow ?? '') == 10;
+    final showFlow10MaterialCost =
         widget.isReportesTaller &&
         panel.roleCode.trim().toUpperCase() == 'JEF_TALLER' &&
         !currentFilter.otros &&
@@ -1108,10 +1221,22 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       _tableDataColumn('ARTICULO', widthFor('ARTICULO')),
       _tableDataColumn('DESCRIPCION', widthFor('DESCRIPCION')),
       _tableDataColumn('CTD', widthFor('CTD'), textAlign: TextAlign.center),
+      if (widget.isReportesTaller)
+        _tableDataColumn(
+          'PRECIO_COBRADO',
+          widthFor('PRECIO_COBRADO'),
+          textAlign: TextAlign.center,
+        ),
       if (showOtrosCosts)
         _tableDataColumn(
           'COSTO_ARTICULO',
           widthFor('COSTO_ARTICULO'),
+          textAlign: TextAlign.center,
+        ),
+      if (showFlow10MaterialCost)
+        _tableDataColumn(
+          'COSTO_MATERIAL',
+          widthFor('COSTO_MATERIAL'),
           textAlign: TextAlign.center,
         ),
       if (showOtrosCosts || showFlow10ServiceCost)
@@ -1226,6 +1351,14 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                           textAlign: TextAlign.center,
                         ),
                       ),
+                      if (widget.isReportesTaller)
+                        DataCell(
+                          _tableCellText(
+                            _moneyOrDash(_toNum(row.raw['PRECIO_COBRADO'])),
+                            width: widthFor('PRECIO_COBRADO'),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
                       if (showOtrosCosts)
                         DataCell(
                           _tableCellText(
@@ -1234,10 +1367,24 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                             textAlign: TextAlign.center,
                           ),
                         ),
+                      if (showFlow10MaterialCost)
+                        DataCell(
+                          _tableCellText(
+                            _moneyOrDash(_toNum(row.raw['COSTO_MATERIAL'])),
+                            width: widthFor('COSTO_MATERIAL'),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
                       if (showOtrosCosts || showFlow10ServiceCost)
                         DataCell(
                           _tableCellText(
-                            _money(_toNum(row.raw['COSTO_SERVICIO']) ?? 0),
+                            showFlow10ServiceCost
+                                ? _moneyOrDash(
+                                    _toNum(row.raw['COSTO_SERVICIO']),
+                                  )
+                                : _money(
+                                    _toNum(row.raw['COSTO_SERVICIO']) ?? 0,
+                                  ),
                             width: widthFor('COSTO_SERVICIO'),
                             textAlign: TextAlign.center,
                           ),
@@ -1446,7 +1593,9 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     ];
     if (widget.isReportesTaller) {
       keys.insert(9, 'COSTO_ARTICULO');
-      keys.insert(10, 'COSTO_SERVICIO');
+      keys.insert(10, 'PRECIO_COBRADO');
+      keys.insert(11, 'COSTO_MATERIAL');
+      keys.insert(12, 'COSTO_SERVICIO');
       keys.add('RESPONSABLE_MERMA');
     }
     if (showFlowDuration) {
@@ -1600,6 +1749,10 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
         return _money(row.ctd);
       case 'COSTO_ARTICULO':
         return _money(_toNum(row.raw['COSTO_ARTICULO']) ?? 0);
+      case 'PRECIO_COBRADO':
+        return _moneyOrDash(_toNum(row.raw['PRECIO_COBRADO']));
+      case 'COSTO_MATERIAL':
+        return _moneyOrDash(_toNum(row.raw['COSTO_MATERIAL']));
       case 'COSTO_SERVICIO':
         return _money(_toNum(row.raw['COSTO_SERVICIO']) ?? 0);
       case 'RESPONSABLE_MERMA':
@@ -2119,8 +2272,14 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
 
   String? _deferredLoadMessage(OrdenesTrabajoFilter filter) {
     if (!_shouldDeferPanelResults(filter)) return null;
-    if (_requiresManualFilterBeforeResults) {
+    if (widget.isReportesTaller) {
+      if (_isControlCalidadReportUser) {
+        return 'Presiona “Aplicar filtros” para consultar las órdenes visibles. Puedes elegir un criterio para acotar los resultados.';
+      }
       return 'Selecciona al menos un criterio y presiona “Aplicar filtros” para consultar las órdenes.';
+    }
+    if (widget.panelMode == OrdenesTrabajoPanelMode.estado) {
+      return 'Presiona “Aplicar filtros” para consultar todas las ORDs permitidas. Puedes agregar criterios para acotar el resultado.';
     }
     if (widget.panelMode == OrdenesTrabajoPanelMode.entregadas) {
       return 'El panel de entregadas no carga registros automáticamente. Aplica al menos un filtro para consultar.';
@@ -2150,6 +2309,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
         hasText(filter.tipom) ||
         hasText(filter.motr) ||
         hasText(filter.search) ||
+        filter.otros ||
         (_isAdmin && hasText(filter.suc));
   }
 
@@ -2409,6 +2569,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
         role == 'TALLER' ||
         role == 'ANALISTA_ORD' ||
         role == 'ANALISTA' ||
+        role == 'CONTROL_CALIDAD' ||
         role == 'ENC_MAQUILA' ||
         role == 'ENCARGADO_MAQUILA' ||
         role == 'ENC_BISEL' ||
@@ -2578,7 +2739,8 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       deferResults: false,
       page: 1,
     );
-    if (_requiresManualFilterBeforeResults &&
+    if (widget.isReportesTaller &&
+        !_isControlCalidadReportUser &&
         !_hasManualPanelFilters(appliedFilter)) {
       ref.read(_filterProvider.notifier).state = appliedFilter.copyWith(
         deferResults: true,
@@ -2868,14 +3030,16 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
           !canEditDetail;
       final isRegresoFlow =
           _isFlowStatus(flujoCode, 9.1) || _isFlowStatus(flujoCode, 9.2);
+      final isSinFlujo = flujoCode.trim().isEmpty;
       final isFlowGarantiaPendiente = _isFlowStatus(flujoCode, 9.3);
       final showGarantiaBtn =
           isGarantiaPanel &&
           canGarantiaPanelDetail &&
           _isFlowStatus(flujoCode, 11);
       final showCambioMaterialBtn =
-          tipom == 1 &&
-          ((isRegresoFlow && can('CAMBIO_MATERIAL')) || isEstadoPanel);
+          ((tipom == 1 && (isRegresoFlow || isEstadoPanel)) ||
+              (isSinFlujo && !isEstadoPanel)) &&
+          (can('CAMBIO_MATERIAL') || isEstadoPanel);
       final showMermaBtn =
           tipom == 2 && ((isRegresoFlow && can('MERMA')) || isEstadoPanel);
       final showAplicarMermaCambioBtn =
@@ -4482,7 +4646,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     return _confirmCambioEstatus(
       title: 'Confirmar recepción en tienda',
       targetStatus:
-          'TIPOM=1 -> 9.1, TIPOM=2 -> 9.2; ORDs derivadas o sin incidencia -> 10',
+          'Derivada de merma: padre con entrega 11 -> 10; padre sin entrega 11 -> 9.2. No derivada: TIPOM=1 -> 9.1, TIPOM=2 -> 9.2.',
       total: total,
     );
   }
@@ -4699,7 +4863,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       _RelacionDialogConfig(
         title: 'ORDs: Recibir en tienda',
         helperText:
-            'Captura o escanea una ORD para validarla en estatus 9 (TRABAJO TERMINADO) y relacionarla en appstate para recibirla en tienda. Mapeo: TIPOM=1 -> 9.1, TIPOM=2 -> 9.2; ORDs derivadas o sin incidencia -> 10.',
+            'Captura o escanea una ORD para validarla en estatus 9 y relacionarla en appstate para recibirla en tienda. En ORD derivada de merma: padre con entrega 11 -> 10; padre sin entrega 11 -> 9.2. No derivada: TIPOM=1 -> 9.1, TIPOM=2 -> 9.2.',
         submitLabel: 'Recibir en tienda',
         submitIcon: Icons.storefront_outlined,
         emptySubmitError: 'No hay ORDs relacionadas para recibir en tienda.',
@@ -6055,14 +6219,21 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     final isEstadoPanel = widget.panelMode == OrdenesTrabajoPanelMode.estado;
 
     final flujoCode = _textOf(header['ESTSEGU']);
+    final isIncidenciaCambioFlow = _isFlowStatus(flujoCode, 9.1);
+    final isIncidenciaMermaFlow = _isFlowStatus(flujoCode, 9.2);
+    final isSinFlujo = flujoCode.trim().isEmpty;
     final tipomValue = _parseIntLike(
       _textOf(header['TIPOM'], fallback: _textOf(header['TPOM'])),
     );
-    if (tipomValue != mode.tipom) {
+    final isCambioMaterialSinFlujo =
+        mode == _OrdCambioMermaMode.cambioMaterial && isSinFlujo;
+    if (tipomValue != mode.tipom && !isCambioMaterialSinFlujo) {
       _showError(mode.invalidFlowMessage(iord));
       return;
     }
-    if (!isEstadoPanel && !_isFlowStatus(flujoCode, mode.requiredFlow)) {
+    if (!isEstadoPanel &&
+        !_isFlowStatus(flujoCode, mode.requiredFlow) &&
+        !isCambioMaterialSinFlujo) {
       _showError(mode.invalidFlowMessage(iord));
       return;
     }
@@ -6215,6 +6386,9 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
 
     List<double> allowedCtdCMValues() {
       final originalCtd = _toNum(original['CTD'])?.toDouble();
+      if (mode == _OrdCambioMermaMode.cambioMaterial) {
+        return const [1, 0.5];
+      }
       if (originalCtd != null && (originalCtd - 0.5).abs() <= 0.0001) {
         return const [0.5];
       }
@@ -6224,7 +6398,10 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     final initialCtdCMOptions = allowedCtdCMValues();
     double? selectedCtdCM = normalizeCtdCMValue(_toNum(original['CTD_C_M']));
     if (selectedCtdCM == null || !initialCtdCMOptions.contains(selectedCtdCM)) {
-      selectedCtdCM = initialCtdCMOptions.first;
+      final originalCtd = normalizeCtdCMValue(_toNum(original['CTD']));
+      selectedCtdCM = originalCtd != null && initialCtdCMOptions.contains(originalCtd)
+          ? originalCtd
+          : initialCtdCMOptions.first;
     }
     double? selectedPvtaNuevo =
         _toNum(draft['PVTA'])?.toDouble() ??
@@ -6244,9 +6421,15 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       final updatedCtdCM = normalizeCtdCMValue(
         _toNum(updated.original['CTD_C_M']),
       );
+      final updatedOriginalCtd = normalizeCtdCMValue(
+        _toNum(updated.original['CTD']),
+      );
       selectedCtdCM =
           updatedCtdCM != null && updatedCtdOptions.contains(updatedCtdCM)
           ? updatedCtdCM
+          : updatedOriginalCtd != null &&
+                updatedCtdOptions.contains(updatedOriginalCtd)
+          ? updatedOriginalCtd
           : updatedCtdOptions.first;
       selectedPvtaNuevo =
           _toNum(updated.draft['PVTA'])?.toDouble() ??
@@ -6350,6 +6533,34 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
               hasStagingRecord &&
               !hasCreatedOrd &&
               cmContext.selCtrlOrd == 14 &&
+              !submitting;
+          final canCancelByRole =
+              _isAdmin ||
+              (mode == _OrdCambioMermaMode.cambioMaterial
+                  ? <String>{
+                      'JEF_TALLER',
+                      'ANALISTA_ORD',
+                      'ENC_MAQUILA',
+                      'ENC_BISEL',
+                    }.contains(panelRoleCode)
+                  : <String>{
+                      'JEF_TALLER',
+                      'ANALISTA_ORD',
+                      'ANALISTA',
+                      'ENC_MAQUILA',
+                      'ENC_BISEL',
+                      'AUX_JEF_TALLER',
+                      'AUX_JEFE_TALLER',
+                      'AUXILIAR_JEF_TALLER',
+                      'AUXILIAR_JEFE_TALLER',
+                    }.contains(panelRoleCode));
+          final canCancelSolicitud =
+              !isEstadoPanel &&
+              canCancelByRole &&
+              !hasCreatedOrd &&
+              (mode == _OrdCambioMermaMode.cambioMaterial
+                  ? isIncidenciaCambioFlow
+                  : isIncidenciaMermaFlow) &&
               !submitting;
           final canPrintFormato =
               hasCreatedOrd && cmContext.canPrintFormato && !submitting;
@@ -7148,7 +7359,9 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                           }
                           if (!ctdCMOptions.contains(ctdCMValue)) {
                             _showError(
-                              ctdCMOptions.length == 1
+                              mode == _OrdCambioMermaMode.cambioMaterial
+                                  ? 'Para cambio de material, CTD_C_M puede ser 0.5 o 1.'
+                                  : ctdCMOptions.length == 1
                                   ? 'CTD_C_M solo permite 0.5 cuando la ORD original fue creada por 0.5.'
                                   : 'CTD_C_M solo permite 1 o 0.5 cuando la ORD original fue creada por 1.',
                             );
@@ -7364,12 +7577,13 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                       ? () async {
                           final confirm = await _confirmCambioEstatus(
                             title: 'Autorizar',
-                            targetStatus: 'Crear ORD final y anular ORD origen',
+                            targetStatus:
+                                'Crear ORD derivada y remanente si aplica',
                             total: 1,
                             extraMessage: [
                               'IORD origen: $iord',
                               'NVA_IORD reservada: ${nvaIord.isEmpty ? 'Se validará al autorizar' : nvaIord}',
-                              'La autorización ejecutará el proceso final, registrará MB51 y anulará la ORD original.',
+                              'La autorización registrará MB51; la cantidad no afectada quedará en una ORD activa y la original permanecerá como historial.',
                             ].join('\n'),
                           );
                           if (confirm != true || !ctx.mounted) return;
@@ -7412,6 +7626,110 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                       : null,
                   icon: const Icon(Icons.verified_outlined),
                   label: const Text('Autorizar'),
+                ),
+              if (canCancelSolicitud)
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    final motivoCtrl = TextEditingController();
+                    String? motivoError;
+                    final motivoCancelacion = await showDialog<String>(
+                      context: ctx,
+                      builder: (motivoCtx) => StatefulBuilder(
+                        builder: (motivoCtx, setMotivoState) => AlertDialog(
+                          title: const Text('Cancelar solicitud'),
+                          content: SizedBox(
+                            width: 460,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                const Text(
+                                  'La ORD regresará al colaborador asignado. La captura temporal de cambio/merma se eliminará.',
+                                ),
+                                const SizedBox(height: 12),
+                                TextField(
+                                  controller: motivoCtrl,
+                                  maxLength: 255,
+                                  minLines: 2,
+                                  maxLines: 4,
+                                  decoration: InputDecoration(
+                                    labelText: 'Motivo de cancelación',
+                                    border: const OutlineInputBorder(),
+                                    errorText: motivoError,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(motivoCtx).pop(),
+                              child: const Text('Volver'),
+                            ),
+                            FilledButton.icon(
+                              onPressed: () {
+                                final value = motivoCtrl.text.trim();
+                                if (value.length < 3) {
+                                  setMotivoState(
+                                    () => motivoError =
+                                        'Captura al menos 3 caracteres.',
+                                  );
+                                  return;
+                                }
+                                Navigator.of(motivoCtx).pop(value);
+                              },
+                              icon: const Icon(Icons.undo_outlined),
+                              label: const Text('Continuar'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                    motivoCtrl.dispose();
+                    if (motivoCancelacion == null || !ctx.mounted) return;
+                    final confirm = await _confirmCambioEstatus(
+                      title: 'Confirmar cancelación',
+                      targetStatus: '8 (ASIGNADA AL COLABORADOR)',
+                      total: 1,
+                      extraMessage: [
+                        'IORD: $iord',
+                        'Motivo: $motivoCancelacion',
+                        'Se conservarán el colaborador y laboratorio asignados.',
+                      ].join('\n'),
+                    );
+                    if (confirm != true || !ctx.mounted) return;
+                    setDialogState(() => submitting = true);
+                    try {
+                      final result = await api.cancelarCambioMerma(
+                        iord,
+                        tipo: mode.tipom,
+                        motivoCancelacion: motivoCancelacion,
+                      );
+                      if (!ctx.mounted || !mounted) return;
+                      Navigator.of(ctx).pop();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            result.message.isEmpty
+                                ? 'Solicitud cancelada. La ORD regresó al colaborador asignado.'
+                                : result.message,
+                          ),
+                        ),
+                      );
+                      await _reload();
+                    } catch (e) {
+                      if (!ctx.mounted || !mounted) return;
+                      setDialogState(() => submitting = false);
+                      _showError(
+                        apiErrorMessage(
+                          e,
+                          fallback: 'No se pudo cancelar la solicitud.',
+                        ),
+                      );
+                    }
+                  },
+                  icon: const Icon(Icons.cancel_outlined),
+                  label: const Text('Cancelar solicitud'),
                 ),
               TextButton(
                 onPressed: () async {
@@ -8216,7 +8534,14 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
 
     if (!mounted) return;
     final currentFilter = ref.read(_filterProvider);
+    final shouldClearInventoryIord =
+        !widget.isReportesTaller &&
+        widget.panelMode == OrdenesTrabajoPanelMode.operativo &&
+        (currentFilter.iord ?? '').trim().isNotEmpty &&
+        await _isInventoryReviewerRole(roleId);
+    if (!mounted) return;
     final initializedFilter = currentFilter.copyWith(
+      iord: shouldClearInventoryIord ? null : currentFilter.iord,
       panelMode: widget.panelMode,
       reportMode: widget.isReportesTaller,
       deferResults: _requiresManualFilterBeforeResults,
@@ -8232,6 +8557,33 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       _contextReady = true;
     });
     unawaited(_loadSucursalOptions());
+  }
+
+  Future<bool> _isInventoryReviewerRole(int roleId) async {
+    if (roleId <= 0) return false;
+    try {
+      final response = await ref.read(dioProvider).get('/access/roles');
+      final payload = response.data;
+      final rows = payload is Map && payload['data'] is List
+          ? payload['data'] as List
+          : payload is List
+          ? payload
+          : const <dynamic>[];
+      for (final row in rows) {
+        if (row is! Map) continue;
+        final rowRoleId = _asInt(row['IDROL'] ?? row['idRol'] ?? row['id']);
+        if (rowRoleId != roleId) continue;
+        final roleCode = (row['CODIGO'] ?? row['codigo'] ?? '')
+            .toString()
+            .trim()
+            .toUpperCase();
+        return roleCode == 'INVJEF' || roleCode == 'ANALISTA_INV';
+      }
+    } catch (_) {
+      // La limpieza del filtro es una protección secundaria; no debe impedir
+      // la apertura del panel si el catálogo de roles no está disponible.
+    }
+    return false;
   }
 
   Map<String, dynamic> _decodeJwt(String token) {
@@ -8299,6 +8651,8 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
   String _money(num value) {
     return value % 1 == 0 ? value.toInt().toString() : value.toStringAsFixed(2);
   }
+
+  String _moneyOrDash(num? value) => value == null ? '—' : _money(value);
 }
 
 class _HourMinuteTextInputFormatter extends TextInputFormatter {
@@ -8868,7 +9222,7 @@ enum _OrdCambioMermaMode {
 
   String invalidFlowMessage(String iord) {
     if (this == _OrdCambioMermaMode.cambioMaterial) {
-      return 'La ORD $iord debe estar en flujo 9.1 con TIPOM=1 para cambio material.';
+      return 'La ORD $iord debe estar en flujo 9.1 con TIPOM=1, o SIN FLUJO para iniciar cambio material.';
     }
     return 'La ORD $iord debe estar en flujo 9.2 con TIPOM=2 para merma.';
   }

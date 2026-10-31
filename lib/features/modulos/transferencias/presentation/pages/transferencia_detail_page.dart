@@ -201,6 +201,7 @@ class _TransferenciaDetailBodyState
             isSucursalSolicita: isSucursalSolicita,
             isSucursalSurtidora: isSucursalSurtidora,
             isJefeInventarios: isJefeInventarios,
+            isEncargadoSucursal: auth.roleId == 13008,
             reportMode: widget.reportMode,
           ),
           if (showReviewFilters) ...[
@@ -215,6 +216,7 @@ class _TransferenciaDetailBodyState
                   isSucursalSolicita: isSucursalSolicita,
                   isSucursalSurtidora: isSucursalSurtidora,
                   isJefeInventarios: isJefeInventarios,
+                  isEncargadoSucursal: auth.roleId == 13008,
                   reportMode: widget.reportMode,
                 )
               : _DocumentEvidenceButton(item: item),
@@ -396,27 +398,49 @@ class _HeaderCard extends StatelessWidget {
       ),
       child: Padding(
         padding: const EdgeInsets.all(12),
-        child: Wrap(
-          spacing: 16,
-          runSpacing: 8,
-          children: [
-            Text(
-              'DOC: ${item.doc}',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            Text('Estatus: ${item.estatus}'),
-            Text('Origen: ${item.sucSal}'),
-            Text('Destino: ${item.sucEnt}'),
-            Text('Motivo: ${item.mtv}'),
-            Text('Prioridad: ${item.prio}'),
-            Text('Cantidad: ${item.ctd.toStringAsFixed(2)}'),
-            Text('Importe: ${_money(item.imp)}'),
-            if ((item.txt ?? '').isNotEmpty) Text('Obs: ${item.txt}'),
-            if (item.paqueteria != null)
-              Text(
-                'Guía: ${item.paqueteria!.emp ?? '-'} ${item.paqueteria!.numGuia ?? ''}',
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final observation = (item.txt ?? '').trim();
+            final observationLabel = 'Obs: $observation';
+            final observationPainter = TextPainter(
+              text: TextSpan(
+                text: observationLabel,
+                style: Theme.of(context).textTheme.bodyMedium,
               ),
-          ],
+              textDirection: Directionality.of(context),
+              textScaler: MediaQuery.textScalerOf(context),
+            )..layout();
+            final observationNeedsOwnLine =
+                observationPainter.width > constraints.maxWidth / 3;
+            return Wrap(
+              spacing: 16,
+              runSpacing: 8,
+              children: [
+                Text(
+                  'DOC: ${item.doc}',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                Text('Estatus: ${item.estatus}'),
+                Text('Origen: ${item.sucSal}'),
+                Text('Destino: ${item.sucEnt}'),
+                Text('Motivo: ${item.mtv}'),
+                Text('Prioridad: ${item.prio}'),
+                Text('Cantidad: ${item.ctd.toStringAsFixed(2)}'),
+                Text('Importe: ${_money(item.imp)}'),
+                if (observation.isNotEmpty)
+                  observationNeedsOwnLine
+                      ? SizedBox(
+                          width: constraints.maxWidth,
+                          child: Text(observationLabel, softWrap: true),
+                        )
+                      : Text(observationLabel, softWrap: true),
+                if (item.paqueteria != null)
+                  Text(
+                    'Guía: ${item.paqueteria!.emp ?? '-'} ${item.paqueteria!.numGuia ?? ''}',
+                  ),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -733,6 +757,7 @@ class _ActionBar extends ConsumerWidget {
     required this.isSucursalSolicita,
     required this.isSucursalSurtidora,
     required this.isJefeInventarios,
+    required this.isEncargadoSucursal,
     this.reportMode = false,
   });
 
@@ -740,6 +765,7 @@ class _ActionBar extends ConsumerWidget {
   final bool isSucursalSolicita;
   final bool isSucursalSurtidora;
   final bool isJefeInventarios;
+  final bool isEncargadoSucursal;
   final bool reportMode;
 
   @override
@@ -811,6 +837,12 @@ class _ActionBar extends ConsumerWidget {
             icon: const Icon(Icons.task_alt),
             label: const Text('Contabilizar'),
             onPressed: () => _confirmContabilizar(context, ref),
+          ),
+        if (estatus == 'REVISANDO' && isEncargadoSucursal && isSucursalSolicita)
+          OutlinedButton.icon(
+            icon: const Icon(Icons.done_all),
+            label: const Text('Contabilizar todo'),
+            onPressed: () => _confirmContabilizarTodo(context, ref),
           ),
         if (estatus == 'REVISANDO' || estatus == 'INCIDENCIA')
           OutlinedButton.icon(
@@ -1089,6 +1121,54 @@ class _ActionBar extends ConsumerWidget {
     );
     if (confirmed != true || !context.mounted) return;
     await _runAction(context, ref, 'contabilizar', closeOnSuccess: true);
+  }
+
+  Future<void> _confirmContabilizarTodo(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Contabilizar todos los artículos'),
+        content: Text(
+          'Se asignará el estatus CONTABILIZADO a todos los artículos activos '
+          'de la transferencia ${item.doc}.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Contabilizar todo'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    try {
+      await ref
+          .read(transferenciaApiProvider)
+          .contabilizarTodoDetalle(item.doc);
+      ref.invalidate(transferenciasProvider);
+      ref.invalidate(transferenciaDetalleProvider(item.doc));
+      ref.invalidate(transferenciaNotificacionesProvider);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Todos los artículos quedaron con estatus CONTABILIZADO.',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(_friendlyError(e))));
+    }
   }
 
   Future<void> _runAction(

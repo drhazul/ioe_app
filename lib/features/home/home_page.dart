@@ -530,6 +530,9 @@ class _ModuleRow extends StatelessWidget {
         moduloCode == 'PV_PROMO_GES') {
       return '/promociones';
     }
+    if (moduloCode == 'DAT_JAO_MERMA_AUTORIZADAS') {
+      return '/taller/mermas-autorizadas';
+    }
     if (moduloCode == 'DAT_JAA_MERM' ||
         moduloCode == 'MERMA_GESTION' ||
         moduloCode == 'MERMA') {

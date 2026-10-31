@@ -68,7 +68,8 @@ final ordenesTrabajoPanelProvider = FutureProvider.autoDispose
       panelMode,
     ) async {
       final api = ref.read(ordenesTrabajoApiProvider);
-      final filter = ref.watch(ordenesTrabajoFilterProvider(panelMode));
+      final filterProvider = ordenesTrabajoFilterProvider(panelMode);
+      final filter = ref.watch(filterProvider);
       return api.fetchPanel(filter);
     });
 

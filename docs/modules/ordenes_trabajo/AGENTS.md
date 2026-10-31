@@ -2,6 +2,11 @@
 - Ruta UI:
 - `/taller/ordenes-trabajo`.
 - `/taller/ordenes-trabajo/estado` (consulta solo lectura por estado de ORD).
+- `/taller/mermas-autorizadas` (`DAT_JAO_MERMA_AUTORIZADAS`): consulta de mermas de ORD ya autorizadas; no debe reutilizar las pantallas de Inventarios.
+- Mermas autorizadas: el filtro de sucursal muestra clave y nombre; la tabla permite seleccionar una sola ORD y el botón `Ver detalle` permanece deshabilitado hasta seleccionar una fila. Al pulsarlo, abre un diálogo con los datos de orden, artículo original, merma y autorización.
+- Mermas autorizadas: conservar filtros/paginación, encabezados de columna, selección de filas y desplazamiento horizontal; usar anchos y estilo estándar de `DataTable`, sin anchos ni decoraciones personalizadas en encabezados.
+- `DAT_JAO_MERMA_AUTORIZADAS` no debe ejecutar búsqueda completa al abrir. Consultar después de `Aplicar filtros`; permitir la consulta sin criterios, usando el alcance de sucursales autorizado y la paginación.
+- `DAT_JAO_MERMA_AUTORIZADAS`: filtros aislados para autorización/original/IORD/folio/cliente/tipo/laboratorio/asignado/fechas. Los catálogos se cargan en segundo plano tras presentar los resultados y una sucursal no debe generar solicitudes duplicadas mientras su carga esté en curso. La grilla y el Excel comparten cliente, artículo, descripción, CTD, OPV, flujo, asignado, motivos de merma/cambio, precio cobrado, costos de artículo/servicio y laboratorio. La tabla mantiene selección única, filas compactas y separadores horizontales siguiendo el panel `DAT_JAO_ORD`. Incluye anulaciones directas del botón de `DAT_JAO_ORD` en estado 4; excluye las anulaciones creadas por cambio de material o merma. No cambiar `DAT_JAO_REP` al ajustar este módulo.
 - `/taller/ordenes-trabajo/vencer` (`DAT_JAO_ORDENES_VENCER`): listado de órdenes con filtros de Consulta Estado y sin `Opciones de Trabajo`; resalta visualmente las órdenes con `FCNM` dentro del umbral próximo a vencer.
 - Archivos frontend:
 - `lib/features/modulos/taller/ordenes_trabajo/ordenes_trabajo_page.dart`
@@ -61,6 +66,7 @@
 - `Scan entregar` valida estatus previo `10 (REGRESADO A TIENDA)` y cambia a `11 (ENTREGADA A CLIENTE)`.
 - se unifica recepción eliminando selección de destino en UI; el concepto de recibo se concentra en `Scan recibir`.
 - botón `Asignar` replica la mecánica modal de `Enviar`; valida estatus previo `7`, exige laboratorio asignado válido, permite seleccionar colaborador (`PV_OPV.IDOPV` con etiqueta `NOMB+APELM+APELP`, `NIVEL=41`) de la misma `DAT_LAB.SUC` del laboratorio y confirma cambio masivo a `ESTSEGU=8`.
+- Asignar colaborador: el catálogo del selector contiene solo colaboradores activos; no mostrar registros `INACTIVO` en ninguna sucursal.
 - botón `Trabajo terminado` replica la mecánica modal; valida estatus previo `8` y confirma cambio masivo a `ESTSEGU=9`.
 - botón `Regresar incidencia` replica la mecánica modal; valida estatus previo `8` con colaborador asignado, obliga seleccionar motivo desde `DAT_ORD_TMOV` y persiste `PV_CTR_ORDS.TIPOM` al confirmar cambio masivo a `ESTSEGU=9`.
 - botón `Regresar a tienda` replica la mecánica modal; valida estatus previo `9` y confirma recepción en tienda con mapeo fijo por `TIPOM`: `1 -> ESTSEGU=9.1`, `2 -> ESTSEGU=9.2`, sin `TIPOM` válido -> `ESTSEGU=10`.
@@ -70,7 +76,8 @@
 - el filtro aplicado persiste por `panelMode`; cambiar un dropdown a `Todas` limpia realmente ese criterio sin obligar a `Limpiar filtros`.
 - nuevo panel `estado`: sin acciones mutables, usa dropdown `ESTSEGU` con catálogo del backend y reemplaza funcionalmente a los módulos legacy de `anuladas`/`entregadas` en el home.
 - consulta estado / filtro de flujo (2026-10-13): al seleccionar un flujo específico, la grilla muestra solo la fila histórica de ese flujo para cada ORD; `Todos` mantiene el flujo actual. El backend aplica visibilidad por rol y laboratorio antes de paginar y calcular el total.
-- Consulta Estado de ORDs y Reportes de Taller: al entrar no mostrar resultados. Exigir al menos un criterio y la acción `Aplicar filtros`; Limpiar filtros vuelve al estado sin resultados.
+- Consulta Estado de ORDs: al entrar no mostrar resultados; `Aplicar filtros` sin criterios consulta todas las ORDs visibles según el rol y permisos. Se pueden agregar criterios para acotar la búsqueda. `Limpiar filtros` vuelve al estado sin resultados.
+- Reportes de Taller: al entrar no mostrar resultados; exigir al menos un criterio y la acción `Aplicar filtros`. Limpiar filtros vuelve al estado sin resultados.
 - Reportes de Taller (`DAT_JAO_REP`): conserva su vista operativa, columnas y filtros; consulta con historial de flujo. Para `JEF_TALLER` y flujos `7`/`10`, y `ANALISTA_ORD` en flujo `10`, Desde limita F. SOL y Hasta limita F. ENTR; la grilla y Excel deben coincidir en los filtros aplicados y el flujo seleccionado. El costo del servicio solo se muestra a `JEF_TALLER`.
 - Reportes de Taller (`DAT_JAO_REP`, `ANALISTA_ORD`): al seleccionar flujo `4`, la grilla agrega la columna `Motivo` con el motivo de anulación; esta columna se muestra solo a este rol en Reportes de Taller.
 - Reportes de Taller (`DAT_JAO_REP`, `ANALISTA_ORD`): el AppBar ofrece `Descargar Excel`; la exportación utiliza los filtros aplicados y, con flujo `4`, incluye la columna `Motivo`.
@@ -94,9 +101,12 @@
 - cambio/merma UI (2026-06-17): `Subtotal` e `IVA` de la ORD original se calculan desde `PVTAT base`; el PDF usa la misma etiqueta para mantener visible la fuente.
 - cambio/merma UI (2026-04-21): `Autorizar` y `Retrabajo` solo son visibles para `admin`, `ANALISTA_INV` e `INVJEF`; `Solicitar autorización` deja siempre el caso en `selCtrlOrd=14`, y tras autorizar el modal queda solo lectura con impresión de formato/saldo.
 - cambio/merma UI (2026-04-22): en la sección `Nueva ORD` siempre mostrar `Diferencia` y el texto de saldo (`a favor`, `en contra` o `sin diferencia`) usando el cálculo del contexto actual.
-- panel ORDs (2026-04-21): `ANALISTA_INV` e `INVJEF` atienden revisión de cambio/merma (`selCtrlOrd=14`); la visibilidad del listado depende de la matriz configurada en backend.
+- panel ORDs (2026-04-21): `ANALISTA_INV` e `INVJEF` atienden revisión de cambio/merma (`selCtrlOrd=14`); la visibilidad de flujos del listado depende de la matriz configurada en backend. En operativo se muestra también la solicitud `TIPOM=1` con `SIN FLUJO` si está pendiente de autorización (`selCtrlOrd=14`).
+- panel ORDs: `ANALISTA_INV` e `INVJEF` reciben todas las sucursales de `DAT_SUC` desde backend; los demás roles conservan las sucursales autorizadas por usuario.
+- detalle ORD: si `selCtrlOrd=14`, no se permite guardar cambios mientras Inventarios revisa la solicitud.
 - panel ORDs (2026-05-06): `ANALISTA_INV` e `INVJEF` pueden consultar catálogo de asignados del panel sin bloqueo de rol para evitar error de carga en filtros.
 - panel ORDs (2026-05-06): backend restablece criterio de cola para inventarios (`selCtrlOrd=14`) en `sp_ordenes_trabajo_panel`; la UI debe reflejar resultados devueltos por API sin relajar ese filtro.
+- Panel `DAT_JAO_ORD` (2026-10-30): `INVJEF` puede filtrar por el IORD capturado; no borrar automáticamente el IORD tras responder el API ni reintentar una búsqueda fallida sin ese filtro, porque cargaría la lista completa en lugar de respetar la búsqueda.
 - panel ORDs multi-sucursal analista (2026-05-22): cuando usuario `ANALISTA_ORD/ANALISTA` tiene varias sucursales permitidas y selecciona una `SUC` explícita en filtro (ej. `DF14`), el listado debe mostrar ORDs recientes de esa sucursal; backend omite recorte por `HOME_SUC` en ese caso.
 - validación/edición multi-sucursal por IORD (2026-05-29): las llamadas frontend `detalle/guardar`, `*/validar` y páginas directas envían `suc` opcional (filtro/ORD actual) para fijar contexto de autorización; con esto se evita error `No existe ORD ... o no tiene acceso` en ORDs de sucursales alternas permitidas.
 - cambio-merma integridad artículo-descripción (2026-05-29): en captura de `Nueva ORD`, si el artículo nuevo difiere del original no se permite fallback visual a la descripción original; la UI debe mostrar/guardar únicamente la descripción del artículo nuevo devuelta por backend.
@@ -115,3 +125,12 @@
 - Cambio material / Merma (2026-07-09): la captura muestra `Cantidad` para la nueva ORD desde `draft.CTD` y debe coincidir con `CTD_C_M`; si `CTD_C_M=0.5`, la nueva ORD no debe mostrarse ni guardarse como 1 pieza.
 - Cambio material / Merma (2026-07-09): `Autorizar` debe mostrar mensaje específico de asentamiento si API responde error genérico; backend corrige colisión de `DAT_CTR_DOC.DOC` en diferencia contable.
 - Cambio material / Merma (2026-07-24): se permite seleccionar misma ART. Siempre se evalúa diferencia entre base histórica afectada y catálogo actual; UI/PDF muestran origen del precio, advertencia de fallback y mensaje de precio modificado en PV cuando corresponda. `PVTA_UNITARIO_BASE` nunca debe sustituirse por `PVTAT_BASE`.
+- Reportes de Taller (`DAT_JAO_REP`, todos los roles y flujos): mostrar `Precio cobrado` después de CTD; formatearlo como precio unitario histórico, mostrar guion si API no encuentra registro y conservarlo en configuración de vista.
+- Cambio material en `DAT_JAO_ORD`: para usuarios con permiso `CAMBIO_MATERIAL`, el detalle muestra `Cambio material` también cuando `ESTSEGU` es NULL (SIN FLUJO), aunque la ORD no tenga `TIPOM=1`; reutiliza el proceso de captura temporal, autorización y creación de ORD del flujo 9.1. `Merma` conserva su requisito de flujo 9.2 y `TIPOM=2`.
+- Autorización de cambio material SIN FLUJO: Inventarios puede autorizar solo si `selCtrlOrd=14` y `TIPOM=1`; conservar sin cambios la validación existente de flujo 9.1 para las demás ORDs.
+- `DAT_JAO_ORD_ESTADO`: los usuarios con rol Control de Calidad reciben acceso de menú a este módulo y la misma consulta de flujos que `ANALISTA_ORD`, en solo lectura; el catálogo de asignados de sus filtros también permite lectura.
+- `DAT_JAO_ORD` (Gestión de Orden): Control de Calidad consulta los mismos flujos y resultados que `ANALISTA_ORD`, en solo lectura; conservar su alcance de sucursales y mostrar el detalle sin habilitar acciones operativas.
+- Reportes de Taller (`DAT_JAO_REP`): Control de Calidad consulta los mismos flujos y resultados históricos que `ANALISTA_ORD`, puede descargar Excel y ver el motivo del flujo 4; no habilitar acciones operativas.
+- Reportes de Taller (Control de Calidad): al presionar `Aplicar filtros` con todos los criterios en `Todos` también consultar resultados paginados; los demás roles siguen requiriendo al menos un criterio.
+- Cambio/merma: el detalle operativo ofrece `Cancelar solicitud` para ORDs en 9.1/9.2 antes de crear la ORD derivada; solicita motivo, confirma regreso a `ESTSEGU=8`, conserva colaborador/laboratorio asignados y refresca el panel al terminar. No mostrarlo en Consulta Estado ni en procesos finalizados.
+- Cambio/merma parcial: tras autorizar, informar la ORD derivada por la cantidad afectada y mostrar `IORD_REMANENTE` cuando el backend genere una orden activa por `CTD - CTD_C_M`; la orden remanente conserva el artículo original y sigue en flujo `8`.

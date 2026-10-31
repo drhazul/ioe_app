@@ -66,11 +66,14 @@
 - Consumir exclusivamente `/transferencias` del backend; no usar tablas o endpoints legacy de traspasos.
 - `Enviar a autorizacion` debe pedir confirmacion, cerrar el detalle al completar y refrescar la cola de notificaciones; el jefe de inventarios ve las pendientes como nueva solicitud de la sucursal solicitante.
 - En detalle, `JEFE DE INVENTARIOS` debe ver `Cantidad liberada` y `Total liberada`; su columna de acciones solo edita `CTD_LIB`, dejando que backend calcule `CTOLIB`.
+- La observación del encabezado de Transferencias debe mostrarse completa, permitiendo varias líneas cuando el texto exceda el ancho disponible.
 - `Liberar` debe cerrar el detalle al completar. La campana cuenta solo notificaciones no vistas y conserva las vistas entre ejecuciones; `LIBERADA` se presenta como mercancia por surtir para la sucursal origen/surtidora.
 - La sucursal origen/surtidora debe ver una tabla reducida en `LIBERADA`/`PREPARACION` y capturar evidencia por renglon solo en `PREPARACION`.
 - `Enviar a transito` debe confirmar, bloquear si algun renglon no tiene evidencia y cerrar el detalle al completar paqueteria. El PDF de envio debe ser carta y contener articulo, descripcion, cantidad solicitada, total, cantidad liberada y total liberada.
 - En recepcion (`TRANSITO`) la columna de acciones/opciones no debe mostrar botones por renglon.
 - `REVISANDO` solo debe listarse/notificarse a la sucursal solicitante. Abrir el detalle debe marcar la notificacion como vista para persistirlo entre ejecuciones.
+- En `REVISANDO`, el Encargado de Sucursal (`IDROL=13008`) puede usar `Contabilizar todo` para asignar `CONTABILIZADO` a todos los artículos activos; esta acción no registra movimientos de inventario y no reemplaza la contabilización existente.
+- Cambiar el estatus de un artículo a `INCIDENCIA` en `REVISANDO` no debe cambiar el estatus del encabezado inmediatamente; el encabezado pasa a `INCIDENCIA` al pulsar `Contabilizar` y procesarse el documento.
 - En `REVISANDO`, antes de `Contabilizar` debe mostrarse filtro local por SUC, ART/UPC/DES, DEPA, SUBD, CLAS, SCLA, SCLA2, SPH, CYL y ADIC.
 - En `REVISANDO`, la tabla no debe mostrar existencias origen/destino, debe mostrar evidencia antes de acciones, y acciones por renglon debe editar cantidad recibida y estatus por articulo limitado a `CONTABILIZADO` o `INCIDENCIA`.
 - `Contabilizar` debe confirmar, registrar salida/entrada MB51 mediante backend y cerrar el detalle al completar correctamente.

@@ -20,6 +20,93 @@ class OrdenesTrabajoApi {
     );
   }
 
+  Future<Map<String, dynamic>> fetchMermasAutorizadas({
+    String? suc,
+    String? iordAutorizacion,
+    String? iordOriginal,
+    String? iord,
+    String? idfol,
+    String? client,
+    String? tipo,
+    String? labor,
+    String? asign,
+    String? fecIni,
+    String? fecFin,
+    int page = 1,
+    int pageSize = 25,
+  }) async {
+    final res = await dio.get(
+      '/ordenes-trabajo/mermas-autorizadas',
+      queryParameters: {
+        if ((suc ?? '').trim().isNotEmpty) 'suc': suc!.trim(),
+        if ((iordAutorizacion ?? '').trim().isNotEmpty)
+          'iordAutorizacion': iordAutorizacion!.trim(),
+        if ((iordOriginal ?? '').trim().isNotEmpty)
+          'iordOriginal': iordOriginal!.trim(),
+        if ((iord ?? '').trim().isNotEmpty) 'iord': iord!.trim(),
+        if ((idfol ?? '').trim().isNotEmpty) 'idfol': idfol!.trim(),
+        if ((client ?? '').trim().isNotEmpty) 'client': client!.trim(),
+        if ((tipo ?? '').trim().isNotEmpty) 'tipo': tipo!.trim(),
+        if ((labor ?? '').trim().isNotEmpty) 'labor': labor!.trim(),
+        if ((asign ?? '').trim().isNotEmpty) 'asign': asign!.trim(),
+        if ((fecIni ?? '').trim().isNotEmpty) 'fecIni': fecIni!.trim(),
+        if ((fecFin ?? '').trim().isNotEmpty) 'fecFin': fecFin!.trim(),
+        'page': page,
+        'pageSize': pageSize,
+      },
+    );
+    return Map<String, dynamic>.from(res.data as Map);
+  }
+
+  Future<Map<String, dynamic>> fetchMermasAutorizadasFilterOptions({
+    String? suc,
+  }) async {
+    final res = await dio.get(
+      '/ordenes-trabajo/mermas-autorizadas/filtros',
+      queryParameters: {if ((suc ?? '').trim().isNotEmpty) 'suc': suc!.trim()},
+    );
+    return Map<String, dynamic>.from(res.data as Map);
+  }
+
+  Future<Uint8List> exportMermasAutorizadas({
+    String? suc,
+    String? iordAutorizacion,
+    String? iordOriginal,
+    String? iord,
+    String? idfol,
+    String? client,
+    String? tipo,
+    String? labor,
+    String? asign,
+    String? fecIni,
+    String? fecFin,
+  }) async {
+    final res = await dio.get<List<int>>(
+      '/ordenes-trabajo/mermas-autorizadas/excel',
+      queryParameters: {
+        if ((suc ?? '').trim().isNotEmpty) 'suc': suc!.trim(),
+        if ((iordAutorizacion ?? '').trim().isNotEmpty)
+          'iordAutorizacion': iordAutorizacion!.trim(),
+        if ((iordOriginal ?? '').trim().isNotEmpty)
+          'iordOriginal': iordOriginal!.trim(),
+        if ((iord ?? '').trim().isNotEmpty) 'iord': iord!.trim(),
+        if ((idfol ?? '').trim().isNotEmpty) 'idfol': idfol!.trim(),
+        if ((client ?? '').trim().isNotEmpty) 'client': client!.trim(),
+        if ((tipo ?? '').trim().isNotEmpty) 'tipo': tipo!.trim(),
+        if ((labor ?? '').trim().isNotEmpty) 'labor': labor!.trim(),
+        if ((asign ?? '').trim().isNotEmpty) 'asign': asign!.trim(),
+        if ((fecIni ?? '').trim().isNotEmpty) 'fecIni': fecIni!.trim(),
+        if ((fecFin ?? '').trim().isNotEmpty) 'fecFin': fecFin!.trim(),
+      },
+      options: Options(responseType: ResponseType.bytes),
+    );
+    final bytes = res.data;
+    if (bytes == null || bytes.isEmpty) {
+      throw const FormatException('La API no devolvió un archivo Excel');
+    }
+    return Uint8List.fromList(bytes);
+  }
+
   Future<Uint8List> exportExcel(OrdenesTrabajoFilter filter) async {
     final res = await dio.get<List<int>>(
       '/ordenes-trabajo/export/excel',
@@ -53,6 +140,18 @@ class OrdenesTrabajoApi {
     return OrdenTrabajoCambioMermaContext.fromJson(
       Map<String, dynamic>.from(res.data as Map),
     );
+  }
+
+  Future<OrdenTrabajoActionResult> cancelarCambioMerma(
+    String iord, {
+    required int tipo,
+    required String motivoCancelacion,
+  }) async {
+    final res = await dio.post(
+      '/ordenes-trabajo/${Uri.encodeComponent(iord)}/cambio-merma/cancelar',
+      data: {'tipo': tipo, 'motivoCancelacion': motivoCancelacion.trim()},
+    );
+    return _actionFrom(res);
   }
 
   Future<OrdenTrabajoCambioMermaContext> prepararCambioMerma(

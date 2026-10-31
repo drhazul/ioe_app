@@ -7,6 +7,15 @@ Enlaces relacionados:
 - AGENTS de este módulo: `docs/modules/ordenes_trabajo/AGENTS.md`
 - Módulos vinculados: `docs/modules/base_modulos/README.md`, `docs/modules/punto_venta/README.md`, `docs/modules/core_seguridad/README.md`
 
+## Mermas autorizadas (`DAT_JAO_MERMA_AUTORIZADAS`)
+
+- Al entrar no se consulta la tabla de resultados; la consulta inicia al pulsar `Aplicar filtros`. Si no se captura ningún criterio, consulta todas las órdenes permitidas por rol y sucursales, con paginación, sin lanzar el escaneo automáticamente al abrir.
+- El filtro de sucursal muestra la clave y el nombre de la sucursal.
+- Los filtros del módulo incluyen IORD autorización, IORD original, IORD, folio, cliente, tipo, laboratorio, asignado y rango de fechas. Los combos de tipo, laboratorio y asignado cargan sus catálogos en segundo plano para mostrar primero los resultados.
+- La grilla y el Excel incluyen cliente, artículo, descripción, cantidad de merma, precio cobrado, costo del artículo, costo del servicio, responsable de merma y laboratorio, además de los datos de autorización existentes.
+- La tabla permite seleccionar una sola ORD con checkbox. `Ver detalle` en la AppBar se habilita con una selección y abre los datos de la orden, artículo original, merma y autorización.
+- Los resultados se presentan en una tabla con encabezados resaltados y filas alternadas; se mantiene desplazamiento horizontal para consultar todas las columnas.
+
 ## Ordenes de Trabajo (nuevo flujo 2026-03-22)
 
 - Ruta:
@@ -83,7 +92,7 @@ Enlaces relacionados:
 - `Scan recibir` valida estado previo `ESTSEGU=5` y confirma transición por lote a `ESTSEGU=7`.
 - `Scan entregar` valida estado previo `ESTSEGU=10` y confirma transición por lote a `ESTSEGU=11`.
 - el flujo de recepción elimina selección de destino (`TALLER/ANALISTA`) y unifica operación desde `Scan recibir`.
-- Consulta estado (2026-10-13): `Todos` carga las ORDs sin otro criterio y muestra su flujo actual; `Est. flujo` incluye `SIN FLUJO` y, al seleccionar un flujo específico, consulta el historial completo y muestra únicamente ese flujo por ORD. El backend aplica la visibilidad por rol y laboratorio antes de paginar y calcular el total.
+- Consulta estado (2026-10-21): al entrar no precarga resultados; `Aplicar filtros` sin criterios consulta todas las ORDs permitidas por rol/permisos, paginadas. `Todos` muestra el flujo actual; `Est. flujo` incluye `SIN FLUJO` y, al seleccionar un flujo específico, consulta el historial completo y muestra únicamente ese flujo por ORD. El backend aplica la visibilidad por rol y laboratorio antes de paginar y calcular el total.
 - Reportes de Taller (`DAT_JAO_REP`) conserva sus columnas y filtros de reporte, consulta ORDs por historial de flujo con el mismo criterio de fechas que Consulta Estado, y mantiene la exportación Excel alineada con el flujo y filtros aplicados.
 - Reportes de Taller (`DAT_JAO_REP`, `ANALISTA_ORD`): al seleccionar flujo `4`, la grilla muestra la columna `Motivo` con el motivo de anulación. No se presenta en otros roles ni en otros módulos.
 - Reportes de Taller (`DAT_JAO_REP`, `ANALISTA_ORD`): el AppBar permite descargar Excel con todos los resultados que coinciden con los filtros aplicados; para flujo `4`, el archivo incluye `Motivo`.
@@ -111,6 +120,7 @@ Enlaces relacionados:
 - `Cambio material/Merma` (2026-04-22): la tarjeta `Nueva ORD (captura)` vuelve a mostrar `Diferencia` y una leyenda de `Saldo a favor del cliente` / `Saldo en contra del cliente` / `Sin diferencia` de acuerdo al artículo seleccionado.
 - `Panel ORDs` (2026-04-21): `ANALISTA_INV` e `INVJEF` participan en revisión de cambio/merma (`selCtrlOrd=14`) y su visibilidad efectiva depende de la matriz configurada en backend.
 - `Panel ORDs` (2026-05-06): `ANALISTA_INV` e `INVJEF` ya pueden cargar el catálogo de asignados para filtros sin error de autorización.
+- `Panel ORDs` (2026-10-30): `INVJEF` conserva el IORD escrito al aplicar filtros. Si no hay coincidencia o acceso, se mantiene el filtro y no se relanza una consulta sin IORD que muestre todas las órdenes.
 - `Panel ORDs` (2026-05-06): backend restituye filtro de cola inventarios (`selCtrlOrd=14`) en `sp_ordenes_trabajo_panel`; frontend muestra sólo registros permitidos por esa regla de servidor.
 - `Panel ORDs multi-sucursal analista` (2026-05-22): al filtrar por una sucursal explícita permitida (ej. `DF14`), usuarios `ANALISTA_ORD/ANALISTA` deben ver ORDs recientes de esa sucursal; backend evita recorte por `HOME_SUC` cuando `@SUC` viene definida.
 - `Validación/edición multi-sucursal por IORD` (2026-05-29): validaciones por código y guardado de detalle envían `suc` opcional al backend usando la sucursal activa del panel/ORD; corrige falsos `No existe ORD ... o no tiene acceso` para usuarios con `USR_MOD_SUC` en más de una sucursal.
@@ -137,5 +147,7 @@ Enlaces relacionados:
 - Cambio material / Merma (2026-07-09): la tarjeta `Nueva ORD (captura)` muestra `Cantidad` desde `draft.CTD`, que backend calcula con `CTD_C_M`; la ORD derivada ya no debe aparecer como 1 pieza cuando la fraccion autorizada es 0.5.
 - Cambio material / Merma (2026-07-09): el botón `Autorizar` muestra un mensaje de asentamiento cuando la API responde error genérico; la causa corregida en backend fue colisión de `DAT_CTR_DOC.DOC` al generar diferencia contable.
 - Cambio material / Merma (2026-07-24): para ORD de 1 con afectación 0.5 se prorratea `PVTAT * (0.5 / 1)`; para ORD de 0.5 afectada completa se conserva su `PVTAT`. Totales aplican IVA integrado/desglosado según `DAT_SUC.IVA_INTEGRADO`, `REQF/RQFAC` y `AUT/ORIGEN_AUT`.
-- Reportes de Taller (`DAT_JAO_REP`, `JEF_TALLER`): al seleccionar flujo `10`, la grilla muestra una sola fila por ORD que permaneció en ese flujo durante el periodo filtrado, aun cuando actualmente tenga otro flujo, e incluye la columna `Costo del servicio`.
+- Reportes de Taller (`DAT_JAO_REP`, `JEF_TALLER`): al seleccionar flujo `10`, la grilla muestra una sola fila por ORD que permaneció en ese flujo durante el periodo filtrado, aun cuando actualmente tenga otro flujo. `Costo del servicio` usa `PVTA` y `Costo del material` usa `CTOP`, por artículo y sucursal; Excel conserva ambas columnas.
 - Consulta Estado de ORDs (`JEF_TALLER`): la grilla muestra `Tiempo por flujo` con la duración de cada tramo histórico desde `FCNR`; el flujo vigente se calcula hasta la hora del servidor.
+- Reportes de Taller (`DAT_JAO_REP`, todos los roles y flujos): mostrar y exportar `Precio cobrado` por artículo en cualquier flujo, desde la fuente histórica que entregue API.
+- Reportes de Taller (`DAT_JAO_REP`, `JEF_TALLER`): al elegir `Merma` en `Otros`, mostrar `Costo del servicio` usando `PVTA` del artículo de la sucursal y conservar la columna al exportar Excel; `Costo del artículo` sigue usando `CTOP`.
