@@ -7578,13 +7578,22 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                           final confirm = await _confirmCambioEstatus(
                             title: 'Autorizar',
                             targetStatus:
-                                'Crear ORD derivada y remanente si aplica',
+                                mode == _OrdCambioMermaMode.cambioMaterial
+                                ? 'Nueva ORD autorizada y remanente en la ORD original'
+                                : 'Crear ORD derivada y remanente si aplica',
                             total: 1,
-                            extraMessage: [
-                              'IORD origen: $iord',
-                              'NVA_IORD reservada: ${nvaIord.isEmpty ? 'Se validará al autorizar' : nvaIord}',
-                              'La autorización registrará MB51; la cantidad no afectada quedará en una ORD activa y la original permanecerá como historial.',
-                            ].join('\n'),
+                            extraMessage:
+                                mode == _OrdCambioMermaMode.cambioMaterial
+                                ? [
+                                    'IORD origen: $iord',
+                                    'NVA_IORD reservada: ${nvaIord.isEmpty ? 'Se validará al autorizar' : nvaIord}',
+                                    'La nueva ORD queda en flujo 3 con el material cambiado. Si el cambio es parcial, la ORD original conserva el material anterior, la cantidad restante y también queda en flujo 3; si es total, la original se anula.',
+                                  ].join('\n')
+                                : [
+                                    'IORD origen: $iord',
+                                    'NVA_IORD reservada: ${nvaIord.isEmpty ? 'Se validará al autorizar' : nvaIord}',
+                                    'La autorización registrará MB51; la cantidad no afectada quedará en una ORD activa y la original permanecerá como historial.',
+                                  ].join('\n'),
                           );
                           if (confirm != true || !ctx.mounted) return;
                           setDialogState(() => submitting = true);
