@@ -232,3 +232,7 @@ API incorpora localmente validación de cancelación independiente de listas RFC
 ## Arquitectura de fechas compartida (2026-11-04)
 
 Usar lib/core/time/business_datetime.dart y [contrato coordinado](../ioe-api/docs/CONTRATO_FECHAS_CDMX.md). BusinessDateTime contiene componentes comerciales, no representa epoch; no aplicar toLocal/toUtc ni serializar su calendar directamente con Z. UtcInstant exige zona explícita. Nuevos campos deben declarar semántica. API/App/DDL/TZ se activan juntos en mantenimiento; no presentar integración local como corrección preventiva ya desplegada.
+
+## Contrato CDMX activo (2026-11-05)
+
+Prevención desplegada junto con DDL/TZ en IOELOCAL; acta canónica ioe-api/docs/ACTIVACION_CDMX_20261105.md. No volver a aplicar manifiesto BEFORE ni reparación FCNC: estado es AFTER. Funciones experimentales de créditos/entidades fiscales requieren su activación propia; DevelopmentBusinessGuard y Env.developmentBusinessEnabled mantienen aislamiento productivo.

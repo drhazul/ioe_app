@@ -250,3 +250,7 @@ API incorpora localmente validación de cancelación independiente de listas RFC
 ## Fechas comerciales compartidas (2026-11-04)
 
 Core incorpora BusinessDateTime/UtcInstant. MB51, PS y conteos conservan calendario comercial recibido sin zona; filtros envían YYYY-MM-DD. API aplica contratos centrales a rutas comerciales. [Contrato coordinado y mantenimiento](../ioe-api/docs/CONTRATO_FECHAS_CDMX.md). Integración local; prevención productiva pendiente del pase conjunto.
+
+## Activación productiva CDMX completada (2026-11-05)
+
+Contrato comercial y guardia global activos. CT/SQL/API/App operan CDMX; migración 75/89 aplicada, versiones coordinadas saludables y 34 muestras reales de medianoche correctas. Código experimental de créditos/entidades fiscales permanece desactivado en producción. [Acta, versiones y reversa](../ioe-api/docs/ACTIVACION_CDMX_20261105.md).
