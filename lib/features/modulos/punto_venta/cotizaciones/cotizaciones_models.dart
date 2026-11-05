@@ -1,3 +1,5 @@
+import 'package:ioe_app/core/time/business_datetime.dart';
+
 class CotizacionesPanelQuery {
   const CotizacionesPanelQuery({
     this.suc = '',
@@ -31,34 +33,6 @@ class CotizacionesPanelQuery {
 
   @override
   int get hashCode => Object.hash(suc, opv, search);
-}
-
-class CotizacionLealtadParticipacionModel {
-  const CotizacionLealtadParticipacionModel({
-    required this.idfol,
-    required this.clienteId,
-    required this.participante,
-  });
-
-  final String idfol;
-  final String clienteId;
-  final bool participante;
-
-  factory CotizacionLealtadParticipacionModel.fromJson(
-    Map<String, dynamic> json,
-  ) {
-    final participante = json['participante'];
-    if (participante is! bool) {
-      throw const FormatException(
-        'La API no devolvio estado de participacion valido.',
-      );
-    }
-    return CotizacionLealtadParticipacionModel(
-      idfol: json['idfol']?.toString() ?? '',
-      clienteId: json['clienteId']?.toString() ?? '',
-      participante: participante,
-    );
-  }
 }
 
 class PvCtrFolAsvrModel {
@@ -153,9 +127,7 @@ class PvCtrFolAsvrModel {
   }
 
   static DateTime? _asDate(dynamic value) {
-    if (value == null) return null;
-    if (value is DateTime) return value;
-    return DateTime.tryParse(value.toString());
+    return parseBusinessDateTime(value);
   }
 
   static String? _asText(dynamic value) {

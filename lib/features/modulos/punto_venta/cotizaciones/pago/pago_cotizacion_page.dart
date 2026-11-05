@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ioe_app/core/api_error.dart';
+import 'package:ioe_app/core/time/business_datetime.dart';
 import 'package:ioe_app/core/auth/auth_controller.dart';
 import 'package:ioe_app/features/masterdata/sucursales/sucursales_providers.dart';
 import 'package:pdf/pdf.dart';
@@ -90,6 +91,7 @@ class _PagoCotizacionPageState extends ConsumerState<PagoCotizacionPage> {
     final total = state.totales?.total ?? 0;
     final sumPagos = state.sumPagos;
     final canAddForma =
+        state.totalsReady &&
         !isEstadoPagado &&
         !state.submitting &&
         total > 0 &&
@@ -97,6 +99,7 @@ class _PagoCotizacionPageState extends ConsumerState<PagoCotizacionPage> {
     final faltante = _round2(total > sumPagos ? total - sumPagos : 0.0);
     final cambio = _round2(sumPagos > total ? sumPagos - total : 0.0);
     final canFinalize =
+        state.totalsReady &&
         !isEstadoPagado &&
         !state.submitting &&
         ((total <= 0 && state.formas.isEmpty) ||
@@ -1914,6 +1917,16 @@ class _TotalesCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final totales = state.totales;
+    if (!state.totalsReady) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Text(
+            loading ? 'Calculando totales…' : 'Totales no disponibles. Recargue la cotización.',
+          ),
+        ),
+      );
+    }
     final total = totales?.total ?? 0;
     return Card(
       child: Padding(
@@ -2292,12 +2305,7 @@ pw.Widget _ticketRow(String label, String value, double fontSize) {
   );
 }
 
-String _fmtDateTime(DateTime? value) {
-  if (value == null) return '-';
-  final local = value.toLocal();
-  String p2(int n) => n.toString().padLeft(2, '0');
-  return '${p2(local.day)}/${p2(local.month)}/${local.year} ${p2(local.hour)}:${p2(local.minute)}';
-}
+String _fmtDateTime(DateTime? value) => formatBusinessDateTime(value);
 
 double _round2(double value) =>
     (value.isFinite ? (value * 100).roundToDouble() / 100 : 0.0);

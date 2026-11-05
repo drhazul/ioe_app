@@ -1,5 +1,7 @@
 # Punto de venta (front)
 
+> C01 retirado de master productivo el 2026-11-05; desarrollo preservado en feature/lealtad-c01-preservado-20261105. Fechas comerciales se presentan sin convertir zona del dispositivo.
+
 - C01 (2026-10-23): acción de panel **Consultar lealtad** y botón **Volver a consultar** usan folio persistido; no generan otra cotización. Error seguro `LEALTAD_*` conserva estado desconocido. Recepción C01 acotada a 45 s. FCN se convierte a hora local antes de extraer día/mes/año; no hay reparación SQL.
 
 ## Créditos PS: consumidor integrado en desarrollo (2026-10-20)

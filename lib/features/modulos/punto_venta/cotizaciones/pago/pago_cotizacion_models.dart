@@ -1,3 +1,5 @@
+import 'package:ioe_app/core/time/business_datetime.dart';
+
 class PagoCierreContext {
   PagoCierreContext({
     required this.idfol,
@@ -28,7 +30,7 @@ class PagoCierreContext {
       rqfacDefault: json['rqfacDefault'] == true,
       ivaIntegrado: _asInt(json['ivaIntegrado']),
       itemsCount: _asInt(json['itemsCount']) ?? 0,
-      totalBase: _asDouble(json['totalBase']) ?? 0,
+      totalBase: _requiredAmount(json, 'totalBase'),
     );
   }
 }
@@ -54,10 +56,10 @@ class PagoCierreTotales {
 
   factory PagoCierreTotales.fromJson(Map<String, dynamic> json) {
     return PagoCierreTotales(
-      subtotal: _asDouble(json['subtotal']) ?? 0,
-      iva: _asDouble(json['iva']) ?? 0,
-      total: _asDouble(json['total']) ?? 0,
-      totalBase: _asDouble(json['totalBase']) ?? 0,
+      subtotal: _requiredAmount(json, 'subtotal'),
+      iva: _requiredAmount(json, 'iva'),
+      total: _requiredAmount(json, 'total'),
+      totalBase: _requiredAmount(json, 'totalBase'),
       ivaIntegrado: _asInt(json['ivaIntegrado']),
       tipotran: json['tipotran']?.toString().toUpperCase() ?? 'VF',
       rqfac: json['rqfac'] == true,
@@ -349,16 +351,16 @@ class PagoCierrePrintTotals {
 
   factory PagoCierrePrintTotals.fromJson(Map<String, dynamic> json) {
     return PagoCierrePrintTotals(
-      subtotal: _asDouble(json['subtotal']) ?? 0,
-      iva: _asDouble(json['iva']) ?? 0,
-      total: _asDouble(json['total']) ?? 0,
-      totalBase: _asDouble(json['totalBase']) ?? 0,
+      subtotal: _requiredAmount(json, 'subtotal'),
+      iva: _requiredAmount(json, 'iva'),
+      total: _requiredAmount(json, 'total'),
+      totalBase: _requiredAmount(json, 'totalBase'),
       ivaIntegrado: _asInt(json['ivaIntegrado']),
       tipotran: (json['tipotran']?.toString() ?? 'VF').toUpperCase(),
       rqfac: json['rqfac'] == true,
-      sumPagos: _asDouble(json['sumPagos']) ?? 0,
-      faltante: _asDouble(json['faltante']) ?? 0,
-      cambio: _asDouble(json['cambio']) ?? 0,
+      sumPagos: _requiredAmount(json, 'sumPagos'),
+      faltante: _requiredAmount(json, 'faltante'),
+      cambio: _requiredAmount(json, 'cambio'),
     );
   }
 }
@@ -511,6 +513,14 @@ int? _asInt(dynamic value) {
   return int.tryParse(value.toString());
 }
 
+double _requiredAmount(Map<String, dynamic> json, String key) {
+  final value = _asDouble(json[key]);
+  if (value == null || !value.isFinite) {
+    throw FormatException('Totales de cotización incompletos o inválidos: $key');
+  }
+  return value;
+}
+
 double? _asDouble(dynamic value) {
   if (value == null) return null;
   if (value is double) return value;
@@ -519,9 +529,7 @@ double? _asDouble(dynamic value) {
 }
 
 DateTime? _asDate(dynamic value) {
-  if (value == null) return null;
-  if (value is DateTime) return value;
-  return DateTime.tryParse(value.toString());
+  return parseBusinessDateTime(value);
 }
 
 String? _asText(dynamic value) {

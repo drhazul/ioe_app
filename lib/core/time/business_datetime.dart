@@ -73,6 +73,21 @@ String businessDateOnly(DateTime value) =>
     '${value.year.toString().padLeft(4, '0')}-'
     '${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
 
+/// Presenta componentes comerciales; no convierte según zona del dispositivo.
+String formatBusinessDate(DateTime? value) {
+  if (value == null) return '-';
+  return '${value.day.toString().padLeft(2, '0')}/'
+      '${value.month.toString().padLeft(2, '0')}/'
+      '${value.year.toString().padLeft(4, '0')}';
+}
+
+String formatBusinessDateTime(DateTime? value) {
+  if (value == null) return '-';
+  return '${formatBusinessDate(value)} '
+      '${value.hour.toString().padLeft(2, '0')}:'
+      '${value.minute.toString().padLeft(2, '0')}';
+}
+
 String businessCalendarIso(DateTime value) =>
     '${businessDateOnly(value)}T'
     '${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}:'

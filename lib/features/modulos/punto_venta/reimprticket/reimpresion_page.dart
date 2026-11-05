@@ -6,6 +6,7 @@ import 'package:ioe_app/core/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ioe_app/core/api_error.dart';
+import 'package:ioe_app/core/time/business_datetime.dart';
 import 'package:ioe_app/core/dio_provider.dart';
 import 'package:ioe_app/features/masterdata/sucursales/sucursales_models.dart';
 import 'package:ioe_app/features/masterdata/sucursales/sucursales_providers.dart';
@@ -2713,12 +2714,7 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage> {
 
   String _money(double value) => '\$${value.toStringAsFixed(2)}';
 
-  String _fmtDateTime(DateTime? value) {
-    if (value == null) return '-';
-    final local = value.toLocal();
-    String p2(int n) => n.toString().padLeft(2, '0');
-    return '${p2(local.day)}/${p2(local.month)}/${local.year} ${p2(local.hour)}:${p2(local.minute)}';
-  }
+  String _fmtDateTime(DateTime? value) => formatBusinessDateTime(value);
 
   String _errorMessage(Object error) {
     if (error is StateError) {

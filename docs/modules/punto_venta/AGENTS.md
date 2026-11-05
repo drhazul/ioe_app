@@ -1,5 +1,7 @@
 # Punto de venta (AGENTS front)
 
+> C01 retirado de master productivo el 2026-11-05; desarrollo preservado en feature/lealtad-c01-preservado-20261105. Fechas comerciales se presentan sin convertir zona del dispositivo.
+
 - C01: mantener resultado true/false separado de error; jamás presentar no participante por fallo. Reintentos usan GET por IDFOL existente, sin volver a `createCotizacionAuto`. No mostrar cuerpo remoto ni credenciales. Panel FCN usa `formatCotizacionDate` (`toLocal`), como pago, para evitar mostrar día UTC siguiente.
 
 ## Fecha de proceso de folios y operaciones (2026-10-15)

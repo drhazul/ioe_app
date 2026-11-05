@@ -1,7 +1,6 @@
 import 'package:dio/dio.dart';
 
 import 'cotizaciones_models.dart';
-import 'cotizacion_lealtad_error.dart';
 
 class CotizacionesApi {
   CotizacionesApi(this.dio);
@@ -50,43 +49,6 @@ class CotizacionesApi {
     return PvCtrFolAsvrModel.fromJson(
       Map<String, dynamic>.from(res.data as Map),
     );
-  }
-
-  Future<CotizacionLealtadParticipacionModel> consultarParticipacionLealtad(
-    String idfol,
-  ) async {
-    final encodedIdfol = Uri.encodeComponent(idfol.trim());
-    try {
-      final res = await dio.get(
-        '/pv/cotizaciones/$encodedIdfol/lealtad/participacion',
-        // El backend puede autenticar y renovar una vez el JWT externo.
-        options: Options(receiveTimeout: const Duration(seconds: 45)),
-      );
-      return CotizacionLealtadParticipacionModel.fromJson(
-        Map<String, dynamic>.from(res.data as Map),
-      );
-    } on DioException catch (e) {
-      final data = e.response?.data;
-      final code = data is Map ? data['code']?.toString() : null;
-      const allowed = {
-        'LEALTAD_URL_NO_CONFIGURADA',
-        'LEALTAD_URL_INVALIDA',
-        'LEALTAD_CUENTA_NO_CONFIGURADA',
-        'LEALTAD_AUTH_RECHAZADA',
-        'LEALTAD_PERMISO_DENEGADO',
-        'LEALTAD_TIMEOUT',
-        'LEALTAD_RESPUESTA_INVALIDA',
-        'LEALTAD_CLIENTE_INCONSISTENTE',
-        'LEALTAD_AUTH_NO_DISPONIBLE',
-        'LEALTAD_CONEXION_NO_DISPONIBLE',
-        'LEALTAD_CONSULTA_NO_DISPONIBLE',
-      };
-      throw CotizacionLealtadError(
-        allowed.contains(code) ? code! : 'LEALTAD_NO_DISPONIBLE',
-      );
-    } on FormatException {
-      throw const CotizacionLealtadError('LEALTAD_RESPUESTA_INVALIDA');
-    }
   }
 
   Future<PvCtrFolAsvrModel> createCotizacion(

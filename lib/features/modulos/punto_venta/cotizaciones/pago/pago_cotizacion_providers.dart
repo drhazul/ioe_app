@@ -54,6 +54,8 @@ class PagoCotizacionState {
 
   double get sumPagos => formas.fold(0.0, (acc, item) => acc + item.impp);
 
+  bool get totalsReady => initialized && !loading && totales != null;
+
   PagoCotizacionState copyWith({
     bool? loading,
     bool? submitting,
@@ -212,6 +214,10 @@ class PagoCotizacionController extends StateNotifier<PagoCotizacionState> {
   }
 
   void addForma({required String form, required double impp, String? aut}) {
+    if (!state.totalsReady) {
+      state = state.copyWith(error: 'No se pudo validar el total de la cotización');
+      return;
+    }
     final normalizedForm = form.trim().toUpperCase();
     final creditoError = _validateCreditoDeudorCombination(
       form: normalizedForm,
@@ -317,7 +323,7 @@ class PagoCotizacionController extends StateNotifier<PagoCotizacionState> {
   }
 
   Future<PagoCierreResponse> finalizar({String? idopv}) async {
-    if (state.totales == null || state.context == null) {
+    if (!state.totalsReady || state.submitting || state.context == null) {
       throw Exception('No se pudo cargar el contexto de cierre');
     }
     final total = state.totales!.total;
@@ -388,6 +394,7 @@ class PagoCotizacionController extends StateNotifier<PagoCotizacionState> {
       );
       state = state.copyWith(
         loading: false,
+        initialized: true,
         context: preview.context,
         rqfac: preview.totales.rqfac,
         totales: preview.totales,
@@ -396,6 +403,7 @@ class PagoCotizacionController extends StateNotifier<PagoCotizacionState> {
     } catch (e) {
       state = state.copyWith(
         loading: false,
+        initialized: false,
         error: apiErrorMessage(e, fallback: 'No se pudo recalcular totales'),
       );
     }

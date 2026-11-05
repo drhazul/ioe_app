@@ -1,5 +1,7 @@
 # IOE App
 
+> C01 retirado de master productivo el 2026-11-05; desarrollo preservado en feature/lealtad-c01-preservado-20261105. Fechas comerciales se presentan sin convertir zona del dispositivo.
+
 ## C01 y fecha de cotizaciones (2026-10-23)
 
 Panel permite **Consultar lealtad** sobre folio existente; diálogo permite reintentar el mismo GET con diagnóstico seguro, sin crear otra cotización. FCN se presenta en hora local al recibir ISO UTC. [Causa, contrato y validación](../ioe-api/docs/modules/punto_venta/LEALTAD_C01_DIAGNOSTICO_20261023.md). Cuatro pruebas enfocadas y análisis Dart pasaron; UAT real depende de la conexión HTTPS de recompensas.

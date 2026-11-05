@@ -1,3 +1,5 @@
+import 'package:ioe_app/core/time/business_datetime.dart';
+
 class DevolucionesPanelQuery {
   const DevolucionesPanelQuery({
     this.suc = '',
@@ -789,9 +791,7 @@ double? _asDouble(dynamic value) {
 }
 
 DateTime? _asDate(dynamic value) {
-  if (value == null) return null;
-  if (value is DateTime) return value;
-  return DateTime.tryParse(value.toString());
+  return parseBusinessDateTime(value);
 }
 
 String? _asText(dynamic value) {

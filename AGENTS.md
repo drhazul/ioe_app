@@ -1,5 +1,7 @@
 # Instrucciones de agente para ioe_app
 
+> C01 retirado de master productivo el 2026-11-05; desarrollo preservado en feature/lealtad-c01-preservado-20261105. Fechas comerciales se presentan sin convertir zona del dispositivo.
+
 - C01 cotizaciones (2026-10-23): **Consultar lealtad** y **Volver a consultar** repiten solo GET del folio existente; un fallo conserva participación sin confirmar y muestra código seguro. FCN ISO UTC debe pasar por `formatCotizacionDate` para mostrar día local, sin alterar dato persistido. Contrato en `ioe-api/docs/modules/punto_venta/LEALTAD_C01_DIAGNOSTICO_20261023.md`.
 
 - Punto de venta / Fecha de proceso (2026-10-15): la UI consume fechas de folio y cierre generadas por API en hora local de México; fechas de negocio editables permanecen como fueron capturadas. Corrección afecta folios CP/CA/VF, devoluciones MB51 y sellos de facturación, sin cambio de contrato Flutter.

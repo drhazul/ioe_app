@@ -13,8 +13,6 @@ import 'package:ioe_app/features/modulos/punto_venta/clientes/clientes_providers
 
 import 'cotizaciones_models.dart';
 import 'cotizaciones_providers.dart';
-import 'cotizacion_lealtad_dialog.dart';
-import 'cotizacion_lealtad_error.dart';
 import 'cotizaciones_date.dart';
 
 class CotizacionesPage extends ConsumerStatefulWidget {
@@ -34,7 +32,6 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
   String? _userSuc;
   String? _userOpv;
   bool _contextReady = false;
-  bool _consultandoLealtad = false;
   CotizacionesPanelQuery _query = const CotizacionesPanelQuery();
 
   @override
@@ -136,11 +133,6 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
                     );
                   },
                   onDelete: (c) => _confirmDelete(context, ref, c),
-                  onConsultarLealtad: (c) => _consultarLealtad(
-                    context,
-                    clienteId: c.clien ?? 0,
-                    idfol: c.idfol,
-                  ),
                 ),
               ],
             ),
@@ -309,49 +301,9 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
 
     ref.invalidate(cotizacionesListProvider);
     if (!context.mounted) return;
-    await _consultarLealtad(
-      context,
-      clienteId: cliente.idc.toInt(),
-      idfol: created.idfol,
-    );
-    if (!context.mounted) return;
     context.go(
       '/punto-venta/cotizaciones/${Uri.encodeComponent(created.idfol)}/detalle',
     );
-  }
-
-  Future<void> _consultarLealtad(
-    BuildContext context, {
-    required int clienteId,
-    required String idfol,
-  }) async {
-    if (_consultandoLealtad || clienteId <= 0) return;
-    _consultandoLealtad = true;
-    Future<CotizacionLealtadParticipacionModel> consultar() =>
-        ref.read(cotizacionesApiProvider).consultarParticipacionLealtad(idfol);
-    CotizacionLealtadParticipacionModel? resultado;
-    CotizacionLealtadError? error;
-    try {
-      try {
-        resultado = await consultar();
-      } on CotizacionLealtadError catch (e) {
-        error = e;
-      } catch (_) {
-        error = const CotizacionLealtadError('LEALTAD_NO_DISPONIBLE');
-      }
-      if (!context.mounted) return;
-      await showDialog<void>(
-        context: context,
-        builder: (_) => CotizacionLealtadDialog(
-          clienteId: clienteId,
-          consultar: consultar,
-          resultadoInicial: resultado,
-          errorInicial: error,
-        ),
-      );
-    } finally {
-      _consultandoLealtad = false;
-    }
   }
 
   String _resolveTerminalName({required String opv, required String suc}) {
@@ -661,14 +613,12 @@ class _CotizacionesTable extends StatelessWidget {
     required this.selected,
     required this.onSelect,
     required this.onDelete,
-    required this.onConsultarLealtad,
   });
 
   final List<PvCtrFolAsvrModel> cotizaciones;
   final PvCtrFolAsvrModel? selected;
   final ValueChanged<PvCtrFolAsvrModel> onSelect;
   final ValueChanged<PvCtrFolAsvrModel> onDelete;
-  final ValueChanged<PvCtrFolAsvrModel> onConsultarLealtad;
 
   @override
   Widget build(BuildContext context) {
@@ -788,13 +738,6 @@ class _CotizacionesTable extends StatelessWidget {
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          IconButton(
-                            tooltip: 'Consultar lealtad',
-                            onPressed: (c.clien ?? 0) > 0
-                                ? () => onConsultarLealtad(c)
-                                : null,
-                            icon: const Icon(Icons.loyalty_outlined, size: 18),
-                          ),
                           IconButton(
                             tooltip: _isEstadoPendiente(c.esta)
                                 ? 'Anular'
