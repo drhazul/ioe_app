@@ -1606,7 +1606,7 @@ String _money(double value) => '\$${value.toStringAsFixed(2)}';
 
 String _fmtDateTime(DateTime? value) {
   if (value == null) return '-';
-  final local = value.toLocal();
+  final local = value;
   String p2(int n) => n.toString().padLeft(2, '0');
   return '${p2(local.day)}/${p2(local.month)}/${local.year} ${p2(local.hour)}:${p2(local.minute)}';
 }

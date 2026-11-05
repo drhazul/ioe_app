@@ -1,19 +1,13 @@
+import '../../../core/time/business_datetime.dart';
+
 class PsPanelQuery {
-  const PsPanelQuery({
-    this.suc = '',
-    this.opv = '',
-    this.search = '',
-  });
+  const PsPanelQuery({this.suc = '', this.opv = '', this.search = ''});
 
   final String suc;
   final String opv;
   final String search;
 
-  PsPanelQuery copyWith({
-    String? suc,
-    String? opv,
-    String? search,
-  }) {
+  PsPanelQuery copyWith({String? suc, String? opv, String? search}) {
     return PsPanelQuery(
       suc: suc ?? this.suc,
       opv: opv ?? this.opv,
@@ -34,18 +28,12 @@ class PsPanelQuery {
 }
 
 class PsAdeudosQuery {
-  const PsAdeudosQuery({
-    required this.client,
-    this.folio = '',
-  });
+  const PsAdeudosQuery({required this.client, this.folio = ''});
 
   final int client;
   final String folio;
 
-  PsAdeudosQuery copyWith({
-    int? client,
-    String? folio,
-  }) {
+  PsAdeudosQuery copyWith({int? client, String? folio}) {
     return PsAdeudosQuery(
       client: client ?? this.client,
       folio: folio ?? this.folio,
@@ -214,11 +202,7 @@ class PsTicketLine {
 }
 
 class PsServicioItem {
-  PsServicioItem({
-    required this.ids,
-    required this.dessv,
-    required this.tipo,
-  });
+  PsServicioItem({required this.ids, required this.dessv, required this.tipo});
 
   final String ids;
   final String dessv;
@@ -234,10 +218,7 @@ class PsServicioItem {
 }
 
 class PsRefGastoItem {
-  PsRefGastoItem({
-    required this.idr,
-    required this.refgasto,
-  });
+  PsRefGastoItem({required this.idr, required this.refgasto});
 
   final int idr;
   final String refgasto;
@@ -271,9 +252,7 @@ class PsClienteItem {
           _asText(json['RAZONSOCIALRECEPTOR']) ??
           '-',
       rfcReceptor:
-          _asText(json['RfcReceptor']) ??
-          _asText(json['RFCRECEPTOR']) ??
-          '-',
+          _asText(json['RfcReceptor']) ?? _asText(json['RFCRECEPTOR']) ?? '-',
       suc: _asText(json['SUC']),
     );
   }
@@ -304,23 +283,20 @@ class PsDetalleResponse {
       header: PsDetalleHeader.fromJson(headerRaw),
       ticket: ticketRaw
           .map(
-            (item) => PsTicketLine.fromJson(
-              Map<String, dynamic>.from(item as Map),
-            ),
+            (item) =>
+                PsTicketLine.fromJson(Map<String, dynamic>.from(item as Map)),
           )
           .toList(),
       servicios: serviciosRaw
           .map(
-            (item) => PsServicioItem.fromJson(
-              Map<String, dynamic>.from(item as Map),
-            ),
+            (item) =>
+                PsServicioItem.fromJson(Map<String, dynamic>.from(item as Map)),
           )
           .toList(),
       referenciasGasto: refsRaw
           .map(
-            (item) => PsRefGastoItem.fromJson(
-              Map<String, dynamic>.from(item as Map),
-            ),
+            (item) =>
+                PsRefGastoItem.fromJson(Map<String, dynamic>.from(item as Map)),
           )
           .toList(),
     );
@@ -515,9 +491,7 @@ double? _asDouble(dynamic value) {
 }
 
 DateTime? _asDate(dynamic value) {
-  if (value == null) return null;
-  if (value is DateTime) return value;
-  return DateTime.tryParse(value.toString());
+  return parseBusinessDateTime(value);
 }
 
 String? _asText(dynamic value) {

@@ -76,7 +76,7 @@ class _InventariosPageState extends ConsumerState<InventariosPage> {
     final appliedDate = _appliedFechaConteo;
     if (appliedDate == null) return true;
     if (value == null) return false;
-    return DateUtils.isSameDay(value.toLocal(), appliedDate);
+    return DateUtils.isSameDay(value, appliedDate);
   }
 
   List<DatContCtrlModel> _applyRowsFilters(List<DatContCtrlModel> rows) {
@@ -90,7 +90,7 @@ class _InventariosPageState extends ConsumerState<InventariosPage> {
   }
 
   String _fmtDateOnly(DateTime value) {
-    final local = value.toLocal();
+    final local = value;
     final day = local.day.toString().padLeft(2, '0');
     final month = local.month.toString().padLeft(2, '0');
     final year = local.year.toString().padLeft(4, '0');
@@ -621,7 +621,7 @@ class _InventarioTileState extends ConsumerState<_InventarioTile> {
 
   String _fmtDate(DateTime? value) {
     if (value == null) return '';
-    final local = value.toLocal();
+    final local = value;
     final day = local.day.toString().padLeft(2, '0');
     final month = local.month.toString().padLeft(2, '0');
     final year = local.year.toString().padLeft(4, '0');

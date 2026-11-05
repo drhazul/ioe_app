@@ -1,3 +1,5 @@
+import '../../../core/time/business_datetime.dart';
+
 class Mb51Filtros {
   final DateTime? fechaDocDesde;
   final DateTime? fechaDocHasta;
@@ -102,10 +104,18 @@ class Mb51Filtros {
 
   Map<String, dynamic> toApiJson() {
     final data = <String, dynamic>{};
-    if (fechaDocDesde != null) data['fechaDocDesde'] = fechaDocDesde!.toIso8601String();
-    if (fechaDocHasta != null) data['fechaDocHasta'] = fechaDocHasta!.toIso8601String();
-    if (fechaContDesde != null) data['fechaContDesde'] = fechaContDesde!.toIso8601String();
-    if (fechaContHasta != null) data['fechaContHasta'] = fechaContHasta!.toIso8601String();
+    if (fechaDocDesde != null) {
+      data['fechaDocDesde'] = businessDateOnly(fechaDocDesde!);
+    }
+    if (fechaDocHasta != null) {
+      data['fechaDocHasta'] = businessDateOnly(fechaDocHasta!);
+    }
+    if (fechaContDesde != null) {
+      data['fechaContDesde'] = businessDateOnly(fechaContDesde!);
+    }
+    if (fechaContHasta != null) {
+      data['fechaContHasta'] = businessDateOnly(fechaContHasta!);
+    }
     if (!_isBlank(art)) data['art'] = art!.trim();
     if (!_isBlankList(arts)) data['arts'] = arts;
     if (!_isBlank(docp)) data['docp'] = docp!.trim();
@@ -174,25 +184,25 @@ class Mb51Filtros {
 
   @override
   int get hashCode => Object.hash(
-        _dateHash(fechaDocDesde),
-        _dateHash(fechaDocHasta),
-        _dateHash(fechaContDesde),
-        _dateHash(fechaContHasta),
-        art,
-        _listHash(arts),
-        docp,
-        almacen,
-        _listHash(almacenes),
-        suc,
-        _listHash(sucs),
-        clsm,
-        _numListHash(clsms),
-        vtaesp,
-        user,
-        txt,
-        page,
-        limit,
-      );
+    _dateHash(fechaDocDesde),
+    _dateHash(fechaDocHasta),
+    _dateHash(fechaContDesde),
+    _dateHash(fechaContHasta),
+    art,
+    _listHash(arts),
+    docp,
+    almacen,
+    _listHash(almacenes),
+    suc,
+    _listHash(sucs),
+    clsm,
+    _numListHash(clsms),
+    vtaesp,
+    user,
+    txt,
+    page,
+    limit,
+  );
 }
 
 class Mb51SearchResult {
@@ -212,8 +222,11 @@ class Mb51SearchResult {
     final itemsRaw = json['items'];
     final items = itemsRaw is List
         ? itemsRaw
-            .map((e) => DatMb51Model.fromJson(Map<String, dynamic>.from(e as Map)))
-            .toList()
+              .map(
+                (e) =>
+                    DatMb51Model.fromJson(Map<String, dynamic>.from(e as Map)),
+              )
+              .toList()
         : <DatMb51Model>[];
     return Mb51SearchResult(
       items: items,
@@ -309,10 +322,7 @@ class DatCmovModel {
   final double? clsm;
   final String? descripcion;
 
-  DatCmovModel({
-    required this.clsm,
-    this.descripcion,
-  });
+  DatCmovModel({required this.clsm, this.descripcion});
 
   factory DatCmovModel.fromJson(Map<String, dynamic> json) {
     return DatCmovModel(
@@ -417,10 +427,7 @@ double? _asDouble(dynamic value) {
 List<double>? _asDoubleList(dynamic value) {
   if (value == null) return null;
   if (value is List) {
-    final list = value
-        .map((e) => _asDouble(e))
-        .whereType<double>()
-        .toList();
+    final list = value.map((e) => _asDouble(e)).whereType<double>().toList();
     return list.isEmpty ? null : list;
   }
   final single = _asDouble(value);
@@ -432,15 +439,13 @@ bool? _asBool(dynamic value) {
   if (value is bool) return value;
   if (value is num) return value != 0;
   final text = value.toString().trim().toLowerCase();
-  if (text == 'true' || text == '1' || text == 'si' || text == 'sí') return true;
+  if (text == 'true' || text == '1' || text == 'si' || text == 'sí') {
+    return true;
+  }
   if (text == 'false' || text == '0' || text == 'no') return false;
   return null;
 }
 
 DateTime? _asDate(dynamic value) {
-  if (value == null) return null;
-  if (value is DateTime) return value;
-  final text = value.toString().trim();
-  if (text.isEmpty) return null;
-  return DateTime.tryParse(text);
+  return parseBusinessDateTime(value);
 }

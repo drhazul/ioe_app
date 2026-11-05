@@ -7,6 +7,15 @@ class PsApi {
 
   final Dio dio;
 
+  Future<List<Map<String, dynamic>>> fetchCreditosContexto(String idFol) async {
+    final res = await dio.get(
+      '/ps/folios/${Uri.encodeComponent(idFol)}/creditos/contexto',
+    );
+    return ((res.data as Map)['items'] as List)
+        .map((row) => Map<String, dynamic>.from(row as Map))
+        .toList();
+  }
+
   Future<List<PsFolioItem>> fetchFolios({
     String? suc,
     String? opv,

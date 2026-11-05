@@ -33,6 +33,34 @@ class CotizacionesPanelQuery {
   int get hashCode => Object.hash(suc, opv, search);
 }
 
+class CotizacionLealtadParticipacionModel {
+  const CotizacionLealtadParticipacionModel({
+    required this.idfol,
+    required this.clienteId,
+    required this.participante,
+  });
+
+  final String idfol;
+  final String clienteId;
+  final bool participante;
+
+  factory CotizacionLealtadParticipacionModel.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    final participante = json['participante'];
+    if (participante is! bool) {
+      throw const FormatException(
+        'La API no devolvio estado de participacion valido.',
+      );
+    }
+    return CotizacionLealtadParticipacionModel(
+      idfol: json['idfol']?.toString() ?? '',
+      clienteId: json['clienteId']?.toString() ?? '',
+      participante: participante,
+    );
+  }
+}
+
 class PvCtrFolAsvrModel {
   PvCtrFolAsvrModel({
     required this.idfol,

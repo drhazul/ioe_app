@@ -1,5 +1,15 @@
 # IOE App
 
+## C01 y fecha de cotizaciones (2026-10-23)
+
+Panel permite **Consultar lealtad** sobre folio existente; diálogo permite reintentar el mismo GET con diagnóstico seguro, sin crear otra cotización. FCN se presenta en hora local al recibir ISO UTC. [Causa, contrato y validación](../ioe-api/docs/modules/punto_venta/LEALTAD_C01_DIAGNOSTICO_20261023.md). Cuatro pruebas enfocadas y análisis Dart pasaron; UAT real depende de la conexión HTTPS de recompensas.
+
+## Configuración de créditos: base de desarrollo (2026-10-20)
+
+Integrados engrane ADMIN en Empresas, página por segmentos con regla de créditos, alcance empresa/sucursal, herencia null y versiones. Captura CR consulta saldo/regla y conserva cuatro decimales; API prevalida antes de procesar y SQL revalida al cerrar. [Contrato y pruebas](../ioe-api/docs/modules/punto_venta/CREDITOS_CONFIG_DESARROLLO.md). Análisis limpio, 27 pruebas Flutter y hot reload verificados. Debug admite API_BASE_URL_DEV para destino aislado; sin cambiar .env ni conexión release. UAT autenticada y despliegue pendientes.
+
+Fecha FCNPGOCRED es permanente una vez fincada por pago que liquida crédito. Devoluciones parciales/totales y liquidaciones posteriores conservan fecha original; saldo actual se obtiene de contabilidad.
+
 ## Fecha de proceso de punto de venta y facturación — 2026-10-15
 
 La UI consume la fecha local de México generada por API para folios CP/CA/VF, cierres, devoluciones/MB51 y controles CFDI. Las fechas explícitas de negocio conservan el valor capturado; no cambia el contrato Flutter.
@@ -77,6 +87,7 @@ Frontend Flutter del ecosistema IOE. Consume `ioe-api` para autenticación, maes
 - Datos Maestros / Acceso por sucursal (2026-05-04): en `/#/masterdata/access-reg-suc` se agregan dropdowns `Sucursal (usuario)` y `Departamento` tanto en el filtro del CRUD como en el popup de vinculación para acotar módulos front/usuarios y el listado de registros.
 - Datos Maestros / Acceso por sucursal (2026-05-06): el filtro `Departamento` en `/#/masterdata/access-reg-suc` opera por coincidencia de `departamento de usuario OR departamento del módulo`; el dropdown usa unión de departamentos en lugar de intersección.
 - Datos Maestros / Usuarios y Empresas (2026-06-25): `/#/masterdata/empresas` administra prefijos de correo por empresa; el CRUD de usuarios compone correo como usuario + prefijo, filtra roles por departamento, oculta Nivel y sugiere consecutivo de cajas desde `PV_OPV.IDOPV`.
+- Datos Maestros / Entidades fiscales (2026-10-21): `/#/masterdata/entidades-fiscales` permite a ADMIN mantener RFC/tipo de persona/datos fiscales y vínculos por sucursal/vigencia; candidatos actuales se muestran pendientes de validación. La promoción coordinada de Flutter, API y SQL se registra en [control universal](../ioe-api/docs/CONTROL_CAMBIOS_DESARROLLO_PRODUCCION.md).
 - Ordenes de trabajo / Panel ORDs (2026-05-06): `ANALISTA_INV` e `INVJEF` ya no reciben bloqueo al cargar catálogo de asignados del panel.
 - Ordenes de trabajo / Panel ORDs (2026-05-06): el listado operativo de inventarios vuelve a depender de la cola backend `selCtrlOrd=14` en `sp_ordenes_trabajo_panel`.
 - Ordenes de trabajo / Panel ORDs multi-sucursal analista (2026-05-22): al seleccionar una sucursal explícita permitida (ej. `DF14`), usuarios `ANALISTA_ORD/ANALISTA` con acceso multi-sucursal deben visualizar ORDs recientes de esa sucursal; backend evita recorte adicional por `HOME_SUC`.
@@ -230,3 +241,12 @@ Excepción autorizada por titular: operación documental de API Quadrum deja de 
 ## Flutter Web en Coolify — 2026-10-15
 
 El release web se construye junto con `ioe-api` en la imagen conjunta de Coolify. El build productivo genera `API_BASE_URL_WEB=/api`; Nginx reenvía `/api/` a `erp-api:3001`. Front no se conecta directamente a SQL. API accede a IOELOCAL por red Docker privada; FEDERADA mantiene instancia y acceso independientes. No cambiar `.40:1433`, mounts de almacenamiento, ni puerto de app como parte de un cambio de base. El fallback móvil `192.168.10.234:3001` sigue separado de la configuración Web y no cambia con este rebuild. Fuente y compuertas: `ioe-api/deploy/coolify/README.md`.
+
+
+## Cancelación Quadrum sin bloqueo de habilitación (2026-10-29)
+
+API incorpora localmente validación de cancelación independiente de listas RFC/flujo y bandera de emisión. Flutter conserva confirmación de operación y contrato HTTP; no se modifica Dart para resolver este bloqueo interno. Referencia canónica: ioe-api/docs/modules/cfdi/QUADRUM_CANCELACION_SEGUIMIENTO_20261029.md. Despliegue conjunto y UAT fiscal pendientes; no interpretar pruebas offline como cancelación efectiva. Notas de soporte descartadas por titular.
+
+## Fechas comerciales compartidas (2026-11-04)
+
+Core incorpora BusinessDateTime/UtcInstant. MB51, PS y conteos conservan calendario comercial recibido sin zona; filtros envían YYYY-MM-DD. API aplica contratos centrales a rutas comerciales. [Contrato coordinado y mantenimiento](../ioe-api/docs/CONTRATO_FECHAS_CDMX.md). Integración local; prevención productiva pendiente del pase conjunto.

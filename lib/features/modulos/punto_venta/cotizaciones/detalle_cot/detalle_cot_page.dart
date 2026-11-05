@@ -11,6 +11,7 @@ import '../../clientes/clientes_providers.dart';
 import '../new_ord/new_ord_dialog.dart';
 import '../new_ord/new_ord_models.dart';
 import '../new_ord/new_ord_providers.dart';
+import '../cotizaciones_date.dart';
 import '../cotizaciones_models.dart';
 import '../cotizaciones_providers.dart';
 import '../pago/pago_cotizacion_providers.dart';
@@ -1633,13 +1634,6 @@ class _HeaderSection extends StatelessWidget {
     );
   }
 
-  static String _formatDateTime(DateTime? value) {
-    if (value == null) return '-';
-    final y = value.year.toString().padLeft(4, '0');
-    final m = value.month.toString().padLeft(2, '0');
-    final d = value.day.toString().padLeft(2, '0');
-    return '$d/$m/$y';
-  }
 }
 
 class _InfoBarInline extends StatelessWidget {
@@ -1661,7 +1655,7 @@ class _InfoBarInline extends StatelessWidget {
         const SizedBox(width: 12),
         _InfoTile(
           label: 'Fecha',
-          value: _HeaderSection._formatDateTime(cotizacion.fcn),
+          value: formatCotizacionDate(cotizacion.fcn),
         ),
         const SizedBox(width: 12),
         _InfoTile(label: 'Nombre OPV', value: cotizacion.opv ?? '-'),

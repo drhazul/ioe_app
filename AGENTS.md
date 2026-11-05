@@ -1,5 +1,7 @@
 # Instrucciones de agente para ioe_app
 
+- C01 cotizaciones (2026-10-23): **Consultar lealtad** y **Volver a consultar** repiten solo GET del folio existente; un fallo conserva participación sin confirmar y muestra código seguro. FCN ISO UTC debe pasar por `formatCotizacionDate` para mostrar día local, sin alterar dato persistido. Contrato en `ioe-api/docs/modules/punto_venta/LEALTAD_C01_DIAGNOSTICO_20261023.md`.
+
 - Punto de venta / Fecha de proceso (2026-10-15): la UI consume fechas de folio y cierre generadas por API en hora local de México; fechas de negocio editables permanecen como fueron capturadas. Corrección afecta folios CP/CA/VF, devoluciones MB51 y sellos de facturación, sin cambio de contrato Flutter.
 
 - DEV_PROVD / Devoluciones a proveedor (2026-08-28): feature `lib/features/modulos/devoluciones_proveedor`; rutas `/modulos/devoluciones-proveedor` y `/:doc`; acceso desde `MOD_FRONT.DEV_PROVD`. Mantener reglas críticas de reserva, autorización y movimiento 102 exclusivamente en API/SP.
@@ -85,6 +87,7 @@
 - Datos Maestros / Acceso por sucursal (2026-05-06): el filtro `Departamento` en `/#/masterdata/access-reg-suc` usa coincidencia por `departamento de usuario OR departamento del módulo`; el dropdown muestra unión de departamentos (ya no intersección estricta).
 - Datos Maestros / Colaboradores compartidos por sucursal (2026-06-18): se agrega CRUD en `/#/masterdata/access/suc-colab-acceso` para parametrizar sucursal destino/origen y administrar `DAT_SUC_COLAB_ACCESO`; la pantalla se usa para compartir catálogo de colaboradores sin hardcode en ORD.
 - Datos Maestros / Usuarios y Empresas (2026-06-25): se agrega CRUD `/#/masterdata/empresas`; alta/edición de usuarios reordena Sucursal/Departamento/Rol, filtra Rol por Departamento, oculta Nivel, compone Correo con empresa y sugiere usuario de cajas desde `PV_OPV.IDOPV` `5000-5999`.
+- Datos Maestros / Entidades fiscales (2026-10-21): `/#/masterdata/entidades-fiscales` permite a ADMIN ROL 1 revisar/editar personas contribuyentes y vincularlas a sucursales con estado y vigencia; candidatos importados siguen `PENDIENTE`, sin activar contabilización. Control conjunto back/front/SQL en `../ioe-api/docs/CONTROL_CAMBIOS_DESARROLLO_PRODUCCION.md`.
 - Ordenes de trabajo / Panel ORDs (2026-05-06): `ANALISTA_INV` e `INVJEF` pueden consultar catálogo de asignados sin bloqueo de rol para filtros del panel.
 - Ordenes de trabajo / Panel ORDs (2026-05-06): backend repone criterio de cola para inventarios (`selCtrlOrd=14`) en `sp_ordenes_trabajo_panel`; frontend debe asumir que la lista operativa depende de ese filtro servidor.
 - Ordenes de trabajo / Panel ORDs multi-sucursal analista (2026-05-22): para usuarios `ANALISTA_ORD/ANALISTA` con acceso multi-sucursal en `USR_MOD_SUC`, al seleccionar sucursal explícita (ej. `DF14`) el panel debe mostrar ORDs recientes de esa sucursal; backend omite recorte por `HOME_SUC` cuando `@SUC` ya viene definida.
@@ -220,3 +223,12 @@ Excepción autorizada por titular: operación documental de API Quadrum deja de 
 ## Despliegue conjunto con todos los cambios (2026-10-14)
 
 Instrucción del titular: cada pase productivo debe incluir backend y frontend juntos, con commits de todos los cambios de fuente/documentación pendientes en ambos repositorios. Integrar historias locales/remotas/servidor sin descartar modificaciones; preservar secretos/entornos y respaldos fuera de Git. Validar y registrar ambas versiones en imagen/postflight. No hacer un pase sólo de API como sustituto del despliegue conjunto.
+
+
+## Cancelación Quadrum sin bloqueo de habilitación (2026-10-29)
+
+API incorpora localmente validación de cancelación independiente de listas RFC/flujo y bandera de emisión. Flutter conserva confirmación de operación y contrato HTTP; no se modifica Dart para resolver este bloqueo interno. Referencia canónica: ioe-api/docs/modules/cfdi/QUADRUM_CANCELACION_SEGUIMIENTO_20261029.md. Despliegue conjunto y UAT fiscal pendientes; no interpretar pruebas offline como cancelación efectiva. Notas de soporte descartadas por titular.
+
+## Arquitectura de fechas compartida (2026-11-04)
+
+Usar lib/core/time/business_datetime.dart y [contrato coordinado](../ioe-api/docs/CONTRATO_FECHAS_CDMX.md). BusinessDateTime contiene componentes comerciales, no representa epoch; no aplicar toLocal/toUtc ni serializar su calendar directamente con Z. UtcInstant exige zona explícita. Nuevos campos deben declarar semántica. API/App/DDL/TZ se activan juntos en mantenimiento; no presentar integración local como corrección preventiva ya desplegada.

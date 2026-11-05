@@ -1,3 +1,5 @@
+import '../../../core/time/business_datetime.dart';
+
 class DatContCtrlModel {
   final String tokenreg;
   final String? cont;
@@ -35,10 +37,10 @@ class DatContCtrlModel {
     return DatContCtrlModel(
       tokenreg: json['TOKENREG'] as String,
       cont: json['CONT'] as String?,
-      fcnc: _parseDate(json['FCNC']),
+      fcnc: parseBusinessDateTime(json['FCNC']),
       esta: json['ESTA'] as String?,
       suc: json['SUC'] as String?,
-      fcnaj: _parseDate(json['FCNAJ']),
+      fcnaj: parseBusinessDateTime(json['FCNAJ']),
       artaj: (json['ARTAJ'] as num?)?.toDouble(),
       artcont: (json['ARTCONT'] as num?)?.toDouble(),
       tipocont: json['TIPOCONT'] as String?,
@@ -54,10 +56,10 @@ class DatContCtrlModel {
     return {
       if (includePk) 'TOKENREG': tokenreg,
       'CONT': cont,
-      'FCNC': fcnc?.toIso8601String(),
+      'FCNC': fcnc == null ? null : businessCalendarIso(fcnc!),
       'ESTA': esta,
       'SUC': suc,
-      'FCNAJ': fcnaj?.toIso8601String(),
+      'FCNAJ': fcnaj == null ? null : businessCalendarIso(fcnaj!),
       'ARTAJ': artaj,
       'ARTCONT': artcont,
       'TIPOCONT': tipocont,
@@ -109,9 +111,14 @@ class ConteoUploadResult {
     return ConteoUploadResult(
       cont: json['cont'] as String? ?? json['CONT'] as String? ?? '',
       suc: json['suc'] as String? ?? json['SUC'] as String? ?? '',
-      tipocont: json['tipocont'] as String? ?? json['TIPOCONT'] as String? ?? '',
-      totalItems: DatContCtrlModel._parseInt(json['totalItems'] ?? json['TOTAL_ITEMS']),
-      totalDet: DatContCtrlModel._parseInt(json['totalDet'] ?? json['TOTAL_DET']),
+      tipocont:
+          json['tipocont'] as String? ?? json['TIPOCONT'] as String? ?? '',
+      totalItems: DatContCtrlModel._parseInt(
+        json['totalItems'] ?? json['TOTAL_ITEMS'],
+      ),
+      totalDet: DatContCtrlModel._parseInt(
+        json['totalDet'] ?? json['TOTAL_DET'],
+      ),
       fileName: json['fileName'] as String? ?? json['FILE_NAME'] as String?,
       status: json['status'] as String? ?? json['ESTA'] as String?,
     );
@@ -135,7 +142,11 @@ class ConteoProcessResult {
     return ConteoProcessResult(
       cont: json['cont'] as String? ?? '',
       suc: json['suc'] as String? ?? '',
-      ctrl: json['ctrl'] != null ? DatContCtrlModel.fromJson(Map<String, dynamic>.from(json['ctrl'] as Map)) : null,
+      ctrl: json['ctrl'] != null
+          ? DatContCtrlModel.fromJson(
+              Map<String, dynamic>.from(json['ctrl'] as Map),
+            )
+          : null,
       totalDet: DatContCtrlModel._parseInt(json['totalDet']),
     );
   }
@@ -166,10 +177,16 @@ class ConteoApplyAdjustmentResult {
     return ConteoApplyAdjustmentResult(
       cont: json['cont'] as String? ?? json['CONT'] as String? ?? '',
       suc: json['suc'] as String? ?? json['SUC'] as String? ?? '',
-      docp701: parseString(json['docp701'] ?? json['DOCP701'] ?? json['DOC_P701']),
-      docp702: parseString(json['docp702'] ?? json['DOCP702'] ?? json['DOC_P702']),
+      docp701: parseString(
+        json['docp701'] ?? json['DOCP701'] ?? json['DOC_P701'],
+      ),
+      docp702: parseString(
+        json['docp702'] ?? json['DOCP702'] ?? json['DOC_P702'],
+      ),
       movimientosInsertados: DatContCtrlModel._parseInt(
-        json['movimientosInsertados'] ?? json['MOVIMIENTOSINSERTADOS'] ?? json['MOVIMIENTOS_INSERTADOS'],
+        json['movimientosInsertados'] ??
+            json['MOVIMIENTOSINSERTADOS'] ??
+            json['MOVIMIENTOS_INSERTADOS'],
       ),
     );
   }
@@ -290,7 +307,8 @@ class DatDetSvrModel {
 
   factory DatDetSvrModel.fromJson(Map<String, dynamic> json) {
     double? parseDouble(dynamic value) => (value as num?)?.toDouble();
-    int? parseInt(dynamic value) => value == null ? null : int.tryParse(value.toString());
+    int? parseInt(dynamic value) =>
+        value == null ? null : int.tryParse(value.toString());
 
     return DatDetSvrModel(
       id: parseInt(json['ID']),
@@ -341,13 +359,16 @@ class ConteoDetResponse {
 
   factory ConteoDetResponse.fromJson(Map<String, dynamic> json) {
     final data = (json['data'] as List<dynamic>? ?? [])
-        .map((e) => DatDetSvrModel.fromJson(Map<String, dynamic>.from(e as Map)))
+        .map(
+          (e) => DatDetSvrModel.fromJson(Map<String, dynamic>.from(e as Map)),
+        )
         .toList();
 
     final page = DatContCtrlModel._parseInt(json['page']) ?? 1;
     final limit = DatContCtrlModel._parseInt(json['limit']) ?? data.length;
     final total = DatContCtrlModel._parseInt(json['total']) ?? data.length;
-    final totalPagesParsed = DatContCtrlModel._parseInt(json['totalPages']) ?? 1;
+    final totalPagesParsed =
+        DatContCtrlModel._parseInt(json['totalPages']) ?? 1;
 
     return ConteoDetResponse(
       data: data,

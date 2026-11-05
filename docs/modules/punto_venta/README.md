@@ -1,5 +1,13 @@
 # Punto de venta (front)
 
+- C01 (2026-10-23): acción de panel **Consultar lealtad** y botón **Volver a consultar** usan folio persistido; no generan otra cotización. Error seguro `LEALTAD_*` conserva estado desconocido. Recepción C01 acotada a 45 s. FCN se convierte a hora local antes de extraer día/mes/año; no hay reparación SQL.
+
+## Créditos PS: consumidor integrado en desarrollo (2026-10-20)
+
+Engrane ADMIN ROL 1 en Empresas abre configuración de créditos con alcance empresa/sucursal, herencia null, versiones y valores efectivos. Captura CR muestra saldo/regla, propone total para una línea con cantidad 1 y conserva cuatro decimales. API prevalida antes de procesar; SQL confirma fecha sólo al saldo cero. Análisis limpio, 27 pruebas y hot reload; UAT real pendiente. Debug usa API_BASE_URL_DEV explícito; no iniciar API normal con .env productivo. Contrato canónico: `ioe-api/docs/modules/punto_venta/CREDITOS_CONFIG_DESARROLLO.md` en workspace.
+
+Regla definitiva: FCNPGOCRED se fija al liquidar sólo si estaba NULL y conserva valor después de devoluciones parciales/totales o nuevos pagos. Representa hecho histórico, no saldo vigente. No agregar limpieza/reconciliación de fecha por reapertura; corrección SQL ya aplicada en desarrollo y probada.
+
 ## Fecha de proceso de folios y operaciones (2026-10-15)
 
 La UI recibe de API folios CP/CA/VF y timestamps de cierre/devolución calculados en hora local de México. Fechas de negocio editables conservan valor capturado y contrato Flutter no cambia. El SQL preventivo ya se aplicó en `.40` el 2026-10-16; el fix API está en `074ee21`. La publicación API/App conjunta, postflight de runtime y UAT siguen pendientes; no se modifican folios históricos.
@@ -207,6 +215,12 @@ Enlaces relacionados:
 - `PATCH /pvctrfolasvr/:idfol` para asignar `CLIEN` al folio creado.
 - Correccion de integracion (2026-02): cuando `CLIEN` supera el rango `int32`, backend trata `PV_CTR_FOL_ASVR.CLIEN` como `float` para evitar error `500` al asignar cliente en este flujo.
 
+## Recompensas C01: participación de cliente en cotizaciones
+
+- Después de asignar el cliente al folio, Flutter consulta `GET /pv/cotizaciones/:idfol/lealtad/participacion`.
+- La pantalla informa si participa, no participa o si no se pudo confirmar. El fallo de consulta no revierte ni bloquea la cotización.
+- C01 no muestra saldo disponible, no implica permiso de gasto ni agrega forma de pago o movimiento. La consulta y sus credenciales permanecen en backend IOE.
+
 ## Edicion de precio en detalle de cotizacion
 - Pantalla: `lib/features/modulos/punto_venta/cotizaciones/detalle_cot/detalle_cot_page.dart`.
 - Cabecera de detalle: se ocultan `IDFOLINICIAL`, `AUT`, `ESTA` y `ORIGEN_AUT`; se conserva contexto visible con `Sucursal`, `Cotizacion`, `Fecha`, `Nombre OPV`, `N Cliente` y `Nombre Cliente`.
@@ -413,3 +427,7 @@ Enlaces relacionados:
 - UX y validaciones (2026-05-26): formularios de promociones muestran mensajes de campos obligatorios y validaciones contextuales por tipo de beneficio, corrigiendo envíos con campos nulos sin retroalimentación.
 - Cliente en configuración (2026-05-26): se reemplaza dropdown por modal con buscador y selección única; se muestran clientes de la sucursal seleccionada y se evita crash por duplicados en valores de dropdown.
 - Catálogo clientes (2026-05-26): backend entrega clientes por sucursal desde `FACT_CLIENT_SHP` usando filtro `ESTATUS=0` y `IDC` como `CLIENTE`; frontend consume lista completa y deduplica por `CLIENTE`.
+
+## Contrato horario CDMX (2026-11-04)
+
+Fechas comerciales usan adaptación compartida SQL/API/Flutter, sin falsa Z ni conversión por zona del dispositivo; auditoría conserva UTC. MB51 adapta FCND/FCNC y filtros de calendario; PS/conteos comparten contrato central de respuesta. Mantener separado alcance de reparación FCNC de 15 filas NC300007708 y despliegue preventivo pendiente. [Contrato y validación](../../../../ioe-api/docs/CONTRATO_FECHAS_CDMX.md).

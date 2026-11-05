@@ -1,3 +1,5 @@
+import '../../../../core/time/business_datetime.dart';
+
 class ConteoDisponible {
   final String tokenreg;
   final String? cont;
@@ -26,7 +28,7 @@ class ConteoDisponible {
       suc: json['SUC'] as String?,
       estado: json['ESTA'] as String?,
       tipocont: json['TIPOCONT'] as String?,
-      fcnc: _parseDate(json['FCNC']),
+      fcnc: parseBusinessDateTime(json['FCNC']),
       totalItems: _parseInt(json['TOTAL_ITEMS'] ?? json['totalItems']),
       fileName: json['FILE_NAME'] as String?,
     );
@@ -65,20 +67,20 @@ class CapturaResult {
   });
 
   factory CapturaResult.fromJson(Map<String, dynamic> json) => CapturaResult(
-        id: _parseInt(json['id']),
-        cont: json['cont'] as String? ?? '',
-        suc: json['suc'] as String? ?? '',
-        art: json['art'] as String? ?? '',
-        upc: json['upc'] as String?,
-        almacen: json['almacen'] as String? ?? '',
-        cantidad: _parseDouble(json['cantidad']) ?? 0,
-        tipoMov: json['tipoMov'] as String?,
-        capturaUuid: json['capturaUuid'] as String? ?? '',
-        fcnr: _parseDate(json['fcnr']),
-        idUsuario: _parseInt(json['idUsuario']),
-        idempotent: (json['idempotent'] as bool?) ?? false,
-        estadoConteo: json['estadoConteo'] as String?,
-      );
+    id: _parseInt(json['id']),
+    cont: json['cont'] as String? ?? '',
+    suc: json['suc'] as String? ?? '',
+    art: json['art'] as String? ?? '',
+    upc: json['upc'] as String?,
+    almacen: json['almacen'] as String? ?? '',
+    cantidad: _parseDouble(json['cantidad']) ?? 0,
+    tipoMov: json['tipoMov'] as String?,
+    capturaUuid: json['capturaUuid'] as String? ?? '',
+    fcnr: _parseDate(json['fcnr']),
+    idUsuario: _parseInt(json['idUsuario']),
+    idempotent: (json['idempotent'] as bool?) ?? false,
+    estadoConteo: json['estadoConteo'] as String?,
+  );
 }
 
 class CapturaRecord {

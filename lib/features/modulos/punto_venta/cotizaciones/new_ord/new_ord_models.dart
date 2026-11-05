@@ -1,3 +1,5 @@
+import 'package:ioe_app/core/time/business_datetime.dart';
+
 class CreateOrdFromQuoteLineRequest {
   CreateOrdFromQuoteLineRequest({
     required this.idfol,
@@ -44,7 +46,7 @@ class CreateOrdFromQuoteLineRequest {
     'tipo': tipo,
     'suc': suc,
     'opv': opv,
-    'fechaEntrega': fechaEntrega?.toIso8601String(),
+    'fechaEntrega': fechaEntrega == null ? null : businessCalendarIso(fechaEntrega!),
     'comad': comad,
     'ordExistente': ordExistente,
     'ticketRel': ticketRel,

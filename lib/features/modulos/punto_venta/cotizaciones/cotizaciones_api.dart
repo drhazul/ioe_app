@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import 'cotizaciones_models.dart';
+import 'cotizacion_lealtad_error.dart';
 
 class CotizacionesApi {
   CotizacionesApi(this.dio);
@@ -46,12 +47,55 @@ class CotizacionesApi {
 
   Future<PvCtrFolAsvrModel> fetchCotizacion(String idfol) async {
     final res = await dio.get('/pvctrfolasvr/$idfol');
-    return PvCtrFolAsvrModel.fromJson(Map<String, dynamic>.from(res.data as Map));
+    return PvCtrFolAsvrModel.fromJson(
+      Map<String, dynamic>.from(res.data as Map),
+    );
   }
 
-  Future<PvCtrFolAsvrModel> createCotizacion(Map<String, dynamic> payload) async {
+  Future<CotizacionLealtadParticipacionModel> consultarParticipacionLealtad(
+    String idfol,
+  ) async {
+    final encodedIdfol = Uri.encodeComponent(idfol.trim());
+    try {
+      final res = await dio.get(
+        '/pv/cotizaciones/$encodedIdfol/lealtad/participacion',
+        // El backend puede autenticar y renovar una vez el JWT externo.
+        options: Options(receiveTimeout: const Duration(seconds: 45)),
+      );
+      return CotizacionLealtadParticipacionModel.fromJson(
+        Map<String, dynamic>.from(res.data as Map),
+      );
+    } on DioException catch (e) {
+      final data = e.response?.data;
+      final code = data is Map ? data['code']?.toString() : null;
+      const allowed = {
+        'LEALTAD_URL_NO_CONFIGURADA',
+        'LEALTAD_URL_INVALIDA',
+        'LEALTAD_CUENTA_NO_CONFIGURADA',
+        'LEALTAD_AUTH_RECHAZADA',
+        'LEALTAD_PERMISO_DENEGADO',
+        'LEALTAD_TIMEOUT',
+        'LEALTAD_RESPUESTA_INVALIDA',
+        'LEALTAD_CLIENTE_INCONSISTENTE',
+        'LEALTAD_AUTH_NO_DISPONIBLE',
+        'LEALTAD_CONEXION_NO_DISPONIBLE',
+        'LEALTAD_CONSULTA_NO_DISPONIBLE',
+      };
+      throw CotizacionLealtadError(
+        allowed.contains(code) ? code! : 'LEALTAD_NO_DISPONIBLE',
+      );
+    } on FormatException {
+      throw const CotizacionLealtadError('LEALTAD_RESPUESTA_INVALIDA');
+    }
+  }
+
+  Future<PvCtrFolAsvrModel> createCotizacion(
+    Map<String, dynamic> payload,
+  ) async {
     final res = await dio.post('/pvctrfolasvr', data: payload);
-    return PvCtrFolAsvrModel.fromJson(Map<String, dynamic>.from(res.data as Map));
+    return PvCtrFolAsvrModel.fromJson(
+      Map<String, dynamic>.from(res.data as Map),
+    );
   }
 
   Future<PvCtrFolAsvrModel> createCotizacionAuto({
@@ -67,12 +111,19 @@ class CotizacionesApi {
     if (sucTrim.isNotEmpty) payload['SUC'] = sucTrim;
     if (opvTrim.isNotEmpty) payload['OPV'] = opvTrim;
     final res = await dio.post('/pvctrfolasvr/auto', data: payload);
-    return PvCtrFolAsvrModel.fromJson(Map<String, dynamic>.from(res.data as Map));
+    return PvCtrFolAsvrModel.fromJson(
+      Map<String, dynamic>.from(res.data as Map),
+    );
   }
 
-  Future<PvCtrFolAsvrModel> updateCotizacion(String idfol, Map<String, dynamic> payload) async {
+  Future<PvCtrFolAsvrModel> updateCotizacion(
+    String idfol,
+    Map<String, dynamic> payload,
+  ) async {
     final res = await dio.patch('/pvctrfolasvr/$idfol', data: payload);
-    return PvCtrFolAsvrModel.fromJson(Map<String, dynamic>.from(res.data as Map));
+    return PvCtrFolAsvrModel.fromJson(
+      Map<String, dynamic>.from(res.data as Map),
+    );
   }
 
   Future<void> deleteCotizacion(String idfol) async {
@@ -105,9 +156,8 @@ class CotizacionesApi {
 
     return rows
         .map(
-          (e) => PvCtrFolAsvrModel.fromJson(
-            Map<String, dynamic>.from(e as Map),
-          ),
+          (e) =>
+              PvCtrFolAsvrModel.fromJson(Map<String, dynamic>.from(e as Map)),
         )
         .toList();
   }
@@ -146,9 +196,7 @@ class CotizacionesApi {
 
   bool _isVisibleEstado(String? value) {
     final estado = _normalize(value);
-    return estado == 'PENDIENTE' ||
-        estado == 'EDITANDO' ||
-        estado == 'PAGADO';
+    return estado == 'PENDIENTE' || estado == 'EDITANDO' || estado == 'PAGADO';
   }
 
   bool _isVisibleAut(String? value) {
@@ -233,4 +281,3 @@ class CotizacionesApi {
     return (value ?? '').trim().toUpperCase();
   }
 }
-

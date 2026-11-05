@@ -102,3 +102,7 @@
 - No exponer captura de articulos fuera de `BORRADOR`; cantidades liberadas solo en `PENDIENTE`; cantidades recibidas solo en `TRANSITO`.
 - El detalle DEV_PROVD presenta artículos en tabla horizontal con ART, UPC, Descripción, Motivo, Cantidad, Disponible, Costo, Importe, Lote, Caducidad, Evidencia y Acciones.
 - En borrador DEV_PROVD, Acciones muestra iconos directos Editar y Eliminar; el diálogo Editar mide 520x330, precarga cantidad, motivo, lote y caducidad, y no permite agregar ni reemplazar evidencia por artículo.
+
+## Contrato horario CDMX (2026-11-04)
+
+Fechas comerciales usan adaptación compartida SQL/API/Flutter, sin falsa Z ni conversión por zona del dispositivo; auditoría conserva UTC. MB51 adapta FCND/FCNC y filtros de calendario; PS/conteos comparten contrato central de respuesta. Mantener separado alcance de reparación FCNC de 15 filas NC300007708 y despliegue preventivo pendiente. [Contrato y validación](../../../../ioe-api/docs/CONTRATO_FECHAS_CDMX.md).

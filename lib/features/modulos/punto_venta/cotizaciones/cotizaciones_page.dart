@@ -13,6 +13,9 @@ import 'package:ioe_app/features/modulos/punto_venta/clientes/clientes_providers
 
 import 'cotizaciones_models.dart';
 import 'cotizaciones_providers.dart';
+import 'cotizacion_lealtad_dialog.dart';
+import 'cotizacion_lealtad_error.dart';
+import 'cotizaciones_date.dart';
 
 class CotizacionesPage extends ConsumerStatefulWidget {
   const CotizacionesPage({super.key});
@@ -31,6 +34,7 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
   String? _userSuc;
   String? _userOpv;
   bool _contextReady = false;
+  bool _consultandoLealtad = false;
   CotizacionesPanelQuery _query = const CotizacionesPanelQuery();
 
   @override
@@ -132,6 +136,11 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
                     );
                   },
                   onDelete: (c) => _confirmDelete(context, ref, c),
+                  onConsultarLealtad: (c) => _consultarLealtad(
+                    context,
+                    clienteId: c.clien ?? 0,
+                    idfol: c.idfol,
+                  ),
                 ),
               ],
             ),
@@ -280,18 +289,14 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
     if (!context.mounted) return;
 
     final terminal = _resolveTerminalName(opv: opv, suc: suc);
+    late final PvCtrFolAsvrModel created;
     try {
-      final created = await ref
+      created = await ref
           .read(cotizacionesApiProvider)
           .createCotizacionAuto(ter: terminal, suc: suc, opv: opv);
       await ref.read(cotizacionesApiProvider).updateCotizacion(created.idfol, {
         'CLIEN': cliente.idc.toInt(),
       });
-      ref.invalidate(cotizacionesListProvider);
-      if (!context.mounted) return;
-      context.go(
-        '/punto-venta/cotizaciones/${Uri.encodeComponent(created.idfol)}/detalle',
-      );
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -299,6 +304,53 @@ class _CotizacionesPageState extends ConsumerState<CotizacionesPage> {
           content: Text('No se pudo crear la cotización o asignar cliente: $e'),
         ),
       );
+      return;
+    }
+
+    ref.invalidate(cotizacionesListProvider);
+    if (!context.mounted) return;
+    await _consultarLealtad(
+      context,
+      clienteId: cliente.idc.toInt(),
+      idfol: created.idfol,
+    );
+    if (!context.mounted) return;
+    context.go(
+      '/punto-venta/cotizaciones/${Uri.encodeComponent(created.idfol)}/detalle',
+    );
+  }
+
+  Future<void> _consultarLealtad(
+    BuildContext context, {
+    required int clienteId,
+    required String idfol,
+  }) async {
+    if (_consultandoLealtad || clienteId <= 0) return;
+    _consultandoLealtad = true;
+    Future<CotizacionLealtadParticipacionModel> consultar() =>
+        ref.read(cotizacionesApiProvider).consultarParticipacionLealtad(idfol);
+    CotizacionLealtadParticipacionModel? resultado;
+    CotizacionLealtadError? error;
+    try {
+      try {
+        resultado = await consultar();
+      } on CotizacionLealtadError catch (e) {
+        error = e;
+      } catch (_) {
+        error = const CotizacionLealtadError('LEALTAD_NO_DISPONIBLE');
+      }
+      if (!context.mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (_) => CotizacionLealtadDialog(
+          clienteId: clienteId,
+          consultar: consultar,
+          resultadoInicial: resultado,
+          errorInicial: error,
+        ),
+      );
+    } finally {
+      _consultandoLealtad = false;
     }
   }
 
@@ -609,12 +661,14 @@ class _CotizacionesTable extends StatelessWidget {
     required this.selected,
     required this.onSelect,
     required this.onDelete,
+    required this.onConsultarLealtad,
   });
 
   final List<PvCtrFolAsvrModel> cotizaciones;
   final PvCtrFolAsvrModel? selected;
   final ValueChanged<PvCtrFolAsvrModel> onSelect;
   final ValueChanged<PvCtrFolAsvrModel> onDelete;
+  final ValueChanged<PvCtrFolAsvrModel> onConsultarLealtad;
 
   @override
   Widget build(BuildContext context) {
@@ -705,7 +759,7 @@ class _CotizacionesTable extends StatelessWidget {
                     style: TextStyle(fontWeight: FontWeight.w600),
                   ),
                 ),
-                DataColumn(label: SizedBox(width: 36)),
+                DataColumn(label: Text('Acciones')),
               ],
               rows: cotizaciones.map((c) {
                 final selectedRow = selected?.idfol == c.idfol;
@@ -720,7 +774,7 @@ class _CotizacionesTable extends StatelessWidget {
                     DataCell(_cellText(c.idfol)),
                     DataCell(_cellText(c.idfolinicial ?? '-')),
                     DataCell(_cellText((c.origenAut ?? '-').toUpperCase())),
-                    DataCell(_cellText(_formatDate(c.fcn))),
+                    DataCell(_cellText(formatCotizacionDate(c.fcn))),
                     DataCell(_cellText(c.tra ?? '-')),
                     DataCell(_cellText(c.clien?.toString() ?? '-')),
                     DataCell(
@@ -731,14 +785,26 @@ class _CotizacionesTable extends StatelessWidget {
                       _cellText(_formatMoney(c.impt), align: TextAlign.right),
                     ),
                     DataCell(
-                      IconButton(
-                        tooltip: _isEstadoPendiente(c.esta)
-                            ? 'Anular'
-                            : 'Disponible solo en PENDIENTE',
-                        onPressed: _isEstadoPendiente(c.esta)
-                            ? () => onDelete(c)
-                            : null,
-                        icon: const Icon(Icons.delete_outline, size: 18),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            tooltip: 'Consultar lealtad',
+                            onPressed: (c.clien ?? 0) > 0
+                                ? () => onConsultarLealtad(c)
+                                : null,
+                            icon: const Icon(Icons.loyalty_outlined, size: 18),
+                          ),
+                          IconButton(
+                            tooltip: _isEstadoPendiente(c.esta)
+                                ? 'Anular'
+                                : 'Disponible solo en PENDIENTE',
+                            onPressed: _isEstadoPendiente(c.esta)
+                                ? () => onDelete(c)
+                                : null,
+                            icon: const Icon(Icons.delete_outline, size: 18),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -758,14 +824,6 @@ class _CotizacionesTable extends StatelessWidget {
       softWrap: false,
       overflow: TextOverflow.visible,
     );
-  }
-
-  String _formatDate(DateTime? value) {
-    if (value == null) return '-';
-    final y = value.year.toString().padLeft(4, '0');
-    final m = value.month.toString().padLeft(2, '0');
-    final d = value.day.toString().padLeft(2, '0');
-    return '$d/$m/$y';
   }
 
   String _formatMoney(double? value) {

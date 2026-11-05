@@ -1,5 +1,7 @@
 # Punto de venta (AGENTS front)
 
+- C01: mantener resultado true/false separado de error; jamás presentar no participante por fallo. Reintentos usan GET por IDFOL existente, sin volver a `createCotizacionAuto`. No mostrar cuerpo remoto ni credenciales. Panel FCN usa `formatCotizacionDate` (`toLocal`), como pago, para evitar mostrar día UTC siguiente.
+
 ## Fecha de proceso de folios y operaciones (2026-10-15)
 - La UI muestra los folios CP/CA/VF y timestamps de cierre/devolución que genera la API usando hora local de México.
 - Las fechas de negocio editables se presentan sin normalización; no hay cambio del contrato Flutter.
@@ -237,6 +239,7 @@ Enlaces relacionados:
 - Ticket devoluciones formato (2026-03): el PDF se homologa a cotizaciones con bloques `DETALLE`, `TOTALES`, `FORMAS`, `TRANSACCION`, `RESUMEN DE ORDS`, `ORDS` (barcode `CODE39` + tabla `JOB/ESF/CIL/EJE`) y vouchers para formas no `EFECTIVO`.
 
 ## Pago de Servicios (implementado 2026-03)
+- Créditos (2026-10-20): consumidor local para IOEDESARROLLO. Engrane/página exclusivos ROL 1; EMPRESA/SUCURSAL, null hereda, versión y recarga; 409 conserva borrador. CR muestra saldo/regla y captura cuatro decimales. FCNPGOCRED es fecha histórica permanente una vez fincada; devoluciones parciales/totales o nueva liquidación no la borran/reemplazan. No inferir saldo actual a partir de fecha ni agregar reconciliador por reapertura. Debug API_BASE_URL_DEV; .env API sigue productivo, no arrancar backend normal para pruebas. Contrato `ioe-api/docs/modules/punto_venta/CREDITOS_CONFIG_DESARROLLO.md`. UAT real pendiente; futuro despliegue API+app coordinados.
 - Rutas UI:
 - `/ps` (panel)
 - `/ps/:idFol` (detalle)
@@ -394,3 +397,6 @@ Enlaces relacionados:
 ## Caja General: entrega OPV (2026-06-18)
 - la vista de entrega deshabilita refresco mientras carga para evitar consultas simultáneas al sync de OPV.
 
+## Contrato horario CDMX (2026-11-04)
+
+Fechas comerciales usan adaptación compartida SQL/API/Flutter, sin falsa Z ni conversión por zona del dispositivo; auditoría conserva UTC. MB51 adapta FCND/FCNC y filtros de calendario; PS/conteos comparten contrato central de respuesta. Mantener separado alcance de reparación FCNC de 15 filas NC300007708 y despliegue preventivo pendiente. [Contrato y validación](../../../../ioe-api/docs/CONTRATO_FECHAS_CDMX.md).

@@ -1,3 +1,4 @@
+import 'package:ioe_app/core/env.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -378,27 +379,91 @@ class _PsDetallePageState extends ConsumerState<PsDetallePage> {
       return;
     }
 
+    final credito = Env.developmentBusinessEnabled && (line.upc ?? '').trim().toUpperCase() == 'CR';
+    String? creditHint;
+    String? suggested;
+    if (credito) {
+      try {
+        final items = await ref
+            .read(psApiProvider)
+            .fetchCreditosContexto(widget.idFol);
+        if (!mounted) return;
+        final matching = items
+            .where((e) => e['art']?.toString().trim() == art)
+            .toList();
+        if (matching.length != 1 ||
+            matching.single['permitir'] == null ||
+            matching.single['saldo'] == null) {
+          _showError(
+            'Crédito sin referencia o configuración verificable. Asigne referencia antes de capturar importe.',
+          );
+          return;
+        }
+        final item = matching.single;
+        final totalRequired = item['permitir'] == false;
+        creditHint =
+            'Sucursal origen: ${item['suc']} · Saldo: ${item['saldo']}\n'
+            '${totalRequired ? 'Debe liquidar saldo completo entre todas las líneas de este crédito.' : 'Permite parcialidades hasta el saldo pendiente.'}';
+        if (totalRequired &&
+            items.where((e) => e['idfol'] == item['idfol']).length == 1 &&
+            double.tryParse(item['cantidad'].toString()) == 1) {
+          suggested = item['saldo'].toString();
+        }
+      } catch (e) {
+        if (mounted) {
+          _showError(
+            apiErrorMessage(
+              e,
+              fallback: 'No se pudo consultar regla de crédito',
+            ),
+          );
+        }
+        return;
+      }
+    }
+    if (!mounted) return;
     final ctrl = TextEditingController(
-      text: line.pvta == null ? '' : line.pvta!.toStringAsFixed(2),
+      text:
+          suggested ??
+          (line.pvta == null
+              ? ''
+              : line.pvta!.toStringAsFixed(credito ? 4 : 2)),
     );
     final result = await showDialog<double>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('Editar PVTA - $art'),
-        content: TextField(
-          controller: ctrl,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: const InputDecoration(
-            labelText: 'PVTA',
-            border: OutlineInputBorder(),
-            isDense: true,
-          ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (creditHint != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Text(creditHint),
+              ),
+            TextField(
+              controller: ctrl,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              decoration: const InputDecoration(
+                labelText: 'PVTA',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+            ),
+          ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancelar'),
+          ),
           FilledButton(
             onPressed: () {
-              final value = double.tryParse(ctrl.text.trim().replaceAll(',', '.'));
+              final value = double.tryParse(
+                ctrl.text.trim().replaceAll(',', '.'),
+              );
               if (value == null || value <= 0) return;
               Navigator.of(ctx).pop(value);
             },
@@ -411,11 +476,9 @@ class _PsDetallePageState extends ConsumerState<PsDetallePage> {
     if (!mounted || result == null) return;
 
     try {
-      await ref.read(psApiProvider).updatePvta(
-            idFol: widget.idFol,
-            art: art,
-            pvta: result,
-          );
+      await ref
+          .read(psApiProvider)
+          .updatePvta(idFol: widget.idFol, art: art, pvta: result);
       ref.invalidate(psDetalleProvider(widget.idFol));
     } catch (e) {
       if (!mounted) return;

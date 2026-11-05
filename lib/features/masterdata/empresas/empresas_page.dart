@@ -1,9 +1,11 @@
+import 'package:ioe_app/core/env.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'empresas_models.dart';
 import 'empresas_providers.dart';
+import '../../../core/auth/auth_controller.dart';
 
 class EmpresasPage extends ConsumerWidget {
   const EmpresasPage({super.key});
@@ -28,7 +30,11 @@ class EmpresasPage extends ConsumerWidget {
         child: const Icon(Icons.add),
       ),
       body: empresasAsync.when(
-        data: (items) => _EmpresasList(items: items, ref: ref),
+        data: (items) => _EmpresasList(
+          items: items,
+          ref: ref,
+          isAdmin: ref.watch(authControllerProvider).roleId == 1,
+        ),
         error: (e, _) => Center(child: Text('Error: $e')),
         loading: () => const Center(child: CircularProgressIndicator()),
       ),
@@ -37,10 +43,15 @@ class EmpresasPage extends ConsumerWidget {
 }
 
 class _EmpresasList extends StatelessWidget {
-  const _EmpresasList({required this.items, required this.ref});
+  const _EmpresasList({
+    required this.items,
+    required this.ref,
+    required this.isAdmin,
+  });
 
   final List<EmpresaModel> items;
   final WidgetRef ref;
+  final bool isAdmin;
 
   @override
   Widget build(BuildContext context) {
@@ -70,6 +81,14 @@ class _EmpresasList extends StatelessWidget {
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                if (isAdmin && Env.developmentBusinessEnabled)
+                  IconButton(
+                    icon: const Icon(Icons.settings_outlined),
+                    tooltip: 'Configuración de empresa',
+                    onPressed: () => context.go(
+                      '/masterdata/empresas/${item.idempresa}/configuracion',
+                    ),
+                  ),
                 IconButton(
                   icon: const Icon(Icons.edit),
                   tooltip: 'Editar',

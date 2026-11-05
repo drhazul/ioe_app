@@ -1,11 +1,16 @@
+import 'package:ioe_app/core/env.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class MasterDataPage extends StatelessWidget {
+import '../../core/auth/auth_controller.dart';
+
+class MasterDataPage extends ConsumerWidget {
   const MasterDataPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isAdmin = ref.watch(authControllerProvider).roleId == 1;
     return Scaffold(
       appBar: AppBar(title: const Text('Datos Maestros')),
       body: ListView(
@@ -30,6 +35,11 @@ class MasterDataPage extends StatelessWidget {
             title: const Text('Empresas'),
             onTap: () => context.go('/masterdata/empresas'),
           ),
+          if (isAdmin && Env.developmentBusinessEnabled)
+            ListTile(
+              title: const Text('Entidades fiscales y sucursales'),
+              onTap: () => context.go('/masterdata/entidades-fiscales'),
+            ),
           ListTile(
             title: const Text('Acceso por sucursal'),
             onTap: () => context.go('/masterdata/access-reg-suc'),

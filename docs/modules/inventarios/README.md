@@ -98,3 +98,7 @@
 - En DEV_PROVD, Editar artículo usa un panel compacto 520x330, precarga cantidad, motivo, lote y caducidad, y omite por completo la captura o reemplazo de fotografía por artículo.
 - En Nueva devolución DEV_PROVD no se muestra el campo O.C.; la recepción queda opcional para distinguir devoluciones por recepción de devoluciones manuales.
 - En el PDF DEV_PROVD, la tabla omite UPC y Motivo contiene solo la descripción, sin la clave `DEV-xx`.
+
+## Contrato horario CDMX (2026-11-04)
+
+Fechas comerciales usan adaptación compartida SQL/API/Flutter, sin falsa Z ni conversión por zona del dispositivo; auditoría conserva UTC. MB51 adapta FCND/FCNC y filtros de calendario; PS/conteos comparten contrato central de respuesta. Mantener separado alcance de reparación FCNC de 15 filas NC300007708 y despliegue preventivo pendiente. [Contrato y validación](../../../../ioe-api/docs/CONTRATO_FECHAS_CDMX.md).

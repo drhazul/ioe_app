@@ -1,3 +1,4 @@
+import 'env.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -27,7 +28,9 @@ import '../features/masterdata/deptos/depto_form_page.dart';
 import '../features/masterdata/users/users_page.dart';
 import '../features/masterdata/users/user_form_page.dart';
 import '../features/masterdata/empresas/empresas_page.dart';
+import '../features/masterdata/empresas/empresa_configuracion_page.dart';
 import '../features/masterdata/empresas/empresa_form_page.dart';
+import '../features/masterdata/empresas/entidades_fiscales_page.dart';
 import '../features/masterdata/sucursales/sucursales_page.dart';
 import '../features/masterdata/sucursales/sucursal_form_page.dart';
 import '../features/masterdata/datmodulos/datmodulos_page.dart';
@@ -294,6 +297,15 @@ final routerProvider = Provider<GoRouter>((ref) {
                 builder: (c, s) => const EmpresasPage(),
                 routes: [
                   GoRoute(
+                    path: ':id/configuracion',
+                    redirect: (c, s) =>
+                        Env.developmentBusinessEnabled && auth.roleId == 1 ? null : '/masterdata/empresas',
+                    builder: (c, s) => EmpresaConfiguracionPage(
+                      idempresa:
+                          int.tryParse(s.pathParameters['id'] ?? '') ?? 0,
+                    ),
+                  ),
+                  GoRoute(
                     path: 'new',
                     builder: (c, s) => const EmpresaFormPage(),
                   ),
@@ -304,6 +316,11 @@ final routerProvider = Provider<GoRouter>((ref) {
                     ),
                   ),
                 ],
+              ),
+              GoRoute(
+                path: 'entidades-fiscales',
+                redirect: (c, s) => Env.developmentBusinessEnabled && auth.roleId == 1 ? null : '/masterdata',
+                builder: (c, s) => const EntidadesFiscalesPage(),
               ),
               GoRoute(
                 path: 'access-reg-suc',
@@ -872,10 +889,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'facturacion/mtto-clientes',
             builder: (c, s) => const FacturaMttoClientePage(),
           ),
-          GoRoute(
-            path: 'facturacion/csd',
-            builder: (c, s) => const CsdPage(),
-          ),
+          GoRoute(path: 'facturacion/csd', builder: (c, s) => const CsdPage()),
           GoRoute(
             path: 'facturacion/pruebas',
             builder: (c, s) => const FacturacionQuadrumPage(),
