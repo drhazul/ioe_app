@@ -889,6 +889,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'facturacion/mtto-clientes',
             builder: (c, s) => const FacturaMttoClientePage(),
           ),
+          GoRoute(
+            path: 'facturacion/mtto-clientes-credito',
+            builder: (c, s) => const FacturaMttoClientePage(mostrarCredito: true),
+          ),
           GoRoute(path: 'facturacion/csd', builder: (c, s) => const CsdPage()),
           GoRoute(
             path: 'facturacion/pruebas',
@@ -1025,6 +1029,10 @@ bool _hasFacturacionRouteAccess(String location, List<HomeModule> modules) {
       .map((module) => module.codigo.trim().toUpperCase())
       .where((code) => code.isNotEmpty)
       .toSet();
+
+  if (location == '/facturacion/mtto-clientes-credito') {
+    return codes.contains('GES_CRED');
+  }
 
   if (location == '/facturacion-view' ||
       location.startsWith('/facturacion-view/')) {

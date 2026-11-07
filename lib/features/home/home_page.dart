@@ -570,6 +570,9 @@ class _ModuleRow extends StatelessWidget {
     if (moduloCode == 'MERMA_REPORTES') {
       return '/modulos/merma/reportes';
     }
+    if (moduloCode == 'GES_CRED') {
+      return '/facturacion/mtto-clientes-credito';
+    }
     if (moduloCode == 'FACTURA_MTTOCLIENTE') {
       return '/facturacion/mtto-clientes';
     }

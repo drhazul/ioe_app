@@ -15,6 +15,7 @@ class FactClientShpModel {
   final String codigoPostalReceptor;
   final double regimenFiscalReceptor;
   final double? iCred;
+  final double? lCred;
   final double? vf;
   final double? estatus;
   final int? datval;
@@ -39,6 +40,7 @@ class FactClientShpModel {
     this.ntjt,
     this.optica,
     this.iCred,
+    this.lCred,
     this.vf,
     this.estatus,
     this.datval,
@@ -67,6 +69,7 @@ class FactClientShpModel {
           (json['REGIMENFISCALRECEPTOR'] as num?)?.toDouble() ??
           0,
       iCred: (json['I_CRED'] as num?)?.toDouble(),
+      lCred: (json['L_CRED'] as num?)?.toDouble(),
       vf: (json['VF'] as num?)?.toDouble(),
       estatus: (json['ESTATUS'] as num?)?.toDouble(),
       datval: (json['DATVAL'] as num?)?.toInt(),

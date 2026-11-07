@@ -1,5 +1,9 @@
 # IOE App
 
+## Gestión de crédito / clientes (2026-11-07)
+
+El módulo `GES_CRED` abre mantenimiento de clientes con `L_CRED` editable; `FACTURA_MTTOCLIENTE` conserva la misma pantalla sin ese campo. La API verifica acceso a `GES_CRED` antes de modificar el límite y conserva las reglas existentes de sucursales.
+
 > C01 retirado de master productivo el 2026-11-05; desarrollo preservado en feature/lealtad-c01-preservado-20261105. Fechas comerciales se presentan sin convertir zona del dispositivo.
 
 ## C01 y fecha de cotizaciones (2026-10-23)

@@ -13,7 +13,9 @@ import 'package:ioe_app/features/modulos/punto_venta/clientes/datcatreg_provider
 import 'package:ioe_app/features/modulos/punto_venta/clientes/datcatuso_providers.dart';
 
 class FacturaMttoClientePage extends ConsumerStatefulWidget {
-  const FacturaMttoClientePage({super.key});
+  const FacturaMttoClientePage({super.key, this.mostrarCredito = false});
+
+  final bool mostrarCredito;
 
   @override
   ConsumerState<FacturaMttoClientePage> createState() =>
@@ -34,6 +36,7 @@ class _FacturaMttoClientePageState
   final _domiCtrl = TextEditingController();
   final _ncelCtrl = TextEditingController();
   final _aliasCtrl = TextEditingController();
+  final _creditoCtrl = TextEditingController();
   final _upperFormatter = UpperCaseTextFormatter();
 
   String _searchBy = 'NOMBRE';
@@ -62,6 +65,7 @@ class _FacturaMttoClientePageState
     _domiCtrl.dispose();
     _ncelCtrl.dispose();
     _aliasCtrl.dispose();
+    _creditoCtrl.dispose();
     super.dispose();
   }
 
@@ -257,6 +261,25 @@ class _FacturaMttoClientePageState
                 label: 'Sucursal',
                 value: _selectedClient!.suc ?? '-',
               ),
+              if (widget.mostrarCredito)
+                _LabeledField(
+                  label: 'Límite de crédito',
+                  child: TextFormField(
+                    controller: _creditoCtrl,
+                    enabled: !_saving,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(border: OutlineInputBorder(), isDense: true),
+                    validator: (value) {
+                      final text = (value ?? '').trim();
+                      if (text.isEmpty) return null;
+                      if (!RegExp(r'^\d+(\.\d{1,2})?$').hasMatch(text) ||
+                          double.tryParse(text)?.isFinite != true) {
+                        return 'Ingresa importe válido con hasta 2 decimales';
+                      }
+                      return null;
+                    },
+                  ),
+                ),
               const SizedBox(height: 12),
               _LabeledField(
                 label: 'Alias/Óptica',
@@ -531,6 +554,7 @@ class _FacturaMttoClientePageState
     _domiCtrl.text = cliente.domicilio ?? '';
     _ncelCtrl.text = cliente.ncel ?? '';
     _aliasCtrl.text = cliente.optica ?? '';
+    _creditoCtrl.text = cliente.lCred?.toString() ?? '';
     _codigoPostalCtrl.text = cliente.codigoPostalReceptor;
     _rfcEmisor = cliente.rfcEmisor;
     _usoCfdi = cliente.usoCfdi;
@@ -547,6 +571,7 @@ class _FacturaMttoClientePageState
       _domiCtrl.clear();
       _ncelCtrl.clear();
       _aliasCtrl.clear();
+      _creditoCtrl.clear();
       _codigoPostalCtrl.clear();
       _rfcEmisor = _selectDefault;
       _usoCfdi = _selectDefault;
@@ -583,6 +608,11 @@ class _FacturaMttoClientePageState
       'CODIGOPOSTALRECEPTOR': _codigoPostalCtrl.text.trim().toUpperCase(),
       'REGIMENFISCALRECEPTOR': regimenFiscal,
     };
+    if (widget.mostrarCredito) {
+      final text = _creditoCtrl.text.trim();
+      final credito = text.isEmpty ? null : double.parse(text);
+      if (credito != _selectedClient!.lCred) payload['L_CRED'] = credito;
+    }
 
     try {
       final idc = _selectedClient!.idc.toInt().toString();
