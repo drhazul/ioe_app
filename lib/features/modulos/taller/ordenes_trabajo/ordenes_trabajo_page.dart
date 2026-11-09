@@ -140,6 +140,10 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       widget.isReportesTaller ||
       widget.panelMode == OrdenesTrabajoPanelMode.estado;
 
+  bool get _usesEstadoPageSize =>
+      !widget.isReportesTaller &&
+      widget.panelMode == OrdenesTrabajoPanelMode.estado;
+
   bool get _isControlCalidadReportUser {
     if (!widget.isReportesTaller) return false;
     final roleCode = ref.read(_panelProvider).valueOrNull?.roleCode ?? '';
@@ -379,19 +383,30 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
             end: Alignment.bottomRight,
           ),
         ),
-        child: panelAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => _buildPanelLoadError(error),
-          data: (panel) => Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                _buildFiltersCard(panel),
-                const SizedBox(height: 8),
-                Expanded(child: _buildTable(panel)),
-              ],
+        child: Column(
+          children: [
+            if (panelAsync.isLoading && panelData != null)
+              const LinearProgressIndicator(minHeight: 2),
+            Expanded(
+              child: panelAsync.when(
+                skipLoadingOnRefresh: true,
+                skipLoadingOnReload: true,
+                loading: () =>
+                    const Center(child: CircularProgressIndicator()),
+                error: (error, _) => _buildPanelLoadError(error),
+                data: (panel) => Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      _buildFiltersCard(panel),
+                      const SizedBox(height: 8),
+                      Expanded(child: _buildTable(panel)),
+                    ],
+                  ),
+                ),
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );
@@ -842,7 +857,11 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     final hasSelection = selectedCount > 0;
     final hasSingleSelection = selectedCount == 1 && selected != null;
     final allowedActions = panel?.allowedActions ?? const <String>{};
-    bool can(String action) => _isAdmin || allowedActions.contains(action);
+    final isAnalistaOrd =
+        panel?.roleCode.trim().toUpperCase() == 'ANALISTA_ORD';
+    bool can(String action) => isAnalistaOrd
+        ? allowedActions.contains(action)
+        : _isAdmin || allowedActions.contains(action);
     final actions = <_OrdenTrabajoToolbarAction>[];
 
     void addAction({
@@ -1135,7 +1154,9 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     final showFlowMovementActor =
         !widget.isReportesTaller &&
         widget.panelMode == OrdenesTrabajoPanelMode.estado &&
-        panel.showFlowHistoryDetails;
+        panel.showFlowHistoryDetails &&
+        selectedFlow != null &&
+        selectedFlow.isNotEmpty;
     final showFlowDuration =
         showFlowMovementActor &&
         selectedFlow != null &&
@@ -2738,6 +2759,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       search: null,
       deferResults: false,
       page: 1,
+      pageSize: _usesEstadoPageSize ? 20 : current.pageSize,
     );
     if (widget.isReportesTaller &&
         !_isControlCalidadReportUser &&
@@ -2774,6 +2796,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       panelMode: widget.panelMode,
       reportMode: widget.isReportesTaller,
       deferResults: _requiresManualFilterBeforeResults,
+      pageSize: _usesEstadoPageSize ? 20 : 25,
     );
   }
 
@@ -2959,7 +2982,10 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
 
   void _changePage(int page) {
     final current = ref.read(_filterProvider);
-    ref.read(_filterProvider.notifier).state = current.copyWith(page: page);
+    ref.read(_filterProvider.notifier).state = current.copyWith(
+      page: page,
+      pageSize: _usesEstadoPageSize ? 20 : current.pageSize,
+    );
     setState(() => _selectedIords.clear());
   }
 
@@ -6386,9 +6412,6 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
 
     List<double> allowedCtdCMValues() {
       final originalCtd = _toNum(original['CTD'])?.toDouble();
-      if (mode == _OrdCambioMermaMode.cambioMaterial) {
-        return const [1, 0.5];
-      }
       if (originalCtd != null && (originalCtd - 0.5).abs() <= 0.0001) {
         return const [0.5];
       }
@@ -7359,9 +7382,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                           }
                           if (!ctdCMOptions.contains(ctdCMValue)) {
                             _showError(
-                              mode == _OrdCambioMermaMode.cambioMaterial
-                                  ? 'Para cambio de material, CTD_C_M puede ser 0.5 o 1.'
-                                  : ctdCMOptions.length == 1
+                              ctdCMOptions.length == 1
                                   ? 'CTD_C_M solo permite 0.5 cuando la ORD original fue creada por 0.5.'
                                   : 'CTD_C_M solo permite 1 o 0.5 cuando la ORD original fue creada por 1.',
                             );
@@ -8525,6 +8546,11 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
         panelMode: widget.panelMode,
         reportMode: widget.isReportesTaller,
         deferResults: _requiresManualFilterBeforeResults,
+        pageSize: _usesEstadoPageSize
+            ? 20
+            : currentFilter.pageSize <= 0
+            ? 25
+            : currentFilter.pageSize,
       );
       ref.read(_filterProvider.notifier).state = initializedFilter;
       _restoreFilterInputs(initializedFilter);
@@ -8555,7 +8581,11 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       reportMode: widget.isReportesTaller,
       deferResults: _requiresManualFilterBeforeResults,
       page: currentFilter.page <= 0 ? 1 : currentFilter.page,
-      pageSize: currentFilter.pageSize <= 0 ? 25 : currentFilter.pageSize,
+      pageSize: _usesEstadoPageSize
+          ? 20
+          : currentFilter.pageSize <= 0
+          ? 25
+          : currentFilter.pageSize,
     );
     ref.read(_filterProvider.notifier).state = initializedFilter;
     _restoreFilterInputs(initializedFilter);

@@ -842,6 +842,7 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
 
     final initialTipo = _extractOrdTipo(existingHeader) ?? kOrdTipoTallado;
     final initialFechaEntrega = _extractDateField(existingHeader, 'FCNM');
+    final initialHrEnt = _extractDateField(existingHeader, 'HR_ENT');
     final initialComad = _extractStringField(existingHeader, 'COMAD');
     final initialDescArt =
         _extractStringField(existingHeader, 'DESCART') ?? targetItem.des ?? '';
@@ -863,6 +864,9 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
         ordExistente: ordExistente.isEmpty ? null : ordExistente,
         tipoInicial: initialTipo,
         fechaEntregaInicial: initialFechaEntrega,
+        hrEntInicial: initialHrEnt == null
+            ? null
+            : '${initialHrEnt.hour.toString().padLeft(2, '0')}:${initialHrEnt.minute.toString().padLeft(2, '0')}',
         comadInicial: initialComad,
       ),
       onAuthorizeRelation: (passwordSupervisor) async {
@@ -920,6 +924,7 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
             suc: cot.suc ?? '',
             opv: cot.opv ?? '',
             fechaEntrega: dialogResult.fechaEntrega,
+            hrEnt: dialogResult.hrEnt,
             comad: dialogResult.comad,
             ordExistente: ordExistente.isEmpty ? null : ordExistente,
             ticketRel: dialogResult.ticketRel,

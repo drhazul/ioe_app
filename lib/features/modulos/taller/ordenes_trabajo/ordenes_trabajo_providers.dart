@@ -10,7 +10,10 @@ final ordenesTrabajoApiProvider = Provider<OrdenesTrabajoApi>(
 
 final ordenesTrabajoFilterProvider =
     StateProvider.family<OrdenesTrabajoFilter, OrdenesTrabajoPanelMode>(
-      (ref, panelMode) => OrdenesTrabajoFilter(panelMode: panelMode),
+      (ref, panelMode) => OrdenesTrabajoFilter(
+        panelMode: panelMode,
+        pageSize: panelMode == OrdenesTrabajoPanelMode.estado ? 20 : 25,
+      ),
     );
 
 final ordenesTrabajoReportFilterProvider = StateProvider<OrdenesTrabajoFilter>(

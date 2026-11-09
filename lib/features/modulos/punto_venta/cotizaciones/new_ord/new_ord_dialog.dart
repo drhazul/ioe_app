@@ -18,6 +18,7 @@ Future<NewOrdDialogResult?> showNewOrdDialog(
       ? payload.tipoInicial.trim().toUpperCase()
       : kOrdTipoTallado;
   DateTime? fechaEntrega = payload.fechaEntregaInicial;
+  TimeOfDay? horaEntrega = _parseTimeOfDay(payload.hrEntInicial);
   String comadText = payload.comadInicial ?? '';
   String ticketRelText = '';
   String? relationAuthorizationToken;
@@ -91,6 +92,22 @@ Future<NewOrdDialogResult?> showNewOrdDialog(
                       onClear: fechaEntrega == null
                           ? null
                           : () => setState(() => fechaEntrega = null),
+                    ),
+                    const SizedBox(height: 8),
+                    _TimeField(
+                      label: 'Hora de entrega',
+                      value: horaEntrega,
+                      onPick: () async {
+                        final picked = await showTimePicker(
+                          context: context,
+                          initialTime: horaEntrega ?? TimeOfDay.now(),
+                        );
+                        if (picked == null) return;
+                        setState(() => horaEntrega = picked);
+                      },
+                      onClear: horaEntrega == null
+                          ? null
+                          : () => setState(() => horaEntrega = null),
                     ),
                     const SizedBox(height: 8),
                     TextFormField(
@@ -220,6 +237,7 @@ Future<NewOrdDialogResult?> showNewOrdDialog(
                             tipo: selectedTipo,
                             descArt: payload.descArt,
                             fechaEntrega: fechaEntrega,
+                            hrEnt: _formatTimeOfDay(horaEntrega),
                             comad: _normalizeNullableText(comadText),
                           );
                           if (onDelete == null) {
@@ -240,6 +258,7 @@ Future<NewOrdDialogResult?> showNewOrdDialog(
                                 tipo: result.tipo,
                                 descArt: result.descArt,
                                 fechaEntrega: result.fechaEntrega,
+                                hrEnt: result.hrEnt,
                                 comad: result.comad,
                                 successMessage: message,
                               ),
@@ -287,6 +306,7 @@ Future<NewOrdDialogResult?> showNewOrdDialog(
                           tipo: selectedTipo,
                           descArt: payload.descArt,
                           fechaEntrega: fechaEntrega,
+                          hrEnt: _formatTimeOfDay(horaEntrega),
                           comad: comad,
                           ticketRel: relationAuthorized
                               ? _normalizeNullableText(ticketRelText)
@@ -311,6 +331,7 @@ Future<NewOrdDialogResult?> showNewOrdDialog(
                               tipo: result.tipo,
                               descArt: result.descArt,
                               fechaEntrega: result.fechaEntrega,
+                              hrEnt: result.hrEnt,
                               comad: result.comad,
                               ticketRel: result.ticketRel,
                               relationAuthorizationToken:
@@ -351,6 +372,20 @@ String _formatDate(DateTime value) {
   final mm = value.month.toString().padLeft(2, '0');
   final yyyy = value.year.toString().padLeft(4, '0');
   return '$dd/$mm/$yyyy';
+}
+
+TimeOfDay? _parseTimeOfDay(String? value) {
+  final match = RegExp(r'^(\d{2}):(\d{2})$').firstMatch(value?.trim() ?? '');
+  if (match == null) return null;
+  final hour = int.tryParse(match.group(1)!);
+  final minute = int.tryParse(match.group(2)!);
+  if (hour == null || minute == null || hour > 23 || minute > 59) return null;
+  return TimeOfDay(hour: hour, minute: minute);
+}
+
+String? _formatTimeOfDay(TimeOfDay? value) {
+  if (value == null) return null;
+  return '${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}';
 }
 
 String? _normalizeNullableText(String raw) {
@@ -538,6 +573,51 @@ class _DateField extends StatelessWidget {
           ),
         ),
         child: Text(value == null ? '-' : _formatDate(value!)),
+      ),
+    );
+  }
+}
+
+class _TimeField extends StatelessWidget {
+  const _TimeField({
+    required this.label,
+    required this.value,
+    required this.onPick,
+    required this.onClear,
+  });
+
+  final String label;
+  final TimeOfDay? value;
+  final VoidCallback onPick;
+  final VoidCallback? onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onPick,
+      child: InputDecorator(
+        decoration: InputDecoration(
+          labelText: label,
+          border: const OutlineInputBorder(),
+          isDense: true,
+          suffixIcon: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (onClear != null)
+                IconButton(
+                  tooltip: 'Limpiar hora',
+                  onPressed: onClear,
+                  icon: const Icon(Icons.clear),
+                ),
+              IconButton(
+                tooltip: 'Seleccionar hora',
+                onPressed: onPick,
+                icon: const Icon(Icons.access_time),
+              ),
+            ],
+          ),
+        ),
+        child: Text(value == null ? '-' : _formatTimeOfDay(value)!),
       ),
     );
   }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -1769,12 +1770,47 @@ class _DetalleTable extends ConsumerWidget {
     String field,
     double current,
   ) async {
+    Timer? autosaveTimer;
+    Future<void>? autosaveInFlight;
     final raw = await _askText(
       context,
       'Actualizar cantidad',
       field,
       initial: current.toStringAsFixed(2),
+      onChanged: (text) {
+        autosaveTimer?.cancel();
+        final value = double.tryParse(text.replaceAll(',', '.'));
+        if (value == null || value < 0) return;
+        autosaveTimer = Timer(const Duration(milliseconds: 600), () {
+          final previous = autosaveInFlight;
+          autosaveInFlight = () async {
+            if (previous != null) await previous;
+            await ref
+                .read(transferenciaApiProvider)
+                .updateDetalle(
+                  item.doc,
+                  row.idpd,
+                  ctd: field == 'ctd' ? value : null,
+                  ctdLib: field == 'ctdLib' ? value : null,
+                  ctdR: field == 'ctdR' ? value : null,
+                );
+            ref.invalidate(transferenciaDetalleProvider(item.doc));
+          }();
+          autosaveInFlight!.catchError((error) {
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(_friendlyError(error))));
+          });
+        });
+      },
     );
+    autosaveTimer?.cancel();
+    try {
+      await autosaveInFlight;
+    } catch (_) {
+      // El guardado automático ya informó el error.
+    }
     if (raw == null) return;
     final value = double.tryParse(raw.replaceAll(',', '.'));
     if (value == null || value < 0) {
@@ -1810,7 +1846,30 @@ class _DetalleTable extends ConsumerWidget {
   ) async {
     final data = await showDialog<_ReceiptEditResult>(
       context: context,
-      builder: (_) => _ReceiptEditDialog(row: row),
+      builder: (_) => _ReceiptEditDialog(
+        row: row,
+        onDraftSave: (draft) async {
+          try {
+            await ref
+                .read(transferenciaApiProvider)
+                .updateDetalle(
+                  item.doc,
+                  row.idpd,
+                  ctdR: draft.ctdR,
+                  estatusR: draft.estatusR,
+                );
+            ref.invalidate(transferenciaDetalleProvider(item.doc));
+            ref.invalidate(transferenciaReporteDetalleProvider(item.doc));
+          } catch (error) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text(_friendlyError(error))));
+            }
+            rethrow;
+          }
+        },
+      ),
     );
     if (data == null) return;
     try {
@@ -2112,9 +2171,10 @@ class _ReceiptEditResult {
 }
 
 class _ReceiptEditDialog extends StatefulWidget {
-  const _ReceiptEditDialog({required this.row});
+  const _ReceiptEditDialog({required this.row, required this.onDraftSave});
 
   final TransferenciaDetalleModel row;
+  final Future<void> Function(_ReceiptEditResult draft) onDraftSave;
 
   @override
   State<_ReceiptEditDialog> createState() => _ReceiptEditDialogState();
@@ -2123,6 +2183,8 @@ class _ReceiptEditDialog extends StatefulWidget {
 class _ReceiptEditDialogState extends State<_ReceiptEditDialog> {
   late final TextEditingController _ctdCtrl;
   late String _estatus;
+  Timer? _autosaveTimer;
+  Future<void>? _autosaveInFlight;
 
   @override
   void initState() {
@@ -2138,6 +2200,7 @@ class _ReceiptEditDialogState extends State<_ReceiptEditDialog> {
 
   @override
   void dispose() {
+    _autosaveTimer?.cancel();
     _ctdCtrl.dispose();
     super.dispose();
   }
@@ -2164,7 +2227,10 @@ class _ReceiptEditDialogState extends State<_ReceiptEditDialog> {
                 labelText: 'Cantidad recibida',
                 border: OutlineInputBorder(),
               ),
-              onChanged: (_) => setState(() {}),
+              onChanged: (_) {
+                setState(() {});
+                _scheduleDraftSave();
+              },
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
@@ -2183,8 +2249,10 @@ class _ReceiptEditDialogState extends State<_ReceiptEditDialog> {
                   child: Text('INCIDENCIA'),
                 ),
               ],
-              onChanged: (value) =>
-                  setState(() => _estatus = value ?? 'CONTABILIZADO'),
+              onChanged: (value) {
+                setState(() => _estatus = value ?? 'CONTABILIZADO');
+                _scheduleDraftSave();
+              },
             ),
             const SizedBox(height: 12),
             Align(
@@ -2224,6 +2292,22 @@ class _ReceiptEditDialogState extends State<_ReceiptEditDialog> {
         ),
       ],
     );
+  }
+
+  void _scheduleDraftSave() {
+    _autosaveTimer?.cancel();
+    final quantity = double.tryParse(_ctdCtrl.text.replaceAll(',', '.'));
+    if (quantity == null || quantity < 0) return;
+    _autosaveTimer = Timer(const Duration(milliseconds: 600), () {
+      final previous = _autosaveInFlight;
+      _autosaveInFlight = () async {
+        if (previous != null) await previous;
+        await widget.onDraftSave(
+          _ReceiptEditResult(ctdR: quantity, estatusR: _estatus),
+        );
+      }();
+      _autosaveInFlight!.catchError((_) {});
+    });
   }
 }
 
@@ -2824,6 +2908,7 @@ Future<String?> _askText(
   String title,
   String label, {
   String? initial,
+  ValueChanged<String>? onChanged,
 }) {
   final ctrl = TextEditingController(text: initial ?? '');
   return showDialog<String>(
@@ -2832,6 +2917,7 @@ Future<String?> _askText(
       title: Text(title),
       content: TextField(
         controller: ctrl,
+        onChanged: onChanged,
         decoration: InputDecoration(labelText: label),
       ),
       actions: [

@@ -419,6 +419,7 @@ class _RecepcionDetailPageState extends ConsumerState<RecepcionDetailPage> {
                                         '0') {
                                       _accepted[row.idped]?.text = value;
                                     }
+                                    _scheduleDraftSave();
                                   },
                                 ),
                               ),
@@ -426,6 +427,7 @@ class _RecepcionDetailPageState extends ConsumerState<RecepcionDetailPage> {
                                 _quantityField(
                                   _accepted[row.idped]!,
                                   row.pendiente,
+                                  onChanged: (_) => _scheduleDraftSave(),
                                 ),
                               ),
                               DataCell(
@@ -445,10 +447,13 @@ class _RecepcionDetailPageState extends ConsumerState<RecepcionDetailPage> {
                                       child: Text('No aplica'),
                                     ),
                                   ],
-                                  onChanged: (value) => setState(
-                                    () => _quality[row.idped] =
-                                        value ?? 'APROBADO',
-                                  ),
+                                  onChanged: (value) {
+                                    setState(
+                                      () => _quality[row.idped] =
+                                          value ?? 'APROBADO',
+                                    );
+                                    _scheduleDraftSave();
+                                  },
                                 ),
                               ),
                               if (order.puedeVerFinanciero)
@@ -1313,6 +1318,7 @@ class _RecepcionDetailPageState extends ConsumerState<RecepcionDetailPage> {
                 onChanged: (value) {
                   setState(() => _receiptType = value ?? 'PARCIAL');
                   if (value == 'TOTAL') _fillTotal(order);
+                  _scheduleDraftSave();
                 },
               ),
             ),
@@ -1336,14 +1342,17 @@ class _RecepcionDetailPageState extends ConsumerState<RecepcionDetailPage> {
                     child: Text('Consignación'),
                   ),
                 ],
-                onChanged: (value) =>
-                    setState(() => _documentType = value ?? 'PENDIENTE'),
+                onChanged: (value) {
+                  setState(() => _documentType = value ?? 'PENDIENTE');
+                  _scheduleDraftSave();
+                },
               ),
             ),
             SizedBox(
               width: 220,
               child: TextField(
                 controller: _folio,
+                onChanged: (_) => _scheduleDraftSave(),
                 decoration: const InputDecoration(
                   labelText: 'Folio factura/nota',
                   border: OutlineInputBorder(),
@@ -1354,6 +1363,7 @@ class _RecepcionDetailPageState extends ConsumerState<RecepcionDetailPage> {
               width: 190,
               child: TextField(
                 controller: _guide,
+                onChanged: (_) => _scheduleDraftSave(),
                 decoration: const InputDecoration(
                   labelText: 'Guía',
                   border: OutlineInputBorder(),
@@ -1364,6 +1374,7 @@ class _RecepcionDetailPageState extends ConsumerState<RecepcionDetailPage> {
               width: 320,
               child: TextField(
                 controller: _observations,
+                onChanged: (_) => _scheduleDraftSave(),
                 decoration: const InputDecoration(
                   labelText: 'Observaciones',
                   border: OutlineInputBorder(),
