@@ -13,6 +13,7 @@ class CreateOrdFromQuoteLineRequest {
     required this.suc,
     required this.opv,
     this.fechaEntrega,
+    this.hrEnt,
     this.comad,
     this.ordExistente,
     this.ticketRel,
@@ -30,6 +31,7 @@ class CreateOrdFromQuoteLineRequest {
   final String suc;
   final String opv;
   final DateTime? fechaEntrega;
+  final String? hrEnt;
   final String? comad;
   final String? ordExistente;
   final String? ticketRel;
@@ -47,6 +49,7 @@ class CreateOrdFromQuoteLineRequest {
     'suc': suc,
     'opv': opv,
     'fechaEntrega': fechaEntrega == null ? null : businessCalendarIso(fechaEntrega!),
+    'hrEnt': hrEnt,
     'comad': comad,
     'ordExistente': ordExistente,
     'ticketRel': ticketRel,
@@ -144,6 +147,7 @@ class NewOrdDialogPayload {
     this.ordExistente,
     this.tipoInicial = kOrdTipoTallado,
     this.fechaEntregaInicial,
+    this.hrEntInicial,
     this.comadInicial,
   });
 
@@ -159,6 +163,7 @@ class NewOrdDialogPayload {
   final String? ordExistente;
   final String tipoInicial;
   final DateTime? fechaEntregaInicial;
+  final String? hrEntInicial;
   final String? comadInicial;
 }
 
@@ -170,6 +175,7 @@ class NewOrdDialogResult {
     required this.tipo,
     required this.descArt,
     required this.fechaEntrega,
+    this.hrEnt,
     required this.comad,
     this.ticketRel,
     this.relationAuthorizationToken,
@@ -180,6 +186,7 @@ class NewOrdDialogResult {
   final String tipo;
   final String descArt;
   final DateTime? fechaEntrega;
+  final String? hrEnt;
   final String? comad;
   final String? ticketRel;
   final String? relationAuthorizationToken;

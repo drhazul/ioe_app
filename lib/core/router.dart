@@ -72,6 +72,7 @@ import '../features/modulos/taller/ordenes_trabajo/ordenes_trabajo_action_page.d
 import '../features/modulos/taller/ordenes_trabajo/ordenes_trabajo_models.dart';
 import '../features/modulos/taller/ordenes_trabajo/ordenes_trabajo_page.dart';
 import '../features/modulos/taller/ordenes_trabajo/ordenes_vencer_page.dart';
+import '../features/modulos/taller/ordenes_trabajo/mermas_autorizadas_page.dart';
 import '../features/modulos/taller/colaboradores_taller/colaboradores_taller_page.dart';
 import '../features/modulos/facturacion/facturacion_page.dart';
 import '../features/modulos/facturacion/facturacionview_page.dart';
@@ -909,6 +910,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'facturacion-sreqf',
             builder: (c, s) => const FacturacionSREQFPage(),
+          ),
+          GoRoute(
+            path: 'taller/mermas-autorizadas',
+            builder: (c, s) => const MermasAutorizadasPage(),
           ),
           GoRoute(
             path: 'taller/ordenes-trabajo',

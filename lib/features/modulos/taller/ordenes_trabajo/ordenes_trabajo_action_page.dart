@@ -970,7 +970,7 @@ extension on OrdenesTrabajoInitialAction {
       case OrdenesTrabajoInitialAction.trabajoTerminado:
         return 'Captura o escanea una ORD para validarla en estatus 8 (ASIGNADA) y relacionarla para trabajo terminado.';
       case OrdenesTrabajoInitialAction.regresarTienda:
-        return 'Captura o escanea una ORD para validarla en estatus 9 (TRABAJO TERMINADO) y recibirla en tienda. Mapeo: TIPOM=1 -> 9.1, TIPOM=2 -> 9.2; ORDs derivadas o sin incidencia -> 10.';
+        return 'Captura o escanea una ORD para validarla en estatus 9 y recibirla en tienda. En ORD derivada de merma: padre con entrega 11 -> 10; padre sin entrega 11 -> 9.2. No derivada: TIPOM=1 -> 9.1, TIPOM=2 -> 9.2.';
       case OrdenesTrabajoInitialAction.recibir:
         return 'Captura o escanea una ORD para validarla en estatus 5 (interno) o 9 (externo) y recibirla en taller. Recepción aplica 5 -> 7 en laboratorio interno y 9 -> 10 en laboratorio externo.\n\n$_recibirRolHint';
       case OrdenesTrabajoInitialAction.entregar:
@@ -1089,7 +1089,7 @@ extension on OrdenesTrabajoInitialAction {
       case OrdenesTrabajoInitialAction.trabajoTerminado:
         return '9 (TRABAJO TERMINADO)';
       case OrdenesTrabajoInitialAction.regresarTienda:
-        return 'TIPOM=1 -> 9.1, TIPOM=2 -> 9.2; ORDs derivadas o sin incidencia -> 10';
+        return 'Derivada de merma: padre con entrega 11 -> 10; padre sin entrega 11 -> 9.2. No derivada: TIPOM=1 -> 9.1, TIPOM=2 -> 9.2.';
       case OrdenesTrabajoInitialAction.recibir:
         return '7 (interno) o 10 (externo)';
       case OrdenesTrabajoInitialAction.entregar:

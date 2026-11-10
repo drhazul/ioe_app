@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -201,6 +202,7 @@ class _TransferenciaDetailBodyState
             isSucursalSolicita: isSucursalSolicita,
             isSucursalSurtidora: isSucursalSurtidora,
             isJefeInventarios: isJefeInventarios,
+            isEncargadoSucursal: auth.roleId == 13008,
             reportMode: widget.reportMode,
           ),
           if (showReviewFilters) ...[
@@ -215,6 +217,7 @@ class _TransferenciaDetailBodyState
                   isSucursalSolicita: isSucursalSolicita,
                   isSucursalSurtidora: isSucursalSurtidora,
                   isJefeInventarios: isJefeInventarios,
+                  isEncargadoSucursal: auth.roleId == 13008,
                   reportMode: widget.reportMode,
                 )
               : _DocumentEvidenceButton(item: item),
@@ -396,27 +399,49 @@ class _HeaderCard extends StatelessWidget {
       ),
       child: Padding(
         padding: const EdgeInsets.all(12),
-        child: Wrap(
-          spacing: 16,
-          runSpacing: 8,
-          children: [
-            Text(
-              'DOC: ${item.doc}',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            Text('Estatus: ${item.estatus}'),
-            Text('Origen: ${item.sucSal}'),
-            Text('Destino: ${item.sucEnt}'),
-            Text('Motivo: ${item.mtv}'),
-            Text('Prioridad: ${item.prio}'),
-            Text('Cantidad: ${item.ctd.toStringAsFixed(2)}'),
-            Text('Importe: ${_money(item.imp)}'),
-            if ((item.txt ?? '').isNotEmpty) Text('Obs: ${item.txt}'),
-            if (item.paqueteria != null)
-              Text(
-                'Guía: ${item.paqueteria!.emp ?? '-'} ${item.paqueteria!.numGuia ?? ''}',
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final observation = (item.txt ?? '').trim();
+            final observationLabel = 'Obs: $observation';
+            final observationPainter = TextPainter(
+              text: TextSpan(
+                text: observationLabel,
+                style: Theme.of(context).textTheme.bodyMedium,
               ),
-          ],
+              textDirection: Directionality.of(context),
+              textScaler: MediaQuery.textScalerOf(context),
+            )..layout();
+            final observationNeedsOwnLine =
+                observationPainter.width > constraints.maxWidth / 3;
+            return Wrap(
+              spacing: 16,
+              runSpacing: 8,
+              children: [
+                Text(
+                  'DOC: ${item.doc}',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                Text('Estatus: ${item.estatus}'),
+                Text('Origen: ${item.sucSal}'),
+                Text('Destino: ${item.sucEnt}'),
+                Text('Motivo: ${item.mtv}'),
+                Text('Prioridad: ${item.prio}'),
+                Text('Cantidad: ${item.ctd.toStringAsFixed(2)}'),
+                Text('Importe: ${_money(item.imp)}'),
+                if (observation.isNotEmpty)
+                  observationNeedsOwnLine
+                      ? SizedBox(
+                          width: constraints.maxWidth,
+                          child: Text(observationLabel, softWrap: true),
+                        )
+                      : Text(observationLabel, softWrap: true),
+                if (item.paqueteria != null)
+                  Text(
+                    'Guía: ${item.paqueteria!.emp ?? '-'} ${item.paqueteria!.numGuia ?? ''}',
+                  ),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -733,6 +758,7 @@ class _ActionBar extends ConsumerWidget {
     required this.isSucursalSolicita,
     required this.isSucursalSurtidora,
     required this.isJefeInventarios,
+    required this.isEncargadoSucursal,
     this.reportMode = false,
   });
 
@@ -740,6 +766,7 @@ class _ActionBar extends ConsumerWidget {
   final bool isSucursalSolicita;
   final bool isSucursalSurtidora;
   final bool isJefeInventarios;
+  final bool isEncargadoSucursal;
   final bool reportMode;
 
   @override
@@ -811,6 +838,12 @@ class _ActionBar extends ConsumerWidget {
             icon: const Icon(Icons.task_alt),
             label: const Text('Contabilizar'),
             onPressed: () => _confirmContabilizar(context, ref),
+          ),
+        if (estatus == 'REVISANDO' && isEncargadoSucursal && isSucursalSolicita)
+          OutlinedButton.icon(
+            icon: const Icon(Icons.done_all),
+            label: const Text('Contabilizar todo'),
+            onPressed: () => _confirmContabilizarTodo(context, ref),
           ),
         if (estatus == 'REVISANDO' || estatus == 'INCIDENCIA')
           OutlinedButton.icon(
@@ -1089,6 +1122,54 @@ class _ActionBar extends ConsumerWidget {
     );
     if (confirmed != true || !context.mounted) return;
     await _runAction(context, ref, 'contabilizar', closeOnSuccess: true);
+  }
+
+  Future<void> _confirmContabilizarTodo(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Contabilizar todos los artículos'),
+        content: Text(
+          'Se asignará el estatus CONTABILIZADO a todos los artículos activos '
+          'de la transferencia ${item.doc}.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Contabilizar todo'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    try {
+      await ref
+          .read(transferenciaApiProvider)
+          .contabilizarTodoDetalle(item.doc);
+      ref.invalidate(transferenciasProvider);
+      ref.invalidate(transferenciaDetalleProvider(item.doc));
+      ref.invalidate(transferenciaNotificacionesProvider);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Todos los artículos quedaron con estatus CONTABILIZADO.',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(_friendlyError(e))));
+    }
   }
 
   Future<void> _runAction(
@@ -1689,12 +1770,47 @@ class _DetalleTable extends ConsumerWidget {
     String field,
     double current,
   ) async {
+    Timer? autosaveTimer;
+    Future<void>? autosaveInFlight;
     final raw = await _askText(
       context,
       'Actualizar cantidad',
       field,
       initial: current.toStringAsFixed(2),
+      onChanged: (text) {
+        autosaveTimer?.cancel();
+        final value = double.tryParse(text.replaceAll(',', '.'));
+        if (value == null || value < 0) return;
+        autosaveTimer = Timer(const Duration(milliseconds: 600), () {
+          final previous = autosaveInFlight;
+          autosaveInFlight = () async {
+            if (previous != null) await previous;
+            await ref
+                .read(transferenciaApiProvider)
+                .updateDetalle(
+                  item.doc,
+                  row.idpd,
+                  ctd: field == 'ctd' ? value : null,
+                  ctdLib: field == 'ctdLib' ? value : null,
+                  ctdR: field == 'ctdR' ? value : null,
+                );
+            ref.invalidate(transferenciaDetalleProvider(item.doc));
+          }();
+          autosaveInFlight!.catchError((error) {
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(_friendlyError(error))));
+          });
+        });
+      },
     );
+    autosaveTimer?.cancel();
+    try {
+      await autosaveInFlight;
+    } catch (_) {
+      // El guardado automático ya informó el error.
+    }
     if (raw == null) return;
     final value = double.tryParse(raw.replaceAll(',', '.'));
     if (value == null || value < 0) {
@@ -1730,7 +1846,30 @@ class _DetalleTable extends ConsumerWidget {
   ) async {
     final data = await showDialog<_ReceiptEditResult>(
       context: context,
-      builder: (_) => _ReceiptEditDialog(row: row),
+      builder: (_) => _ReceiptEditDialog(
+        row: row,
+        onDraftSave: (draft) async {
+          try {
+            await ref
+                .read(transferenciaApiProvider)
+                .updateDetalle(
+                  item.doc,
+                  row.idpd,
+                  ctdR: draft.ctdR,
+                  estatusR: draft.estatusR,
+                );
+            ref.invalidate(transferenciaDetalleProvider(item.doc));
+            ref.invalidate(transferenciaReporteDetalleProvider(item.doc));
+          } catch (error) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text(_friendlyError(error))));
+            }
+            rethrow;
+          }
+        },
+      ),
     );
     if (data == null) return;
     try {
@@ -2032,9 +2171,10 @@ class _ReceiptEditResult {
 }
 
 class _ReceiptEditDialog extends StatefulWidget {
-  const _ReceiptEditDialog({required this.row});
+  const _ReceiptEditDialog({required this.row, required this.onDraftSave});
 
   final TransferenciaDetalleModel row;
+  final Future<void> Function(_ReceiptEditResult draft) onDraftSave;
 
   @override
   State<_ReceiptEditDialog> createState() => _ReceiptEditDialogState();
@@ -2043,6 +2183,8 @@ class _ReceiptEditDialog extends StatefulWidget {
 class _ReceiptEditDialogState extends State<_ReceiptEditDialog> {
   late final TextEditingController _ctdCtrl;
   late String _estatus;
+  Timer? _autosaveTimer;
+  Future<void>? _autosaveInFlight;
 
   @override
   void initState() {
@@ -2058,6 +2200,7 @@ class _ReceiptEditDialogState extends State<_ReceiptEditDialog> {
 
   @override
   void dispose() {
+    _autosaveTimer?.cancel();
     _ctdCtrl.dispose();
     super.dispose();
   }
@@ -2084,7 +2227,10 @@ class _ReceiptEditDialogState extends State<_ReceiptEditDialog> {
                 labelText: 'Cantidad recibida',
                 border: OutlineInputBorder(),
               ),
-              onChanged: (_) => setState(() {}),
+              onChanged: (_) {
+                setState(() {});
+                _scheduleDraftSave();
+              },
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
@@ -2103,8 +2249,10 @@ class _ReceiptEditDialogState extends State<_ReceiptEditDialog> {
                   child: Text('INCIDENCIA'),
                 ),
               ],
-              onChanged: (value) =>
-                  setState(() => _estatus = value ?? 'CONTABILIZADO'),
+              onChanged: (value) {
+                setState(() => _estatus = value ?? 'CONTABILIZADO');
+                _scheduleDraftSave();
+              },
             ),
             const SizedBox(height: 12),
             Align(
@@ -2144,6 +2292,22 @@ class _ReceiptEditDialogState extends State<_ReceiptEditDialog> {
         ),
       ],
     );
+  }
+
+  void _scheduleDraftSave() {
+    _autosaveTimer?.cancel();
+    final quantity = double.tryParse(_ctdCtrl.text.replaceAll(',', '.'));
+    if (quantity == null || quantity < 0) return;
+    _autosaveTimer = Timer(const Duration(milliseconds: 600), () {
+      final previous = _autosaveInFlight;
+      _autosaveInFlight = () async {
+        if (previous != null) await previous;
+        await widget.onDraftSave(
+          _ReceiptEditResult(ctdR: quantity, estatusR: _estatus),
+        );
+      }();
+      _autosaveInFlight!.catchError((_) {});
+    });
   }
 }
 
@@ -2744,6 +2908,7 @@ Future<String?> _askText(
   String title,
   String label, {
   String? initial,
+  ValueChanged<String>? onChanged,
 }) {
   final ctrl = TextEditingController(text: initial ?? '');
   return showDialog<String>(
@@ -2752,6 +2917,7 @@ Future<String?> _askText(
       title: Text(title),
       content: TextField(
         controller: ctrl,
+        onChanged: onChanged,
         decoration: InputDecoration(labelText: label),
       ),
       actions: [

@@ -219,6 +219,15 @@ class TransferenciaApi {
     );
   }
 
+  Future<TransferenciaDocModel> contabilizarTodoDetalle(String doc) async {
+    final res = await dio.post(
+      '/transferencias/$doc/detalle/contabilizar-todo',
+    );
+    return TransferenciaDocModel.fromJson(
+      Map<String, dynamic>.from(res.data as Map),
+    );
+  }
+
   Future<TransferenciaDocModel> removeDetalle(String doc, String idpd) async {
     final res = await dio.delete('/transferencias/$doc/detalle/$idpd');
     return TransferenciaDocModel.fromJson(
