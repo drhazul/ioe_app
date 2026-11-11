@@ -7,7 +7,7 @@
 - Feature: `lib/features/modulos/recepciones`; ruta `/modulos/recepciones`; código `DAT_REC`.
 - Consumir exclusivamente `/recepciones`; no actualizar `DAT_ART`, `DAT_MB51` ni estados de O.C. desde Flutter.
 - Mantener separadas recepción física y autorización administrativa. Costos y documento comercial dependen de la proyección autorizada del backend.
-- La pestaña Pedidos pendientes no consulta al entrar; solo consulta después de aplicar O.C., proveedor, fecha o sucursal. El selector operativo contiene únicamente `DF01/DF04/DF05/DF06`.
+- La pestaña Pedidos pendientes no consulta al entrar; solo consulta después de aplicar O.C., proveedor, fecha o sucursal. El selector usa sucursales autorizadas de `DAT_SUC`, sin el registro general `000`.
 - El filtro Proveedor consume el catálogo ordenado de `/recepciones/catalogos/proveedores`; limpiar filtros debe regresar la pestaña a su estado inicial sin resultados.
 - Histórico inicia sin resultados y exige uno de sus filtros propios por O.C., proveedor, fecha o sucursal, sin estatus; Indicadores mantiene sucursal y su acción de limpiar filtros.
 - Para `ENCARGADO DE SUCURSAL` (`IDROL=13008`), DAT_REC solo muestra Pedidos pendientes en estado de O.C. `PROCESADO` y oculta órdenes `PARCIAL`, sucursal, Histórico e Indicadores; el alcance real debe mantenerse protegido por el API.
@@ -34,7 +34,7 @@
 - Ruta: `/#/modulos/sugeridos`.
 - Codigo de menu gestion: `DAT_JAA_SUG`.
 - Consumir exclusivamente `/sugeridos`; no recrear tablas temporales Access ni consumir consultas legacy locales.
-- La primera ventana del modulo debe quedar solo para calculos y no consultar resultados al entrar; el filtro de sucursal visible debe incluir `DF01`, `DF04`, `DF05` y `DF06`.
+- La primera ventana del modulo debe quedar solo para calculos y no consultar resultados al entrar; el filtro de sucursal usa `DAT_SUC` según permisos, sin `000`.
 - El calculo de sugerido se solicita al backend con filtros de sucursal/proveedor/linea de producto/categoria/marca/tipo de producto y la O.C. creada debe permanecer en `ABIERTO`.
 - Los resultados deben conservar el orden de columnas del Excel de ejemplo de compra; `Cant Final Compra` es la cantidad operativa para crear la O.C.
 - La tabla de resultados debe conservar scroll horizontal y vertical visible porque el resultado replica muchas columnas del Excel.
@@ -91,7 +91,7 @@
 - En filtros DEV_PROVD, Proveedor replica Órdenes de compra con `ID - nombre` y orden numérico. Estatus presenta `NO ACEPTADA` para `RECHAZADA`; `RECIBIDA` es un estado real posterior a `EN_TRANSITO`.
 - En Acciones del listado DEV_PROVD, el ojo solo visualiza. Antes de Autorizar, Rechazar, En tránsito, Recibida o Cancelar se requiere confirmación; Rechazar captura primero el motivo. Cancelar permanece habilitado salvo durante procesamiento.
 - El AppBar DEV_PROVD muestra Envíos consolidados; Registrar salida debe confirmar antes de llamar el endpoint y cerrar el panel al completarse.
-- En el diálogo Nueva devolución, Sucursal se limita a `DF01/DF04/DF05/DF06`, Proveedor conserva `ID - nombre` y orden numérico del filtro principal, no se captura O.C. y la recepción es opcional para permitir devoluciones manuales. Observaciones es opcional.
+- En el diálogo Nueva devolución, Sucursal se obtiene de `DAT_SUC`, sin `000`, Proveedor conserva `ID - nombre` y orden numérico del filtro principal, no se captura O.C. y la recepción es opcional para permitir devoluciones manuales. Observaciones es opcional.
 - En detalle DEV_PROVD no editable, omitir Autorizar/contabilizar, Rechazar y la columna Acciones. Solo BORRADOR conserva captura, edición/eliminación y envío a autorización.
 - El alta de artículos DEV_PROVD parte de la O.C. o recepción seleccionada. En recepción, cada checkbox persiste o retira el detalle; cantidad y motivo pertenecen al renglón, mientras la fotografía es única para el documento. Enviar a autorización se habilita con al menos un detalle y conserva solo los seleccionados.
 - Tras elegir artículo, usar diálogo compacto sin Observaciones; conservar únicamente resumen del artículo, Cantidad, Motivo, Lote, Caducidad y fotografía.

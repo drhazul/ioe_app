@@ -7,7 +7,7 @@
 - Las autorizadas del mismo proveedor pueden seleccionarse y consolidarse con transportista, guía, cajas y RMA; la vista de envíos registra la salida física.
 - La UI informa que `DAT_ART.STOCK` se afecta únicamente al autorizar y consume `/devoluciones-proveedor` como fuente autoritativa.
 - En el listado, Proveedor sigue el selector de Órdenes de compra (`ID - nombre`, orden numérico) y Estatus muestra `BORRADOR`, `AUTORIZADA`, `NO ACEPTADA`, `EN TRANSITO`, `RECIBIDA`, `PENDIENTE` y `CANCELADA`.
-- Nueva devolución permite únicamente `DF01`, `DF04`, `DF05` y `DF06`; su proveedor replica el filtro principal. Crear exige exactamente una O.C. o recepción de mercancía, y Observaciones es opcional.
+- Nueva devolución usa sucursales de `DAT_SUC`, sin `000`; su proveedor replica el filtro principal. Crear exige exactamente una O.C. o recepción de mercancía, y Observaciones es opcional.
 - El detalle no editable es solo lectura: omite Autorizar/contabilizar, Rechazar y la columna Acciones. En BORRADOR conserva captura, edición y eliminación de artículos.
 - Después de crear, el detalle carga la O.C. o recepción seleccionada y muestra todos sus artículos en tabla con solicitada, recibida, pendiente y costo. Cada renglón abre la captura obligatoria de cantidad, motivo y fotografía, con lote/caducidad opcionales; no se muestra el buscador general.
 - El botón Importar Excel acepta archivos cuya primera fila contiene `ART`, `DESC` y `CTDA`; valida que artículo y descripción tengan valor y que la cantidad sea numérica mayor a cero.
@@ -26,7 +26,7 @@
 - La pantalla incluye pedidos pendientes, captura total/parcial/con diferencias, documento, guía, calidad por renglón, histórico e indicadores.
 - `DAT_REC`, `RECEPCION_MERCANCIAS` y `RECEPCIONES` resuelven al módulo. Los campos financieros solo se muestran cuando la API los entrega.
 - La recepción física muestra explícitamente que no afecta existencias hasta la autorización administrativa.
-- Pedidos pendientes inicia sin resultados: exige filtrar por O.C., proveedor, fecha o sucursal y limita las sucursales operativas a `DF01`, `DF04`, `DF05` y `DF06`.
+- Pedidos pendientes inicia sin resultados: exige filtrar por O.C., proveedor, fecha o sucursal y usa sucursales autorizadas de `DAT_SUC`, sin `000`.
 - Proveedor se selecciona desde un dropdown ordenado por ID numérico, igual que en Órdenes de compra, y `Limpiar filtros` restablece todos los criterios y vuelve a ocultar los resultados.
 - Histórico inicia sin resultados y exige filtrar por Documento, proveedor, fecha o sucursal, sin filtro de estatus. El filtro de O.C. se presenta como `Documento` para Encargado de sucursal, Jefe de inventarios y Analista de inventarios. Indicadores conserva el filtro de sucursal y permite limpiarlo.
 - `ENCARGADO DE SUCURSAL` (`IDROL=13008`) solo ve Pedidos pendientes de su sucursal asignada cuyo estado de O.C. sea `PROCESADO`; no se muestran órdenes `PARCIAL`, el selector de sucursal ni las pestañas Histórico e Indicadores.
@@ -49,7 +49,7 @@
 ## Planeacion y sugeridos de compra (2026-07-10)
 - Nueva feature `lib/features/modulos/sugeridos` para calcular sugeridos y crear O.C. sobre `DAT_JAA_SUG`.
 - Ruta registrada: `/modulos/sugeridos`; Home resuelve `DAT_JAA_SUG`, `SUGERIDOS_COMPRA` y `PLANEACION_COMPRAS` hacia esa pantalla.
-- La pantalla inicial no consulta resultados al entrar y queda dedicada a calculos; el filtro de sucursal muestra `DF01`, `DF04`, `DF05` y `DF06`, permite filtrar por proveedor, linea de producto, categoria, marca y tipo de producto, calcular sugerido, seleccionar articulos, crear O.C. en `REC_CAB_PED/REC_DET_PED` y exportar el detalle a CSV compatible con Excel.
+- La pantalla inicial no consulta resultados al entrar y queda dedicada a calculos; el filtro de sucursal usa `DAT_SUC` según permisos, sin `000`, permite filtrar por proveedor, linea de producto, categoria, marca y tipo de producto, calcular sugerido, seleccionar articulos, crear O.C. en `REC_CAB_PED/REC_DET_PED` y exportar el detalle a CSV compatible con Excel.
 - La tabla de resultados de calculo sigue las columnas del ejemplo `Ejercicio de Compra para modulo Inventarios.xlsx`: jerarquia larga, articulo, UPC, descripcion, base, graduaciones, stock, minimos, reabasto, venta 3 meses, factores, sugerido, pedido, unidad y cantidad final de compra.
 - La grilla de resultados usa scroll interno horizontal/vertical para navegar todas las columnas del ejercicio sin perder el panel de acciones.
 - Los resultados del calculo se solicitan al backend paginados de 100 en 100; los botones de pagina cambian la consulta y evitan cargar todos los articulos de golpe.
@@ -79,7 +79,7 @@
 - Para `AUXILIAR DE INVENTARIOS` y `ENCARGADO DE SUCURSAL` se ocultan los filtros de sucursal y usuario en el listado.
 - El boton de nueva solicitud muestra confirmacion antes de abrir el formulario.
 - El boton `Enviar a autorizacion` muestra confirmacion; al confirmar y ejecutar correctamente regresa al listado. La campana usa `/transferencias/notificaciones`, cuenta solo notificaciones no vistas y conserva las vistas entre ejecuciones; para `JEFE DE INVENTARIOS` las pendientes se muestran como nueva solicitud de la sucursal solicitante.
-- En nueva solicitud, `Sucursal origen` solo muestra `DF01`, `DF04`, `DF05`, `DF06`, `DF14` y `DF16`, excluyendo la sucursal solicitante. Para `JEFE DE INVENTARIOS`, `Sucursal solicita` muestra ese mismo catalogo base.
+- En nueva solicitud, `Sucursal origen` se obtiene de `DAT_SUC` y excluye `000`, la solicitante y sucursales con inventario compartido según backend. Para `JEFE DE INVENTARIOS`, `Sucursal solicita` usa ese catálogo operativo; otros usuarios mantienen su sucursal autorizada.
 - En seleccion de articulos, el dialogo incluye filtros por SUC, ART/UPC/DES, DEPA, SUBD, CLAS, SCLA, SCLA2, SPH, CYL y ADIC; al seleccionar un articulo se captura la cantidad a pedir.
 - Cuando el usuario pertenece a la sucursal solicitante del documento, el detalle oculta PDF de envio y las columnas `Liberada`, `Recibida` y `Dif`; en BORRADOR puede editar solo la cantidad solicitada.
 - Para `JEFE DE INVENTARIOS`, el detalle muestra `Cantidad liberada` y `Total liberada`; en acciones solo permite editar la cantidad liberada y el total se toma de `CTOLIB`.

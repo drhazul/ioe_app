@@ -17,8 +17,6 @@ class DevolucionesProveedorPage extends ConsumerStatefulWidget {
 
 class _DevolucionesProveedorPageState
     extends ConsumerState<DevolucionesProveedorPage> {
-  static const _allowedBranches = {'DF01', 'DF04', 'DF05', 'DF06'};
-
   final _documentController = TextEditingController();
   final _dateController = TextEditingController();
   int _page = 1;
@@ -59,7 +57,7 @@ class _DevolucionesProveedorPageState
     final providersAsync = ref.watch(devProvidersProvider);
     final branches = List<DevBranch>.of(
       ref.watch(devBranchesProvider).value ?? const <DevBranch>[],
-    )..retainWhere((branch) => _allowedBranches.contains(branch.suc));
+    );
     branches.sort((a, b) => a.suc.compareTo(b.suc));
     return Scaffold(
       appBar: AppBar(
@@ -369,7 +367,6 @@ class _DevolucionesProveedorPageState
       ]);
       if (!mounted) return;
       final branches = List<DevBranch>.of(values[0] as List<DevBranch>)
-        ..retainWhere((branch) => _allowedBranches.contains(branch.suc))
         ..sort((a, b) => a.suc.compareTo(b.suc));
       final providers = List<DevProvider>.of(values[1] as List<DevProvider>)
         ..sort((a, b) => a.id.compareTo(b.id));

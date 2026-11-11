@@ -36,7 +36,7 @@ class _RecepcionesPageState extends ConsumerState<RecepcionesPage>
   int _page = 1;
   bool _loading = false;
   String? _error;
-  static const _sucursales = ['DF01', 'DF04', 'DF05', 'DF06'];
+  List<String> _sucursales = const [];
   List<Map<String, dynamic>> _providers = const [];
   bool _loadingProviders = true;
   bool _hasFilteredPending = false;
@@ -67,7 +67,10 @@ class _RecepcionesPageState extends ConsumerState<RecepcionesPage>
           }
         }
       });
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadProviders());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadProviders();
+      _loadSucursales();
+    });
   }
 
   @override
@@ -78,6 +81,27 @@ class _RecepcionesPageState extends ConsumerState<RecepcionesPage>
     _historyOc.dispose();
     _historyDateFilter.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadSucursales() async {
+    try {
+      final rows = await ref.read(recepcionesApiProvider).sucursales();
+      final values =
+          rows
+              .map(
+                (row) => (row['SUC'] ?? row['suc'] ?? '')
+                    .toString()
+                    .trim()
+                    .toUpperCase(),
+              )
+              .where((s) => s.isNotEmpty && s != '000')
+              .toSet()
+              .toList()
+            ..sort();
+      if (mounted) setState(() => _sucursales = values);
+    } catch (_) {
+      if (mounted) setState(() => _error = 'No fue posible cargar sucursales.');
+    }
   }
 
   Future<void> _load() async {

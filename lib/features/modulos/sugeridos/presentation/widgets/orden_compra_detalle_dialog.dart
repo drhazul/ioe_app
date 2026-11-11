@@ -10,6 +10,8 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
 import '../../../../../core/auth/auth_controller.dart';
+import '../../../../masterdata/sucursales/sucursales_providers.dart';
+import '../../../../masterdata/sucursales/sucursales_models.dart';
 import '../../../reloj_checador/consultas/download_helper.dart';
 import '../../domain/sugeridos_models.dart';
 import '../../providers/sugeridos_provider.dart';
@@ -750,8 +752,11 @@ class _OrdenCompraDetalleDialogState
     try {
       final activeItems = _doc.detalle.where((d) => d.bloq != -1).toList();
       final providerName = _providerName(_doc);
-      final sucursalInfo = _sucursalDeliveryInfo(_doc.suc);
-      final deliveryLines = _deliveryAddressLines(_doc.suc);
+      final branch = await ref
+          .read(sucursalesApiProvider)
+          .fetchSucursal(_doc.suc);
+      final sucursalInfo = _sucursalDeliveryInfo(branch);
+      final deliveryLines = _deliveryAddressLines(branch);
       final cantidad = activeItems.fold<double>(
         0,
         (sum, item) => sum + item.ctdped,
@@ -1334,59 +1339,24 @@ pw.Widget _pdfFooter(pw.ImageProvider? footerLogo) {
   );
 }
 
-List<String> _deliveryAddressLines(String suc) {
-  final info = _sucursalDeliveryInfo(suc);
+List<String> _deliveryAddressLines(SucursalModel branch) {
+  final direccion = (branch.direccion ?? '').trim();
+  final contacto = (branch.contacto ?? '').trim();
   return [
-    'Distribuidora IOE ${info.nombre}.',
-    'Joel Jimenez Cruz',
-    'Direccion:',
-    ...info.direccion,
-    'Correo: joeljims@hotmail.com',
-    'Cel: 2299 152535',
+    '${branch.suc} - ${(branch.desc ?? '').trim()}',
+    'Dirección:',
+    direccion.isEmpty ? 'Dirección no registrada en DAT_SUC.' : direccion,
+    if (contacto.isNotEmpty) 'Contacto: $contacto',
   ];
 }
 
-_SucursalDeliveryInfo _sucursalDeliveryInfo(String suc) {
-  final normalized = suc.trim().toUpperCase();
-  return switch (normalized) {
-    'DF04' => const _SucursalDeliveryInfo(
-      suc: 'DF04',
-      nombre: 'Cordoba Centro',
-      ciudad: 'Cordoba, Veracruz.',
-      direccion: [
-        'Calle 13 No. 902',
-        'entre Av. 11 y Av. 7 Centro.',
-        'Cordoba, Ver.',
-      ],
-    ),
-    'DF05' => const _SucursalDeliveryInfo(
-      suc: 'DF05',
-      nombre: 'Puebla Centro',
-      ciudad: 'Puebla, Puebla.',
-      direccion: [
-        'Poniente 3 No. 318 Int 217',
-        'Col. Centro Puebla',
-        'C.P. 72000, Puebla, Puebla.',
-      ],
-    ),
-    'DF06' => const _SucursalDeliveryInfo(
-      suc: 'DF06',
-      nombre: 'CDMX Centro Historico',
-      ciudad: 'Ciudad de Mexico.',
-      direccion: ['Direccion no registrada en DAT_SUC.'],
-    ),
-    _ => const _SucursalDeliveryInfo(
-      suc: 'DF01',
-      nombre: 'Veracruz',
-      ciudad: 'Veracruz, Mexico.',
-      direccion: [
-        'Avenida 5 de Mayo Num. 1369-1 Altos',
-        'entre Mariano Arista y Aquiles Serdan.',
-        'Col. Centro.',
-        'Veracruz, Ver. C.P. 91700',
-      ],
-    ),
-  };
+_SucursalDeliveryInfo _sucursalDeliveryInfo(SucursalModel branch) {
+  return _SucursalDeliveryInfo(
+    suc: branch.suc,
+    nombre: (branch.desc ?? '').trim(),
+    ciudad: '',
+    direccion: [(branch.direccion ?? '').trim()],
+  );
 }
 
 class _SucursalDeliveryInfo {

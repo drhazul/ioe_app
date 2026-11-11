@@ -25,7 +25,7 @@ La UI consume la fecha local de México generada por API para folios CP/CA/VF, c
 - Feature `lib/features/modulos/devoluciones_proveedor` y ruta `/modulos/devoluciones-proveedor`.
 - Incluye alta, artículos, motivos/evidencias, autorización, consolidación y salida física contra `/devoluciones-proveedor`.
 - El filtro replica el proveedor de Órdenes de compra (`ID - nombre`, orden numérico) y presenta los estatus operativos solicitados; `NO ACEPTADA` es el alias visible de `RECHAZADA` y `RECIBIDA` es un estado operativo real posterior a `EN_TRANSITO`.
-- La creación limita Sucursal a `DF01/DF04/DF05/DF06`, replica el formato numérico de Proveedor del listado y habilita Crear al elegir sucursal, proveedor y tipo; Observaciones es opcional.
+- La creación obtiene Sucursal de `DAT_SUC`, excluyendo `000`, replica el formato numérico de Proveedor del listado y habilita Crear al elegir sucursal, proveedor y tipo; Observaciones es opcional.
 - El detalle conserva acciones únicamente en BORRADOR para capturar artículos y enviar; los documentos enviados se visualizan sin Autorizar/contabilizar, Rechazar ni columna Acciones.
 - Nueva devolución no muestra captura de O.C.; permite indicar una recepción de mercancía o dejarla vacía para una devolución manual. Cuando existe recepción, el detalle carga sus artículos en tabla.
 - Importar Excel exige las columnas `ART`, `DESC` y `CTDA`; rechaza encabezados incompletos, descripciones vacías y cantidades inválidas o no positivas indicando la fila correspondiente.
@@ -42,7 +42,7 @@ Frontend Flutter del ecosistema IOE. Consume `ioe-api` para autenticación, maes
 
 ## Planteamiento funcional
 - Inventarios / Recepcion de mercancias (2026-08-11): feature `lib/features/modulos/recepciones` para `DAT_REC`, con pendientes, captura fisica, autorizacion administrativa, historico, indicadores y carga masiva.
-- DAT_REC / Pedidos pendientes: inicia sin resultados y filtra por O.C., proveedor, fecha o sucursal (`DF01/DF04/DF05/DF06`).
+- DAT_REC / Pedidos pendientes: inicia sin resultados y filtra por O.C., proveedor, fecha o sucursal obtenida de `DAT_SUC` según permisos, sin `000`.
 - DAT_REC / Proveedor: dropdown ordenado y acción para limpiar todos los filtros.
 - DAT_REC / Detalle por jerarquías (2026-08-18): la captura permite usar de forma independiente `DEP/SDEP/CLS/SCLS/SCLS2/SPH/CYL/ADIC` (con cascada opcional), una vista agrupada con cantidades e importe, y el Encargado puede enviar toda la mercancía como `RECHAZADO` a Inventarios indicando el motivo.
 - DAT_REC / Cierre documental (2026-08-18): el tipo de recepción calculado queda bloqueado; el formulario admite múltiples folios, guía alfanumérica con signos, Paquetería y Observaciones.
@@ -115,7 +115,7 @@ Frontend Flutter del ecosistema IOE. Consume `ioe-api` para autenticación, maes
 - Inventarios / Transferencias entre sucursales (2026-06-09): nueva feature `lib/features/modulos/transferencias` con gestion, detalle, flujo operativo, captura de cantidades liberadas/recibidas y PDF de envio; `DAT_JAA_TRAN` navega a `/#/modulos/transferencias`.
 - DAT_JAA_TRAN / Captura recuperable: los editores de cantidades solicitadas, liberadas y recibidas guardan automáticamente sus cambios válidos en el detalle para permitir continuar después de una sesión cerrada por inactividad.
 - Inventarios / Reportes traspaso entre sucursales (2026-06-17): `DAT_REP_TRAN` navega a `/#/modulos/transferencias-reportes`; consulta solo despues de filtrar, incluye estatus sin `INCIDENCIA`, oculta notificaciones y muestra detalle de solo lectura.
-- Inventarios / Planeacion y sugeridos de compra (2026-07-10): `DAT_JAA_SUG` navega a `/#/modulos/sugeridos`; la primera pantalla queda solo para calculos, no consulta resultados al entrar, muestra sucursales `DF01/DF04/DF05/DF06`, filtra por linea/categoria/marca/tipo de producto, crea O.C. en `ABIERTO` y exporta detalle CSV compatible con Excel.
+- Inventarios / Planeacion y sugeridos de compra (2026-07-10): `DAT_JAA_SUG` navega a `/#/modulos/sugeridos`; la primera pantalla queda solo para calculos, no consulta resultados al entrar, muestra sucursales de `DAT_SUC` según permisos, sin `000`, filtra por linea/categoria/marca/tipo de producto, crea O.C. en `ABIERTO` y exporta detalle CSV compatible con Excel.
 - Inventarios / Ordenes de compra (2026-07-16): `DAT_ORD_COMP` navega a `/#/modulos/ordenes-compra`; muestra todas las O.C. con filtros, detalle y boton superior de nueva O.C. El modulo de sugeridos ya no muestra ese boton en el AppBar.
 - Punto de venta / Gestión de promociones (2026-05-26): sin cambios de payload en frontend; backend de `GET/PUT /promociones/:idProm/configuracion` tolera JWT legacy (`idusuario/userid` y fallback por `username`) y reconoce admin por `roleId/IDROL/idRol` (default `0,1`) para evitar `403 Usuario inválido para resolver sucursales`.
 - Punto de venta / Gestión de promociones (2026-05-26): la UI agrega señalización de obligatorios y mensajes de error en formularios del módulo (promoción, tipo-beneficio y configuración), corrige crash de dropdown por duplicados y reemplaza selección de cliente por modal con buscador y selección única.

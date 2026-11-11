@@ -622,11 +622,11 @@ class _OrdenesFilters extends StatelessWidget {
 }
 
 List<String> _sucursalesOrdenesPermitidas(List<String> items) {
-  const requeridas = {'DF01', 'DF04', 'DF05', 'DF06'};
   final sucs = <String>{
-    ...items.map((s) => s.trim().toUpperCase()).where((s) => s.isNotEmpty),
-    ...requeridas,
-  }.where((s) => requeridas.contains(s)).toList()..sort();
+    ...items
+        .map((s) => s.trim().toUpperCase())
+        .where((s) => s.isNotEmpty && s != '000'),
+  }.toList()..sort();
   return sucs;
 }
 

@@ -294,6 +294,19 @@ class TransferenciaApi {
         .toList();
   }
 
+  Future<List<String>> sucursalesOrigen(String destino) async {
+    final res = await dio.get(
+      '/transferencias/catalogos/sucursales-origen',
+      queryParameters: {'destino': destino},
+    );
+    final data = res.data;
+    if (data is! List) return const [];
+    return data
+        .map((row) => '${row ?? ''}'.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+  }
+
   Future<List<TransferenciaCatalogOptionModel>> motivos() async {
     final res = await dio.get('/transferencias/catalogos/motivos');
     final data = res.data;

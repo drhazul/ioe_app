@@ -106,6 +106,11 @@ final transferenciaSucursalesProvider =
       return ref.read(transferenciaApiProvider).sucursales();
     });
 
+final transferenciaOrigenesProvider = FutureProvider.autoDispose
+    .family<List<String>, String>((ref, destino) {
+      return ref.read(transferenciaApiProvider).sucursalesOrigen(destino);
+    });
+
 final transferenciaMotivosProvider =
     FutureProvider.autoDispose<List<TransferenciaCatalogOptionModel>>((ref) {
       return ref.read(transferenciaApiProvider).motivos();

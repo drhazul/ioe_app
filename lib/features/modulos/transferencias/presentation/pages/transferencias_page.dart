@@ -6,6 +6,7 @@ import 'package:ioe_app/core/app_theme.dart';
 
 import '../../../../../core/auth/auth_controller.dart';
 import '../../../../../core/storage.dart';
+import '../../../../masterdata/sucursales/sucursales_providers.dart';
 import '../../domain/transferencia_models.dart';
 import '../../providers/transferencia_provider.dart';
 
@@ -17,16 +18,6 @@ class TransferenciasPage extends ConsumerStatefulWidget {
 }
 
 class _TransferenciasPageState extends ConsumerState<TransferenciasPage> {
-  static const _filterSucursales = {
-    'DF01',
-    'DF02',
-    'DF04',
-    'DF05',
-    'DF06',
-    'DF14',
-    'DF16',
-  };
-
   final _docCtrl = TextEditingController();
   final _usuarioCtrl = TextEditingController();
   final _fechaCtrl = TextEditingController();
@@ -182,7 +173,7 @@ class _TransferenciasPageState extends ConsumerState<TransferenciasPage> {
                         final filterSucs =
                             sucs
                                 .map((s) => s.trim().toUpperCase())
-                                .where(_filterSucursales.contains)
+                                .where((s) => s.isNotEmpty && s != '000')
                                 .toSet()
                                 .toList()
                               ..sort();
@@ -637,24 +628,6 @@ class _CreateTransferenciaDialog extends ConsumerStatefulWidget {
 
 class _CreateTransferenciaDialogState
     extends ConsumerState<_CreateTransferenciaDialog> {
-  static const _transferSucursales = {
-    'DF01',
-    'DF02',
-    'DF04',
-    'DF05',
-    'DF06',
-    'DF14',
-    'DF16',
-  };
-  static const _originSucursales = {
-    'DF01',
-    'DF04',
-    'DF05',
-    'DF06',
-    'DF14',
-    'DF16',
-  };
-
   final _txtCtrl = TextEditingController();
   String _sucEnt = '';
   String _sucSal = '';
@@ -671,10 +644,11 @@ class _CreateTransferenciaDialogState
   @override
   Widget build(BuildContext context) {
     final auth = ref.watch(authControllerProvider);
-    final sucsAsync = ref.watch(transferenciaSucursalesProvider);
+    final sucsAsync = ref.watch(sucursalesListProvider);
     final motivosAsync = ref.watch(transferenciaMotivosProvider);
     final priosAsync = ref.watch(transferenciaPrioridadesProvider);
     if (_sucEnt.isEmpty) _sucEnt = (auth.suc ?? '').trim().toUpperCase();
+    final origenesAsync = ref.watch(transferenciaOrigenesProvider(_sucEnt));
     return AlertDialog(
       title: const Text('Nueva solicitud'),
       content: SizedBox(
@@ -683,20 +657,35 @@ class _CreateTransferenciaDialogState
           mainAxisSize: MainAxisSize.min,
           children: [
             sucsAsync.when(
-              data: (_) {
-                final allTransferSucs = _transferSucursales.toList()..sort();
-                final validOrigenSucs = _originSucursales.toList()..sort();
-                final isJefeInventarios = auth.roleId == 2;
+              data: (branches) {
+                final allTransferSucs =
+                    branches
+                        .map((b) => b.suc.trim().toUpperCase())
+                        .where((s) => s.isNotEmpty && s != '000')
+                        .toSet()
+                        .toList()
+                      ..sort();
+                if (origenesAsync.isLoading) {
+                  return const LinearProgressIndicator();
+                }
+                if (origenesAsync.hasError) {
+                  return const Text(
+                    'No fue posible cargar sucursales de origen.',
+                  );
+                }
+                final validOrigenSucs = List<String>.of(
+                  origenesAsync.value ?? const [],
+                )..sort();
+                final isJefeInventarios =
+                    auth.roleId == 2 || auth.roleId == 0 || auth.roleId == 1;
                 final userSuc = (auth.suc ?? '').trim().toUpperCase();
                 final allowedSucs = isJefeInventarios
-                    ? validOrigenSucs
-                    : _transferSucursales.contains(userSuc)
+                    ? allTransferSucs
+                    : allTransferSucs.contains(userSuc)
                     ? <String>[userSuc]
-                    : allTransferSucs;
+                    : <String>[];
                 if (_sucEnt.isNotEmpty && !allowedSucs.contains(_sucEnt)) {
-                  _sucEnt = allowedSucs.isNotEmpty
-                      ? allowedSucs.first
-                      : allTransferSucs.first;
+                  _sucEnt = allowedSucs.isNotEmpty ? allowedSucs.first : '';
                 }
                 final filteredOrigenSucs = validOrigenSucs
                     .where((s) => s != _sucEnt.trim().toUpperCase())
