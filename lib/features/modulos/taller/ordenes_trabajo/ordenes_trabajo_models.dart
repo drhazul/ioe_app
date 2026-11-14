@@ -407,7 +407,10 @@ class OrdenTrabajoItem {
     required this.tipom,
     required this.motr,
     required this.fcns,
+    required this.serverNow,
+    required this.timerReceivedAt,
     required this.fcnm,
+    this.fcnPendienteEntrega,
     this.vencimientoColor,
     this.minutosRetraso,
     required this.raw,
@@ -433,12 +436,16 @@ class OrdenTrabajoItem {
   final String tipom;
   final String motr;
   final DateTime? fcns;
+  final DateTime? serverNow;
+  final DateTime timerReceivedAt;
   final DateTime? fcnm;
+  final DateTime? fcnPendienteEntrega;
   final String? vencimientoColor;
   final int? minutosRetraso;
   final Map<String, dynamic> raw;
 
   factory OrdenTrabajoItem.fromJson(Map<String, dynamic> json) {
+    final timerReceivedAt = DateTime.now();
     final asignLabel =
         _toText(json['ASIGN_LABEL']) ?? _toText(json['ASIGN']) ?? '';
     final opvLabel =
@@ -473,7 +480,10 @@ class OrdenTrabajoItem {
       tipom: _toText(json['TIPOM']) ?? '',
       motr: _toText(json['MOTR']) ?? '',
       fcns: _toDate(json['FCNS']),
+      serverNow: _toDate(json['SERVER_NOW']),
+      timerReceivedAt: timerReceivedAt,
       fcnm: _toDate(json['FCNM']),
+      fcnPendienteEntrega: _toDate(json['FCN_PENDIENTE_ENTREGA']),
       vencimientoColor: _toText(json['VENCIMIENTO_COLOR'])?.toLowerCase(),
       minutosRetraso: _toInt(json['VENCIDO_MINUTOS']),
       raw: json,

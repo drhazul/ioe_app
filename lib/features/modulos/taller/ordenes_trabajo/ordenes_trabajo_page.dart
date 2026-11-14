@@ -170,7 +170,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     'RESPONSABLE_MERMA': 240,
     'MOTIVO': 220,
     'FLUJO': 160,
-    'TIEMPO_POR_FLUJO': 380,
+    'TIEMPO_POR_FLUJO': 120,
     'QUIEN_REALIZO': 200,
     'ASIGNADO': 190,
     'F_SOL': 95,
@@ -1197,6 +1197,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     );
     double widthFor(String key) {
       if (compactJefeEstadoTable) {
+        if (key == 'TIEMPO_POR_FLUJO') return 120;
         final contentWidth = autoWidths[key] ?? 90;
         final configured = _columnWidths[key];
         if (configured == null) return contentWidth;
@@ -1644,7 +1645,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       case 'LABORATORIO':
         return compact + 28;
       case 'TIEMPO_POR_FLUJO':
-        return compact + 100;
+        return 120;
       default:
         return compact;
     }
@@ -1663,7 +1664,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       case 'FLUJO':
         return 240;
       case 'TIEMPO_POR_FLUJO':
-        return 480;
+        return 120;
       case 'QUIEN_REALIZO':
         return 280;
       case 'RESPONSABLE_MERMA':

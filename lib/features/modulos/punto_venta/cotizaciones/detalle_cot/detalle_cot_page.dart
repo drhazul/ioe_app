@@ -842,7 +842,7 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
 
     final initialTipo = _extractOrdTipo(existingHeader) ?? kOrdTipoTallado;
     final initialFechaEntrega = _extractDateField(existingHeader, 'FCNM');
-    final initialHrEnt = _extractDateField(existingHeader, 'HR_ENT');
+    final initialHrEnt = _extractTimeField(existingHeader, 'HR_ENT');
     final initialComad = _extractStringField(existingHeader, 'COMAD');
     final initialDescArt =
         _extractStringField(existingHeader, 'DESCART') ?? targetItem.des ?? '';
@@ -864,9 +864,7 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
         ordExistente: ordExistente.isEmpty ? null : ordExistente,
         tipoInicial: initialTipo,
         fechaEntregaInicial: initialFechaEntrega,
-        hrEntInicial: initialHrEnt == null
-            ? null
-            : '${initialHrEnt.hour.toString().padLeft(2, '0')}:${initialHrEnt.minute.toString().padLeft(2, '0')}',
+        hrEntInicial: initialHrEnt,
         comadInicial: initialComad,
       ),
       onAuthorizeRelation: (passwordSupervisor) async {
@@ -1143,6 +1141,29 @@ class _DetalleCotPageState extends ConsumerState<DetalleCotPage> {
     final raw = _extractStringField(row, key);
     if (raw == null) return null;
     return DateTime.tryParse(raw);
+  }
+
+  String? _extractTimeField(Map<String, dynamic>? row, String key) {
+    final raw = _extractStringField(row, key);
+    if (raw == null) return null;
+
+    // SQL datetime values are serialized by the API as ISO timestamps. Convert
+    // them to the device's local timezone before reading the wall-clock time;
+    // otherwise a UTC offset changes the hour shown when the ORD is reopened.
+    final parsed = DateTime.tryParse(raw)?.toLocal();
+    if (parsed != null) {
+      return '${parsed.hour.toString().padLeft(2, '0')}:${parsed.minute.toString().padLeft(2, '0')}';
+    }
+
+    // Also accept time-only values if the API later returns HR_ENT as TIME.
+    final match = RegExp(r'^(\d{1,2}):(\d{2})').firstMatch(raw);
+    if (match == null) return null;
+    final hour = int.tryParse(match.group(1)!);
+    final minute = int.tryParse(match.group(2)!);
+    if (hour == null || hour > 23 || minute == null || minute > 59) {
+      return null;
+    }
+    return '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
   }
 
   String? _extractOrdTipo(Map<String, dynamic>? row) {

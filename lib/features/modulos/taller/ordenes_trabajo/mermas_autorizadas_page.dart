@@ -17,7 +17,7 @@ class MermasAutorizadasPage extends ConsumerStatefulWidget {
 }
 
 class _MermasAutorizadasPageState extends ConsumerState<MermasAutorizadasPage> {
-  static const int _pageSize = 25;
+  static const int _pageSize = 100;
   final _autorizacionCtrl = TextEditingController();
   final _originalCtrl = TextEditingController();
   final _iordCtrl = TextEditingController();
@@ -28,12 +28,17 @@ class _MermasAutorizadasPageState extends ConsumerState<MermasAutorizadasPage> {
   List<Map<String, dynamic>> _tipos = const [];
   List<Map<String, dynamic>> _laboratorios = const [];
   List<Map<String, dynamic>> _asignados = const [];
+  List<Map<String, dynamic>> _motivosCambioMaterial = const [];
+  List<Map<String, dynamic>> _motivosMerma = const [];
   String? _sucursal;
   String? _tipo;
   String? _labor;
   String? _asign;
+  String? _otrosTipo;
+  Set<int> _motivosSeleccionados = <int>{};
   String? _filterOptionsSuc;
   bool _filterOptionsLoaded = false;
+  bool _showMotivesWhenLoaded = false;
   final Set<String> _filterOptionsRequestsInFlight = <String>{};
   DateTime? _desde;
   DateTime? _hasta;
@@ -50,6 +55,7 @@ class _MermasAutorizadasPageState extends ConsumerState<MermasAutorizadasPage> {
   void initState() {
     super.initState();
     _loadSucursales();
+    _refreshFilterOptions(_sucursal);
   }
 
   @override
@@ -92,6 +98,8 @@ class _MermasAutorizadasPageState extends ConsumerState<MermasAutorizadasPage> {
             tipo: _tipo,
             labor: _labor,
             asign: _asign,
+            otrosTipo: _otrosTipo,
+            motivos: _motivosSeleccionados.toList()..sort(),
             fecIni: _apiDate(_desde),
             fecFin: _apiDate(_hasta),
             page: _page,
@@ -140,6 +148,8 @@ class _MermasAutorizadasPageState extends ConsumerState<MermasAutorizadasPage> {
             tipo: _tipo,
             labor: _labor,
             asign: _asign,
+            otrosTipo: _otrosTipo,
+            motivos: _motivosSeleccionados.toList()..sort(),
             fecIni: _apiDate(_desde),
             fecFin: _apiDate(_hasta),
           );
@@ -175,10 +185,22 @@ class _MermasAutorizadasPageState extends ConsumerState<MermasAutorizadasPage> {
         _tipos = _readOptions(options['tipos']);
         _laboratorios = _readOptions(options['laboratorios']);
         _asignados = _readOptions(options['asignados']);
+        _motivosCambioMaterial = _readOptions(options['motivosCambioMaterial']);
+        _motivosMerma = _readOptions(options['motivosMerma']);
         _filterOptionsLoaded = true;
       });
+      if (_showMotivesWhenLoaded && _otrosTipo != null) {
+        _showMotivesWhenLoaded = false;
+        _scheduleMotivePicker();
+      }
     } catch (_) {
       // Se conserva la consulta aunque los catálogos opcionales no carguen.
+      if (_showMotivesWhenLoaded) {
+        _showMotivesWhenLoaded = false;
+        if (mounted) {
+          _message('No se pudieron cargar los motivos. Intenta de nuevo.');
+        }
+      }
     } finally {
       _filterOptionsRequestsInFlight.remove(requestKey);
     }
@@ -196,12 +218,92 @@ class _MermasAutorizadasPageState extends ConsumerState<MermasAutorizadasPage> {
     _load(page: 1);
   }
 
+  void _onOtrosTipoChanged(String? value) {
+    setState(() {
+      _otrosTipo = value;
+      _motivosSeleccionados.clear();
+    });
+    if (value == null) {
+      _showMotivesWhenLoaded = false;
+    } else if (_filterOptionsLoaded) {
+      _scheduleMotivePicker();
+    } else {
+      _showMotivesWhenLoaded = true;
+    }
+  }
+
+  void _scheduleMotivePicker() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _otrosTipo != null) unawaited(_showMotivePicker());
+    });
+  }
+
+  Future<void> _showMotivePicker() async {
+    final cambioMaterial = _otrosTipo == '1';
+    final options = cambioMaterial ? _motivosCambioMaterial : _motivosMerma;
+    final draft = Set<int>.from(_motivosSeleccionados);
+    final selected = await showDialog<Set<int>>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(
+            'Motivos de ${cambioMaterial ? 'cambio de material' : 'merma'}',
+          ),
+          content: SizedBox(
+            width: 460,
+            height: MediaQuery.sizeOf(context).height * 0.55,
+            child: options.isEmpty
+                ? const Center(child: Text('No hay motivos disponibles.'))
+                : ListView.separated(
+                    itemCount: options.length,
+                    separatorBuilder: (_, _) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final option = options[index];
+                      final id = int.tryParse('${option['value']}');
+                      if (id == null) return const SizedBox.shrink();
+                      return CheckboxListTile(
+                        value: draft.contains(id),
+                        onChanged: (checked) => setDialogState(() {
+                          if (checked == true) {
+                            draft.add(id);
+                          } else {
+                            draft.remove(id);
+                          }
+                        }),
+                        dense: true,
+                        controlAffinity: ListTileControlAffinity.leading,
+                        title: Text(option['label']?.toString() ?? ''),
+                      );
+                    },
+                  ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(draft),
+              child: const Text('Listo'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (selected != null && mounted) {
+      setState(() => _motivosSeleccionados = selected);
+    }
+  }
+
   void _clearFilters() {
     setState(() {
       _sucursal = null;
       _tipo = null;
       _labor = null;
       _asign = null;
+      _otrosTipo = null;
+      _motivosSeleccionados.clear();
+      _showMotivesWhenLoaded = false;
       _selectedIord = null;
       _desde = null;
       _hasta = null;
@@ -219,6 +321,7 @@ class _MermasAutorizadasPageState extends ConsumerState<MermasAutorizadasPage> {
       _total = 0;
       _hasSearched = false;
     });
+    _refreshFilterOptions(_sucursal);
   }
 
   void _message(String message) {
@@ -273,7 +376,10 @@ class _MermasAutorizadasPageState extends ConsumerState<MermasAutorizadasPage> {
                   ('Descripción', _value(row, 'DESCART_NUEVA')),
                   ('Cantidad nueva', _value(row, 'CTD_NUEVA')),
                   ('Autorizó', _value(row, 'USR_AUT_CYM')),
-                  ('Fecha de autorización', _date(row['FCN_AUT_CYM'])),
+                  (
+                    'Fecha de autorización',
+                    _date(row['FCN_AUT_CYM_LOCAL'] ?? row['FCN_AUT_CYM']),
+                  ),
                 ]),
               ],
             ),
@@ -472,6 +578,7 @@ class _MermasAutorizadasPageState extends ConsumerState<MermasAutorizadasPage> {
                                 _asignados = const [];
                                 _filterOptionsLoaded = false;
                               });
+                              _refreshFilterOptions(value);
                             },
                           ),
                         ),
@@ -502,6 +609,15 @@ class _MermasAutorizadasPageState extends ConsumerState<MermasAutorizadasPage> {
                           _asignados,
                           (value) => setState(() => _asign = value),
                         ),
+                        _filterDropdown(
+                          'Otros',
+                          _otrosTipo,
+                          const <Map<String, dynamic>>[
+                            {'value': '1', 'label': 'CAMBIO DE MATERIAL'},
+                            {'value': '2', 'label': 'MERMA'},
+                          ],
+                          _onOtrosTipoChanged,
+                        ),
                         _dateField(
                           'Desde',
                           _desde,
@@ -512,11 +628,30 @@ class _MermasAutorizadasPageState extends ConsumerState<MermasAutorizadasPage> {
                           _hasta,
                           (value) => setState(() => _hasta = value),
                         ),
+                      ],
+                    ),
+                    if (_otrosTipo != null)
+                      OutlinedButton.icon(
+                        onPressed: _filterOptionsLoaded
+                            ? _showMotivePicker
+                            : null,
+                        icon: const Icon(Icons.checklist),
+                        label: Text(
+                          _motivosSeleccionados.isEmpty
+                              ? 'Seleccionar motivos'
+                              : 'Motivos (${_motivosSeleccionados.length})',
+                        ),
+                      ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
                         FilledButton.icon(
                           onPressed: _loading ? null : _applyFilters,
                           icon: const Icon(Icons.search),
                           label: const Text('Aplicar filtros'),
                         ),
+                        const SizedBox(width: 8),
                         OutlinedButton.icon(
                           onPressed: _loading ? null : _clearFilters,
                           icon: const Icon(Icons.filter_alt_off_outlined),
@@ -648,7 +783,12 @@ class _MermasAutorizadasPageState extends ConsumerState<MermasAutorizadasPage> {
                                           ),
                                         ),
                                         DataCell(
-                                          _tableText(_date(row['FCN_AUT_CYM'])),
+                                          _tableText(
+                                            _date(
+                                              row['FCN_AUT_CYM_LOCAL'] ??
+                                                  row['FCN_AUT_CYM'],
+                                            ),
+                                          ),
                                         ),
                                         DataCell(
                                           _tableText(
@@ -707,7 +847,7 @@ class _MermasAutorizadasPageState extends ConsumerState<MermasAutorizadasPage> {
       'Artículo nuevo',
       'Descripción nueva',
       'F. autorización',
-      'Precio cobrado',
+      'Importe de merma',
       'Costo del artículo',
       'Costo del servicio',
       'Autorizó',

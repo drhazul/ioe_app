@@ -64,10 +64,10 @@ class _OrdenesVencerPageState extends ConsumerState<OrdenesVencerPage> {
     _restore(filter);
     unawaited(_loadSucursales());
     unawaited(_initializeRoleSpecificFilters());
-    _clock = Timer.periodic(const Duration(minutes: 1), (_) {
+    _clock = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
       setState(() {});
-      if (_vencimiento != null) {
+      if (_vencimiento != null && DateTime.now().second == 0) {
         ref.invalidate(ordenesTrabajoVencerPanelProvider);
       }
     });
@@ -124,7 +124,9 @@ class _OrdenesVencerPageState extends ConsumerState<OrdenesVencerPage> {
       }
       if (!mounted) return;
       final options = optionsById.values.toList()
-        ..sort((a, b) => a.label.toUpperCase().compareTo(b.label.toUpperCase()));
+        ..sort(
+          (a, b) => a.label.toUpperCase().compareTo(b.label.toUpperCase()),
+        );
       final selectedAssigned = _asign.text.trim();
       if (selectedAssigned.isNotEmpty &&
           !options.any((option) => option.idopv.trim() == selectedAssigned)) {
@@ -144,15 +146,15 @@ class _OrdenesVencerPageState extends ConsumerState<OrdenesVencerPage> {
     }
   }
 
-  bool _isMaquilaRole(String roleCode) =>
-      const {'ENC_MAQUILA', 'ENCARGADO_MAQUILA'}.contains(
-        roleCode.trim().toUpperCase(),
-      );
+  bool _isMaquilaRole(String roleCode) => const {
+    'ENC_MAQUILA',
+    'ENCARGADO_MAQUILA',
+  }.contains(roleCode.trim().toUpperCase());
 
-  bool _isBiselRole(String roleCode) =>
-      const {'ENC_BISEL', 'ENCARGADO_BISELADO'}.contains(
-        roleCode.trim().toUpperCase(),
-      );
+  bool _isBiselRole(String roleCode) => const {
+    'ENC_BISEL',
+    'ENCARGADO_BISELADO',
+  }.contains(roleCode.trim().toUpperCase());
 
   String? _roleTipoForRole(String roleCode) {
     if (_isMaquilaRole(roleCode)) return 'TALLADO';
@@ -216,9 +218,7 @@ class _OrdenesVencerPageState extends ConsumerState<OrdenesVencerPage> {
       tipo: _roleTipo,
     );
     _restore(clearFilter);
-    ref
-        .read(ordenesTrabajoVencerFilterProvider.notifier)
-        .state = clearFilter;
+    ref.read(ordenesTrabajoVencerFilterProvider.notifier).state = clearFilter;
     setState(_selectedIords.clear);
   }
 
@@ -366,25 +366,66 @@ class _OrdenesVencerPageState extends ConsumerState<OrdenesVencerPage> {
       ? '—'
       : '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
 
+  DateTime _serverNow(OrdenTrabajoItem item) => item.serverNow == null
+      ? DateTime.now()
+      : item.serverNow!.add(DateTime.now().difference(item.timerReceivedAt));
+
   bool _late(OrdenTrabajoItem item) {
-    final classification = item.vencimientoColor;
-    if (classification != null) return classification == 'retrasadas';
-    return item.fcnm != null &&
-        item.fcnm!.isBefore(DateTime.now()) &&
-        item.estsegu != '4' &&
-        item.estsegu != '11';
+    if (_excludedTimerFlow(item) || item.fcnm == null) return false;
+    final reference = item.fcnPendienteEntrega ?? _serverNow(item);
+    return item.fcnm!.isBefore(reference);
   }
 
   bool _soon(OrdenTrabajoItem item) {
-    final classification = item.vencimientoColor;
-    if (classification != null) return classification == 'por_vencer';
-    final due = item.fcnm;
-    if (due == null || item.estsegu == '4' || item.estsegu == '11') {
+    if (_excludedTimerFlow(item) || item.fcnPendienteEntrega != null) {
       return false;
     }
-    final remaining = due.difference(DateTime.now());
+    final due = item.fcnm;
+    if (due == null) return false;
+    final remaining = due.difference(_serverNow(item));
     return remaining > Duration.zero &&
         remaining <= const Duration(minutes: 30);
+  }
+
+  bool _excludedTimerFlow(OrdenTrabajoItem item) =>
+      item.estsegu == '4' || item.estsegu == '11';
+
+  Duration? _timePorVencer(OrdenTrabajoItem item) {
+    if (_excludedTimerFlow(item)) return null;
+    final start = item.fcns;
+    final completedAt = item.fcnPendienteEntrega;
+    if (completedAt != null) {
+      final due = item.fcnm;
+      if (due != null && !completedAt.isBefore(due)) return Duration.zero;
+      return start == null ? null : completedAt.difference(start);
+    }
+    final due = item.fcnm;
+    if (due == null) return null;
+    final remaining = due.difference(_serverNow(item));
+    return remaining.isNegative ? Duration.zero : remaining;
+  }
+
+  Duration? _timeRetraso(OrdenTrabajoItem item) {
+    if (_excludedTimerFlow(item) || item.fcnm == null) return null;
+    final reference = item.fcnPendienteEntrega ?? _serverNow(item);
+    final late = reference.difference(item.fcnm!);
+    return late.isNegative || late == Duration.zero ? null : late;
+  }
+
+  String _formatDuration(Duration? duration, {bool negative = false}) {
+    if (duration == null) return '—';
+    final totalSeconds = duration.inSeconds.abs();
+    final days = totalSeconds ~/ 86400;
+    final hours = (totalSeconds % 86400) ~/ 3600;
+    final minutes = (totalSeconds % 3600) ~/ 60;
+    final seconds = totalSeconds % 60;
+    final value = [
+      if (days > 0) '$days ${days == 1 ? 'día' : 'días'}',
+      if (hours > 0) '$hours h',
+      if (minutes > 0 || (days == 0 && hours == 0)) '$minutes min',
+      '$seconds seg',
+    ].join(' ');
+    return negative ? '-$value' : value;
   }
 
   @override
@@ -599,10 +640,8 @@ class _OrdenesVencerPageState extends ConsumerState<OrdenesVencerPage> {
                     child: Text('BISELADO'),
                   ),
                 ],
-          onChanged: (value) => setState(
-            () => _tipo.text =
-                _roleTipo ?? (value ?? ''),
-          ),
+          onChanged: (value) =>
+              setState(() => _tipo.text = _roleTipo ?? (value ?? '')),
         ),
         _dropdownField(
           label: 'Laboratorio',
@@ -656,10 +695,7 @@ class _OrdenesVencerPageState extends ConsumerState<OrdenesVencerPage> {
               ..._roleAssignedOptions.map(
                 (option) => DropdownMenuItem<String>(
                   value: option.idopv.trim(),
-                  child: Text(
-                    option.label,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  child: Text(option.label, overflow: TextOverflow.ellipsis),
                 ),
               )
             else
@@ -910,12 +946,13 @@ class _OrdenesVencerPageState extends ConsumerState<OrdenesVencerPage> {
         !allSelected &&
         data.items.any((item) => _selectedIords.contains(item.iord));
     final resultColumns = _visibleColumns.toList();
+    final deliveryDateIndex = resultColumns.indexOf('F. ent');
+    final timerIndex = deliveryDateIndex < 0
+        ? resultColumns.length
+        : deliveryDateIndex + 1;
+    resultColumns.insert(timerIndex, 'Tiempo por vencer');
     if (!_hideDelayAndExcelForRole(data.roleCode)) {
-      final deliveryDateIndex = resultColumns.indexOf('F. ent');
-      resultColumns.insert(
-        deliveryDateIndex < 0 ? resultColumns.length : deliveryDateIndex + 1,
-        'Tiempo de retraso',
-      );
+      resultColumns.insert(timerIndex + 1, 'Tiempo de retraso');
     }
     final columns = <DataColumn>[
       DataColumn(
@@ -1023,14 +1060,13 @@ class _OrdenesVencerPageState extends ConsumerState<OrdenesVencerPage> {
     );
   }
 
-  bool _hideDelayAndExcelForRole(String roleCode) =>
-      const {
-        'ANALISTA_ORD',
-        'ENC_MAQUILA',
-        'ENCARGADO_MAQUILA',
-        'ENC_BISEL',
-        'ENCARGADO_BISELADO',
-      }.contains(roleCode.trim().toUpperCase());
+  bool _hideDelayAndExcelForRole(String roleCode) => const {
+    'ANALISTA_ORD',
+    'ENC_MAQUILA',
+    'ENCARGADO_MAQUILA',
+    'ENC_BISEL',
+    'ENCARGADO_BISELADO',
+  }.contains(roleCode.trim().toUpperCase());
 
   double _columnWidth(String label) {
     switch (label) {
@@ -1062,6 +1098,8 @@ class _OrdenesVencerPageState extends ConsumerState<OrdenesVencerPage> {
         return 145;
       case 'Tiempo de retraso':
         return 140;
+      case 'Tiempo por vencer':
+        return 180;
       default:
         return 120;
     }
@@ -1097,22 +1135,12 @@ class _OrdenesVencerPageState extends ConsumerState<OrdenesVencerPage> {
         return item.fcnm == null
             ? '—'
             : '${_date(item.fcnm)} ${item.fcnm!.hour.toString().padLeft(2, '0')}:${item.fcnm!.minute.toString().padLeft(2, '0')}';
+      case 'Tiempo por vencer':
+        return _formatDuration(_timePorVencer(item));
       case 'Tiempo de retraso':
-        return _formatLateDuration(item.minutosRetraso);
+        return _formatDuration(_timeRetraso(item), negative: true);
       default:
         return '';
     }
-  }
-
-  String _formatLateDuration(int? totalMinutes) {
-    if (totalMinutes == null || totalMinutes < 0) return '—';
-    final days = totalMinutes ~/ 1440;
-    final hours = (totalMinutes % 1440) ~/ 60;
-    final minutes = totalMinutes % 60;
-    return [
-      if (days > 0) '$days ${days == 1 ? 'día' : 'días'}',
-      if (hours > 0) '$hours h',
-      if (minutes > 0 || (days == 0 && hours == 0)) '$minutes min',
-    ].join(' ');
   }
 }
