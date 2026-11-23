@@ -15,6 +15,9 @@ class CsdModel {
     this.fechaAlta,
     this.usuarioAlta,
     this.quadrumUsuario,
+    this.facturaHabilitada = false,
+    this.notaCreditoHabilitada = false,
+    this.complementoPagoHabilitado = false,
   });
 
   final String rfc;
@@ -30,6 +33,9 @@ class CsdModel {
 
   /// Cuenta de Quadrum con la que timbra este RFC. Null = cuenta propia no configurada.
   final String? quadrumUsuario;
+  final bool facturaHabilitada;
+  final bool notaCreditoHabilitada;
+  final bool complementoPagoHabilitado;
 
   factory CsdModel.fromJson(Map<String, dynamic> json) {
     return CsdModel(
@@ -44,6 +50,10 @@ class CsdModel {
       fechaAlta: _fecha(json['fechaAlta']),
       usuarioAlta: json['usuarioAlta'] as String?,
       quadrumUsuario: json['quadrumUsuario'] as String?,
+      facturaHabilitada: json['quadrumFacturaHabilitada'] == true,
+      notaCreditoHabilitada: json['quadrumNotaCreditoHabilitada'] == true,
+      complementoPagoHabilitado:
+          json['quadrumComplementoPagoHabilitado'] == true,
     );
   }
 

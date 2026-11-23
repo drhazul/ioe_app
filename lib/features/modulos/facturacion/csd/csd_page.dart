@@ -140,6 +140,65 @@ class _CsdPageState extends ConsumerState<CsdPage> {
     _aviso('Cuenta de Quadrum actualizada para ${csd.rfc}.');
   }
 
+  Future<void> _editarPermisos(CsdModel csd) async {
+    var factura = csd.facturaHabilitada;
+    var nota = csd.notaCreditoHabilitada;
+    var pago = csd.complementoPagoHabilitado;
+    final resultado = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, actualizar) => AlertDialog(
+          title: Text('Permisos Quadrum · ${csd.rfc}'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CheckboxListTile(
+                title: const Text('Factura'),
+                value: factura,
+                onChanged: (v) => actualizar(() => factura = v ?? false),
+              ),
+              CheckboxListTile(
+                title: const Text('Nota de crédito'),
+                value: nota,
+                onChanged: (v) => actualizar(() => nota = v ?? false),
+              ),
+              CheckboxListTile(
+                title: const Text('Complemento de pago'),
+                value: pago,
+                onChanged: (v) => actualizar(() => pago = v ?? false),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Guardar'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (resultado != true) return;
+    try {
+      await ref
+          .read(csdApiProvider)
+          .actualizarPermisos(csd, factura, nota, pago);
+      if (!mounted) return;
+      ref.invalidate(csdListProvider);
+      _aviso('Permisos actualizados para ${csd.rfc}.');
+    } catch (error) {
+      if (!mounted) return;
+      _aviso(
+        apiErrorMessage(error, fallback: 'No se pudieron guardar los permisos'),
+        error: true,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final listaAsync = ref.watch(csdListProvider);
@@ -171,6 +230,7 @@ class _CsdPageState extends ConsumerState<CsdPage> {
                 data: (certificados) => _CsdList(
                   certificados: certificados,
                   onEditar: puedeEditar ? _editarCuenta : null,
+                  onPermisos: puedeEditar ? _editarPermisos : null,
                 ),
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (e, _) => Center(
@@ -400,10 +460,11 @@ class _BotonArchivo extends StatelessWidget {
 }
 
 class _CsdList extends StatelessWidget {
-  const _CsdList({required this.certificados, this.onEditar});
+  const _CsdList({required this.certificados, this.onEditar, this.onPermisos});
 
   final List<CsdModel> certificados;
   final ValueChanged<CsdModel>? onEditar;
+  final ValueChanged<CsdModel>? onPermisos;
 
   @override
   Widget build(BuildContext context) {
@@ -539,19 +600,35 @@ class _CsdList extends StatelessWidget {
                       SizedBox(width: 130, child: _Estado(csd: csd)),
                       SizedBox(
                         width: 170,
-                        child: Tooltip(
-                          message: !csd.activo
-                              ? 'Sólo se edita certificado activo'
-                              : onEditar == null
-                              ? 'Sólo administradores'
-                              : 'Editar usuario y contraseña de Quadrum',
-                          child: TextButton.icon(
-                            onPressed: csd.activo && onEditar != null
-                                ? () => onEditar!(csd)
-                                : null,
-                            icon: const Icon(Icons.edit_outlined, size: 18),
-                            label: const Text('Editar Quadrum'),
-                          ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Tooltip(
+                                message: !csd.activo
+                                    ? 'Sólo se edita certificado activo'
+                                    : onEditar == null
+                                    ? 'Sólo administradores'
+                                    : 'Editar usuario y contraseña de Quadrum',
+                                child: TextButton.icon(
+                                  onPressed: csd.activo && onEditar != null
+                                      ? () => onEditar!(csd)
+                                      : null,
+                                  icon: const Icon(
+                                    Icons.edit_outlined,
+                                    size: 18,
+                                  ),
+                                  label: const Text('Editar Quadrum'),
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: 'Configurar permisos Quadrum',
+                              onPressed: csd.activo && onPermisos != null
+                                  ? () => onPermisos!(csd)
+                                  : null,
+                              icon: const Icon(Icons.tune),
+                            ),
+                          ],
                         ),
                       ),
                     ],

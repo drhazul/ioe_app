@@ -11,6 +11,23 @@ class CsdApi {
 
   final Dio _dio;
 
+  Future<void> actualizarPermisos(
+    CsdModel csd,
+    bool factura,
+    bool nota,
+    bool pago,
+  ) async {
+    await _dio.patch<dynamic>(
+      '/cfdi/csd/${Uri.encodeComponent(csd.rfc)}/quadrum/permisos',
+      data: {
+        'noCertificado': csd.noCertificado,
+        'factura': factura,
+        'notaCredito': nota,
+        'complementoPago': pago,
+      },
+    );
+  }
+
   Future<void> actualizarCuentaQuadrum({
     required String rfc,
     required String usuario,
