@@ -10,6 +10,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:ioe_app/core/api_error.dart';
+import 'package:ioe_app/core/auth/auth_controller.dart';
 import 'package:ioe_app/core/excel_exporter.dart';
 import 'package:ioe_app/features/masterdata/sucursales/sucursales_models.dart';
 import 'package:ioe_app/features/masterdata/sucursales/sucursales_providers.dart';
@@ -2117,6 +2118,9 @@ class _DatArtPageState extends ConsumerState<DatArtPage> {
 
   @override
   Widget build(BuildContext context) {
+    final auth = ref.watch(authControllerProvider);
+    final hideMassiveActions = auth.roleId == 13008 &&
+        (auth.suc ?? '').trim().toUpperCase() == 'DF01';
     final sucAsync = ref.watch(sucursalesListProvider);
     final depaAsync = ref.watch(jrqDepaListProvider);
     final subdAsync = ref.watch(jrqSubdListProvider(_selectedDepa));
@@ -2144,45 +2148,47 @@ class _DatArtPageState extends ConsumerState<DatArtPage> {
         appBar: AppBar(
           title: const Text('Catálogo DAT_ART'),
           actions: [
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: TextButton.icon(
-                onPressed:
-                    _uploadingAltaMasiva ? null : _openAltaMasivaDialog,
-                style: TextButton.styleFrom(
-                  backgroundColor: const Color(0xFFB4D4FF),
-                  foregroundColor: Colors.black87,
+            if (!hideMassiveActions) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: TextButton.icon(
+                  onPressed:
+                      _uploadingAltaMasiva ? null : _openAltaMasivaDialog,
+                  style: TextButton.styleFrom(
+                    backgroundColor: const Color(0xFFB4D4FF),
+                    foregroundColor: Colors.black87,
+                  ),
+                  icon: _uploadingAltaMasiva
+                      ? const SizedBox(
+                          height: 16,
+                          width: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.playlist_add),
+                  label: const Text('Alta Masiva'),
                 ),
-                icon: _uploadingAltaMasiva
-                    ? const SizedBox(
-                        height: 16,
-                        width: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.playlist_add),
-                label: const Text('Alta Masiva'),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: TextButton.icon(
-                onPressed: _uploadingMassive
-                    ? null
-                    : _openModificacionMasivaDialog,
-                style: TextButton.styleFrom(
-                  backgroundColor: const Color(0xFFC1E1A7),
-                  foregroundColor: Colors.black87,
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: TextButton.icon(
+                  onPressed: _uploadingMassive
+                      ? null
+                      : _openModificacionMasivaDialog,
+                  style: TextButton.styleFrom(
+                    backgroundColor: const Color(0xFFC1E1A7),
+                    foregroundColor: Colors.black87,
+                  ),
+                  icon: _uploadingMassive
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.upload_file),
+                  label: const Text('Modificacion Masiva'),
                 ),
-                icon: _uploadingMassive
-                    ? const SizedBox(
-                        height: 16,
-                        width: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.upload_file),
-                label: const Text('Modificacion Masiva'),
               ),
-            ),
+            ],
             IconButton(
               onPressed: _items.isNotEmpty
                   ? () => _toggleVisibleSelection(!_allVisibleSelected)

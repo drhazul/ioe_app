@@ -1,5 +1,7 @@
 # Instrucciones de agente para ioe_app
 
+- Catálogo DAT_ART (2026-11-28): para `IDROL=13008` con `SUC=DF01`, ocultar Alta Masiva y Modificación Masiva; los demás usuarios conservan ambos botones.
+
 - Punto de venta / Fecha de proceso (2026-10-15): la UI consume fechas de folio y cierre generadas por API en hora local de México; fechas de negocio editables permanecen como fueron capturadas. Corrección afecta folios CP/CA/VF, devoluciones MB51 y sellos de facturación, sin cambio de contrato Flutter.
 
 - DEV_PROVD / Devoluciones a proveedor (2026-08-28): feature `lib/features/modulos/devoluciones_proveedor`; rutas `/modulos/devoluciones-proveedor` y `/:doc`; acceso desde `MOD_FRONT.DEV_PROVD`. Mantener reglas críticas de reserva, autorización y movimiento 102 exclusivamente en API/SP.
@@ -22,6 +24,7 @@
 
 ## Contexto del proyecto
 - Inventarios / Recepcion de mercancias (2026-08-11): feature `lib/features/modulos/recepciones` con rutas `/modulos/recepciones` y detalle por `NPED`; Home resuelve `DAT_REC`. La UI consume `/recepciones` y nunca contabiliza inventario directamente.
+- Inventarios / Traspasos entre almacenes: `DAT_JAA_TRAS` navega a `/modulos/traspasos-almacenes`. El módulo permanece local y no consulta endpoints ni tablas; mantiene filtros visuales y listado vacío. La ventana de solicitud captura origen/destino localmente y no guarda hasta que se defina la persistencia dentro del módulo.
 - DAT_REC / Pedidos pendientes: no precargar resultados; exigir filtro y limitar el selector de sucursal a `DF01/DF04/DF05/DF06`.
 - DAT_REC / Filtros: proveedor debe ser dropdown ordenado; limpiar restablece criterios y resultados.
 - DAT_REC / Jerarquías y rechazo (2026-08-18): en el detalle reutilizar los catálogos JRQ de Mermas para `DEP/SDEP/CLS/SCLS/SCLS2`, complementar con `SPH/CYL/ADIC` y permitir cualquier criterio individual sin exigir completar la jerarquía; conservar vista por artículo y vista agrupada por ruta jerárquica. El rechazo total del Encargado exige motivo y queda visible como `RECHAZADO` solo para Jefe/Analista.
@@ -66,6 +69,8 @@
 - Ordenes de trabajo / Consulta estado (2026-11-11): para `JEF_TALLER` y Auxiliar de Jefe de Taller, `Tiempo por flujo` usa ancho fijo de 120 px en la vista compacta sin cambiar el tooltip.
 - Ordenes de trabajo / Incidencia (2026-04-07): `Regresar incidencia` valida `ESTSEGU=8` con colaborador asignado y cambia a `ESTSEGU=9`; `Regresar a tienda` desde `9` decide `9.1/9.2` por `TIPOM`.
 - Ordenes de trabajo / Cambio material y Merma (2026-04-08): el modal de detalle usa `GET/POST /ordenes-trabajo/:iord/cambio-merma/*` para contexto/preparación/retrabajo/autorización final con `selCtrlOrd` (`NULL/0/13/14/15`), `CTD_C_M` (`1|0.5`), resumen enriquecido y cálculo homologado (`subtotal/iva/total/diferencia`).
+- Ordenes de trabajo / Merma por receta de cajero: al seleccionar `RECETA MAL REALIZADA POR CAJERO`, la captura muestra un selector `sucursal — cajero` y exige una opción antes de solicitar autorización; el cajero sustituye al colaborador elegido en `ASIGN`. El selector de cambio de colaborador muestra sucursal y queda limitado a Jefe de Taller, Analista de Órdenes de Trabajo y Auxiliar de Jefe de Taller.
+- Ordenes de trabajo / Colaborador de merma: el selector usa el laboratorio asignado de la ORD para mostrar solo `TALLER` si es maquilado o `BISELADO` si es biselado; cada opción incluye la sucursal.
 - Ordenes de trabajo / Cambio material y Merma (2026-04-09): la captura refleja cálculo homologado a cotizaciones abiertas usando tipo/fiscalidad del folio origen (`AUT/ORIGEN_AUT`, `REQF/RQFAC`) junto con `DAT_SUC.IVA_INTEGRADO`.
 - Ordenes de trabajo / Cambio material y Merma (2026-04-19): se agrega botón `Crear Nueva ORD` para crear staging (`PV_ORD_CAMBIO_MERMA_TMP`); sin staging no se muestran campos/acciones de captura, y la recaptura sigue permitida cuando `selCtrlOrd=15`.
 - Ordenes de trabajo / Cambio material y Merma (actualizado 2026-07-24): la nueva ORD usa `DAT_ART.PVTA`; la original usa snapshot histórico propio (`PVTA` unitario + `PVTAT` total). Siempre se calcula diferencia, incluso con misma ART, aplicando `CTD_C_M` e IVA según `DAT_SUC`/folio.

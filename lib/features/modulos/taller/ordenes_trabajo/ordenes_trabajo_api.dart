@@ -194,12 +194,14 @@ class OrdenesTrabajoApi {
     int? motr,
     int? labor,
     String? asign,
+    String? cajero,
     String? docDif,
     bool? crearNuevaOrd,
   }) async {
     final cleanArtNuevo = (artNuevo ?? '').trim();
     final cleanMotivo = (motivo ?? '').trim();
     final cleanAsign = (asign ?? '').trim();
+    final cleanCajero = (cajero ?? '').trim();
     final cleanDocDif = (docDif ?? '').trim();
     final res = await dio.post(
       '/ordenes-trabajo/${Uri.encodeComponent(iord)}/cambio-merma/solicitar-autorizacion',
@@ -212,6 +214,7 @@ class OrdenesTrabajoApi {
         'motr': ?motr,
         'labor': ?labor,
         if (cleanAsign.isNotEmpty) 'asign': cleanAsign,
+        if (cleanCajero.isNotEmpty) 'cajero': cleanCajero,
         if (cleanDocDif.isNotEmpty) 'docDif': cleanDocDif,
         'crearNuevaOrd': ?crearNuevaOrd,
       },
@@ -387,12 +390,16 @@ class OrdenesTrabajoApi {
   }
 
   Future<List<OrdenTrabajoColaboradorOption>> fetchAsignarColaboradores(
-    String suc,
-  ) async {
+    String suc, {
+    String? depto,
+  }) async {
     final cleanSuc = suc.trim();
     final res = await dio.get(
       '/ordenes-trabajo/asignar/colaboradores',
-      queryParameters: {'suc': cleanSuc},
+      queryParameters: {
+        'suc': cleanSuc,
+        if ((depto ?? '').trim().isNotEmpty) 'depto': depto!.trim(),
+      },
     );
     final map = Map<String, dynamic>.from(res.data as Map);
     final rawItems = (map['items'] as List?) ?? const [];
@@ -418,6 +425,21 @@ class OrdenesTrabajoApi {
           ),
         )
         .where((item) => item.suc.trim().isNotEmpty)
+        .toList(growable: false);
+  }
+
+  Future<List<OrdenTrabajoColaboradorOption>> fetchMermaCajeros() async {
+    final res = await dio.get('/ordenes-trabajo/merma/cajeros');
+    final map = Map<String, dynamic>.from(res.data as Map);
+    final rawItems = (map['items'] as List?) ?? const [];
+    return rawItems
+        .whereType<Map>()
+        .map(
+          (item) => OrdenTrabajoColaboradorOption.fromJson(
+            Map<String, dynamic>.from(item),
+          ),
+        )
+        .where((item) => item.idopv.trim().isNotEmpty)
         .toList(growable: false);
   }
 

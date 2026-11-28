@@ -106,6 +106,7 @@ import '../features/modulos/merma/presentation/pages/merma_reportes_page.dart';
 import '../features/modulos/transferencias/presentation/pages/transferencia_detail_page.dart';
 import '../features/modulos/transferencias/presentation/pages/transferencias_page.dart';
 import '../features/modulos/transferencias/presentation/pages/transferencias_reportes_page.dart';
+import '../features/modulos/traspasos_almacenes/presentation/pages/traspasos_almacenes_page.dart';
 import '../features/modulos/sugeridos/presentation/pages/ordenes_compra_page.dart';
 import '../features/modulos/sugeridos/presentation/pages/sugeridos_page.dart';
 import '../features/modulos/recepciones/presentation/pages/recepciones_page.dart';
@@ -630,6 +631,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'modulos/merma/reportes',
             builder: (c, s) => const MermaReportesPage(),
+          ),
+          GoRoute(
+            path: 'modulos/traspasos-almacenes',
+            builder: (c, s) => const TraspasosAlmacenesPage(),
           ),
           GoRoute(
             path: 'modulos/transferencias',

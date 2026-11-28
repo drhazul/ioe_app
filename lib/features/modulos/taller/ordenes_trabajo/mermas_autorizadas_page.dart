@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:ioe_app/core/auth/auth_controller.dart';
+import 'package:ioe_app/core/dio_provider.dart';
 import 'package:ioe_app/core/excel_exporter.dart';
 
 import 'ordenes_trabajo_models.dart';
@@ -39,6 +41,7 @@ class _MermasAutorizadasPageState extends ConsumerState<MermasAutorizadasPage> {
   String? _filterOptionsSuc;
   bool _filterOptionsLoaded = false;
   bool _showMotivesWhenLoaded = false;
+  bool _isInventoryChief = false;
   final Set<String> _filterOptionsRequestsInFlight = <String>{};
   DateTime? _desde;
   DateTime? _hasta;
@@ -54,6 +57,7 @@ class _MermasAutorizadasPageState extends ConsumerState<MermasAutorizadasPage> {
   @override
   void initState() {
     super.initState();
+    unawaited(_loadRole());
     _loadSucursales();
     _refreshFilterOptions(_sucursal);
   }
@@ -79,6 +83,38 @@ class _MermasAutorizadasPageState extends ConsumerState<MermasAutorizadasPage> {
     }
   }
 
+  Future<void> _loadRole() async {
+    final roleId = ref.read(authControllerProvider).roleId;
+    if (roleId == null || roleId <= 0) return;
+    try {
+      final response = await ref.read(dioProvider).get('/access/roles');
+      final payload = response.data;
+      final rows = payload is Map && payload['data'] is List
+          ? payload['data'] as List
+          : payload is List
+          ? payload
+          : const <dynamic>[];
+      String roleCode = '';
+      for (final row in rows) {
+        if (row is! Map) continue;
+        final rowRoleId = int.tryParse(
+          '${row['IDROL'] ?? row['idRol'] ?? row['id'] ?? ''}',
+        );
+        if (rowRoleId != roleId) continue;
+        roleCode = (row['CODIGO'] ?? row['codigo'] ?? '')
+            .toString()
+            .trim()
+            .toUpperCase();
+        break;
+      }
+      if (mounted) {
+        setState(() => _isInventoryChief = roleCode == 'INVJEF');
+      }
+    } catch (_) {
+      // Si el catálogo de roles no está disponible, se conserva la vista previa.
+    }
+  }
+
   Future<void> _load({int? page}) async {
     setState(() {
       _loading = true;
@@ -90,11 +126,11 @@ class _MermasAutorizadasPageState extends ConsumerState<MermasAutorizadasPage> {
           .read(ordenesTrabajoApiProvider)
           .fetchMermasAutorizadas(
             suc: _sucursal,
-            iordAutorizacion: _autorizacionCtrl.text,
-            iordOriginal: _originalCtrl.text,
+            iordAutorizacion: _isInventoryChief ? null : _autorizacionCtrl.text,
+            iordOriginal: _isInventoryChief ? null : _originalCtrl.text,
             iord: _iordCtrl.text,
-            idfol: _folioCtrl.text,
-            client: _clienteCtrl.text,
+            idfol: _isInventoryChief ? null : _folioCtrl.text,
+            client: _isInventoryChief ? null : _clienteCtrl.text,
             tipo: _tipo,
             labor: _labor,
             asign: _asign,
@@ -140,11 +176,11 @@ class _MermasAutorizadasPageState extends ConsumerState<MermasAutorizadasPage> {
           .read(ordenesTrabajoApiProvider)
           .exportMermasAutorizadas(
             suc: _sucursal,
-            iordAutorizacion: _autorizacionCtrl.text,
-            iordOriginal: _originalCtrl.text,
+            iordAutorizacion: _isInventoryChief ? null : _autorizacionCtrl.text,
+            iordOriginal: _isInventoryChief ? null : _originalCtrl.text,
             iord: _iordCtrl.text,
-            idfol: _folioCtrl.text,
-            client: _clienteCtrl.text,
+            idfol: _isInventoryChief ? null : _folioCtrl.text,
+            client: _isInventoryChief ? null : _clienteCtrl.text,
             tipo: _tipo,
             labor: _labor,
             asign: _asign,
@@ -291,7 +327,10 @@ class _MermasAutorizadasPageState extends ConsumerState<MermasAutorizadasPage> {
       ),
     );
     if (selected != null && mounted) {
-      setState(() => _motivosSeleccionados = selected);
+      setState(() {
+        _motivosSeleccionados = selected;
+        if (_isInventoryChief) _otrosTipo = selected.isEmpty ? null : '2';
+      });
     }
   }
 
@@ -582,15 +621,19 @@ class _MermasAutorizadasPageState extends ConsumerState<MermasAutorizadasPage> {
                             },
                           ),
                         ),
-                        _filterField(
-                          _autorizacionCtrl,
-                          'IORD autorización',
-                          200,
-                        ),
-                        _filterField(_originalCtrl, 'IORD original', 200),
+                        if (!_isInventoryChief)
+                          _filterField(
+                            _autorizacionCtrl,
+                            'IORD autorización',
+                            200,
+                          ),
+                        if (!_isInventoryChief)
+                          _filterField(_originalCtrl, 'IORD original', 200),
                         _filterField(_iordCtrl, 'IORD', 180),
-                        _filterField(_folioCtrl, 'IDFOL', 200),
-                        _filterField(_clienteCtrl, 'Cliente', 220),
+                        if (!_isInventoryChief)
+                          _filterField(_folioCtrl, 'IDFOL', 200),
+                        if (!_isInventoryChief)
+                          _filterField(_clienteCtrl, 'Cliente', 220),
                         _filterDropdown(
                           'Tipo',
                           _tipo,
@@ -609,15 +652,28 @@ class _MermasAutorizadasPageState extends ConsumerState<MermasAutorizadasPage> {
                           _asignados,
                           (value) => setState(() => _asign = value),
                         ),
-                        _filterDropdown(
-                          'Otros',
-                          _otrosTipo,
-                          const <Map<String, dynamic>>[
-                            {'value': '1', 'label': 'CAMBIO DE MATERIAL'},
-                            {'value': '2', 'label': 'MERMA'},
-                          ],
-                          _onOtrosTipoChanged,
-                        ),
+                        if (_isInventoryChief)
+                          OutlinedButton.icon(
+                            onPressed: _filterOptionsLoaded
+                                ? _showMotivePicker
+                                : null,
+                            icon: const Icon(Icons.checklist),
+                            label: Text(
+                              _motivosSeleccionados.isEmpty
+                                  ? 'Motivos de merma'
+                                  : 'Motivos de merma (${_motivosSeleccionados.length})',
+                            ),
+                          )
+                        else
+                          _filterDropdown(
+                            'Otros',
+                            _otrosTipo,
+                            const <Map<String, dynamic>>[
+                              {'value': '1', 'label': 'CAMBIO DE MATERIAL'},
+                              {'value': '2', 'label': 'MERMA'},
+                            ],
+                            _onOtrosTipoChanged,
+                          ),
                         _dateField(
                           'Desde',
                           _desde,
@@ -630,7 +686,7 @@ class _MermasAutorizadasPageState extends ConsumerState<MermasAutorizadasPage> {
                         ),
                       ],
                     ),
-                    if (_otrosTipo != null)
+                    if (!_isInventoryChief && _otrosTipo != null)
                       OutlinedButton.icon(
                         onPressed: _filterOptionsLoaded
                             ? _showMotivePicker
@@ -721,23 +777,25 @@ class _MermasAutorizadasPageState extends ConsumerState<MermasAutorizadasPage> {
                                         DataCell(
                                           _tableText(_value(row, 'MOVIMIENTO')),
                                         ),
-                                        DataCell(
-                                          _tableText(_value(row, 'OPV')),
-                                        ),
-                                        DataCell(
-                                          _tableText(
-                                            _value(row, 'LABORATORIO_DESC'),
+                                        if (!_isInventoryChief) ...[
+                                          DataCell(
+                                            _tableText(_value(row, 'OPV')),
                                           ),
-                                        ),
-                                        DataCell(
-                                          _tableText(_value(row, 'IORD')),
-                                        ),
-                                        DataCell(
-                                          _tableText(
-                                            '${_value(row, 'CLIEN')} ${_value(row, 'NCLIENTE')}'
-                                                .trim(),
+                                          DataCell(
+                                            _tableText(
+                                              _value(row, 'LABORATORIO_DESC'),
+                                            ),
                                           ),
-                                        ),
+                                          DataCell(
+                                            _tableText(_value(row, 'IORD')),
+                                          ),
+                                          DataCell(
+                                            _tableText(
+                                              '${_value(row, 'CLIEN')} ${_value(row, 'NCLIENTE')}'
+                                                  .trim(),
+                                            ),
+                                          ),
+                                        ],
                                         DataCell(
                                           _tableText(_value(row, 'ART')),
                                         ),
@@ -745,11 +803,19 @@ class _MermasAutorizadasPageState extends ConsumerState<MermasAutorizadasPage> {
                                           _tableText(_value(row, 'DESCART')),
                                         ),
                                         DataCell(
-                                          _tableText(_value(row, 'CTD_C_M')),
+                                          _tableText(
+                                            _value(
+                                              row,
+                                              _isInventoryChief
+                                                  ? 'CTD'
+                                                  : 'CTD_C_M',
+                                            ),
+                                          ),
                                         ),
-                                        DataCell(
-                                          _tableText(_value(row, 'FLUJO')),
-                                        ),
+                                        if (!_isInventoryChief)
+                                          DataCell(
+                                            _tableText(_value(row, 'FLUJO')),
+                                          ),
                                         DataCell(
                                           _tableText(
                                             _value(row, 'RESPONSABLE_MERMA'),
@@ -760,20 +826,22 @@ class _MermasAutorizadasPageState extends ConsumerState<MermasAutorizadasPage> {
                                             _value(row, 'MOTIVO_MERMA'),
                                           ),
                                         ),
-                                        DataCell(
-                                          _tableText(
-                                            _value(
-                                              row,
-                                              'MOTIVO_CAMBIO_MATERIAL',
+                                        if (!_isInventoryChief)
+                                          DataCell(
+                                            _tableText(
+                                              _value(
+                                                row,
+                                                'MOTIVO_CAMBIO_MATERIAL',
+                                              ),
                                             ),
                                           ),
-                                        ),
                                         DataCell(
                                           _tableText(_value(row, 'IORD_NUEVA')),
                                         ),
-                                        DataCell(
-                                          _tableText(_value(row, 'IDFOL')),
-                                        ),
+                                        if (!_isInventoryChief)
+                                          DataCell(
+                                            _tableText(_value(row, 'IDFOL')),
+                                          ),
                                         DataCell(
                                           _tableText(_value(row, 'ART_NUEVA')),
                                         ),
@@ -800,16 +868,18 @@ class _MermasAutorizadasPageState extends ConsumerState<MermasAutorizadasPage> {
                                             _value(row, 'COSTO_ARTICULO'),
                                           ),
                                         ),
-                                        DataCell(
-                                          _tableText(
-                                            _value(row, 'COSTO_SERVICIO'),
+                                        if (!_isInventoryChief) ...[
+                                          DataCell(
+                                            _tableText(
+                                              _value(row, 'COSTO_SERVICIO'),
+                                            ),
                                           ),
-                                        ),
-                                        DataCell(
-                                          _tableText(
-                                            _value(row, 'USR_AUT_CYM'),
+                                          DataCell(
+                                            _tableText(
+                                              _value(row, 'USR_AUT_CYM'),
+                                            ),
                                           ),
-                                        ),
+                                        ],
                                       ],
                                     );
                                   })
@@ -827,31 +897,48 @@ class _MermasAutorizadasPageState extends ConsumerState<MermasAutorizadasPage> {
   }
 
   List<DataColumn> get _resultColumns {
-    const labels = [
-      'SUC',
-      'Tipo',
-      'Movimiento',
-      'OPV',
-      'Laboratorio',
-      'IORD',
-      'Cliente',
-      'Artículo',
-      'Descripción',
-      'CTD',
-      'Flujo',
-      'Asignado',
-      'Motivo de Merma',
-      'Motivo Cambio de Material',
-      'IORD autorización',
-      'Folio',
-      'Artículo nuevo',
-      'Descripción nueva',
-      'F. autorización',
-      'Importe de merma',
-      'Costo del artículo',
-      'Costo del servicio',
-      'Autorizó',
-    ];
+    final labels = _isInventoryChief
+        ? const [
+            'SUC',
+            'Tipo',
+            'Movimiento',
+            'Artículo',
+            'Descripción',
+            'Cantidad (CTD)',
+            'Asignado',
+            'Motivo de Merma',
+            'IORD autorización',
+            'Artículo nuevo',
+            'Descripción nueva',
+            'F. autorización',
+            'Importe de merma',
+            'Costo del artículo',
+          ]
+        : const [
+            'SUC',
+            'Tipo',
+            'Movimiento',
+            'OPV',
+            'Laboratorio',
+            'IORD',
+            'Cliente',
+            'Artículo',
+            'Descripción',
+            'CTD',
+            'Flujo',
+            'Asignado',
+            'Motivo de Merma',
+            'Motivo Cambio de Material',
+            'IORD autorización',
+            'Folio',
+            'Artículo nuevo',
+            'Descripción nueva',
+            'F. autorización',
+            'Importe de merma',
+            'Costo del artículo',
+            'Costo del servicio',
+            'Autorizó',
+          ];
     return List<DataColumn>.generate(
       labels.length,
       (index) => DataColumn(label: Text(labels[index])),

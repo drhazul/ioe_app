@@ -712,6 +712,7 @@ class OrdenTrabajoColaboradorOption {
     required this.apelm,
     required this.suc,
     this.depto = '',
+    this.sucNombre = '',
   });
 
   final String idopv;
@@ -721,6 +722,7 @@ class OrdenTrabajoColaboradorOption {
   final String apelm;
   final String suc;
   final String depto;
+  final String sucNombre;
 
   factory OrdenTrabajoColaboradorOption.fromJson(Map<String, dynamic> json) {
     final nomb = _toText(json['nomb']) ?? '';
@@ -741,6 +743,7 @@ class OrdenTrabajoColaboradorOption {
       apelm: apelm,
       suc: _toText(json['suc']) ?? '',
       depto: _toText(json['depto']) ?? '',
+      sucNombre: _toText(json['sucNombre']) ?? '',
     );
   }
 }

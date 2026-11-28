@@ -1,5 +1,9 @@
 # Base de módulos (front)
 
+## Catálogo DAT_ART: acceso de Encargado DF01
+
+Los usuarios con rol Encargado de Sucursal (`IDROL=13008`) en `DF01` tienen los módulos DAT_JAA_MB51, DAT_JAA_MB52 y DAT_JAA_CAT. En DAT_JAA_CAT no se muestran Alta Masiva ni Modificación Masiva. El resto de los usuarios conserva sus accesos y botones actuales.
+
 Navega solo a otros README/AGENTS cuando la tarea lo exija; evita cargar contexto extra sin motivo.
 
 Enlaces relacionados:

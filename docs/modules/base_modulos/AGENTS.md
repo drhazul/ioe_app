@@ -1,5 +1,9 @@
 # Base de módulos (AGENTS front)
 
+## Catálogo DAT_ART / Encargado DF01 (2026-11-28)
+
+Con `IDROL=13008` y `SUC=DF01`, no mostrar Alta Masiva ni Modificación Masiva. Usuarios de otros roles o sucursales conservan ambos botones.
+
 Navega a otros README/AGENTS solo cuando la tarea lo requiera.
 
 Enlaces relacionados:

@@ -72,7 +72,7 @@ List<pw.Widget> buildTicketOrdsLegacySection({
       final clientName = (ord.clientName ?? '').trim();
       final fcns = (ord.fcns ?? '').trim();
       final deliveryDate = (ord.deliveryDate ?? '').trim();
-      final deliveryTime = (ord.deliveryTime ?? '').trim();
+      final deliveryTime = _formatDeliveryTime(ord.deliveryTime);
       final comment = (ord.comment ?? '').trim();
       final qrData = _sanitizeQrData(ord.ord);
       final qrSide = _resolveQrSidePt(widthMm);
@@ -162,6 +162,30 @@ List<pw.Widget> buildTicketOrdsLegacySection({
 }
 
 const List<String> _legacyJobDisplayOrder = <String>['OD', 'OI', 'ADD'];
+
+String _formatDeliveryTime(String? value) {
+  final text = (value ?? '').trim();
+  if (text.isEmpty) return '-';
+
+  final match = RegExp(
+    r'(\d{1,2}):(\d{2})(?::\d{2}(?:\.\d+)?)?\s*(AM|PM)?',
+    caseSensitive: false,
+  ).firstMatch(text);
+  if (match == null) return '-';
+
+  final hour = int.tryParse(match.group(1) ?? '');
+  final minute = int.tryParse(match.group(2) ?? '');
+  if (hour == null || minute == null || minute > 59) return '-';
+
+  final period = match.group(3)?.toUpperCase();
+  if (period != null && (hour < 1 || hour > 12)) return '-';
+  if (period == null && hour > 23) return '-';
+  final hour24 = period == null
+      ? hour
+      : (hour % 12) + (period == 'PM' ? 12 : 0);
+  final amPm = hour24 >= 12 ? 'PM' : 'AM';
+  return '${hour24.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')} $amPm';
+}
 
 int _legacyJobSortWeight(String? value) {
   final normalized = (value ?? '').trim().toUpperCase();
@@ -312,7 +336,7 @@ pw.Widget _buildDateTimePanel({
               textAlign: pw.TextAlign.center,
               style: pw.TextStyle(
                 color: PdfColors.white,
-                fontSize: smallFontSize,
+                fontSize: smallFontSize + 1,
                 fontWeight: pw.FontWeight.bold,
               ),
             ),
@@ -326,7 +350,7 @@ pw.Widget _buildDateTimePanel({
             child: pw.Text(
               value.trim().isEmpty ? '-' : value.trim(),
               textAlign: pw.TextAlign.center,
-              style: pw.TextStyle(fontSize: smallFontSize + 0.1),
+              style: pw.TextStyle(fontSize: smallFontSize + 1.2),
               maxLines: 1,
             ),
           ),

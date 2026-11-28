@@ -11,8 +11,8 @@ Enlaces relacionados:
 
 - Al entrar no se consulta la tabla de resultados; la consulta inicia al pulsar `Aplicar filtros`. Si no se captura ningún criterio, consulta todas las órdenes permitidas por rol y sucursales, con paginación, sin lanzar el escaneo automáticamente al abrir.
 - El filtro de sucursal muestra la clave y el nombre de la sucursal.
-- Los filtros del módulo incluyen IORD autorización, IORD original, IORD, folio, cliente, tipo, laboratorio, asignado y rango de fechas. Los combos de tipo, laboratorio y asignado cargan sus catálogos en segundo plano para mostrar primero los resultados.
-- La grilla y el Excel incluyen cliente, artículo, descripción, cantidad de merma, precio cobrado, costo del artículo, costo del servicio, responsable de merma y laboratorio, además de los datos de autorización existentes.
+- Para `INVJEF`, se muestra el botón `Motivos de merma` con selección múltiple y una vista reducida que incluye `SUC`. Para los demás roles se conserva `Otros` con sus opciones de cambio de material/merma, su selector secundario de motivos y las columnas anteriores.
+- Los catálogos de filtros y motivos cargan en segundo plano.
 - La tabla permite seleccionar una sola ORD con checkbox. `Ver detalle` en la AppBar se habilita con una selección y abre los datos de la orden, artículo original, merma y autorización.
 - Los resultados se presentan en una tabla con encabezados resaltados y filas alternadas; se mantiene desplazamiento horizontal para consultar todas las columnas.
 
@@ -94,6 +94,7 @@ Enlaces relacionados:
 - el flujo de recepción elimina selección de destino (`TALLER/ANALISTA`) y unifica operación desde `Scan recibir`.
 - Consulta estado (2026-10-21): al entrar no precarga resultados; `Aplicar filtros` sin criterios consulta todas las ORDs permitidas por rol/permisos, paginadas. `Todos` muestra el flujo actual; `Est. flujo` incluye `SIN FLUJO` y, al seleccionar un flujo específico, muestra el historial de cada ORD hasta ese flujo inclusive para Jefe y Auxiliar Jefe de Taller. El backend aplica la visibilidad por rol y laboratorio antes de paginar y calcular el total.
 - Reportes de Taller (`DAT_JAO_REP`) conserva sus columnas y filtros de reporte, consulta ORDs por historial de flujo con el mismo criterio de fechas que Consulta Estado, y mantiene la exportación Excel alineada con el flujo y filtros aplicados.
+- Reportes de Taller (`DAT_JAO_REP`): `Asignado` muestra el nombre del laboratorio siempre que tenga `UBILAB='EXTERNO'`, con o sin colaborador asignado; en el Excel, `F. sol` y `F. ent` se muestran como `dd/MM/yyyy`.
 - Reportes de Taller (`DAT_JAO_REP`, `ANALISTA_ORD`): al seleccionar flujo `4`, la grilla muestra la columna `Motivo` con el motivo de anulación. No se presenta en otros roles ni en otros módulos.
 - Reportes de Taller (`DAT_JAO_REP`, `ANALISTA_ORD`): el AppBar permite descargar Excel con todos los resultados que coinciden con los filtros aplicados; para flujo `4`, el archivo incluye `Motivo`.
 - Consulta Estado de ORDs (`JEF_TALLER` y Auxiliar Jefe de Taller): la tabla y exportación Excel muestran quién realizó el movimiento correspondiente a cada fila de flujo.
@@ -126,7 +127,7 @@ Enlaces relacionados:
 - `Validación/edición multi-sucursal por IORD` (2026-05-29): validaciones por código y guardado de detalle envían `suc` opcional al backend usando la sucursal activa del panel/ORD; corrige falsos `No existe ORD ... o no tiene acceso` para usuarios con `USR_MOD_SUC` en más de una sucursal.
 - `Cambio-merma integridad artículo-descripción` (2026-05-29): la captura de nueva ORD ya no rellena descripción heredada cuando el artículo nuevo cambia; se mantiene consistencia visual con el artículo seleccionado y con la persistencia final del backend.
 - `Contexto sucursal en validaciones por código` (2026-05-30): validaciones `*/validar` en panel/páginas directas no deben forzar `USUARIO.SUC` por defecto cuando no hay sucursal explícita; permite operar ORDs de sucursales autorizadas en `USR_MOD_SUC` sin falsos bloqueos.
-- `ORDs derivadas cambio/merma` (2026-05-22): al `Recibir en tienda`, las ORDs nuevas derivadas (con relación `REEORD`) avanzan por flujo normal `9 -> 10`; el mapeo `9 -> 9.1/9.2` queda únicamente para incidencias (`TIPOM=1|2`) de la ORD original.
+- `ORDs derivadas cambio/merma` (actualizado 2026-11-25): al `Recibir en tienda`, la incidencia `TIPOM=1` pasa a `9.1` incluso si hay relación `REEORD`; la ORD derivada sin incidencia (`TIPOM=0`/nulo) conserva flujo `9 -> 10`. `TIPOM=2` mantiene su ruta de merma.
 - `Cambio material/Merma` (2026-05-06): al abrir contexto o capturar, backend revalida `NVA_IORD`; si el consecutivo reservado ya existe en otra ORD, regenera reserva y devuelve nueva IORD antes de renderizar `Nueva ORD (captura)`.
 - `Cambio material/Merma` (2026-05-06): el consecutivo global IORD también considera reservas activas en `PV_ORD_CAMBIO_MERMA_TMP.NVA_IORD`, evitando colisiones con ORDs creadas desde punto de venta.
 - `Cambio material/Merma` (2026-04-09): cálculo económico homologado a pago de cotizaciones usando configuración IVA de sucursal (`DAT_SUC.IVA_INTEGRADO`) y fiscalidad del folio origen (`REQF/RQFAC`, `AUT/ORIGEN_AUT`); no se infiere `tipotran` por el texto de `IDFOL`.

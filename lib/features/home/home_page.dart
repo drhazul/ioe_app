@@ -538,6 +538,10 @@ class _ModuleRow extends StatelessWidget {
         moduloCode == 'MERMA') {
       return '/modulos/merma/gestion';
     }
+    if (moduloCode == 'DAT_JAA_TRAS' ||
+        moduloCode == 'TRASPASOS_ALMACENES') {
+      return '/modulos/traspasos-almacenes';
+    }
     if (moduloCode == 'DAT_JAA_TRAN' ||
         moduloCode == 'TRANSFERENCIAS' ||
         moduloCode == 'TRASPASOS_SUC') {
@@ -666,6 +670,9 @@ class _ModuleRow extends StatelessWidget {
     }
     if (name.contains('merma')) {
       return '/modulos/merma/gestion';
+    }
+    if (name.contains('traspas') && name.contains('almacen')) {
+      return '/modulos/traspasos-almacenes';
     }
     if ((name.contains('reporte') || name.contains('consulta')) &&
         (name.contains('transferencia') || name.contains('traspaso')) &&

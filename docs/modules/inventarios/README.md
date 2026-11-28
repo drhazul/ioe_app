@@ -1,5 +1,10 @@
 # Inventarios App
 
+## Traspasos entre almacenes (`DAT_JAA_TRAS`)
+- Ruta `/modulos/traspasos-almacenes`, separada del módulo de transferencias entre sucursales.
+- La tabla transaccional aún no está asignada; el listado se mantiene vacío y no consulta ni persiste solicitudes.
+- La ventana Nueva solicitud captura sucursal y almacén de origen y destino en el propio módulo; no consulta catálogos ni guarda hasta que se defina la persistencia del módulo.
+
 ## Devoluciones a proveedor DEV_PROVD (2026-08-28)
 
 - Feature `lib/features/modulos/devoluciones_proveedor`; rutas `/modulos/devoluciones-proveedor` y detalle `/:doc`.

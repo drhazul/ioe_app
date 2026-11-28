@@ -1162,6 +1162,10 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
         selectedFlow != null &&
         selectedFlow.isNotEmpty;
     final compactJefeEstadoTable = showFlowMovementActor;
+    final compactInventoryTable =
+        !widget.isReportesTaller &&
+        widget.panelMode == OrdenesTrabajoPanelMode.operativo &&
+        panel.roleCode.trim().toUpperCase() == 'INVJEF';
     final deferMessage = _deferredLoadMessage(currentFilter);
     if (deferMessage != null) {
       return Card(
@@ -1193,12 +1197,13 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       showAsign: showAsign,
       showFlowMovementActor: showFlowMovementActor,
       showFlowDuration: showFlowDuration,
-      fitContent: compactJefeEstadoTable,
+      fitContent: compactJefeEstadoTable || compactInventoryTable,
     );
     double widthFor(String key) {
-      if (compactJefeEstadoTable) {
+      if (compactJefeEstadoTable || compactInventoryTable) {
         if (key == 'TIEMPO_POR_FLUJO') return 120;
         final contentWidth = autoWidths[key] ?? 90;
+        if (compactInventoryTable) return contentWidth;
         final configured = _columnWidths[key];
         if (configured == null) return contentWidth;
         final configuredWidth =
@@ -1210,7 +1215,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       return resolved;
     }
 
-    final rowMaxLines = compactJefeEstadoTable
+    final rowMaxLines = compactJefeEstadoTable || compactInventoryTable
         ? 1
         : _estimateRowMaxLines(
             panel,
@@ -1220,20 +1225,25 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
             showOtrosMermaResponsible: showOtrosMermaResponsible,
             widthFor: widthFor,
           );
-    final dataRowHeight = _rowHeightForContent(rowMaxLines);
-    final headingRowHeight = _scaledTableHeight(34 + (_tableFontSize * 0.8));
+    final dataRowHeight = compactInventoryTable
+        ? 48.0
+        : _rowHeightForContent(rowMaxLines);
+    final headingRowHeight = compactInventoryTable
+        ? 56.0
+        : _scaledTableHeight(34 + (_tableFontSize * 0.8));
 
     final columns = <DataColumn>[
-      DataColumn(
-        label: SizedBox(
-          width: 28,
-          child: Checkbox(
-            tristate: true,
-            value: allSelected ? true : (someSelected ? null : false),
-            onChanged: (_) => _toggleSelectAll(visibleItems),
+      if (!compactInventoryTable)
+        DataColumn(
+          label: SizedBox(
+            width: 28,
+            child: Checkbox(
+              tristate: true,
+              value: allSelected ? true : (someSelected ? null : false),
+              onChanged: (_) => _toggleSelectAll(visibleItems),
+            ),
           ),
         ),
-      ),
       _tableDataColumn('SUC', widthFor('SUC')),
       _tableDataColumn('TIPO', widthFor('TIPO')),
       _tableDataColumn('OPV', widthFor('OPV')),
@@ -1280,214 +1290,205 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       _tableDataColumn('F_ENT', widthFor('F_ENT')),
     ];
 
+    final dataTable = DataTable(
+      showCheckboxColumn: compactInventoryTable,
+      horizontalMargin: compactInventoryTable ? 12 : 2,
+      checkboxHorizontalMargin: compactInventoryTable ? 8 : 2,
+      columnSpacing: compactInventoryTable
+          ? 20
+          : compactJefeEstadoTable
+          ? 4
+          : widget.isReportesTaller
+          ? 8
+          : 0,
+      headingRowHeight: headingRowHeight,
+      dataRowMinHeight: dataRowHeight,
+      dataRowMaxHeight: dataRowHeight,
+      headingTextStyle: TextStyle(
+        fontWeight: compactInventoryTable ? FontWeight.w500 : FontWeight.w700,
+        fontSize: compactInventoryTable ? _tableFontSize : headingFontSize,
+        color: Colors.black87,
+      ),
+      dataTextStyle: TextStyle(
+        fontSize: compactInventoryTable ? _tableFontSize - 0.5 : _tableFontSize,
+        color: Colors.black87,
+      ),
+      columns: columns,
+      rows: visibleItems
+          .map((row) {
+            final selected = _selectedIords.contains(row.iord);
+            final flowDuration = showFullFlowHistory
+                ? row.raw['TIEMPO_FLUJO']?.toString() ?? 'Sin historial'
+                : row.raw['TIEMPO_POR_FLUJO']?.toString() ?? 'Sin historial';
+            final labDesc = _resolveLaboratorioDescripcion(
+              row.labor,
+              panel.laboratorios,
+            );
+            final cells = <DataCell>[
+              if (!compactInventoryTable)
+                DataCell(
+                  Checkbox(
+                    value: selected,
+                    onChanged: (checked) {
+                      _toggleRowSelection(row.iord, checked ?? false);
+                    },
+                  ),
+                ),
+              DataCell(_tableCellText(row.suc, width: widthFor('SUC'))),
+              DataCell(_tableCellText(row.tipo, width: widthFor('TIPO'))),
+              DataCell(
+                _tableCellText(
+                  row.opv,
+                  width: widthFor('OPV'),
+                  maxLines: rowMaxLines,
+                ),
+              ),
+              DataCell(
+                _tableCellText(
+                  labDesc,
+                  width: widthFor('LABORATORIO'),
+                  maxLines: rowMaxLines,
+                ),
+              ),
+              DataCell(_tableCellText(row.iord, width: widthFor('IORD'))),
+              DataCell(
+                _tableCellText(
+                  '${row.clien} ${row.ncliente}'.trim(),
+                  width: widthFor('CLIENTE'),
+                  maxLines: rowMaxLines,
+                ),
+              ),
+              DataCell(_tableCellText(row.art, width: widthFor('ARTICULO'))),
+              DataCell(
+                _tableCellText(
+                  row.descArt,
+                  width: widthFor('DESCRIPCION'),
+                  maxLines: rowMaxLines,
+                ),
+              ),
+              DataCell(
+                _tableCellText(
+                  _money(row.ctd),
+                  width: widthFor('CTD'),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              if (widget.isReportesTaller)
+                DataCell(
+                  _tableCellText(
+                    _moneyOrDash(_toNum(row.raw['PRECIO_COBRADO'])),
+                    width: widthFor('PRECIO_COBRADO'),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              if (showOtrosCosts)
+                DataCell(
+                  _tableCellText(
+                    _money(_toNum(row.raw['COSTO_ARTICULO']) ?? 0),
+                    width: widthFor('COSTO_ARTICULO'),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              if (showFlow10MaterialCost)
+                DataCell(
+                  _tableCellText(
+                    _moneyOrDash(_toNum(row.raw['COSTO_MATERIAL'])),
+                    width: widthFor('COSTO_MATERIAL'),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              if (showOtrosCosts || showFlow10ServiceCost)
+                DataCell(
+                  _tableCellText(
+                    showFlow10ServiceCost
+                        ? _moneyOrDash(_toNum(row.raw['COSTO_SERVICIO']))
+                        : _money(_toNum(row.raw['COSTO_SERVICIO']) ?? 0),
+                    width: widthFor('COSTO_SERVICIO'),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              if (showOtrosMermaResponsible)
+                DataCell(
+                  _tableCellText(
+                    row.raw['RESPONSABLE_MERMA']?.toString() ??
+                        'Sin colaborador asignado',
+                    width: widthFor('RESPONSABLE_MERMA'),
+                    maxLines: rowMaxLines,
+                  ),
+                ),
+              if (showAnulacionMotivo)
+                DataCell(
+                  _tableCellText(
+                    row.motivo,
+                    width: widthFor('MOTIVO'),
+                    maxLines: rowMaxLines,
+                  ),
+                ),
+              DataCell(
+                _tableCellText(
+                  _flowDescripcion(row.estsegu, row.estseguDesc),
+                  width: widthFor('FLUJO'),
+                  maxLines: rowMaxLines,
+                ),
+              ),
+              if (showFlowDuration)
+                DataCell(
+                  Tooltip(
+                    message: flowDuration,
+                    child: _tableCellText(
+                      flowDuration,
+                      width: widthFor('TIEMPO_POR_FLUJO'),
+                      maxLines: rowMaxLines,
+                    ),
+                  ),
+                ),
+              if (showFlowMovementActor)
+                DataCell(
+                  _tableCellText(
+                    row.raw['QUIEN_REALIZO']?.toString() ?? 'Sin registro',
+                    width: widthFor('QUIEN_REALIZO'),
+                    maxLines: rowMaxLines,
+                  ),
+                ),
+              if (showAsign)
+                DataCell(
+                  _tableCellText(
+                    row.asign,
+                    width: widthFor('ASIGNADO'),
+                    maxLines: rowMaxLines,
+                  ),
+                ),
+              DataCell(
+                _tableCellText(_fmtDate(row.fcns), width: widthFor('F_SOL')),
+              ),
+              DataCell(
+                _tableCellText(_fmtDate(row.fcnm), width: widthFor('F_ENT')),
+              ),
+            ];
+
+            return DataRow(
+              selected: selected,
+              onSelectChanged: (value) {
+                if (compactInventoryTable) {
+                  _selectSingleInventoryOrd(row.iord, value ?? false);
+                } else {
+                  _toggleRowSelection(row.iord, !selected);
+                }
+              },
+              cells: cells,
+            );
+          })
+          .toList(growable: false),
+    );
+
     return Card(
       elevation: 0,
       child: SelectionArea(
         child: SingleChildScrollView(
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
-            child: DataTable(
-              showCheckboxColumn: false,
-              horizontalMargin: 2,
-              checkboxHorizontalMargin: 2,
-              columnSpacing: compactJefeEstadoTable
-                  ? 4
-                  : widget.isReportesTaller
-                  ? 8
-                  : 0,
-              headingRowHeight: headingRowHeight,
-              dataRowMinHeight: dataRowHeight,
-              dataRowMaxHeight: dataRowHeight,
-              headingTextStyle: TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: headingFontSize,
-                color: Colors.black87,
+            child: dataTable,
               ),
-              dataTextStyle: TextStyle(
-                fontSize: _tableFontSize,
-                color: Colors.black87,
-              ),
-              columns: columns,
-              rows: visibleItems
-                  .map((row) {
-                    final selected = _selectedIords.contains(row.iord);
-                    final flowDuration = showFullFlowHistory
-                        ? row.raw['TIEMPO_FLUJO']?.toString() ?? 'Sin historial'
-                        : row.raw['TIEMPO_POR_FLUJO']?.toString() ??
-                              'Sin historial';
-                    final labDesc = _resolveLaboratorioDescripcion(
-                      row.labor,
-                      panel.laboratorios,
-                    );
-                    final cells = <DataCell>[
-                      DataCell(
-                        Checkbox(
-                          value: selected,
-                          onChanged: (checked) {
-                            _toggleRowSelection(row.iord, checked ?? false);
-                          },
-                        ),
-                      ),
-                      DataCell(_tableCellText(row.suc, width: widthFor('SUC'))),
-                      DataCell(
-                        _tableCellText(row.tipo, width: widthFor('TIPO')),
-                      ),
-                      DataCell(
-                        _tableCellText(
-                          row.opv,
-                          width: widthFor('OPV'),
-                          maxLines: rowMaxLines,
-                        ),
-                      ),
-                      DataCell(
-                        _tableCellText(
-                          labDesc,
-                          width: widthFor('LABORATORIO'),
-                          maxLines: rowMaxLines,
-                        ),
-                      ),
-                      DataCell(
-                        _tableCellText(row.iord, width: widthFor('IORD')),
-                      ),
-                      DataCell(
-                        _tableCellText(
-                          '${row.clien} ${row.ncliente}'.trim(),
-                          width: widthFor('CLIENTE'),
-                          maxLines: rowMaxLines,
-                        ),
-                      ),
-                      DataCell(
-                        _tableCellText(row.art, width: widthFor('ARTICULO')),
-                      ),
-                      DataCell(
-                        _tableCellText(
-                          row.descArt,
-                          width: widthFor('DESCRIPCION'),
-                          maxLines: rowMaxLines,
-                        ),
-                      ),
-                      DataCell(
-                        _tableCellText(
-                          _money(row.ctd),
-                          width: widthFor('CTD'),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                      if (widget.isReportesTaller)
-                        DataCell(
-                          _tableCellText(
-                            _moneyOrDash(_toNum(row.raw['PRECIO_COBRADO'])),
-                            width: widthFor('PRECIO_COBRADO'),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      if (showOtrosCosts)
-                        DataCell(
-                          _tableCellText(
-                            _money(_toNum(row.raw['COSTO_ARTICULO']) ?? 0),
-                            width: widthFor('COSTO_ARTICULO'),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      if (showFlow10MaterialCost)
-                        DataCell(
-                          _tableCellText(
-                            _moneyOrDash(_toNum(row.raw['COSTO_MATERIAL'])),
-                            width: widthFor('COSTO_MATERIAL'),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      if (showOtrosCosts || showFlow10ServiceCost)
-                        DataCell(
-                          _tableCellText(
-                            showFlow10ServiceCost
-                                ? _moneyOrDash(
-                                    _toNum(row.raw['COSTO_SERVICIO']),
-                                  )
-                                : _money(
-                                    _toNum(row.raw['COSTO_SERVICIO']) ?? 0,
-                                  ),
-                            width: widthFor('COSTO_SERVICIO'),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      if (showOtrosMermaResponsible)
-                        DataCell(
-                          _tableCellText(
-                            row.raw['RESPONSABLE_MERMA']?.toString() ??
-                                'Sin colaborador asignado',
-                            width: widthFor('RESPONSABLE_MERMA'),
-                            maxLines: rowMaxLines,
-                          ),
-                        ),
-                      if (showAnulacionMotivo)
-                        DataCell(
-                          _tableCellText(
-                            row.motivo,
-                            width: widthFor('MOTIVO'),
-                            maxLines: rowMaxLines,
-                          ),
-                        ),
-                      DataCell(
-                        _tableCellText(
-                          _flowDescripcion(row.estsegu, row.estseguDesc),
-                          width: widthFor('FLUJO'),
-                          maxLines: rowMaxLines,
-                        ),
-                      ),
-                      if (showFlowDuration)
-                        DataCell(
-                          Tooltip(
-                            message: flowDuration,
-                            child: _tableCellText(
-                              flowDuration,
-                              width: widthFor('TIEMPO_POR_FLUJO'),
-                              maxLines: rowMaxLines,
-                            ),
-                          ),
-                        ),
-                      if (showFlowMovementActor)
-                        DataCell(
-                          _tableCellText(
-                            row.raw['QUIEN_REALIZO']?.toString() ??
-                                'Sin registro',
-                            width: widthFor('QUIEN_REALIZO'),
-                            maxLines: rowMaxLines,
-                          ),
-                        ),
-                      if (showAsign)
-                        DataCell(
-                          _tableCellText(
-                            row.asign,
-                            width: widthFor('ASIGNADO'),
-                            maxLines: rowMaxLines,
-                          ),
-                        ),
-                      DataCell(
-                        _tableCellText(
-                          _fmtDate(row.fcns),
-                          width: widthFor('F_SOL'),
-                        ),
-                      ),
-                      DataCell(
-                        _tableCellText(
-                          _fmtDate(row.fcnm),
-                          width: widthFor('F_ENT'),
-                        ),
-                      ),
-                    ];
-
-                    return DataRow(
-                      selected: selected,
-                      onSelectChanged: (_) {
-                        _toggleRowSelection(row.iord, !selected);
-                      },
-                      cells: cells,
-                    );
-                  })
-                  .toList(growable: false),
-            ),
-          ),
         ),
       ),
     );
@@ -2145,6 +2146,13 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       } else {
         _selectedIords.remove(iord);
       }
+    });
+  }
+
+  void _selectSingleInventoryOrd(String iord, bool selected) {
+    setState(() {
+      _selectedIords.clear();
+      if (selected) _selectedIords.add(iord);
     });
   }
 
@@ -6272,9 +6280,12 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     } catch (_) {
       motivoOptions = const <OrdenTrabajoMotivoMovimientoOption>[];
     }
+    final motivoIdsExcluidos = mode == _OrdCambioMermaMode.cambioMaterial
+        ? const <int>{1, 2}
+        : const <int>{};
     final motivoPorId = <int, OrdenTrabajoMotivoMovimientoOption>{};
     for (final item in motivoOptions) {
-      if (item.id <= 0) continue;
+      if (item.id <= 0 || motivoIdsExcluidos.contains(item.id)) continue;
       motivoPorId.putIfAbsent(item.id, () => item);
     }
     motivoOptions = motivoPorId.values.toList(growable: false);
@@ -6305,20 +6316,33 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     final laborIdForCollaborator = _parseLaboratorioId(
       _textOf(original['LABOR'], fallback: _textOf(draft['LABOR'])),
     );
+    final laboratorioParaColaborador = laboratoriosPanel
+        .where((item) => item.id == laborIdForCollaborator)
+        .firstOrNull;
+    final laboratorioDescripcion = [
+      laboratorioParaColaborador?.tipoLab ?? '',
+      laboratorioParaColaborador?.lab ?? '',
+    ].join(' ').trim().toUpperCase();
+    final tipoOrdParaColaborador = _textOf(
+      original['TIPO'],
+      fallback: _textOf(draft['TIPO'], fallback: _textOf(header['TIPO'])),
+    ).trim().toUpperCase();
+    final deptoColaborador =
+        laboratorioDescripcion.contains('BISEL') ||
+            (!laboratorioDescripcion.contains('MAQUIL') &&
+                tipoOrdParaColaborador.contains('BISEL'))
+        ? 'BISELADO'
+        : 'TALLER';
     final sucColaborador =
-        laboratoriosPanel
-            .where((item) => item.id == laborIdForCollaborator)
-            .map((item) => item.labSuc.trim())
-            .where((value) => value.isNotEmpty)
-            .firstOrNull ??
-        sucOrd;
+        laboratorioParaColaborador?.labSuc.trim().isNotEmpty == true
+        ? laboratorioParaColaborador!.labSuc.trim()
+        : sucOrd;
     final panelRoleForMerma = (panel?.roleCode ?? '').trim().toUpperCase();
     final canChangeMermaCollaborator =
         mode == _OrdCambioMermaMode.merma &&
         <String>{
           'JEF_TALLER',
           'ANALISTA_ORD',
-          'ANALISTA',
           'AUX_JEF_TALLER',
           'AUX_JEFE_TALLER',
           'AUXILIAR_JEF_TALLER',
@@ -6326,10 +6350,21 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
         }.contains(panelRoleForMerma);
     List<OrdenTrabajoColaboradorOption> mermaColaboradores =
         const <OrdenTrabajoColaboradorOption>[];
+    List<OrdenTrabajoColaboradorOption> mermaCajeros =
+        const <OrdenTrabajoColaboradorOption>[];
+    String? selectedMermaCajero;
+    if (mode == _OrdCambioMermaMode.merma) {
+      try {
+        mermaCajeros = await api.fetchMermaCajeros();
+      } catch (_) {
+        mermaCajeros = const <OrdenTrabajoColaboradorOption>[];
+      }
+    }
     if (canChangeMermaCollaborator && sucColaborador.isNotEmpty) {
       try {
         mermaColaboradores = await api.fetchAsignarColaboradores(
           sucColaborador,
+          depto: deptoColaborador,
         );
       } catch (_) {
         mermaColaboradores = const <OrdenTrabajoColaboradorOption>[];
@@ -6390,6 +6425,14 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     int? selectedMotr = motivoOptions.any((item) => item.id == initialMotr)
         ? initialMotr
         : null;
+    bool requiresMermaCashier(int? motivoId) =>
+        mode == _OrdCambioMermaMode.merma &&
+        motivoOptions.any(
+          (item) =>
+              item.id == motivoId &&
+              item.label.trim().toUpperCase() ==
+                  'RECETA MAL REALIZADA POR CAJERO',
+        );
     if (selectedMotr != null) {
       final selected = motivoOptions.firstWhere(
         (item) => item.id == selectedMotr,
@@ -6423,7 +6466,8 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     double? selectedCtdCM = normalizeCtdCMValue(_toNum(original['CTD_C_M']));
     if (selectedCtdCM == null || !initialCtdCMOptions.contains(selectedCtdCM)) {
       final originalCtd = normalizeCtdCMValue(_toNum(original['CTD']));
-      selectedCtdCM = originalCtd != null && initialCtdCMOptions.contains(originalCtd)
+      selectedCtdCM =
+          originalCtd != null && initialCtdCMOptions.contains(originalCtd)
           ? originalCtd
           : initialCtdCMOptions.first;
     }
@@ -6483,6 +6527,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
       }
     }
 
+    var refreshPanelAfterDialog = false;
     await showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -6495,6 +6540,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
               _isCambioMermaAuthorizationRole(panelRoleCode);
           final canAuthorizeCambioMerma =
               _isAdmin || isCambioMermaAuthorizationRole;
+          final isMermaCashierMotive = requiresMermaCashier(selectedMotr);
           final laboratoriosByTipo = _laboratoriosDetallePorTipo(
             laboratoriosPanel,
             tipoOrd,
@@ -6967,6 +7013,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                           ),
                           const SizedBox(height: 10),
                           if (canChangeMermaCollaborator &&
+                              !isMermaCashierMotive &&
                               mermaColaboradores.isNotEmpty)
                             Padding(
                               padding: const EdgeInsets.only(bottom: 8),
@@ -6987,8 +7034,8 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                                           value: item.idopv,
                                           child: Text(
                                             item.depto.trim().isEmpty
-                                                ? item.label
-                                                : '${item.label} — ${item.depto}',
+                                                ? '${item.sucNombre.trim().isEmpty ? item.suc : item.sucNombre} — ${item.label}'
+                                                : '${item.sucNombre.trim().isEmpty ? item.suc : item.sucNombre} — ${item.label} — ${item.depto}',
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
                                           ),
@@ -7281,6 +7328,11 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                                                       );
                                                 motivoCtrl.text =
                                                     selected?.label ?? '';
+                                                if (!requiresMermaCashier(
+                                                  value,
+                                                )) {
+                                                  selectedMermaCajero = null;
+                                                }
                                                 dirty = true;
                                               });
                                             }
@@ -7288,6 +7340,47 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                                     ),
                             ),
                           ),
+                          if (isMermaCashierMotive)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              child: SizedBox(
+                                width: 510,
+                                child: DropdownButtonFormField<String>(
+                                  initialValue:
+                                      mermaCajeros.any(
+                                        (item) =>
+                                            item.idopv == selectedMermaCajero,
+                                      )
+                                      ? selectedMermaCajero
+                                      : null,
+                                  isExpanded: true,
+                                  hint: const Text('Seleccionar cajero'),
+                                  decoration: const InputDecoration(
+                                    labelText: 'Cajero responsable',
+                                    border: OutlineInputBorder(),
+                                    isDense: true,
+                                  ),
+                                  items: mermaCajeros
+                                      .map(
+                                        (item) => DropdownMenuItem<String>(
+                                          value: item.idopv,
+                                          child: Text(
+                                            '${item.sucNombre.trim().isEmpty ? item.suc : item.sucNombre} — ${item.label}',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      )
+                                      .toList(growable: false),
+                                  onChanged: canEditBaseFields
+                                      ? (value) => setDialogState(() {
+                                          selectedMermaCajero = value;
+                                          dirty = true;
+                                        })
+                                      : null,
+                                ),
+                              ),
+                            ),
                         ],
                       ),
                     ),
@@ -7364,6 +7457,12 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                       ? () async {
                           final motivoTexto = motivoCtrl.text.trim();
                           final ctdCMValue = selectedCtdCM;
+                          if (isMermaCashierMotive &&
+                              (selectedMermaCajero == null ||
+                                  selectedMermaCajero!.trim().isEmpty)) {
+                            _showError('Selecciona el cajero responsable.');
+                            return;
+                          }
                           if (motivoOptions.isNotEmpty &&
                               selectedMotr == null) {
                             _showError(
@@ -7483,7 +7582,12 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                                   motivo: motivoTexto,
                                   motr: selectedMotr,
                                   labor: _parseLaboratorioId(selectedLabor),
-                                  asign: selectedMermaCollaborator,
+                                  asign: isMermaCashierMotive
+                                      ? selectedMermaCajero
+                                      : selectedMermaCollaborator,
+                                  cajero: isMermaCashierMotive
+                                      ? selectedMermaCajero
+                                      : null,
                                   docDif: docDifCtrl.text.trim(),
                                   crearNuevaOrd: true,
                                 );
@@ -7502,7 +7606,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                                 ),
                               ),
                             );
-                            await _reload();
+                            refreshPanelAfterDialog = true;
                           } catch (e) {
                             if (!ctx.mounted || !mounted) return;
                             setDialogState(() => submitting = false);
@@ -7550,7 +7654,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                                 ),
                               ),
                             );
-                            await _reload();
+                            refreshPanelAfterDialog = true;
                           } catch (e) {
                             if (!ctx.mounted || !mounted) return;
                             setDialogState(() => submitting = false);
@@ -7639,7 +7743,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                                 ),
                               ),
                             );
-                            await _reload();
+                            refreshPanelAfterDialog = true;
                           } catch (e) {
                             if (!ctx.mounted || !mounted) return;
                             setDialogState(() => submitting = false);
@@ -7737,6 +7841,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                         motivoCancelacion: motivoCancelacion,
                       );
                       if (!ctx.mounted || !mounted) return;
+                      refreshPanelAfterDialog = true;
                       Navigator.of(ctx).pop();
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
@@ -7747,7 +7852,6 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
                           ),
                         ),
                       );
-                      await _reload();
                     } catch (e) {
                       if (!ctx.mounted || !mounted) return;
                       setDialogState(() => submitting = false);
@@ -7801,6 +7905,7 @@ class _OrdenesTrabajoPageState extends ConsumerState<OrdenesTrabajoPage> {
     desNuevoCtrl.dispose();
     motivoCtrl.dispose();
     docDifCtrl.dispose();
+    if (refreshPanelAfterDialog && mounted) await _reload();
   }
 
   Future<DatArtModel?> _showBuscarArticuloCambioMermaDialog({
